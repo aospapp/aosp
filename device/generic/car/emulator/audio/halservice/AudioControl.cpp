@@ -173,11 +173,6 @@ binder_status_t AudioControl::dump(int fd, const char** args, uint32_t numArgs) 
     }
 }
 
-void AudioControl::setAudioEnabled(bool isEnabled) {
-    LOG(DEBUG) << "setAudioEnabled called with value: " << isEnabled;
-    set_audio_enabled(isEnabled);
-}
-
 binder_status_t AudioControl::dumpsys(int fd) {
     dprintf(fd, "*%s*\n", LOG_TAG);
     std::shared_ptr<IFocusListener> focusListener = std::atomic_load(&mFocusListener);

@@ -48,7 +48,7 @@ using SurfaceChange = surfaceflinger::SurfaceChange;
 using Increment = surfaceflinger::Increment;
 using DisplayChange = surfaceflinger::DisplayChange;
 
-constexpr auto DEFAULT_FILENAME = "/data/misc/wmtrace/transaction_trace.pb";
+constexpr auto DEFAULT_FILENAME = "/data/misc/wmtrace/transaction_trace.winscope";
 
 class SurfaceInterceptor : public IBinder::DeathRecipient {
 public:
@@ -133,10 +133,10 @@ private:
     void addInitialDisplayStateLocked(Increment* increment, const DisplayDeviceState& display);
 
     status_t writeProtoFileLocked();
-    const sp<const Layer> getLayer(const wp<const IBinder>& weakHandle) const;
+    const sp<const Layer> getLayer(const wp<IBinder>& weakHandle) const;
     int32_t getLayerId(const sp<const Layer>& layer) const;
     int32_t getLayerIdFromWeakRef(const wp<const Layer>& layer) const;
-    int32_t getLayerIdFromHandle(const sp<const IBinder>& weakHandle) const;
+    int32_t getLayerIdFromHandle(const sp<IBinder>& weakHandle) const;
 
     Increment* createTraceIncrementLocked();
     void addSurfaceCreationLocked(Increment* increment, const sp<const Layer>& layer);
@@ -185,6 +185,7 @@ private:
             const sp<const IGraphicBufferProducer>& surface);
     void addDisplayLayerStackLocked(Transaction* transaction, int32_t sequenceId,
             uint32_t layerStack);
+    void addDisplayFlagsLocked(Transaction* transaction, int32_t sequenceId, uint32_t flags);
     void addDisplaySizeLocked(Transaction* transaction, int32_t sequenceId, uint32_t w,
             uint32_t h);
     void addDisplayProjectionLocked(Transaction* transaction, int32_t sequenceId,

@@ -20,11 +20,14 @@ import android.content.Context;
 import android.os.Handler;
 import android.view.IWindowManager;
 
-import com.android.systemui.dagger.WMSingleton;
+import com.android.wm.shell.dagger.DynamicOverride;
+import com.android.wm.shell.dagger.WMShellBaseModule;
+import com.android.wm.shell.dagger.WMSingleton;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.wm.DisplaySystemBarsController;
 import com.android.wm.shell.common.DisplayController;
 import com.android.wm.shell.common.DisplayImeController;
+import com.android.wm.shell.common.DisplayInsetsController;
 import com.android.wm.shell.common.TransactionPool;
 import com.android.wm.shell.pip.Pip;
 import com.android.wm.shell.startingsurface.StartingWindowTypeAlgorithm;
@@ -37,21 +40,18 @@ import dagger.Provides;
 /** Provides dependencies from {@link com.android.wm.shell} for CarSystemUI. */
 @Module(includes = WMShellBaseModule.class)
 public abstract class CarWMShellModule {
+
     @WMSingleton
     @Provides
+    @DynamicOverride
     static DisplayImeController provideDisplayImeController(Context context,
             IWindowManager wmService, DisplayController displayController,
+            DisplayInsetsController displayInsetsController,
             @Main Handler mainHandler, TransactionPool transactionPool) {
         return new DisplaySystemBarsController(context, wmService, displayController,
-                mainHandler, transactionPool);
+                displayInsetsController, mainHandler, transactionPool);
     }
 
     @BindsOptionalOf
     abstract Pip optionalPip();
-
-    @WMSingleton
-    @Provides
-    static StartingWindowTypeAlgorithm provideStartingWindowTypeAlgorithm() {
-        return new PhoneStartingWindowTypeAlgorithm();
-    }
 }

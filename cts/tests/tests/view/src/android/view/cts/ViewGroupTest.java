@@ -2891,6 +2891,28 @@ public class ViewGroupTest implements CTSResult {
                 eq(new WindowInsets.Builder().build()));
     }
 
+    @UiThreadTest
+    @Test
+    public void testFindViewById_shouldBeDFS() {
+        View v1 = new View(mContext);
+        View v2 = new View(mContext);
+        View w1 = new View(mContext);
+        View w2 = new View(mContext);
+        v1.setId(2);
+        v2.setId(2);
+        w1.setId(3);
+        w2.setId(3);
+        ViewGroup vg1 = new MockViewGroup(mContext);
+        mMockViewGroup.addView(vg1);
+        vg1.addView(v1);
+        mMockViewGroup.addView(v2);
+        vg1.addView(w1);
+        vg1.addView(w2);
+
+        assertSame(v1, mMockViewGroup.findViewById(2));
+        assertSame(w1, mMockViewGroup.findViewById(3));
+    }
+
     static class MockTextView extends TextView {
 
         public boolean isClearFocusCalled;

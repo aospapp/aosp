@@ -64,7 +64,7 @@ public class ASurfaceControlBackPressureTest {
         private final CountDownLatch mCountDownLatch = new CountDownLatch(1);
 
         @Override
-        public void onTransactionComplete(long latchTime) {
+        public void onTransactionComplete(long latchTime, long presentTime) {
             mCountDownLatch.countDown();
         }
 
@@ -77,8 +77,8 @@ public class ASurfaceControlBackPressureTest {
         }
     }
 
-    private static final int DEFAULT_LAYOUT_WIDTH = 100;
-    private static final int DEFAULT_LAYOUT_HEIGHT = 100;
+    private static final int DEFAULT_LAYOUT_WIDTH = 50;
+    private static final int DEFAULT_LAYOUT_HEIGHT = 50;
 
     @Rule
     public ActivityTestRule<CapturedActivity> mActivityRule =
@@ -136,7 +136,8 @@ public class ASurfaceControlBackPressureTest {
                         nSurfaceTransaction_setBuffer(mSurfaceControl, surfaceTransaction,
                                 getNextBuffer());
                         if (i == 0) {
-                            nSurfaceTransaction_setOnCompleteCallback(surfaceTransaction, listener);
+                            nSurfaceTransaction_setOnCompleteCallback(surfaceTransaction,
+                                    false /* waitForFence */, listener);
                         }
                         applyAndDeleteSurfaceTransaction(surfaceTransaction);
                     }
@@ -238,7 +239,7 @@ public class ASurfaceControlBackPressureTest {
         MultiFramePixelChecker PixelChecker = new MultiFramePixelChecker(colors) {
             @Override
             public boolean checkPixels(int pixelCount, int width, int height) {
-                return pixelCount > 9000 && pixelCount < 11000;
+                return pixelCount > 2000 && pixelCount < 3000;
             }
         };
 
@@ -270,7 +271,7 @@ public class ASurfaceControlBackPressureTest {
         MultiFramePixelChecker PixelChecker = new MultiFramePixelChecker(colors) {
             @Override
             public boolean checkPixels(int pixelCount, int width, int height) {
-                return pixelCount > 9000 && pixelCount < 11000;
+                return pixelCount > 2000 && pixelCount < 3000;
             }
         };
 

@@ -13,6 +13,7 @@ CAR_UI_RRO_TARGETS := \
     com.android.car.carlauncher \
     com.android.car.home \
     com.android.car.media \
+    com.android.car.messenger \
     com.android.car.radio \
     com.android.car.calendar \
     com.android.car.companiondevicesupport \
@@ -22,6 +23,7 @@ CAR_UI_RRO_TARGETS := \
     com.android.car.settings \
     com.android.car.voicecontrol \
     com.android.car.faceenroll \
+    com.android.car.developeroptions \
     com.android.managedprovisioning \
     com.android.settings.intelligence \
     com.google.android.apps.automotive.inputmethod \

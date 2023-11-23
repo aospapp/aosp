@@ -21,15 +21,15 @@ use binder::public_api::Result as BinderResult;
 use binder::Status;
 use profcollectd_aidl_interface::aidl::com::android::server::profcollect::IProfCollectd::IProfCollectd;
 use std::ffi::CString;
-use std::fs::{copy, create_dir, read_dir, read_to_string, remove_dir_all, remove_file, write};
+use std::fs::{copy, read_dir, read_to_string, remove_file, write};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
 use crate::config::{
-    Config, BETTERBUG_CACHE_DIR_PREFIX, BETTERBUG_CACHE_DIR_SUFFIX, CONFIG_FILE,
-    PROFILE_OUTPUT_DIR, REPORT_OUTPUT_DIR, REPORT_RETENTION_SECS, TRACE_OUTPUT_DIR,
+    clear_data, Config, BETTERBUG_CACHE_DIR_PREFIX, BETTERBUG_CACHE_DIR_SUFFIX, CONFIG_FILE,
+    PROFILE_OUTPUT_DIR, REPORT_OUTPUT_DIR, REPORT_RETENTION_SECS,
 };
 use crate::report::{get_report_ts, pack_report};
 use crate::scheduler::Scheduler;
@@ -147,11 +147,8 @@ impl ProfcollectdBinderService {
             .is_none();
 
         if config_changed {
-            log::info!("Config change detected, clearing traces.");
-            remove_dir_all(*PROFILE_OUTPUT_DIR)?;
-            remove_dir_all(*TRACE_OUTPUT_DIR)?;
-            create_dir(*PROFILE_OUTPUT_DIR)?;
-            create_dir(*TRACE_OUTPUT_DIR)?;
+            log::info!("Config change detected, resetting profcollect.");
+            clear_data()?;
 
             write(*CONFIG_FILE, &new_config.to_string())?;
         }

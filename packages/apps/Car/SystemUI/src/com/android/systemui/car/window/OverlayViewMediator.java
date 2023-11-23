@@ -33,5 +33,5 @@ public interface OverlayViewMediator {
      * Allows for post-inflation callbacks and listeners to be set inside required {@link
      * OverlayViewController}(s).
      */
-    void setupOverlayContentViewControllers();
+    void setUpOverlayContentViewControllers();
 }

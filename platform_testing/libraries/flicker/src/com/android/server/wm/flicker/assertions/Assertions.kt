@@ -26,39 +26,61 @@ typealias Assertion<T> = (T) -> Unit
 /**
  * Utility class to store assertions with an identifier to help generate more useful debug data
  * when dealing with multiple assertions.
+ *
+ * @param assertion Assertion to execute
+ * @param name Assertion name
+ * @param isOptional If the assertion is optional (can fail) or not (must pass)
  */
 open class NamedAssertion<T> (
     private val assertion: Assertion<T>,
-    open val name: String
+    open val name: String,
+    open val isOptional: Boolean = false
 ) : Assertion<T> {
     override fun invoke(target: T): Unit = assertion.invoke(target)
 
-    override fun toString(): String = "Assertion($name)"
+    override fun toString(): String = "Assertion($name)${if (isOptional) "[optional]" else ""}"
 }
 
 /**
  * Utility class to store assertions composed of multiple individual assertions
  */
-class CompoundAssertion<T>(assertion: Assertion<T>, name: String) :
+class CompoundAssertion<T>(assertion: Assertion<T>, name: String, optional: Boolean) :
     NamedAssertion<T>(assertion, name) {
     private val assertions = mutableListOf<NamedAssertion<T>>()
 
     init {
-        add(assertion, name)
+        add(assertion, name, optional)
     }
+
+    override val isOptional: Boolean
+        get() = assertions.all { it.isOptional }
 
     override val name: String
         get() = assertions.joinToString(" and ") { it.name }
 
     /**
      * Executes all [assertions] on [target]
+     *
+     * In case of failure, returns the first non-optional failure (if available)
+     * or the first failed assertion
      */
     override fun invoke(target: T) {
-        val failure = assertions.mapNotNull {
-            kotlin.runCatching { it.invoke(target) }.exceptionOrNull()
-        }.firstOrNull()
-        if (failure != null) {
-            throw failure
+        val failures = assertions
+            .mapNotNull { assertion ->
+                val error = kotlin.runCatching { assertion.invoke(target) }.exceptionOrNull()
+                if (error != null) {
+                    Pair(assertion, error)
+                } else {
+                    null
+                }
+            }
+        val nonOptionalFailure = failures.firstOrNull { !it.first.isOptional }
+        if (nonOptionalFailure != null) {
+            throw nonOptionalFailure.second
+        }
+        val firstFailure = failures.firstOrNull()
+        if (firstFailure != null) {
+            throw firstFailure.second
         }
     }
 
@@ -67,7 +89,7 @@ class CompoundAssertion<T>(assertion: Assertion<T>, name: String) :
     /**
      * Adds a new assertion to the list
      */
-    fun add(assertion: Assertion<T>, name: String) {
-        assertions.add(NamedAssertion(assertion, name))
+    fun add(assertion: Assertion<T>, name: String, optional: Boolean) {
+        assertions.add(NamedAssertion(assertion, name, optional))
     }
 }

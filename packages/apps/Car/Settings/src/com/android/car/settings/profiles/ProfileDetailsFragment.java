@@ -18,6 +18,7 @@ package com.android.car.settings.profiles;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.UserInfo;
 import android.provider.Settings;
 
 import androidx.annotation.XmlRes;
@@ -50,14 +51,17 @@ public class ProfileDetailsFragment extends ProfileDetailsBaseFragment {
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
+        UserInfo userInfo = getUserInfo();
         use(ProfileDetailsHeaderPreferenceController.class,
-                R.string.pk_profile_details_header).setUserInfo(getUserInfo());
+                R.string.pk_profile_details_header).setUserInfo(userInfo);
         use(ProfileDetailsActionButtonsPreferenceController.class,
-                R.string.pk_profile_details_action_buttons).setUserInfo(getUserInfo());
+                R.string.pk_profile_details_action_buttons).setUserInfo(userInfo);
         use(AccountGroupPreferenceController.class,
-                R.string.pk_account_group).setUserInfo(getUserInfo());
+                R.string.pk_account_group).setUserInfo(userInfo);
         use(ProfileDetailsDeletePreferenceController.class,
-                R.string.pk_profile_details_delete).setUserInfo(getUserInfo());
+                R.string.pk_profile_details_delete).setUserInfo(userInfo);
+        use(ProfileDetailsEndSessionPreferenceController.class,
+                R.string.pk_profile_details_end_session).setUserInfo(userInfo);
 
         // Accounts information
         Intent activityIntent = requireActivity().getIntent();

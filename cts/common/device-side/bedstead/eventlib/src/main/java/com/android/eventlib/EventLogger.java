@@ -50,6 +50,6 @@ public abstract class EventLogger<E extends Event> {
         mEvent.mPackageName = mContext.getPackageName();
         mEvent.mTimestamp = Instant.now();
 
-        Events.getInstance(mContext).log(mEvent);
+        Events.getInstance(mContext, /* needsHistory= */ false).log(mEvent);
     }
 }

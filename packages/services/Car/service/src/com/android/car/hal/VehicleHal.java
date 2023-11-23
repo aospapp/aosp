@@ -19,6 +19,7 @@ package com.android.car.hal;
 import static com.android.car.CarServiceUtils.toByteArray;
 import static com.android.car.CarServiceUtils.toFloatArray;
 import static com.android.car.CarServiceUtils.toIntArray;
+import static com.android.car.CarServiceUtils.toLongArray;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import static java.lang.Integer.toHexString;
@@ -39,6 +40,7 @@ import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyChangeMode;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
+import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.RemoteException;
 import android.os.ServiceSpecificException;
@@ -86,8 +88,8 @@ public class VehicleHal extends IVehicleCallback.Stub {
     public static final int NO_AREA = -1;
     public static final float NO_SAMPLE_RATE = -1;
 
-    private final HandlerThread mHandlerThread = CarServiceUtils.getHandlerThread(
-            VehicleHal.class.getSimpleName());
+    private final HandlerThread mHandlerThread;
+    private final Handler mHandler;
     private final PowerHalService mPowerHal;
     private final PropertyHalService mPropertyHal;
     private final InputHalService mInputHal;
@@ -96,6 +98,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
     private final DiagnosticHalService mDiagnosticHal;
     private final ClusterHalService mClusterHalService;
     private final EvsHalService mEvsHal;
+    private final TimeHalService mTimeHalService;
 
     private final Object mLock = new Object();
 
@@ -124,6 +127,9 @@ public class VehicleHal extends IVehicleCallback.Stub {
      * both passed as parameters.
      */
     public VehicleHal(Context context, IVehicle vehicle) {
+        mHandlerThread = CarServiceUtils.getHandlerThread(
+                VehicleHal.class.getSimpleName());
+        mHandler = new Handler(mHandlerThread.getLooper());
         mPowerHal = new PowerHalService(this);
         mPropertyHal = new PropertyHalService(this);
         mInputHal = new InputHalService(this);
@@ -132,6 +138,8 @@ public class VehicleHal extends IVehicleCallback.Stub {
         mDiagnosticHal = new DiagnosticHalService(this);
         mClusterHalService = new ClusterHalService(this);
         mEvsHal = new EvsHalService(this);
+        mTimeHalService = new TimeHalService(context, this);
+        //TODO(b/202396546): Dedupe this assignment with the other one in constructor below
         mAllServices.addAll(Arrays.asList(mPowerHal,
                 mInputHal,
                 mDiagnosticHal,
@@ -139,6 +147,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
                 mUserHal,
                 mClusterHalService,
                 mEvsHal,
+                mTimeHalService,
                 mPropertyHal)); // mPropertyHal should be the last.
         mHalClient = new HalClient(vehicle, mHandlerThread.getLooper(),
                 /* callback= */ this);
@@ -156,7 +165,11 @@ public class VehicleHal extends IVehicleCallback.Stub {
             UserHalService userHal,
             DiagnosticHalService diagnosticHal,
             ClusterHalService clusterHalService,
-            HalClient halClient) {
+            TimeHalService timeHalService,
+            HalClient halClient,
+            HandlerThread handlerThread) {
+        mHandlerThread = handlerThread;
+        mHandler = new Handler(mHandlerThread.getLooper());
         mPowerHal = powerHal;
         mPropertyHal = propertyHal;
         mInputHal = inputHal;
@@ -165,12 +178,14 @@ public class VehicleHal extends IVehicleCallback.Stub {
         mDiagnosticHal = diagnosticHal;
         mClusterHalService = clusterHalService;
         mEvsHal = new EvsHalService(this);
+        mTimeHalService = timeHalService;
         mAllServices.addAll(Arrays.asList(mPowerHal,
                 mInputHal,
                 mDiagnosticHal,
                 mVmsHal,
                 mUserHal,
                 mEvsHal,
+                mTimeHalService,
                 mPropertyHal));
         mHalClient = halClient;
     }
@@ -313,6 +328,10 @@ public class VehicleHal extends IVehicleCallback.Stub {
 
     public EvsHalService getEvsHal() {
         return mEvsHal;
+    }
+
+    public TimeHalService getTimeHalService() {
+        return mTimeHalService;
     }
 
     private void assertServiceOwnerLocked(HalServiceBase service, int property) {
@@ -510,18 +529,25 @@ public class VehicleHal extends IVehicleCallback.Stub {
         VehiclePropValue propValue;
         propValue = mHalClient.getValue(requestedPropValue);
 
-        if (clazz == Integer.class || clazz == int.class) {
+        if (clazz == Long.class || clazz == long.class) {
+            return (T) propValue.value.int64Values.get(0);
+        } else if (clazz == Integer.class || clazz == int.class) {
             return (T) propValue.value.int32Values.get(0);
         } else if (clazz == Boolean.class || clazz == boolean.class) {
             return (T) Boolean.valueOf(propValue.value.int32Values.get(0) == 1);
         } else if (clazz == Float.class || clazz == float.class) {
             return (T) propValue.value.floatValues.get(0);
+        } else if (clazz == Long[].class) {
+            Long[] longArray = new Long[propValue.value.int64Values.size()];
+            return (T) propValue.value.int32Values.toArray(longArray);
         } else if (clazz == Integer[].class) {
             Integer[] intArray = new Integer[propValue.value.int32Values.size()];
             return (T) propValue.value.int32Values.toArray(intArray);
         } else if (clazz == Float[].class) {
             Float[] floatArray = new Float[propValue.value.floatValues.size()];
             return (T) propValue.value.floatValues.toArray(floatArray);
+        } else if (clazz == long[].class) {
+            return (T) toLongArray(propValue.value.int64Values);
         } else if (clazz == int[].class) {
             return (T) toIntArray(propValue.value.int32Values);
         } else if (clazz == float[].class) {
@@ -581,6 +607,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
 
     private final ArraySet<HalServiceBase> mServicesToDispatch = new ArraySet<>();
 
+    // should be posted to the mHandlerThread
     @Override
     public void onPropertyEvent(ArrayList<VehiclePropValue> propValues) {
         synchronized (mLock) {
@@ -614,6 +641,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
         // No need to handle on-property-set events in HAL service yet.
     }
 
+    // should be posted to the mHandlerThread
     @Override
     public void onPropertySetError(@CarPropertyManager.CarSetPropertyErrorCode int errorCode,
             int propId, int areaId) {
@@ -800,7 +828,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
         }
         // update timestamp
         v.timestamp = SystemClock.elapsedRealtimeNanos() + TimeUnit.SECONDS.toNanos(delayTime);
-        onPropertyEvent(Lists.newArrayList(v));
+        mHandler.post(() -> onPropertyEvent(Lists.newArrayList(v)));
     }
 
     /**
@@ -838,7 +866,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
                     // Avoid the fake events be covered by real Event
                     v.timestamp = SystemClock.elapsedRealtimeNanos()
                             + TimeUnit.SECONDS.toNanos(timeDurationInSec);
-                    onPropertyEvent(Lists.newArrayList(v));
+                    mHandler.post(() -> onPropertyEvent(Lists.newArrayList(v)));
                 }
             }
         }, /* delay= */0, period);

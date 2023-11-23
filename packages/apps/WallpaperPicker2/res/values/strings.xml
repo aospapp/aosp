@@ -348,8 +348,14 @@
     <!-- Label for a button which lets user hide certain parts of the fullscreen preview UI. [CHAR LIMIT=30] -->
     <string name="hide_ui_preview_text">Hide UI Preview</string>
 
+    <!-- Content description for Talkback to announce with UI preview is hidden. [CHAR LIMIT=50] -->
+    <string name="hint_hide_ui_preview">UI is hidden in preview. Double tap to unhide</string>
+
     <!-- Label for a button which lets user show certain parts of the fullscreen preview UI. [CHAR LIMIT=30] -->
     <string name="show_ui_preview_text">Show UI Preview</string>
+
+    <!-- Content description for Talkback to announce with UI preview is hidden. [CHAR LIMIT=50] -->
+    <string name="hint_show_ui_preview">UI is displayed in preview. Double tap to hide</string>
 
     <!-- The title of wallpaper picker entry in new picker. [CHAR LIMIT=30]  -->
     <string name="wallpaper_picker_entry_title" msgid="7039652539125902659">Change wallpaper</string>
@@ -357,4 +363,21 @@
     <!-- Content description of wallpaper preview card (lockscreen). [CHAR_LIMIT=40]-->
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="8575577284424318765">Lockscreen wallpaper preview</string>
 
+    <!-- Task affinity name for full screen preview's Activity stack -->
+    <string name="full_screen_task_affinity" translatable="false">.fullscreen</string>
+
+    <!-- Label for a button / menu item that allows the user to apply the currently selected customization option. [CHAR LIMIT=20] -->
+    <string name="apply_btn" msgid="7965877231041987336">Apply</string>
+
+    <!-- Content description for customize panel is hidden. [CHAR_LIMIT=50] -->
+    <string name="accessibility_customize_hidden">Customize hidden</string>
+
+    <!-- Content description for customize panel is shown. [CHAR_LIMIT=50] -->
+    <string name="accessibility_customize_shown">Customize shown</string>
+
+    <!-- Content description for info panel is hidden. [CHAR_LIMIT=50] -->
+    <string name="accessibility_info_hidden">Info hidden</string>
+
+    <!-- Content description for info panel is shown. [CHAR_LIMIT=50] -->
+    <string name="accessibility_info_shown">Info shown</string>
 </resources>

@@ -42,7 +42,7 @@ std::string toString(const ProcStatInfo& info) {
                         cpuStats.userTime, cpuStats.niceTime, cpuStats.sysTime, cpuStats.idleTime,
                         cpuStats.ioWaitTime, cpuStats.irqTime, cpuStats.softIrqTime,
                         cpuStats.stealTime, cpuStats.guestTime, cpuStats.guestNiceTime,
-                        info.runnableProcessesCnt, info.ioBlockedProcessesCnt);
+                        info.runnableProcessCount, info.ioBlockedProcessCount);
 }
 
 }  // namespace
@@ -56,8 +56,9 @@ TEST(ProcStatTest, TestValidStatFile) {
             "cpu3 1000 20 190 650 109 130 140 0 0 0\n"
             "intr 694351583 0 0 0 297062868 0 5922464 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 "
             "0 0\n"
-            // Skipped most of the intr line as it is not important for testing the ProcStat parsing
-            // logic.
+            /* Skipped most of the intr line as it is not important for testing the ProcStat parsing
+             * logic.
+             */
             "ctxt 579020168\n"
             "btime 1579718450\n"
             "processes 113804\n"
@@ -77,8 +78,8 @@ TEST(ProcStatTest, TestValidStatFile) {
             .guestTime = 0,
             .guestNiceTime = 0,
     };
-    expectedFirstDelta.runnableProcessesCnt = 17;
-    expectedFirstDelta.ioBlockedProcessesCnt = 5;
+    expectedFirstDelta.runnableProcessCount = 17;
+    expectedFirstDelta.ioBlockedProcessCount = 5;
 
     TemporaryFile tf;
     ASSERT_NE(tf.fd, -1);
@@ -120,8 +121,8 @@ TEST(ProcStatTest, TestValidStatFile) {
             .guestTime = 0,
             .guestNiceTime = 0,
     };
-    expectedSecondDelta.runnableProcessesCnt = 10;
-    expectedSecondDelta.ioBlockedProcessesCnt = 2;
+    expectedSecondDelta.runnableProcessCount = 10;
+    expectedSecondDelta.ioBlockedProcessCount = 2;
 
     ASSERT_TRUE(WriteStringToFile(secondSnapshot, tf.path));
     ASSERT_RESULT_OK(procStat.collect());
@@ -257,10 +258,11 @@ TEST(ProcStatTest, TestProcStatContentsFromDevice) {
     ASSERT_RESULT_OK(procStat.collect());
 
     const auto& info = procStat.deltaStats();
-    // The below checks should pass because the /proc/stats file should have the CPU time spent
-    // since bootup and there should be at least one running process.
+    /* The below checks should pass because the /proc/stats file should have the CPU time spent
+     * since bootup and there should be at least one running process.
+     */
     EXPECT_GT(info.totalCpuTime(), 0);
-    EXPECT_GT(info.totalProcessesCnt(), 0);
+    EXPECT_GT(info.totalProcessCount(), 0);
 }
 
 }  // namespace watchdog

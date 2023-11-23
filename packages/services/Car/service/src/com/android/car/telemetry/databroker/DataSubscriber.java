@@ -16,31 +16,92 @@
 
 package com.android.car.telemetry.databroker;
 
-import android.os.Bundle;
+import android.os.PersistableBundle;
+import android.os.SystemClock;
 
 import com.android.car.telemetry.TelemetryProto;
 
+import java.util.Objects;
+
 /**
- * Subscriber class that receive published data and schedules tasks for execution on the data.
+ * Subscriber class that receives published data and schedules tasks for execution.
+ * All methods of this class must be accessed on telemetry thread.
  */
 public class DataSubscriber {
+
+    private final DataBroker mDataBroker;
+    private final TelemetryProto.MetricsConfig mMetricsConfig;
     private final TelemetryProto.Subscriber mSubscriber;
 
-    public DataSubscriber(TelemetryProto.MetricsConfig metricsConfig,
+    public DataSubscriber(
+            DataBroker dataBroker,
+            TelemetryProto.MetricsConfig metricsConfig,
             TelemetryProto.Subscriber subscriber) {
+        mDataBroker = dataBroker;
+        mMetricsConfig = metricsConfig;
         mSubscriber = subscriber;
     }
 
+    /** Returns the handler function name for this subscriber. */
+    public String getHandlerName() {
+        return mSubscriber.getHandler();
+    }
+
     /**
-     * Returns the publisher param {@link com.android.car.telemetry.TelemetryProto.Publisher} that
+     * Returns the publisher param {@link TelemetryProto.Publisher} that
      * contains the data source and the config.
      */
     public TelemetryProto.Publisher getPublisherParam() {
         return mSubscriber.getPublisher();
     }
 
-    /** Pushes data to the subscriber. */
-    public void push(Bundle data) {
-        // TODO(b/187743369): implement
+    /**
+     * Creates a {@link ScriptExecutionTask} and pushes it to the priority queue where the task
+     * will be pending execution. Flag isLargeData indicates whether data is large.
+     */
+    public void push(PersistableBundle data, boolean isLargeData) {
+        ScriptExecutionTask task = new ScriptExecutionTask(
+                this, data, SystemClock.elapsedRealtime(), isLargeData);
+        mDataBroker.addTaskToQueue(task);
+    }
+
+    /**
+     * Creates a {@link ScriptExecutionTask} and pushes it to the priority queue where the task
+     * will be pending execution. Defaults isLargeData flag to false.
+     */
+    public void push(PersistableBundle data) {
+        push(data, false);
+    }
+
+    /** Returns the {@link TelemetryProto.MetricsConfig}. */
+    public TelemetryProto.MetricsConfig getMetricsConfig() {
+        return mMetricsConfig;
+    }
+
+    /** Returns the {@link TelemetryProto.Subscriber}. */
+    public TelemetryProto.Subscriber getSubscriber() {
+        return mSubscriber;
+    }
+
+    /** Returns the priority of subscriber. */
+    public int getPriority() {
+        return mSubscriber.getPriority();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof DataSubscriber)) {
+            return false;
+        }
+        DataSubscriber other = (DataSubscriber) o;
+        return mMetricsConfig.getName().equals(other.getMetricsConfig().getName())
+                && mMetricsConfig.getVersion() == other.getMetricsConfig().getVersion()
+                && mSubscriber.getHandler().equals(other.getSubscriber().getHandler());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mMetricsConfig.getName(), mMetricsConfig.getVersion(),
+                mSubscriber.getHandler());
     }
 }

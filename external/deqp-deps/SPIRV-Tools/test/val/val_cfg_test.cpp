@@ -3520,7 +3520,10 @@ OpFunctionEnd
 
   CompileSuccessfully(text);
   EXPECT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
-  EXPECT_THAT(getDiagnosticString(), HasSubstr("Selection must be structured"));
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr(
+          "OpSwitch must be preceeded by an OpSelectionMerge instruction"));
 }
 
 TEST_F(ValidateCFG, MissingMergeSwitchBad2) {
@@ -3544,7 +3547,10 @@ OpFunctionEnd
 
   CompileSuccessfully(text);
   EXPECT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
-  EXPECT_THAT(getDiagnosticString(), HasSubstr("Selection must be structured"));
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr(
+          "OpSwitch must be preceeded by an OpSelectionMerge instruction"));
 }
 
 TEST_F(ValidateCFG, MissingMergeOneBranchToMergeGood) {
@@ -3594,7 +3600,7 @@ OpFunctionEnd
   EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
 }
 
-TEST_F(ValidateCFG, MissingMergeOneTargetSwitchGood) {
+TEST_F(ValidateCFG, MissingMergeOneTargetSwitchBad) {
   const std::string text = R"(
 OpCapability Shader
 OpCapability Linkage
@@ -3612,10 +3618,14 @@ OpFunctionEnd
 )";
 
   CompileSuccessfully(text);
-  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
+  EXPECT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr(
+          "OpSwitch must be preceeded by an OpSelectionMerge instruction"));
 }
 
-TEST_F(ValidateCFG, MissingMergeOneUnseenTargetSwitchGood) {
+TEST_F(ValidateCFG, MissingMergeOneUnseenTargetSwitchBad) {
   const std::string text = R"(
 OpCapability Shader
 OpCapability Linkage
@@ -3640,7 +3650,11 @@ OpFunctionEnd
 )";
 
   CompileSuccessfully(text);
-  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions());
+  EXPECT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr(
+          "OpSwitch must be preceeded by an OpSelectionMerge instruction"));
 }
 
 TEST_F(ValidateCFG, MissingMergeLoopBreakGood) {
@@ -4348,6 +4362,41 @@ TEST_F(ValidateCFG, PhiOnVoid) {
   EXPECT_EQ(SPV_ERROR_INVALID_DATA, ValidateInstructions());
   EXPECT_THAT(getDiagnosticString(),
               HasSubstr("OpPhi must not have void result type"));
+}
+
+TEST_F(ValidateCFG, InvalidExitSingleBlockLoop) {
+  const std::string text = R"(
+OpCapability Shader
+OpCapability Linkage
+OpMemoryModel Logical GLSL450
+OpName %5 "BAD"
+%void = OpTypeVoid
+%bool = OpTypeBool
+%undef = OpUndef %bool
+%void_fn = OpTypeFunction %void
+%fn = OpFunction %void None %void_fn
+%1 = OpLabel
+OpBranch %2
+%2 = OpLabel
+OpLoopMerge %3 %4 None
+OpBranchConditional %undef %3 %5
+%5 = OpLabel
+OpLoopMerge %6 %5 None
+OpBranchConditional %undef %5 %4
+%6 = OpLabel
+OpReturn
+%4 = OpLabel
+OpBranch %2
+%3 = OpLabel
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(text);
+  EXPECT_EQ(SPV_ERROR_INVALID_CFG, ValidateInstructions());
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("block <ID> 1[%BAD] exits the continue headed by <ID> "
+                        "1[%BAD], but not via a structured exit"));
 }
 
 }  // namespace

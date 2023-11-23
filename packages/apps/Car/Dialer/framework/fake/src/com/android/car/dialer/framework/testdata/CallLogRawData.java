@@ -19,14 +19,18 @@ package com.android.car.dialer.framework.testdata;
 /**
  * A class represents the call log raw data.
  */
-public class CallLogRawData extends RawData {
+public class CallLogRawData {
 
     private String mNumber;
-    private Integer mNumberType;
+    private Integer mNumberType = 1;
     /**
      * This is the time interval from when the call occurs to the current time.
      */
     private Integer mInterval;
+
+    private Integer mCallType = 1;
+
+    private boolean mIsRead = true;
 
     /**
      * Sets the number;
@@ -47,6 +51,16 @@ public class CallLogRawData extends RawData {
      */
     public void setInterval(Integer interval) {
         mInterval = interval;
+    }
+
+    /** Sets the call type. */
+    public void setCallType(Integer callType) {
+        mCallType = callType;
+    }
+
+    /** Sets the read state. */
+    public void setRead(boolean isRead) {
+        mIsRead = isRead;
     }
 
     /**
@@ -70,18 +84,30 @@ public class CallLogRawData extends RawData {
         return mInterval;
     }
 
+    /** Gets the call type. */
+    public Integer getCallType() {
+        return mCallType;
+    }
+
+    /** Gets the read state. */
+    public Integer getRead() {
+        return mIsRead ? 1 : 0;
+    }
+
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
-        builder.append("[id: ");
-        builder.append(getId());
-        builder.append(", number: ");
+        builder.append("[number: ");
         builder.append(mNumber);
         builder.append(", number type: ");
         builder.append(mNumberType);
         builder.append(", time interval: ");
         builder.append(mInterval);
+        builder.append(", call type: ");
+        builder.append(mCallType);
+        builder.append(", isRead: ");
+        builder.append(mIsRead);
         builder.append("]");
-        return  builder.toString();
+        return builder.toString();
     }
 }

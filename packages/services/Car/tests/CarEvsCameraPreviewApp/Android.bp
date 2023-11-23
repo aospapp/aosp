@@ -26,8 +26,8 @@ android_app {
 
     resource_dirs: ["res"],
 
-    // This app uses system APIs.
-    sdk_version: "system_current",
+    // registerReceiverForAllUsers() is a hidden api.
+    platform_apis: true,
 
     certificate: "platform",
 

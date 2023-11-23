@@ -107,7 +107,8 @@ public class SipDelegateControllerTest extends TelephonyTestBase {
         assertTrue(future.get());
         verify(mMockMessageTracker).openTransport(mMockSipDelegate, request.getFeatureTags(),
                 Collections.emptySet());
-        verify(mMockDelegateStateTracker).sipDelegateConnected(Collections.emptySet());
+        verify(mMockDelegateStateTracker).sipDelegateConnected(request.getFeatureTags(),
+                Collections.emptySet());
     }
 
     @SmallTest
@@ -138,7 +139,7 @@ public class SipDelegateControllerTest extends TelephonyTestBase {
         allowedTags.removeAll(deniedTags.stream().map(FeatureTagState::getFeatureTag)
                 .collect(Collectors.toSet()));
         verify(mMockMessageTracker).openTransport(mMockSipDelegate, allowedTags, deniedTags);
-        verify(mMockDelegateStateTracker).sipDelegateConnected(deniedTags);
+        verify(mMockDelegateStateTracker).sipDelegateConnected(allowedTags, deniedTags);
     }
 
     @SmallTest
@@ -249,7 +250,9 @@ public class SipDelegateControllerTest extends TelephonyTestBase {
                 Collections.emptySet());
         verify(mMockMessageTracker).openTransport(mMockSipDelegate, newFts,
                 Collections.emptySet());
-        verify(mMockDelegateStateTracker, times(2)).sipDelegateConnected(Collections.emptySet());
+        verify(mMockDelegateStateTracker).sipDelegateConnected(
+                request.getFeatureTags(), Collections.emptySet());
+        verify(mMockDelegateStateTracker).sipDelegateConnected(newFts, Collections.emptySet());
     }
 
     private void createSipDelegate(DelegateRequest request, SipDelegateController controller)

@@ -160,7 +160,7 @@
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Kung hihingin ito ng app, itutugma ng iyong device ang output nito sa orihinal na frame rate ng content na pinapanood mo. Posibleng maging sanhi nito ng pagblangko ng iyong screen nang isang segundo kapag lumalabas o pumapasok sa video na playback."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Hindi Kailanman"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Kahit na hingin ito ng app, hindi kailanman susubukan ng iyong device na itugma ang output nito sa orihinal na frame rate ng content na pinapanood mo."</string>
-    <string name="font_scale_settings_title" msgid="4114019544800225980">"Pagsukat ng text"</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"Sukat ng text"</string>
     <string name="font_scale_item_detail" msgid="1558315053348778805">"I-scale sa <xliff:g id="SCALE">%1$d</xliff:g>%%"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"Sample na text"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"The Wonderful Wizard of Oz"</string>

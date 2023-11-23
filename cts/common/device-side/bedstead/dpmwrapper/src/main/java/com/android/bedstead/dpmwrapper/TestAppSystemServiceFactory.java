@@ -79,32 +79,44 @@ public final class TestAppSystemServiceFactory {
      * Gets the proper {@link DevicePolicyManager} instance to be used by the test.
      */
     public static DevicePolicyManager getDevicePolicyManager(Context context,
-            Class<? extends BroadcastReceiver> receiverClass) {
-        return getSystemService(context, DevicePolicyManager.class, receiverClass);
+            Class<? extends BroadcastReceiver> receiverClass, boolean forDeviceOwner) {
+        return getSystemService(context, DevicePolicyManager.class, receiverClass, forDeviceOwner);
     }
 
     /**
-     * Gets the proper {@link WifiManager} instance to be used by the test.
+     * Gets the proper {@link WifiManager} instance to be used by device owner tests.
      */
     public static WifiManager getWifiManager(Context context,
             Class<? extends BroadcastReceiver> receiverClass) {
-        return getSystemService(context, WifiManager.class, receiverClass);
+        return getSystemService(context, WifiManager.class, receiverClass,
+                /* forDeviceOwner= */ true);
     }
 
     /**
-     * Gets the proper {@link HardwarePropertiesManager} instance to be used by the test.
+     * Gets the proper {@link HardwarePropertiesManager} instance to be used by device owner tests.
      */
     public static HardwarePropertiesManager getHardwarePropertiesManager(Context context,
             Class<? extends BroadcastReceiver> receiverClass) {
-        return getSystemService(context, HardwarePropertiesManager.class, receiverClass);
+        return getSystemService(context, HardwarePropertiesManager.class, receiverClass,
+                /* forDeviceOwner= */ true);
     }
 
     /**
-     * Gets the proper {@link UserManager} instance to be used by the test.
+     * Gets the proper {@link UserManager} instance to be used by device owner tests.
      */
     public static UserManager getUserManager(Context context,
             Class<? extends BroadcastReceiver> receiverClass) {
-        return getSystemService(context, UserManager.class, receiverClass);
+        return getSystemService(context, UserManager.class, receiverClass,
+                /* forDeviceOwner= */ true);
+    }
+
+    /**
+     * Gets the proper {@link GenericManager} instance to be used by the test.
+     */
+    public static GenericManager getGenericManager(Context context,
+            Class<? extends BroadcastReceiver> receiverClass) {
+        return getSystemService(context, GenericManager.class, receiverClass,
+                /* forDeviceOwner= */ true);
     }
 
     private static void assertHasRequiredReceiver(Context context) {
@@ -125,8 +137,13 @@ public final class TestAppSystemServiceFactory {
             return;
         }
 
+        int numberReceivers = (packageInfo.receivers == null ? 0 : packageInfo.receivers.length);
+        Log.d(TAG, "assertHasRequiredReceiver(" + packageName + "): userId=" + context.getUserId()
+                + ", info=" + packageInfo + ", receivers=" + numberReceivers);
+
         if (packageInfo.receivers != null) {
             for (ActivityInfo receiver : packageInfo.receivers) {
+                Log.v(TAG, "checking receiver " + receiver);
                 Class<?> receiverClass = null;
                 try {
                     receiverClass = Class.forName(receiver.name);
@@ -135,22 +152,30 @@ public final class TestAppSystemServiceFactory {
                     continue;
                 }
                 if (TestAppCallbacksReceiver.class.isAssignableFrom(receiverClass)) {
-                    Log.d(TAG, "Found " + receiverClass + " on " + packageName);
+                    Log.d(TAG, "Found " + receiverClass.getName() + " on " + packageName);
                     sHasRequiredReceiver.put(packageName, Boolean.TRUE);
                     return;
                 }
             }
         }
-        fail("Package " + packageName + " doesn't have a " + TestAppCallbacksReceiver.class
-                + " receiver - did you add it to the manifest?");
+        if (numberReceivers == 0) {
+            // This is happening sometimes on headless system user; most likely it's a permission
+            // issue querying pm, but given that the DpmWrapper is temporary and this check is more
+            // of a validation to avoid other issues, it's ok to just log...
+            Log.wtf(TAG, "Package " + packageName + " has no receivers");
+            return;
+        }
+        fail("Package " + packageName + " has " + numberReceivers + " receivers, but not extends "
+                + TestAppCallbacksReceiver.class.getName() + " - did you add one to the manifest?");
     }
 
     private static <T> T getSystemService(Context context, Class<T> serviceClass,
-            Class<? extends BroadcastReceiver> receiverClass) {
-        assertHasRequiredReceiver(context);
-
+            Class<? extends BroadcastReceiver> receiverClass, boolean forDeviceOwner) {
         ServiceManagerWrapper<T> wrapper = null;
         Class<?> wrappedClass;
+
+        @SuppressWarnings("unchecked")
+        T manager = null;
 
         if (serviceClass.equals(DevicePolicyManager.class)) {
             wrappedClass = DevicePolicyManager.class;
@@ -176,12 +201,29 @@ public final class TestAppSystemServiceFactory {
                     (ServiceManagerWrapper<T>) new UserManagerWrapper();
             wrapper = safeCastWrapper;
             wrappedClass = UserManager.class;
+        } else if (serviceClass.equals(GenericManager.class)) {
+            @SuppressWarnings("unchecked")
+            ServiceManagerWrapper<T> safeCastWrapper =
+                    (ServiceManagerWrapper<T>) new GenericManagerWrapper();
+            @SuppressWarnings("unchecked")
+            T safeCastManager = (T) new GenericManagerImpl(context);
+            wrapper = safeCastWrapper;
+            wrappedClass = GenericManager.class;
+            manager = safeCastManager;
         } else {
             throw new IllegalArgumentException("invalid service class: " + serviceClass);
         }
+        if (manager == null) {
+            manager = (T) context.getSystemService(wrappedClass);
+        }
 
-        @SuppressWarnings("unchecked")
-        T manager = (T) context.getSystemService(wrappedClass);
+        if (manager == null) {
+            fail("Could not get a manager of type " + serviceClass);
+        }
+
+        if (!forDeviceOwner) return manager;
+
+        assertHasRequiredReceiver(context);
 
         int userId = context.getUserId();
         if (userId == UserHandle.USER_SYSTEM || !UserManager.isHeadlessSystemUserMode()) {

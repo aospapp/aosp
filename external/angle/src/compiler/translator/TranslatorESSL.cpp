@@ -9,7 +9,7 @@
 #include "angle_gl.h"
 #include "compiler/translator/BuiltInFunctionEmulatorGLSL.h"
 #include "compiler/translator/OutputESSL.h"
-#include "compiler/translator/tree_ops/gl/RecordConstantPrecision.h"
+#include "compiler/translator/tree_ops/RecordConstantPrecision.h"
 
 namespace sh
 {
@@ -45,10 +45,6 @@ bool TranslatorESSL::translate(TIntermBlock *root,
     // Write pragmas after extensions because some drivers consider pragmas
     // like non-preprocessor tokens.
     WritePragma(sink, compileOptions, getPragma());
-
-    bool precisionEmulation = false;
-    if (!emulatePrecisionIfNeeded(root, sink, &precisionEmulation, SH_ESSL_OUTPUT))
-        return false;
 
     if (!RecordConstantPrecision(this, root, &getSymbolTable()))
     {
@@ -94,8 +90,7 @@ bool TranslatorESSL::translate(TIntermBlock *root,
     }
 
     // Write translated shader.
-    TOutputESSL outputESSL(sink, getHashFunction(), getNameMap(), &getSymbolTable(),
-                           getShaderType(), shaderVer, precisionEmulation, compileOptions);
+    TOutputESSL outputESSL(this, sink, compileOptions);
 
     root->traverse(&outputESSL);
 

@@ -16,7 +16,6 @@
 package android.platform.test.scenario.dial;
 
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.IAutoGenericAppHelper;
 import android.platform.test.scenario.annotation.Scenario;
 import android.platform.helpers.IAutoDialHelper;
 
@@ -28,24 +27,14 @@ import org.junit.runners.JUnit4;
 @Scenario
 @RunWith(JUnit4.class)
 public class ScrollContactList {
-    private static final String DIALER_PACKAGE = "com.android.car.dialer";
-
-    static HelperAccessor<IAutoGenericAppHelper> sAutoGenericHelper =
-            new HelperAccessor<>(IAutoGenericAppHelper.class);
-
-    static {
-        sAutoGenericHelper.get().setPackage(DIALER_PACKAGE);
-        sAutoGenericHelper.get().setScrollableMargin(0, 200, 0, 200);
-    }
-
     static HelperAccessor<IAutoDialHelper> sHelper = new HelperAccessor<>(IAutoDialHelper.class);
 
     @Test
     public void testScrollDownAndUp() {
         sHelper.get().openContacts();
-        // test scroll down by one page in 500ms.
-        sAutoGenericHelper.get().scrollDownOnePage(500);
-        // test scroll up by one page in 500ms.
-        sAutoGenericHelper.get().scrollUpOnePage(500);
+        // test scroll down by one page.
+        sHelper.get().scrollDownOnePage();
+        // test scroll up by one page.
+        sHelper.get().scrollUpOnePage();
     }
 }

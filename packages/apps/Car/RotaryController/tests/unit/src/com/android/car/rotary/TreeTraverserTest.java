@@ -17,6 +17,7 @@ package com.android.car.rotary;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.UiAutomation;
 import android.view.accessibility.AccessibilityNodeInfo;
 
@@ -25,6 +26,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
@@ -37,7 +39,8 @@ import java.util.List;
 @RunWith(AndroidJUnit4.class)
 public class TreeTraverserTest {
 
-    private static UiAutomation sUiAutomoation;
+    private static UiAutomation sUiAutomation;
+    private static int sOriginalFlags;
 
     @Rule
     public ActivityTestRule<TreeTraverserTestActivity> mActivityRule =
@@ -55,14 +58,27 @@ public class TreeTraverserTest {
 
     @BeforeClass
     public static void oneTimeSetup() {
-        sUiAutomoation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        sUiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+
+        // FLAG_RETRIEVE_INTERACTIVE_WINDOWS is necessary to reliably access the root window.
+        AccessibilityServiceInfo serviceInfo = sUiAutomation.getServiceInfo();
+        sOriginalFlags = serviceInfo.flags;
+        serviceInfo.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+        sUiAutomation.setServiceInfo(serviceInfo);
+    }
+
+    @AfterClass
+    public static void oneTimeTearDown() {
+        AccessibilityServiceInfo serviceInfo = sUiAutomation.getServiceInfo();
+        serviceInfo.flags = sOriginalFlags;
+        sUiAutomation.setServiceInfo(serviceInfo);
     }
 
     @Before
     public void setUp() {
         mTreeTraverser = new TreeTraverser();
 
-        AccessibilityNodeInfo root = sUiAutomoation.getRootInActiveWindow();
+        AccessibilityNodeInfo root = sUiAutomation.getRootInActiveWindow();
 
         mNode0 = root.findAccessibilityNodeInfosByViewId(
                 "com.android.car.rotary.tests.unit:id/node0").get(0);

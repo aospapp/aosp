@@ -28,7 +28,6 @@ import androidx.annotation.AttrRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
-import com.google.android.setupcompat.PartnerCustomizationLayout;
 import com.google.android.setupcompat.internal.TemplateLayout;
 import com.google.android.setupcompat.template.Mixin;
 import com.google.android.setupdesign.R;
@@ -79,21 +78,12 @@ public class DescriptionMixin implements Mixin {
 
   /**
    * Applies the partner customizations to the description text (contains text alignment) and
-   * background, if apply heavy theme resource, it will apply all partner customizations, otherwise,
-   * only apply alignment style.
+   * background. It will apply all partner customizations.
    */
   public void tryApplyPartnerCustomizationStyle() {
     TextView description = templateLayout.findManagedViewById(R.id.sud_layout_subtitle);
-    boolean partnerHeavyThemeLayout = PartnerStyleHelper.isPartnerHeavyThemeLayout(templateLayout);
-    if (partnerHeavyThemeLayout) {
-      if (description != null) {
-        HeaderAreaStyler.applyPartnerCustomizationDescriptionHeavyStyle(description);
-      }
-    } else if (templateLayout instanceof PartnerCustomizationLayout
-        && ((PartnerCustomizationLayout) templateLayout).shouldApplyPartnerResource()) {
-      if (description != null) {
-        HeaderAreaStyler.applyPartnerCustomizationDescriptionLightStyle(description);
-      }
+    if (description != null && PartnerStyleHelper.shouldApplyPartnerResource(templateLayout)) {
+      HeaderAreaStyler.applyPartnerCustomizationDescriptionHeavyStyle(description);
     }
   }
 

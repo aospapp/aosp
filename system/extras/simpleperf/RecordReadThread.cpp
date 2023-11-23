@@ -540,7 +540,7 @@ void RecordReadThread::PushRecordToRecordBuffer(KernelRecordReader* kernel_recor
       // space in each sample to store stack data. However, a thread may use less stack than 64K.
       // So not all the 64K stack data in a sample is valid, and we only need to keep valid stack
       // data, whose size is dyn_stack_size.
-      uint64_t new_stack_size = std::min<uint64_t>(dyn_stack_size, stack_size_limit);
+      uint64_t new_stack_size = Align(std::min<uint64_t>(dyn_stack_size, stack_size_limit), 8);
       if (stack_size > new_stack_size) {
         // Remove part of the stack data.
         perf_event_header new_header = header;

@@ -1,0 +1,6 @@
+userdebug_or_eng(`
+  allow wifi_sniffer sysfs_wifi:dir search;
+  allow wifi_sniffer sysfs_wifi:file w_file_perms;
+  allow wifi_sniffer self:capability sys_module;
+  dontaudit wifi_sniffer sysfs_wifi:file getattr;
+')

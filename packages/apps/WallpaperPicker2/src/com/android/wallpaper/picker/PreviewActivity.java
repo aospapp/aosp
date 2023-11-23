@@ -64,6 +64,7 @@ public class PreviewActivity extends BasePreviewActivity implements AppbarFragme
                     wallpaper,
                     PreviewFragment.MODE_CROP_AND_SET_WALLPAPER,
                     viewAsHome,
+                    /* viewFullScreen= */ false,
                     testingModeEnabled);
             fm.beginTransaction()
                     .add(R.id.fragment_container, fragment)

@@ -21,14 +21,14 @@ import androidx.annotation.Nullable;
 /**
  * A class represents the contact raw data.
  */
-public class ContactRawData extends RawData {
+public class ContactRawData {
 
     private String mDisplayName;
     private String mNumber;
-    private Integer mNumberType;
+    private Integer mNumberType = 0;
     private String mNumberLabel;
     private String mAddress;
-    private Integer mStarred;
+    private Integer mStarred = 0;
 
     /**
      * Sets display name.
@@ -118,9 +118,7 @@ public class ContactRawData extends RawData {
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
-        builder.append("[id: ");
-        builder.append(getId());
-        builder.append(", display name: ");
+        builder.append("[display name: ");
         builder.append(mDisplayName);
         builder.append(", number: ");
         builder.append(mNumber);
@@ -133,6 +131,6 @@ public class ContactRawData extends RawData {
         builder.append(", address: ");
         builder.append(mAddress);
         builder.append("]");
-        return  builder.toString();
+        return builder.toString();
     }
 }

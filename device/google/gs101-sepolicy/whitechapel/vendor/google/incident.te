@@ -1,0 +1,4 @@
+userdebug_or_eng(`
+  allow incident logger_app:fd use;
+  allow incident media_rw_data_file:file append;
+')

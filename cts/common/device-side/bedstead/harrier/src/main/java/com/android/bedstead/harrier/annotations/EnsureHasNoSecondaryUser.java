@@ -16,6 +16,8 @@
 
 package com.android.bedstead.harrier.annotations;
 
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.MIDDLE;
+
 import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.harrier.annotations.meta.EnsureHasNoUserAnnotation;
 
@@ -26,7 +28,7 @@ import java.lang.annotation.Target;
 
 /**
  * Mark that a test method should run on a device which has no secondary user that is not the
- * current user.
+ * instrumented user.
  *
  * <p>Your test configuration may be configured so that this test is only run on a device which
  * has no secondary user that is not the current user. Otherwise, you can use {@link DeviceState}
@@ -36,4 +38,15 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @EnsureHasNoUserAnnotation("android.os.usertype.full.SECONDARY")
 public @interface EnsureHasNoSecondaryUser {
+    /**
+     * Weight sets the order that annotations will be resolved.
+     *
+     * <p>Annotations with a lower weight will be resolved before annotations with a higher weight.
+     *
+     * <p>If there is an order requirement between annotations, ensure that the weight of the
+     * annotation which must be resolved first is lower than the one which must be resolved later.
+     *
+     * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
+     */
+    int weight() default MIDDLE;
 }

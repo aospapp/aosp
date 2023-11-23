@@ -12,5 +12,25 @@
       <category android:name="android.intent.category.DEFAULT" />
     </intent-filter>
   </service>
+  <activity
+        android:name="CheckVoiceData"
+        android:directBootAware="true"
+        android:exported="true"
+        android:theme="@android:style/Theme.NoDisplay">
+      <intent-filter>
+        <action android:name="android.speech.tts.engine.CHECK_TTS_DATA"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
+    </activity>
+    <activity
+        android:name="GetSampleText"
+        android:directBootAware="true"
+        android:exported="true"
+        android:theme="@android:style/Theme.NoDisplay">
+      <intent-filter>
+        <action android:name="android.speech.tts.engine.GET_SAMPLE_TEXT"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
+    </activity>
 </application>
 </manifest>

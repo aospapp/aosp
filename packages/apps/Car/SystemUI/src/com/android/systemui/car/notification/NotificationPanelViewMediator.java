@@ -116,7 +116,7 @@ public class NotificationPanelViewMediator implements OverlayViewMediator,
     }
 
     @Override
-    public void setupOverlayContentViewControllers() {
+    public void setUpOverlayContentViewControllers() {
         mNotificationPanelViewController.setOnUnseenCountUpdateListener(unseenNotificationCount -> {
             boolean hasUnseen = unseenNotificationCount > 0;
             mCarSystemBarController.toggleAllNotificationsUnseenIndicator(
@@ -141,11 +141,6 @@ public class NotificationPanelViewMediator implements OverlayViewMediator,
     @Override
     public void onDensityOrFontScaleChanged() {
         registerListeners();
-    }
-
-    @Override
-    public void onOverlayChanged() {
-        // No op.
     }
 
     @Override

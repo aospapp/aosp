@@ -17,10 +17,7 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
   <item android:state_enabled="false"
-      android:color="?android:attr/colorForeground"
+      android:color="?attr/sudSwitchBarTrackOnColor"
       android:alpha="?android:attr/disabledAlpha" />
-  <item android:state_checked="true"
-      android:color="?android:attr/colorControlActivated" tools:ignore="NewApi"
-      android:alpha="?android:attr/disabledAlpha" />
-  <item android:color="?android:attr/colorForeground" />
+  <item android:color="?attr/sudSwitchBarTrackOnColor" />
 </selector>

@@ -28,6 +28,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.widget.ListView;
 
 import com.android.cts.verifier.PassFailButtons;
@@ -35,7 +36,6 @@ import com.android.cts.verifier.R;
 
 import java.util.ArrayList;
 import java.util.List;
-import android.util.Log;
 
 public class BleClientTestBaseActivity extends PassFailButtons.Activity {
     public static final String TAG = "BleClientTestBase";
@@ -104,8 +104,8 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public void onStart() {
+        super.onStart();
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(BleClientService.BLE_BLUETOOTH_CONNECTED);
@@ -138,8 +138,13 @@ public class BleClientTestBaseActivity extends PassFailButtons.Activity {
     @Override
     public void onPause() {
         super.onPause();
-        unregisterReceiver(mBroadcast);
         closeDialog();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        unregisterReceiver(mBroadcast);
     }
 
     private synchronized void closeDialog() {

@@ -62,6 +62,6 @@
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"உங்கள் சேமிப்பகம் இப்போது சேமிப்பக நிர்வாகியால் நிர்வகிக்கப்படுகிறது"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"அகற்ற எதுவுமில்லை"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"சமீபத்தியவற்றைப் பார்க்கவும்"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"பழைய கோப்புகள் எதுவுமில்லை. இடத்தை உருவாக்க, சமீபத்திய படங்கள், வீடியோக்கள், ஆப்ஸ் ஆகியவற்றை அகற்றவும்."</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"பழைய ஃபைல்கள்  எதுவுமில்லை. இடத்தை உருவாக்க, சமீபத்திய படங்கள், வீடியோக்கள், ஆப்ஸ் ஆகியவற்றை அகற்றவும்."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g>க்கு <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> சேமிப்பிடம் தேவை"</string>
 </resources>

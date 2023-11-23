@@ -24,6 +24,9 @@ import java.io.Serializable;
  * <p>This is used instead of {@link Class} so that it can be easily serialized.
  */
 public class ClassInfo implements Serializable {
+
+    private static final long serialVersionUID = 1;
+
     private final String mClassName;
 
     public ClassInfo(Object obj) {

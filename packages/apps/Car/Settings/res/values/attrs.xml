@@ -52,6 +52,7 @@
         <!-- Title and icon resource ids to render on UI -->
         <attr name="titleText" format="reference"/>
         <attr name="icon" format="reference"/>
+        <attr name="mute_icon" format="reference"/>
     </declare-styleable>
 
     <declare-styleable name="PinPadView">
@@ -115,7 +116,6 @@
     </declare-styleable>
 
     <attr name="wifiSignalColor" format="color"/>
-    <attr name="iconColor" format="color"/>
     <attr name="dividerColor" format="color"/>
     <attr name="profileSwitcherBackground" format="reference"/>
     <attr name="profileSwitcherCurrentProfileColor" format="color"/>

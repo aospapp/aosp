@@ -95,7 +95,14 @@
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Onyesho la kukagua mandhari"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Mkusanyiko huu haupo"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Ficha Onyesho la Kukagua Kiolesura"</string>
+    <string name="hint_hide_ui_preview" msgid="4527603797714586070">"Kiolesura kimefichwa katika onyesho la kukagua. Gusa mara mbili ukionyeshe"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Onyesha Onyesho la Kukagua Kiolesura"</string>
+    <string name="hint_show_ui_preview" msgid="2744155435325318349">"Kiolesura kinaonyeshwa katika onyesho la kukagua. Gusa mara mbili ili ukifiche"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Badilisha mandhari"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Onyesho la kukagua mandhari kwenye skrini iliyofungwa"</string>
+    <string name="apply_btn" msgid="5764555565943538528">"Tumia"</string>
+    <string name="accessibility_customize_hidden" msgid="6320568529768181691">"Kidirisha cha kuweka mapendeleo kimefichwa"</string>
+    <string name="accessibility_customize_shown" msgid="590964727831547651">"Kidirisha cha kuweka mapendeleo kinaonyeshwa"</string>
+    <string name="accessibility_info_hidden" msgid="2288603712350168107">"Maelezo yamefichwa"</string>
+    <string name="accessibility_info_shown" msgid="6626025722456105632">"Maelezo yanaonyeshwa"</string>
 </resources>

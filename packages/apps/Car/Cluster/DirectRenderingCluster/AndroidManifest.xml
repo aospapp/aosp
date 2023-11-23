@@ -87,5 +87,14 @@
             android:allowEmbedded="true">
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
+
+        <activity android:name=".EmptyNavigationActivity"
+                  android:exported="false"
+                  android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+                  android:launchMode="singleInstance"
+                  android:resizeableActivity="true"
+                  android:allowEmbedded="true">
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
     </application>
 </manifest>

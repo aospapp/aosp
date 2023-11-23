@@ -55,7 +55,7 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
     private static final String CLASS = PKG + ".EncryptionAppTest";
     private static final String APK = "CtsEncryptionApp.apk";
 
-    private static final String OTHER_APK = "CtsSplitApp.apk";
+    private static final String OTHER_APK = "CtsSplitApp29.apk";
     private static final String OTHER_PKG = "com.android.cts.splitapp";
 
     private static final String FEATURE_REBOOT_ESCROW = "feature:android.hardware.reboot_escrow";

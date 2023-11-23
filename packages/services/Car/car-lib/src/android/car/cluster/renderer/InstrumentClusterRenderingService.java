@@ -23,6 +23,7 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.annotation.UserIdInt;
+import android.app.ActivityManager;
 import android.app.ActivityOptions;
 import android.app.Service;
 import android.car.Car;
@@ -152,7 +153,7 @@ public abstract class InstrumentClusterRenderingService extends Service {
                 String packageName) {
             try {
                 ProviderInfo[] providers = packageManager.getPackageInfo(packageName,
-                        PackageManager.GET_PROVIDERS).providers;
+                        PackageManager.GET_PROVIDERS | PackageManager.MATCH_ANY_USER).providers;
                 if (providers == null) {
                     return Collections.emptyList();
                 }
@@ -370,8 +371,16 @@ public abstract class InstrumentClusterRenderingService extends Service {
         }
     }
 
+    /**
+     * Returns the cluster activity from the application given by its package name.
+     *
+     * @return the {@link ComponentName} of the cluster activity, or null if the given application
+     * doesn't have a cluster activity.
+     *
+     * @hide
+     */
     @Nullable
-    private ComponentName getComponentFromPackage(@NonNull String packageName) {
+    public ComponentName getComponentFromPackage(@NonNull String packageName) {
         PackageManager packageManager = getPackageManager();
 
         // Check package permission.
@@ -385,8 +394,8 @@ public abstract class InstrumentClusterRenderingService extends Service {
         Intent intent = new Intent(Intent.ACTION_MAIN)
                 .addCategory(Car.CAR_CATEGORY_NAVIGATION)
                 .setPackage(packageName);
-        List<ResolveInfo> resolveList = packageManager.queryIntentActivities(intent,
-                PackageManager.GET_RESOLVED_FILTER);
+        List<ResolveInfo> resolveList = packageManager.queryIntentActivitiesAsUser(intent,
+                PackageManager.GET_RESOLVED_FILTER, ActivityManager.getCurrentUser());
         if (resolveList == null || resolveList.isEmpty()
                 || resolveList.get(0).getComponentInfo() == null) {
             Log.i(TAG, "Failed to resolve an intent: " + intent);

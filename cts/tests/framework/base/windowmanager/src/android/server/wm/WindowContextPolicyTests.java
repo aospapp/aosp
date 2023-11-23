@@ -44,6 +44,8 @@ import static android.view.WindowManager.LayoutParams.TYPE_WALLPAPER;
 import android.content.Context;
 import android.platform.test.annotations.Presubmit;
 import android.view.Display;
+import android.view.View;
+import android.view.WindowManager;
 
 import org.junit.Test;
 
@@ -103,5 +105,14 @@ public class WindowContextPolicyTests extends WindowContextTestBase {
         for (int windowType : allPublicWindowTypes) {
             createWindowContext(display.mId, windowType);
         }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testWindowContextAddMismatchedWindowType() {
+        final WindowManagerState.DisplayContent display = createManagedVirtualDisplaySession()
+                .setSimulateDisplay(true).createDisplay();
+        final Context windowContext = createWindowContext(display.mId);
+        windowContext.getSystemService(WindowManager.class)
+                .addView(new View(windowContext), new WindowManager.LayoutParams(TYPE_PHONE));
     }
 }

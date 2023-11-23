@@ -1165,6 +1165,10 @@ public class JobThrottlingTest {
         if (!on && mHasWifi) {
             // Force wifi to connect ASAP.
             mUiDevice.executeShellCommand("svc wifi enable");
+            waitUntil("Failed to enable Wifi", 30 /* seconds */,
+                    () -> {
+                        return mWifiManager.isWifiEnabled();
+                    });
             //noinspection deprecation
             SystemUtil.runWithShellPermissionIdentity(mWifiManager::reconnect,
                     android.Manifest.permission.NETWORK_SETTINGS);

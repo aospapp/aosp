@@ -379,9 +379,7 @@ static bool encryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir
                                     const km::AuthorizationSet& keyParams,
                                     const KeyBuffer& message, std::string* ciphertext) {
     km::AuthorizationSet opParams =
-            km::AuthorizationSetBuilder()
-                    .Authorization(km::TAG_ROLLBACK_RESISTANCE)
-                    .Authorization(km::TAG_PURPOSE, km::KeyPurpose::ENCRYPT);
+            km::AuthorizationSetBuilder().Authorization(km::TAG_PURPOSE, km::KeyPurpose::ENCRYPT);
     km::AuthorizationSet outParams;
     auto opHandle = BeginKeymasterOp(keymaster, dir, keyParams, opParams, &outParams);
     if (!opHandle) return false;
@@ -410,7 +408,6 @@ static bool decryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir
     auto bodyAndMac = ciphertext.substr(GCM_NONCE_BYTES);
     auto opParams = km::AuthorizationSetBuilder()
                             .Authorization(km::TAG_NONCE, nonce)
-                            .Authorization(km::TAG_ROLLBACK_RESISTANCE)
                             .Authorization(km::TAG_PURPOSE, km::KeyPurpose::DECRYPT);
     auto opHandle = BeginKeymasterOp(keymaster, dir, keyParams, opParams, nullptr);
     if (!opHandle) return false;
@@ -709,6 +706,7 @@ bool setKeyStorageBindingSeed(const std::vector<uint8_t>& seed) {
         case StorageBindingInfo::State::UNINITIALIZED:
             storage_binding_info.state = StorageBindingInfo::State::IN_USE;
             storage_binding_info.seed = seed;
+            android::base::SetProperty("vold.storage_seed_bound", "1");
             return true;
         case StorageBindingInfo::State::IN_USE:
             LOG(ERROR) << "key storage binding seed already set";

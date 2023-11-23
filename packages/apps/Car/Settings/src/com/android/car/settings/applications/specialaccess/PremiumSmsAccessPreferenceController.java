@@ -88,15 +88,22 @@ public class PremiumSmsAccessPreferenceController extends PreferenceController<P
         }
     };
 
-    @VisibleForTesting
-    AppEntryListManager mAppEntryListManager;
+    private AppEntryListManager mAppEntryListManager;
     private List<AppEntry> mEntries;
 
     public PremiumSmsAccessPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions, SmsManager.getDefault(),
+                new AppEntryListManager(context));
+    }
+
+    @VisibleForTesting
+    PremiumSmsAccessPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            SmsManager smsManager, AppEntryListManager appEntryListManager) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mSmsManager = SmsManager.getDefault();
-        mAppEntryListManager = new AppEntryListManager(context);
+        mSmsManager = smsManager;
+        mAppEntryListManager = appEntryListManager;
     }
 
     @Override

@@ -289,6 +289,50 @@ public final class CarUserServiceTest extends AbstractExtendedMockitoTestCase {
     }
 
     @Test
+    public void testSetInitialUser() throws Exception {
+        UserInfo user = new UserInfoBuilder(101).build();
+
+        mCarUserService.setInitialUser(user);
+
+        assertThat(mCarUserService.getInitialUser()).isEqualTo(user.getUserHandle());
+    }
+
+    @Test
+    @ExpectWtf
+    public void testSetInitialUser_nullUser() throws Exception {
+        mCarUserService.setInitialUser(null);
+
+        mockInteractAcrossUsersPermission(true);
+        assertThat(mCarUserService.getInitialUser()).isNull();
+    }
+
+    @Test
+    public void testSendInitialUserToSystemServer() throws Exception {
+        UserInfo user = new UserInfoBuilder(101).build();
+        mCarUserService.setCarServiceHelper(mICarServiceHelper);
+
+        mCarUserService.setInitialUser(user);
+
+        verify(mICarServiceHelper).sendInitialUser(user.getUserHandle());
+    }
+
+    @Test
+    public void testsetInitialUserFromSystemServer() throws Exception {
+        UserHandle user = UserHandle.of(101);
+
+        mCarUserService.setInitialUserFromSystemServer(user);
+
+        assertThat(mCarUserService.getInitialUser()).isEqualTo(user);
+    }
+
+    @Test
+    public void testsetInitialUserFromSystemServer_nullUser() throws Exception {
+        mCarUserService.setInitialUserFromSystemServer(null);
+
+        assertThat(mCarUserService.getInitialUser()).isNull();
+    }
+
+    @Test
     public void testSetICarServiceHelper_withUxRestrictions() throws Exception {
         mockGetUxRestrictions(/* restricted= */ true);
         ICarUxRestrictionsChangeListener listener = initService();
@@ -417,6 +461,7 @@ public final class CarUserServiceTest extends AbstractExtendedMockitoTestCase {
         sendUserUnlockedEvent(UserHandle.USER_SYSTEM);
         verify(mLocationManager).setLocationEnabledForUser(
                 /* enabled= */ false, UserHandle.of(UserHandle.USER_SYSTEM));
+        verify(mLocationManager).setAdasGnssLocationEnabled(false);
     }
 
     /**
@@ -2205,15 +2250,6 @@ public final class CarUserServiceTest extends AbstractExtendedMockitoTestCase {
         waitForHandlerThreadToFinish();
 
         verify(mUserPreCreator).managePreCreatedUsers();
-    }
-
-    @Test
-    @ExpectWtf
-    public void testSetInitialUser_nullUser() throws Exception {
-        mCarUserService.setInitialUser(null);
-
-        mockInteractAcrossUsersPermission(true);
-        assertThat(mCarUserService.getInitialUser()).isNull();
     }
 
     @Test

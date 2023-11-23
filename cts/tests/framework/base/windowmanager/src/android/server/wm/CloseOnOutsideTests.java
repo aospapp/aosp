@@ -19,15 +19,18 @@ package android.server.wm;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import android.app.ActivityOptions;
 import android.app.Instrumentation;
+import android.app.WindowConfiguration;
 import android.util.DisplayMetrics;
 
 import androidx.test.InstrumentationRegistry;
-import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import com.android.compatibility.common.util.ShellUtils;
 
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,8 +42,20 @@ import org.junit.runner.RunWith;
 public class CloseOnOutsideTests {
 
     @Rule
-    public final ActivityTestRule<CloseOnOutsideTestActivity> mTestActivity =
-            new ActivityTestRule<>(CloseOnOutsideTestActivity.class, true, true);
+    public final ActivityScenarioRule<CloseOnOutsideTestActivity> mScenarioRule =
+            new ActivityScenarioRule<>(CloseOnOutsideTestActivity.class);
+
+    private CloseOnOutsideTestActivity mTestActivity;
+
+    @Before
+    public void setup() {
+        ActivityOptions options = ActivityOptions.makeBasic();
+        options.setLaunchWindowingMode(WindowConfiguration.WINDOWING_MODE_FULLSCREEN);
+        mScenarioRule.getScenario().launch(CloseOnOutsideTestActivity.class, options.toBundle())
+            .onActivity(activity -> {
+                mTestActivity = activity;
+            });
+    }
 
     @Test
     public void withDefaults() {
@@ -49,31 +64,30 @@ public class CloseOnOutsideTests {
 
     @Test
     public void finishTrue() {
-        mTestActivity.getActivity().setFinishOnTouchOutside(true);
+        mTestActivity.setFinishOnTouchOutside(true);
         touchAndAssert(true /* shouldBeFinishing */);
     }
 
     @Test
     public void finishFalse() {
-        mTestActivity.getActivity().setFinishOnTouchOutside(false);
+        mTestActivity.setFinishOnTouchOutside(false);
         touchAndAssert(false /* shouldBeFinishing */);
     }
 
     // Tap the bottom right and check the Activity is finishing
     private void touchAndAssert(boolean shouldBeFinishing) {
-        DisplayMetrics displayMetrics =
-                mTestActivity.getActivity().getResources().getDisplayMetrics();
+        DisplayMetrics displayMetrics = mTestActivity.getResources().getDisplayMetrics();
         int width = (int) (displayMetrics.widthPixels * 0.875f);
         int height = (int) (displayMetrics.heightPixels * 0.875f);
 
         Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
 
         // To be safe, make sure nothing else is finishing the Activity
-        instrumentation.runOnMainSync(() -> assertFalse(mTestActivity.getActivity().isFinishing()));
+        instrumentation.runOnMainSync(() -> assertFalse(mTestActivity.isFinishing()));
 
         ShellUtils.runShellCommand("input tap %d %d", width, height);
 
         instrumentation.runOnMainSync(
-                () -> assertEquals(shouldBeFinishing, mTestActivity.getActivity().isFinishing()));
+                () -> assertEquals(shouldBeFinishing, mTestActivity.isFinishing()));
     }
 }

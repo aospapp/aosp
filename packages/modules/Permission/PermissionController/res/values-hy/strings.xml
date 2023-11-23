@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"Հավելվածների թույլտվություններ"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Չօգտագործվող հավելվածներ"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Չօգտագործվող հավելվածներ չկան"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"Չօգտագործվող հավելվածներ չկան"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Անջատել հավելվածը"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Եթե անջատեք այս հավելվածը, համակարգը և այլ հավելվածներ հնարավոր է սխալներով աշխատեն։ Դուք չեք կարող ջնջել այս հավելվածը, քանի որ այն նախապես տեղադրված է եղել ձեր սարքում։ Անջատելու դեպքում հավելվածը կդադարի աշխատել և կթաքցվի։"</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Թույլտվությունների կառավարիչ"</string>

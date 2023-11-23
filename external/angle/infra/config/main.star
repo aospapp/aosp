@@ -187,6 +187,9 @@ def get_os_from_name(name):
         return os.MAC
     return os.MAC
 
+def get_gpu_type_from_builder_name(name):
+    return name.split("-")[1]
+
 # Adds both the CI and Try standalone builders.
 def angle_builder(name, debug, cpu, toolchain = "clang", uwp = False, test_mode = "compile_and_test"):
     properties = {
@@ -223,9 +226,11 @@ def angle_builder(name, debug, cpu, toolchain = "clang", uwp = False, test_mode 
         properties = properties,
         dimensions = dimensions,
         build_numbers = True,
+        resultdb_settings = resultdb.settings(enable = True),
     )
 
     is_perf = "-perf" in name
+    is_experimental = "-exp" in name
 
     # Trace tests are only included automatically if files in the capture folder change.
     if test_mode == "trace_tests":
@@ -245,7 +250,14 @@ def angle_builder(name, debug, cpu, toolchain = "clang", uwp = False, test_mode 
     else:
         os_name = config_os.console_name
 
-    short_name = "dbg" if debug else "rel"
+    if is_perf:
+        short_name = get_gpu_type_from_builder_name(name)
+    elif is_experimental:
+        short_name = "exp"
+    elif debug:
+        short_name = "dbg"
+    else:
+        short_name = "rel"
 
     luci.console_view_entry(
         console_view = "ci",
@@ -269,10 +281,12 @@ def angle_builder(name, debug, cpu, toolchain = "clang", uwp = False, test_mode 
             properties = properties,
             dimensions = dimensions,
             build_numbers = True,
+            resultdb_settings = resultdb.settings(enable = True),
         )
 
         # Include all other bots in the CQ by default except the placeholder GCC configs.
-        if toolchain != "gcc":
+        # Also exclude experimental bots.
+        if toolchain != "gcc" and not is_experimental:
             luci.cq_tryjob_verifier(
                 cq_group = "master",
                 builder = "angle:try/" + name,
@@ -317,6 +331,7 @@ luci.builder(
         "repo_name": "angle",
         "runhooks": True,
     },
+    resultdb_settings = resultdb.settings(enable = True),
 )
 
 luci.gitiles_poller(
@@ -339,6 +354,7 @@ angle_builder("linux-clang-rel", debug = False, cpu = "x64")
 angle_builder("linux-gcc-dbg", debug = True, cpu = "x64", toolchain = "gcc")
 angle_builder("linux-gcc-rel", debug = False, cpu = "x64", toolchain = "gcc")
 angle_builder("mac-dbg", debug = True, cpu = "x64")
+angle_builder("mac-exp", debug = False, cpu = "x64")
 angle_builder("mac-rel", debug = False, cpu = "x64")
 angle_builder("win-clang-x86-dbg", debug = True, cpu = "x86")
 angle_builder("win-clang-x86-rel", debug = False, cpu = "x86")
@@ -354,9 +370,11 @@ angle_builder("winuwp-x64-rel", debug = False, cpu = "x64", toolchain = "msvc", 
 angle_builder("linux-trace-rel", debug = False, cpu = "x64", test_mode = "trace_tests")
 angle_builder("win-trace-rel", debug = False, cpu = "x64", test_mode = "trace_tests")
 
-angle_builder("android-perf", debug = False, cpu = "arm64")
-angle_builder("linux-perf", debug = False, cpu = "x64")
-angle_builder("win-perf", debug = False, cpu = "x64")
+angle_builder("android-pixel4-perf", debug = False, cpu = "arm64")
+angle_builder("linux-intel-hd630-perf", debug = False, cpu = "x64")
+angle_builder("linux-nvidia-p400-perf", debug = False, cpu = "x64")
+angle_builder("win10-intel-hd630-perf", debug = False, cpu = "x64")
+angle_builder("win10-nvidia-p400-perf", debug = False, cpu = "x64")
 
 # Views
 

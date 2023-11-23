@@ -28,36 +28,42 @@ public class UIConversationItem {
 
     @NonNull String mConversationId;
     @NonNull String mTitle;
-    @NonNull String mSubtitle;
+    @NonNull String mTextPreview;
     @Nullable Drawable mSubtitleIcon;
-    @NonNull String mReadableTime;
+    @NonNull String mTextMetadata;
+    long mLastMessageTimestamp;
     @Nullable Drawable mAvatar;
     boolean mIsMuted;
     boolean mShowMuteIcon;
     boolean mShowReplyIcon;
+    boolean mShowPlayIcon;
     boolean mUseUnreadTheme;
     @NonNull Conversation mConversation;
 
     public UIConversationItem(
             @NonNull String conversationId,
             @NonNull String title,
-            @NonNull String subtitle,
+            @NonNull String textPreview,
             @Nullable Drawable subtitleIcon,
-            @NonNull String readableTime,
+            @NonNull String textMetadata,
+            long lastMessageTimestamp,
             @Nullable Drawable avatar,
             boolean showMuteIcon,
             boolean showReplyIcon,
+            boolean showPlayIcon,
             boolean useUnreadTheme,
             boolean isMuted,
             @NonNull Conversation conversation) {
         this.mConversationId = conversationId;
         this.mTitle = title;
-        this.mSubtitle = subtitle;
+        this.mTextPreview = textPreview;
         this.mSubtitleIcon = subtitleIcon;
-        this.mReadableTime = readableTime;
+        this.mTextMetadata = textMetadata;
+        this.mLastMessageTimestamp = lastMessageTimestamp;
         this.mAvatar = avatar;
         this.mShowMuteIcon = showMuteIcon;
         this.mShowReplyIcon = showReplyIcon;
+        this.mShowPlayIcon = showPlayIcon;
         this.mUseUnreadTheme = useUnreadTheme;
         this.mIsMuted = isMuted;
         this.mConversation = conversation;
@@ -75,10 +81,10 @@ public class UIConversationItem {
         return mTitle;
     }
 
-    /** Returns subtitle for the conversation */
+    /** Returns text preview for the conversation */
     @NonNull
-    public String getSubtitle() {
-        return mSubtitle;
+    public String getTextPreview() {
+        return mTextPreview;
     }
 
     /**
@@ -90,10 +96,15 @@ public class UIConversationItem {
         return mSubtitleIcon;
     }
 
-    /** Gets the human readable time in hh::mm */
+    /** Gets text metadata */
     @NonNull
-    public String getReadableTime() {
-        return mReadableTime;
+    public String getTextMetadata() {
+        return mTextMetadata;
+    }
+
+    /** Gets last message timestamp */
+    public long getLastMessageTimestamp() {
+        return mLastMessageTimestamp;
     }
 
     /** Returns the avatar for the conversation */
@@ -115,6 +126,11 @@ public class UIConversationItem {
     /** Returns true, if reply icon should be shown, false otherwise */
     public boolean shouldShowReplyIcon() {
         return mShowReplyIcon;
+    }
+
+    /** Returns true, if play icon should be shown, false otherwise */
+    public boolean shouldShowPlayIcon() {
+        return mShowPlayIcon;
     }
 
     /** Returns true, if unread theme should be used, false otherwise */

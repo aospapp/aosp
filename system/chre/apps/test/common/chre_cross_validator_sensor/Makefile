@@ -18,7 +18,7 @@ endif
 NANOAPP_NAME = chre_cross_validator_sensor
 NANOAPP_ID = 0x476f6f6754000002
 NANOAPP_NAME_STRING = \"Chre\ Cross\ Validator\ Sensor\"
-NANOAPP_VERSION = 0x00000001
+NANOAPP_VERSION = 0x00000002
 
 NANOAPP_PATH = $(CHRE_PREFIX)/apps/test/common/chre_cross_validator_sensor
 

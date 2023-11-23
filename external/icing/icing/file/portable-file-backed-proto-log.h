@@ -183,7 +183,7 @@ class PortableFileBackedProtoLog {
 
     void SetCompressFlag(bool compress) { SetFlag(kCompressBit, compress); }
 
-    bool GetDirtyFlag() { return GetFlag(kDirtyBit); }
+    bool GetDirtyFlag() const { return GetFlag(kDirtyBit); }
 
     void SetDirtyFlag(bool dirty) { SetFlag(kDirtyBit, dirty); }
 
@@ -1186,21 +1186,7 @@ libtextclassifier3::Status PortableFileBackedProtoLog<ProtoT>::PersistToDisk() {
     return libtextclassifier3::Status::OK;
   }
 
-  int64_t new_content_size = file_size - header_->GetRewindOffset();
-  Crc32 crc;
-  if (new_content_size < 0) {
-    // File shrunk, recalculate the entire checksum.
-    ICING_ASSIGN_OR_RETURN(
-        crc,
-        ComputeChecksum(filesystem_, file_path_, Crc32(),
-                        /*start=*/kHeaderReservedBytes, /*end=*/file_size));
-  } else {
-    // Append new changes to the existing checksum.
-    ICING_ASSIGN_OR_RETURN(
-        crc, ComputeChecksum(filesystem_, file_path_,
-                             Crc32(header_->GetLogChecksum()),
-                             header_->GetRewindOffset(), file_size));
-  }
+  ICING_ASSIGN_OR_RETURN(Crc32 crc, ComputeChecksum());
 
   header_->SetLogChecksum(crc.Get());
   header_->SetRewindOffset(file_size);
@@ -1219,9 +1205,26 @@ libtextclassifier3::Status PortableFileBackedProtoLog<ProtoT>::PersistToDisk() {
 template <typename ProtoT>
 libtextclassifier3::StatusOr<Crc32>
 PortableFileBackedProtoLog<ProtoT>::ComputeChecksum() {
-  return PortableFileBackedProtoLog<ProtoT>::ComputeChecksum(
-      filesystem_, file_path_, Crc32(), /*start=*/kHeaderReservedBytes,
-      /*end=*/filesystem_->GetFileSize(file_path_.c_str()));
+  int64_t file_size = filesystem_->GetFileSize(file_path_.c_str());
+  int64_t new_content_size = file_size - header_->GetRewindOffset();
+  Crc32 crc;
+  if (new_content_size == 0) {
+    // No new protos appended, return cached checksum
+    return Crc32(header_->GetLogChecksum());
+  } else if (new_content_size < 0) {
+    // File shrunk, recalculate the entire checksum.
+    ICING_ASSIGN_OR_RETURN(
+        crc,
+        ComputeChecksum(filesystem_, file_path_, Crc32(),
+                        /*start=*/kHeaderReservedBytes, /*end=*/file_size));
+  } else {
+    // Append new changes to the existing checksum.
+    ICING_ASSIGN_OR_RETURN(
+        crc, ComputeChecksum(
+                 filesystem_, file_path_, Crc32(header_->GetLogChecksum()),
+                 /*start=*/header_->GetRewindOffset(), /*end=*/file_size));
+  }
+  return crc;
 }
 
 }  // namespace lib

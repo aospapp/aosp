@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"காரின் பவர் கொள்கையைக் கட்டுப்படுத்தும்."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"டெம்ப்ளேட்டுகளைக் காட்டுதல்"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"டெம்ப்ளேட்டுகளைக் காட்டுதல்."</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"தொடங்கும் ஆப்ஸைக் கட்டுப்படுத்தலாம்"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"தொடங்கும் ஆப்ஸைக் கட்டுப்படுத்தலாம்."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"எனது சாதனம்"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"விருந்தினர்"</string>
     <string name="importance_default" msgid="8587741629268312938">"இயல்புநிலை முக்கியத்துவம்"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"பிறகு மீட்டமை"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"அடுத்தமுறை காரை இயக்கத் தொடங்கும்போது இன்ஃபோடெயின்மென்ட் சிஸ்டம் மீட்டமைக்கப்படும்."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"மீட்டமைத்தலைத் தொடங்க காரை நிறுத்த வேண்டும்."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"உங்கள் சிஸ்டத்தின் செயல்திறனை <xliff:g id="ID_1">^1</xliff:g> பாதிக்கிறது"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"சிஸ்டத்தின் செயல்திறனை மேம்படுத்த ஆப்ஸை முடக்கவும். அமைப்புகளுக்குச் சென்று மீண்டும் ஆப்ஸை இயக்கலாம்."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"ஆப்ஸைத் தொடர்ந்து பயன்படுத்த அதை முன்னுரிமைப்படுத்தவும்."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"சிஸ்டத்தின் செயல்திறனை மேம்படுத்த ஆப்ஸை நிறுவல் நீக்கவும்."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"ஆப்ஸை முடக்கு"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"ஆப்ஸை முன்னுரிமைப்படுத்துங்கள்"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"ஆப்ஸை நிறுவல் நீக்குங்கள்"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> முடக்கப்பட்டது. அமைப்புகளுக்குச் சென்று மீண்டும் அதை இயக்கலாம்."</string>
 </resources>

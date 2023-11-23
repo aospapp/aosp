@@ -1,6 +1,7 @@
 #include "host/commands/assemble_cvd/flags.h"
 
 #include <android-base/logging.h>
+#include <android-base/parseint.h>
 #include <android-base/strings.h>
 #include <gflags/gflags.h>
 #include <json/json.h>
@@ -16,6 +17,7 @@
 #include <regex>
 #include <set>
 #include <sstream>
+#include <unordered_map>
 
 #include "common/libs/utils/environment.h"
 #include "common/libs/utils/files.h"
@@ -54,6 +56,26 @@ DEFINE_int32(gdb_port, 0,
              "kernel must have been built with CONFIG_RANDOMIZE_BASE "
              "disabled.");
 
+constexpr const char kDisplayHelp[] =
+    "Comma separated key=value pairs of display properties. Supported "
+    "properties:\n"
+    " 'width': required, width of the display in pixels\n"
+    " 'height': required, height of the display in pixels\n"
+    " 'dpi': optional, default 320, density of the display\n"
+    " 'refresh_rate_hz': optional, default 60, display refresh rate in Hertz\n"
+    ". Example usage: \n"
+    "--display0=width=1280,height=720\n"
+    "--display1=width=1440,height=900,dpi=480,refresh_rate_hz=30\n";
+
+// TODO(b/192495477): combine these into a single repeatable '--display' flag
+// when assemble_cvd switches to using the new flag parsing library.
+DEFINE_string(display0, "", kDisplayHelp);
+DEFINE_string(display1, "", kDisplayHelp);
+DEFINE_string(display2, "", kDisplayHelp);
+DEFINE_string(display3, "", kDisplayHelp);
+
+// TODO(b/171305898): mark these as deprecated after multi-display is fully
+// enabled.
 DEFINE_int32(x_res, 0, "Width of the screen in pixels");
 DEFINE_int32(y_res, 0, "Height of the screen in pixels");
 DEFINE_int32(dpi, 0, "Pixels per inch for the screen");
@@ -268,8 +290,6 @@ DEFINE_bool(vhost_net, false, "Enable vhost acceleration of networking");
 DEFINE_bool(record_screen, false, "Enable screen recording. "
                                   "Requires --start_webrtc");
 
-DEFINE_bool(ethernet, false, "Enable Ethernet network interface");
-
 DEFINE_bool(smt, false, "Enable simultaneous multithreading (SMT/HT)");
 
 DEFINE_int32(vsock_guest_cid,
@@ -298,6 +318,8 @@ DEFINE_bool(protected_vm, false, "Boot in Protected VM mode");
 
 DEFINE_bool(enable_audio, cuttlefish::HostArch() != cuttlefish::Arch::Arm64,
             "Whether to play or capture audio");
+
+DEFINE_uint32(camera_server_port, 0, "camera vsock port");
 
 DECLARE_string(assembly_dir);
 DECLARE_string(boot_image);
@@ -335,6 +357,60 @@ std::string StrForInstance(const std::string& prefix, int num) {
   std::ostringstream stream;
   stream << prefix << std::setfill('0') << std::setw(2) << num;
   return stream.str();
+}
+
+std::optional<CuttlefishConfig::DisplayConfig> ParseDisplayConfig(
+    const std::string& flag) {
+  if (flag.empty()) {
+    return std::nullopt;
+  }
+
+  std::unordered_map<std::string, std::string> props;
+
+  const std::vector<std::string> pairs = android::base::Split(flag, ",");
+  for (const std::string& pair : pairs) {
+    const std::vector<std::string> keyvalue = android::base::Split(pair, "=");
+    CHECK_EQ(2, keyvalue.size()) << "Invalid display: " << flag;
+
+    const std::string& prop_key = keyvalue[0];
+    const std::string& prop_val = keyvalue[1];
+    props[prop_key] = prop_val;
+  }
+
+  CHECK(props.find("width") != props.end())
+      << "Display configuration missing 'width' in " << flag;
+  CHECK(props.find("height") != props.end())
+      << "Display configuration missing 'height' in " << flag;
+
+  int display_width;
+  CHECK(android::base::ParseInt(props["width"], &display_width))
+      << "Display configuration invalid 'width' in " << flag;
+
+  int display_height;
+  CHECK(android::base::ParseInt(props["height"], &display_height))
+      << "Display configuration invalid 'height' in " << flag;
+
+  int display_dpi = 320;
+  auto display_dpi_it = props.find("dpi");
+  if (display_dpi_it != props.end()) {
+    CHECK(android::base::ParseInt(display_dpi_it->second, &display_dpi))
+        << "Display configuration invalid 'dpi' in " << flag;
+  }
+
+  int display_refresh_rate_hz = 60;
+  auto display_refresh_rate_hz_it = props.find("refresh_rate_hz");
+  if (display_refresh_rate_hz_it != props.end()) {
+    CHECK(android::base::ParseInt(display_refresh_rate_hz_it->second,
+                                  &display_refresh_rate_hz))
+        << "Display configuration invalid 'refresh_rate_hz' in " << flag;
+  }
+
+  return CuttlefishConfig::DisplayConfig{
+      .width = display_width,
+      .height = display_height,
+      .dpi = display_dpi,
+      .refresh_rate_hz = display_refresh_rate_hz,
+  };
 }
 
 #ifdef __ANDROID__
@@ -408,6 +484,40 @@ CuttlefishConfig InitializeCuttlefishConfiguration(
   }
   tmp_config_obj.set_vm_manager(FLAGS_vm_manager);
 
+  std::vector<CuttlefishConfig::DisplayConfig> display_configs;
+
+  auto display0 = ParseDisplayConfig(FLAGS_display0);
+  if (display0) {
+    display_configs.push_back(*display0);
+  }
+  auto display1 = ParseDisplayConfig(FLAGS_display1);
+  if (display1) {
+    display_configs.push_back(*display1);
+  }
+  auto display2 = ParseDisplayConfig(FLAGS_display2);
+  if (display2) {
+    display_configs.push_back(*display2);
+  }
+  auto display3 = ParseDisplayConfig(FLAGS_display3);
+  if (display3) {
+    display_configs.push_back(*display3);
+  }
+
+  if (FLAGS_x_res > 0 && FLAGS_y_res > 0) {
+    if (display_configs.empty()) {
+      display_configs.push_back({
+          .width = FLAGS_x_res,
+          .height = FLAGS_y_res,
+          .dpi = FLAGS_dpi,
+          .refresh_rate_hz = FLAGS_refresh_rate_hz,
+      });
+    } else {
+      LOG(WARNING) << "Ignoring --x_res and --y_res when --displayN specified.";
+    }
+  }
+
+  tmp_config_obj.set_display_configs(display_configs);
+
   const GraphicsAvailability graphics_availability =
     GetGraphicsAvailabilityWithSubprocessCheck();
 
@@ -423,8 +533,8 @@ CuttlefishConfig InitializeCuttlefishConfiguration(
   }
   if (tmp_config_obj.gpu_mode() == kGpuModeAuto) {
     if (ShouldEnableAcceleratedRendering(graphics_availability)) {
-        LOG(INFO) << "GPU auto mode: detected prerequisites for accelerated "
-                     "rendering support.";
+      LOG(INFO) << "GPU auto mode: detected prerequisites for accelerated "
+                   "rendering support.";
       if (FLAGS_vm_manager == QemuManager::name()) {
         LOG(INFO) << "Enabling --gpu_mode=drm_virgl.";
         tmp_config_obj.set_gpu_mode(kGpuModeDrmVirgl);
@@ -468,14 +578,6 @@ CuttlefishConfig InitializeCuttlefishConfiguration(
   tmp_config_obj.set_memory_mb(FLAGS_memory_mb);
 
   tmp_config_obj.set_setupwizard_mode(FLAGS_setupwizard_mode);
-
-  std::vector<cuttlefish::CuttlefishConfig::DisplayConfig> display_configs = {{
-    .width = FLAGS_x_res,
-    .height = FLAGS_y_res,
-  }};
-  tmp_config_obj.set_display_configs(display_configs);
-  tmp_config_obj.set_dpi(FLAGS_dpi);
-  tmp_config_obj.set_refresh_rate_hz(FLAGS_refresh_rate_hz);
 
   auto secure_hals = android::base::Split(FLAGS_secure_hals, ",");
   tmp_config_obj.set_secure_hals(
@@ -616,8 +718,6 @@ CuttlefishConfig InitializeCuttlefishConfiguration(
 
   tmp_config_obj.set_record_screen(FLAGS_record_screen);
 
-  tmp_config_obj.set_ethernet(FLAGS_ethernet);
-
   tmp_config_obj.set_enable_host_bluetooth(FLAGS_enable_host_bluetooth);
 
   tmp_config_obj.set_protected_vm(FLAGS_protected_vm);
@@ -701,6 +801,7 @@ CuttlefishConfig InitializeCuttlefishConfiguration(
     instance.set_rootcanal_default_commands_file(
         FLAGS_bluetooth_default_commands_file);
 
+    instance.set_camera_server_port(FLAGS_camera_server_port);
     instance.set_device_title(FLAGS_device_title);
 
     if (FLAGS_protected_vm) {

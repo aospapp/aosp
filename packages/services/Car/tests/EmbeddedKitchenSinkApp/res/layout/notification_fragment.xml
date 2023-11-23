@@ -44,6 +44,58 @@
             android:background="#334666"
             android:orientation="vertical">
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="10dp"
+                    android:layout_gravity="center_vertical"
+                    android:text="Number of messages:"/>
+
+                <NumberPicker
+                    android:id="@+id/number_messages"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="#1da9ff"
+                    android:foreground="?android:attr/selectableItemBackground"
+                    android:textSize="30sp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="10dp"
+                    android:layout_gravity="center_vertical"
+                    android:text="Number of people:"/>
+
+                <NumberPicker
+                    android:id="@+id/number_people"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="#1da9ff"
+                    android:foreground="?android:attr/selectableItemBackground"
+                    android:textSize="30sp"/>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/customizable_message_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="50dp"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="10dp"
+                android:background="#1da9ff"
+                android:foreground="?android:attr/selectableItemBackground"
+                android:text="Customizable message notification builder"
+                android:textSize="30sp"/>
+
             <Button
                 android:id="@+id/category_call_button"
                 android:layout_width="wrap_content"
@@ -72,6 +124,16 @@
                 android:background="#ffa9a8"
                 android:foreground="?android:attr/selectableItemBackground"
                 android:text="Message from same person"
+                android:textSize="30sp"/>
+
+            <Button
+                android:id="@+id/category_long_message_same_person_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:background="#ffa9a8"
+                android:foreground="?android:attr/selectableItemBackground"
+                android:text="Long message from same person"
                 android:textSize="30sp"/>
 
             <Button

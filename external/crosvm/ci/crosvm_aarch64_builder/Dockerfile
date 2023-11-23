@@ -29,16 +29,18 @@ RUN apt-get update && apt-get install --yes --no-install-recommends  \
     qemu-user-static
 
 RUN apt-get install --yes --no-install-recommends -o APT::Immediate-Configure=false \
+    libc-dev:arm64 \
     libcap-dev:arm64 \
     libdbus-1-dev:arm64 \
     libdrm-dev:arm64 \
     libepoxy-dev:arm64 \
-    libssl-dev:arm64 \
-    libwayland-dev:arm64
+    libssl-dev:arm64
 
 RUN apt-get install --yes -t testing --no-install-recommends  \
     libdrm-dev:arm64 \
-    libepoxy-dev:arm64
+    libepoxy-dev:arm64 \
+    libwayland-dev:arm64 \
+    wayland-protocols
 
 # Setup rust for cross-compilation
 RUN rustup target add aarch64-unknown-linux-gnu
@@ -69,7 +71,7 @@ COPY --from=vm \
     /root/.ssh /root/.ssh
 
 # Setup entrypoint and interactive shell
-WORKDIR /workspace/src/platform/crosvm
+WORKDIR /workspace/src/crosvm
 COPY bashrc /root/.bashrc
 COPY entrypoint /workspace
 ENTRYPOINT ["/workspace/entrypoint"]

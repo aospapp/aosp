@@ -17,6 +17,7 @@
 package com.android.car.internal;
 
 import android.content.pm.UserInfo;
+import android.os.UserHandle;
 
 import com.android.internal.os.IResultReceiver;
 
@@ -53,4 +54,13 @@ oneway interface ICarSystemServerClient {
       * @param callback used to trigger the factory reset.
       */
     void onFactoryReset(IResultReceiver callback);
+
+    /**
+     * Initial user is decided by HAL and information is saved in CarUserService. It is possible
+     * that car service may crash and this information will be lost. To avoid this situation,
+     * initial user information is saved in System Service using
+     * {@link ICarServiceHelper.sendInitialUser}. If car service reconnects after crash, then this
+     * call will set the initial user information in CarUserService.
+     */
+     void setInitialUser(in UserHandle user);
 }

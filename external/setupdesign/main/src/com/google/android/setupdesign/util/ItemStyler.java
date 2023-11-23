@@ -95,6 +95,7 @@ public final class ItemStyler {
             PartnerConfig.CONFIG_ITEMS_TITLE_FONT_FAMILY,
             null,
             null,
+            null,
             PartnerStyleHelper.getLayoutGravity(titleTextView.getContext())));
   }
 
@@ -116,6 +117,7 @@ public final class ItemStyler {
             null,
             PartnerConfig.CONFIG_ITEMS_SUMMARY_TEXT_SIZE,
             PartnerConfig.CONFIG_ITEMS_SUMMARY_FONT_FAMILY,
+            null,
             PartnerConfig.CONFIG_ITEMS_SUMMARY_MARGIN_TOP,
             null,
             PartnerStyleHelper.getLayoutGravity(summaryTextView.getContext())));

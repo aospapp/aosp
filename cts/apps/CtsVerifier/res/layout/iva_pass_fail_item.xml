@@ -44,12 +44,13 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentRight="true"
-        android:layout_below="@id/nls_instructions"
+        android:layout_below="@id/nls_action_button"
         android:layout_marginLeft="20dip"
         android:layout_marginRight="20dip"
         android:layout_toRightOf="@id/nls_status"
         android:text="@string/iva_pass"
         android:onClick="actionPassed" />
+
     <Button
         android:id="@+id/iva_action_button_fail"
         android:layout_width="wrap_content"

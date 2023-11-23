@@ -86,7 +86,6 @@ ANGLE_CHROMIUM_DEPS = [
     'tools/skia_goldctl/linux',
     'tools/skia_goldctl/mac',
     'tools/skia_goldctl/win',
-    'tools/swarming_client',
 ]
 
 ANGLE_URL = 'https://chromium.googlesource.com/angle/angle'
@@ -314,7 +313,9 @@ def BuildDepsentryDict(deps_dict):
 
 def _FindChangedCipdPackages(path, old_pkgs, new_pkgs):
     pkgs_equal = ({p['package'] for p in old_pkgs} == {p['package'] for p in new_pkgs})
-    assert pkgs_equal, 'Old: %s\n New: %s' % (old_pkgs, new_pkgs)
+    assert pkgs_equal, ('Old: %s\n New: %s.\nYou need to do a manual roll '
+                        'and remove/add entries in DEPS so the old and new '
+                        'list match.' % (old_pkgs, new_pkgs))
     for old_pkg in old_pkgs:
         for new_pkg in new_pkgs:
             old_version = old_pkg['version']

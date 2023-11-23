@@ -28,28 +28,32 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.UserHandle;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.harrier.annotations.EnsureHasWorkProfile;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.users.UserReference;
-import com.android.bedstead.nene.users.UserType;
 import com.android.compatibility.common.util.SystemUtil;
 import com.android.eventlib.events.CustomEvent;
 
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.time.Duration;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-@RunWith(JUnit4.class)
+@RunWith(BedsteadJUnit4.class)
 public class EventLogsTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
+
     private static final String TEST_APP_PACKAGE_NAME = "com.android.eventlib.tests.testapp";
     private static final String INCORRECT_PACKAGE_NAME = "com.android.eventlib.tests.notapackage";
     private static final UserHandle NON_EXISTING_USER_HANDLE = UserHandle.of(1000);
@@ -65,22 +69,7 @@ public class EventLogsTest {
     private boolean hasScheduledEventsOnTestApp = false;
     private final ScheduledExecutorService mScheduledExecutorService =
             Executors.newSingleThreadScheduledExecutor();
-    private static final TestApis sTestApis = new TestApis();
-    private static final Context sContext = sTestApis.context().instrumentedContext();
-    private static final UserReference sProfile = sTestApis.users().createUser()
-            .parent(sTestApis.users().instrumented())
-            .type(sTestApis.users().supportedType(UserType.MANAGED_PROFILE_TYPE_NAME))
-            .createAndStart();
-
-    @BeforeClass
-    public static void setupClass() {
-        sTestApis.packages().find(TEST_APP_PACKAGE_NAME).install(sProfile);
-    }
-
-    @AfterClass
-    public static void teardownClass() {
-        sProfile.remove();
-    }
+    private static final Context sContext = TestApis.context().instrumentedContext();
 
     @Before
     public void setUp() {
@@ -499,7 +488,6 @@ public class EventLogsTest {
     }
 
     @Test
-    @Ignore("Restore when this functionality is restored")
     public void otherProcessGetsKilled_stillReturnsLogs() {
         logCustomEventOnTestApp(/* tag= */ null, /* data= */ null);
 
@@ -509,7 +497,6 @@ public class EventLogsTest {
     }
 
     @Test
-    @Ignore("Restore when this functionality is restored")
     public void otherProcessGetsKilledMultipleTimes_stillReturnsOriginalLog() {
         logCustomEventOnTestApp(/* tag= */ TEST_TAG1, /* data= */ null);
         killTestApp();
@@ -521,7 +508,6 @@ public class EventLogsTest {
     }
 
     @Test
-    @Ignore("Restore when this functionality is restored")
     public void otherProcessGetsKilled_returnsLogsInCorrectOrder() {
         logCustomEventOnTestApp(/* tag= */ TEST_TAG1, /* data= */ null);
         logCustomEventOnTestApp(/* tag= */ TEST_TAG2, /* data= */ null);
@@ -533,7 +519,6 @@ public class EventLogsTest {
     }
 
     @Test
-    @Ignore("Restore when this functionality is restored")
     public void otherProcessGetsKilledMultipleTimes_returnsLogsInCorrectOrder() {
         logCustomEventOnTestApp(/* tag= */ TEST_TAG1, /* data= */ null);
         killTestApp();
@@ -546,32 +531,41 @@ public class EventLogsTest {
     }
 
     @Test
+    @EnsureHasWorkProfile
     public void differentUser_queryWorks() {
-        logCustomEventOnTestApp(sProfile, /* tag= */ TEST_TAG1, /* data= */ null);
+        TestApis.packages().find(TEST_APP_PACKAGE_NAME).installExisting(sDeviceState.workProfile());
+        logCustomEventOnTestApp(
+                sDeviceState.workProfile(), /* tag= */ TEST_TAG1, /* data= */ null);
 
         EventLogs<CustomEvent> eventLogs = CustomEvent.queryPackage(TEST_APP_PACKAGE_NAME)
-                .onUser(sProfile);
+                .onUser(sDeviceState.workProfile());
 
         assertThat(eventLogs.poll().tag()).isEqualTo(TEST_TAG1);
     }
 
     @Test
+    @EnsureHasWorkProfile
     public void differentUserSpecifiedByUserHandle_queryWorks() {
-        logCustomEventOnTestApp(sProfile, /* tag= */ TEST_TAG1, /* data= */ null);
+        TestApis.packages().find(TEST_APP_PACKAGE_NAME).installExisting(sDeviceState.workProfile());
+        logCustomEventOnTestApp(
+                sDeviceState.workProfile(), /* tag= */ TEST_TAG1, /* data= */ null);
 
         EventLogs<CustomEvent> eventLogs = CustomEvent.queryPackage(TEST_APP_PACKAGE_NAME)
-                .onUser(sProfile.userHandle());
+                .onUser(sDeviceState.workProfile().userHandle());
 
         assertThat(eventLogs.poll().tag()).isEqualTo(TEST_TAG1);
     }
 
     @Test
+    @EnsureHasWorkProfile
     public void differentUser_doesntGetEventsFromWrongUser() {
+        TestApis.packages().find(TEST_APP_PACKAGE_NAME).installExisting(sDeviceState.workProfile());
         logCustomEventOnTestApp(/* tag= */ TEST_TAG1, /* data= */ null);
-        logCustomEventOnTestApp(sProfile, /* tag= */ TEST_TAG2, /* data= */ null);
+        logCustomEventOnTestApp(
+                sDeviceState.workProfile(), /* tag= */ TEST_TAG2, /* data= */ null);
 
         EventLogs<CustomEvent> eventLogs = CustomEvent.queryPackage(TEST_APP_PACKAGE_NAME)
-                .onUser(sProfile);
+                .onUser(sDeviceState.workProfile());
 
         assertThat(eventLogs.poll().tag()).isEqualTo(TEST_TAG2);
     }
@@ -634,7 +628,7 @@ public class EventLogsTest {
     }
 
     private void logCustomEventOnTestApp(String tag, String data) {
-        logCustomEventOnTestApp(sTestApis.users().instrumented(), tag, data);
+        logCustomEventOnTestApp(TestApis.users().instrumented(), tag, data);
     }
 
     private void logCustomEventOnTestApp() {

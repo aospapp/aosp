@@ -1,0 +1,22 @@
+# EuiccSupportPixel app
+
+type euiccpixel_app, domain;
+app_domain(euiccpixel_app)
+
+allow euiccpixel_app app_api_service:service_manager find;
+allow euiccpixel_app radio_service:service_manager find;
+allow euiccpixel_app nfc_service:service_manager find;
+allow euiccpixel_app surfaceflinger_service:service_manager find;
+
+set_prop(euiccpixel_app, vendor_secure_element_prop)
+set_prop(euiccpixel_app, vendor_modem_prop)
+get_prop(euiccpixel_app, dck_prop)
+
+userdebug_or_eng(`
+    net_domain(euiccpixel_app)
+
+    # Access to directly upgrade firmware on secure_element used for engineering devices
+    typeattribute secure_element_device mlstrustedobject;
+    allow euiccpixel_app secure_element_device:chr_file rw_file_perms;
+')
+

@@ -23,6 +23,7 @@
 #include <hal_types.h>
 #include <hidl/HidlSupport.h>
 #include <memory>
+#include "hidl_camera_provider.h"
 
 namespace android {
 namespace hardware {
@@ -57,6 +58,7 @@ using ::android::hardware::camera::device::V3_5::StreamBuffersVal;
 using ::android::hardware::camera::device::V3_6::HalStreamConfiguration;
 using ::android::hardware::camera::device::V3_7::CaptureRequest;
 using ::android::hardware::camera::device::V3_7::StreamConfiguration;
+using ::android::hardware::camera::provider::V2_5::DeviceState;
 
 // Util functions to convert the types between HIDL and Google Camera HAL.
 
@@ -188,6 +190,10 @@ status_t ConvertToHalBufferReturnStatus(
 status_t ConvertStreamConfigurationV34ToV37(
     const device::V3_4::StreamConfiguration& config_3_4,
     StreamConfiguration* config_3_7);
+
+status_t ConvertToHalDeviceState(
+    const hardware::hidl_bitfield<DeviceState> hidl_device_state,
+    google_camera_hal::DeviceState& hal_device_state);
 
 }  // namespace hidl_utils
 }  // namespace implementation

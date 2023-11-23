@@ -16,6 +16,8 @@
 
 package com.android.permissioncontroller.permission.ui.auto;
 
+import static com.android.permissioncontroller.Constants.EXTRA_SESSION_ID;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -62,18 +64,19 @@ public class AutoAllAppPermissionsFragment extends AutoSettingsFrameFragment {
 
     /** Creates an {@link AutoAllAppPermissionsFragment} with no filter. */
     public static AutoAllAppPermissionsFragment newInstance(@NonNull String packageName,
-            @NonNull UserHandle userHandle) {
-        return newInstance(packageName, /* filterGroup= */ null, userHandle);
+            @NonNull UserHandle userHandle, long sessionId) {
+        return newInstance(packageName, /* filterGroup= */ null, userHandle, sessionId);
     }
 
     /** Creates an {@link AutoAllAppPermissionsFragment} with a specific filter group. */
     public static AutoAllAppPermissionsFragment newInstance(@NonNull String packageName,
-            @NonNull String filterGroup, @NonNull UserHandle userHandle) {
+            @NonNull String filterGroup, @NonNull UserHandle userHandle, long sessionId) {
         AutoAllAppPermissionsFragment instance = new AutoAllAppPermissionsFragment();
         Bundle arguments = new Bundle();
         arguments.putString(Intent.EXTRA_PACKAGE_NAME, packageName);
         arguments.putString(Intent.EXTRA_PERMISSION_GROUP_NAME, filterGroup);
         arguments.putParcelable(Intent.EXTRA_USER, userHandle);
+        arguments.putLong(EXTRA_SESSION_ID, sessionId);
         instance.setArguments(arguments);
         return instance;
     }

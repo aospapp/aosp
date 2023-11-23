@@ -233,6 +233,8 @@ message CountMetric {
 
   optional UploadThreshold threshold = 10;
 
+  optional bool split_bucket_for_app_upgrade = 11 [default = true];
+
   optional FieldMatcher dimensions_in_condition = 7 [deprecated = true];
 
   reserved 100;
@@ -264,6 +266,8 @@ message DurationMetric {
   optional TimeUnit bucket = 7;
 
   optional UploadThreshold threshold = 11;
+
+  optional bool split_bucket_for_app_upgrade = 12 [default = true];
 
   optional FieldMatcher dimensions_in_condition = 8 [deprecated = true];
 

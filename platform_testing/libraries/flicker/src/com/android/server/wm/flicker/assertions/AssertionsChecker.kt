@@ -16,6 +16,8 @@
 
 package com.android.server.wm.flicker.assertions
 
+import android.util.Log
+import com.android.server.wm.flicker.FLICKER_TAG
 import com.google.common.truth.Fact
 import kotlin.math.max
 
@@ -31,15 +33,15 @@ class AssertionsChecker<T : FlickerSubject> {
     private val assertions = mutableListOf<CompoundAssertion<T>>()
     private var skipUntilFirstAssertion = false
 
-    fun add(name: String, assertion: Assertion<T>) {
-        assertions.add(CompoundAssertion(assertion, name))
+    fun add(name: String, isOptional: Boolean = false, assertion: Assertion<T>) {
+        assertions.add(CompoundAssertion(assertion, name, isOptional))
     }
 
     /**
      * Append [assertion] to the last existing set of assertions.
      */
-    fun append(name: String, assertion: Assertion<T>) {
-        assertions.last().add(assertion, name)
+    fun append(name: String, isOptional: Boolean = false, assertion: Assertion<T>) {
+        assertions.last().add(assertion, name, isOptional)
     }
 
     /**
@@ -73,17 +75,29 @@ class AssertionsChecker<T : FlickerSubject> {
         var entryIndex = 0
         var assertionIndex = 0
         var lastPassedAssertionIndex = -1
+        val assertionTrace = mutableListOf<String>()
         while (assertionIndex < assertions.size && entryIndex < entries.size) {
             val currentAssertion = assertions[assertionIndex]
             val currEntry = entries[entryIndex]
             try {
+                val log = "${assertionIndex + 1}/${assertions.size}:[${currentAssertion.name}]\t" +
+                        "Entry: ${entryIndex + 1}/${entries.size} $currEntry"
+                Log.v(FLICKER_TAG, "Checking Assertion: $log")
+                assertionTrace.add(log)
                 currentAssertion.invoke(currEntry)
                 lastPassedAssertionIndex = assertionIndex
                 entryIndex++
             } catch (e: Throwable) {
+                // ignore errors are the start of the trace
                 val ignoreFailure = skipUntilFirstAssertion && lastPassedAssertionIndex == -1
                 if (ignoreFailure) {
                     entryIndex++
+                    continue
+                }
+                // failure is an optional assertion, just consider it passed skip it
+                if (currentAssertion.isOptional) {
+                    lastPassedAssertionIndex = assertionIndex
+                    assertionIndex++
                     continue
                 }
                 if (lastPassedAssertionIndex != assertionIndex) {
@@ -97,17 +111,23 @@ class AssertionsChecker<T : FlickerSubject> {
                 }
             }
         }
+        // Didn't pass any assertions
         if (lastPassedAssertionIndex == -1 && assertions.isNotEmpty() && failures.isEmpty()) {
             entries.first().fail("Assertion never passed", assertions.first())
         }
 
-        if (failures.isEmpty() && assertionIndex != assertions.lastIndex) {
-            val reason = listOf(
-                Fact.fact("Assertion never became false", assertions[assertionIndex]),
-                Fact.fact("Passed assertions", assertions.take(assertionIndex).joinToString(",")),
-                Fact.fact("Untested assertions",
-                    assertions.drop(assertionIndex + 1).joinToString(","))
-            )
+        val untestedAssertions = assertions.drop(assertionIndex + 1)
+        if (failures.isEmpty() && untestedAssertions.any { !it.isOptional }) {
+            val passedAssertionsFacts = assertions.take(assertionIndex)
+                    .map { Fact.fact("Passed", it) }
+            val untestedAssertionsFacts = untestedAssertions
+                    .map { Fact.fact("Untested", it) }
+            val trace = assertionTrace.map { Fact.fact("Trace", it) }
+            val reason = mutableListOf<Fact>()
+            reason.addAll(passedAssertionsFacts)
+            reason.add(Fact.fact("Assertion never failed", assertions[assertionIndex]))
+            reason.addAll(untestedAssertionsFacts)
+            reason.addAll(trace)
             entries.first().fail(reason)
         }
     }

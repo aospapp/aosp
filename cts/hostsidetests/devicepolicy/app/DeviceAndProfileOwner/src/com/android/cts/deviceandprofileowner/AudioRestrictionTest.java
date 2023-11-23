@@ -16,13 +16,14 @@
 
 package com.android.cts.deviceandprofileowner;
 
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
-import android.provider.Settings;
 import android.os.SystemClock;
 import android.os.UserManager;
 import android.util.Log;
@@ -51,7 +52,8 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
         mPackageManager = mContext.getPackageManager();
         mUseFixedVolume = mContext.getResources().getBoolean(
                 Resources.getSystem().getIdentifier("config_useFixedVolume", "bool", "android"));
-        mUseFullVolume = isFullVolumeDevice();
+        mUseFullVolume = runWithShellPermissionIdentity(() -> mAudioManager.isFullVolumeDevice(),
+                android.Manifest.permission.QUERY_AUDIO_STATE);
     }
 
     // Here we test that DISALLOW_ADJUST_VOLUME disallows to unmute volume.
@@ -189,18 +191,5 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
             }
             Thread.sleep(200);
         }
-    }
-
-    private boolean isFullVolumeDevice() {
-        String commandOutput = runShellCommand("dumpsys audio");
-
-        for (String line : commandOutput.split("\\r?\\n")) {
-            if (Pattern.matches("\\s*mHdmiCecSink=true", line)
-                    || (Pattern.matches("\\s*mHdmiPlayBackClient=", line)
-                    && !Pattern.matches("=null$", line))) {
-                return true;
-            }
-        }
-        return false;
     }
 }

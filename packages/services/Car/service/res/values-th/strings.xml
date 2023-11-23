@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"ควบคุมนโยบายทางไฟฟ้าสำหรับรถยนต์"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"แสดงผลเทมเพลต"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"แสดงผลเทมเพลต"</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"ควบคุมการเปิดใช้งานแอปพลิเคชัน"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"ควบคุมการเปิดใช้งานแอปพลิเคชัน"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"อุปกรณ์ของฉัน"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"ผู้มาเยือน"</string>
     <string name="importance_default" msgid="8587741629268312938">"ความสำคัญเริ่มต้น"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"รีเซ็ตภายหลัง"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"ระบบสาระบันเทิงจะรีเซ็ตเมื่อสตาร์ทรถในครั้งถัดไป"</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"ต้องจอดรถเพื่อเริ่มการรีเซ็ต"</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> กำลังส่งผลต่อประสิทธิภาพการทำงานของระบบ"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"ปิดใช้แอปเพื่อเพิ่มประสิทธิภาพระบบ คุณเปิดใช้แอปได้อีกครั้งในการตั้งค่า"</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"ตั้งเป็นแอปสำคัญเพื่อใช้แอปต่อไป"</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"ถอนการติดตั้งแอปเพื่อเพิ่มประสิทธิภาพระบบ"</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"ปิดใช้แอป"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"ตั้งเป็นแอปสำคัญ"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"ถอนการติดตั้งแอป"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"ปิดใช้ <xliff:g id="ID_1">^1</xliff:g> แล้ว คุณจะเปิดใช้ได้อีกครั้งในการตั้งค่า"</string>
 </resources>

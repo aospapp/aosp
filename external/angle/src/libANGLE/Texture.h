@@ -143,10 +143,12 @@ class TextureState final : private angle::NonCopyable
     const SwizzleState &getSwizzleState() const { return mSwizzleState; }
     const SamplerState &getSamplerState() const { return mSamplerState; }
     GLenum getUsage() const { return mUsage; }
+    bool hasProtectedContent() const { return mHasProtectedContent; }
     GLenum getDepthStencilTextureMode() const { return mDepthStencilTextureMode; }
     bool isStencilMode() const { return mDepthStencilTextureMode == GL_STENCIL_INDEX; }
 
     bool hasBeenBoundAsImage() const { return mHasBeenBoundAsImage; }
+    bool hasBeenBoundAsAttachment() const { return mHasBeenBoundAsAttachment; }
 
     gl::SrgbOverride getSRGBOverride() const { return mSrgbOverride; }
 
@@ -217,12 +219,16 @@ class TextureState final : private angle::NonCopyable
     GLenum mDepthStencilTextureMode;
 
     bool mHasBeenBoundAsImage;
+    bool mHasBeenBoundAsAttachment;
 
     bool mImmutableFormat;
     GLuint mImmutableLevels;
 
     // From GL_ANGLE_texture_usage
     GLenum mUsage;
+
+    // GL_EXT_protected_textures
+    bool mHasProtectedContent;
 
     std::vector<ImageDesc> mImageDescs;
 
@@ -327,6 +333,9 @@ class Texture final : public RefCountObject<TextureID>,
 
     void setUsage(const Context *context, GLenum usage);
     GLenum getUsage() const;
+
+    void setProtectedContent(Context *context, bool hasProtectedContent);
+    bool hasProtectedContent() const override;
 
     const TextureState &getState() const { return mState; }
 
@@ -594,9 +603,9 @@ class Texture final : public RefCountObject<TextureID>,
 
         // Image state
         DIRTY_BIT_BOUND_AS_IMAGE,
+        DIRTY_BIT_BOUND_AS_ATTACHMENT,
 
         // Misc
-        DIRTY_BIT_LABEL,
         DIRTY_BIT_USAGE,
         DIRTY_BIT_IMPLEMENTATION,
 

@@ -54,10 +54,10 @@ public final class GLES20CarEvsCameraPreviewRenderer implements GLSurfaceView.Re
              1.0f, -1.0f, 0.0f };
 
     private static final float[] sVertCarTexData = {
-            0.0f, 0.0f,
-            1.0f, 0.0f,
-            0.0f, 1.0f,
-            1.0f, 1.0f };
+           -0.5f, -0.5f,
+            0.5f, -0.5f,
+           -0.5f,  0.5f,
+            0.5f,  0.5f };
 
     private static final float[] sIdentityMatrix = {
             1.0f, 0.0f, 0.0f, 0.0f,
@@ -105,9 +105,27 @@ public final class GLES20CarEvsCameraPreviewRenderer implements GLSurfaceView.Re
         mVertCarPos = ByteBuffer.allocateDirect(sVertCarPosData.length * FLOAT_SIZE_BYTES)
                 .order(ByteOrder.nativeOrder()).asFloatBuffer();
         mVertCarPos.put(sVertCarPosData).position(0);
+
+        // Rotates the matrix in counter-clockwise
+        int angleInDegree = mContext.getResources().getInteger(
+                R.integer.config_evsRearviewCameraInPlaneRotationAngle);
+        double angleInRadian = Math.toRadians(angleInDegree);
+        float[] rotated = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
+        float sin = (float)Math.sin(angleInRadian);
+        float cos = (float)Math.cos(angleInRadian);
+
+        rotated[0] += cos * sVertCarTexData[0] - sin * sVertCarTexData[1];
+        rotated[1] += sin * sVertCarTexData[0] + cos * sVertCarTexData[1];
+        rotated[2] += cos * sVertCarTexData[2] - sin * sVertCarTexData[3];
+        rotated[3] += sin * sVertCarTexData[2] + cos * sVertCarTexData[3];
+        rotated[4] += cos * sVertCarTexData[4] - sin * sVertCarTexData[5];
+        rotated[5] += sin * sVertCarTexData[4] + cos * sVertCarTexData[5];
+        rotated[6] += cos * sVertCarTexData[6] - sin * sVertCarTexData[7];
+        rotated[7] += sin * sVertCarTexData[6] + cos * sVertCarTexData[7];
+
         mVertCarTex = ByteBuffer.allocateDirect(sVertCarTexData.length * FLOAT_SIZE_BYTES)
                 .order(ByteOrder.nativeOrder()).asFloatBuffer();
-        mVertCarTex.put(sVertCarTexData).position(0);
+        mVertCarTex.put(rotated).position(0);
     }
 
     public void clearBuffer() {

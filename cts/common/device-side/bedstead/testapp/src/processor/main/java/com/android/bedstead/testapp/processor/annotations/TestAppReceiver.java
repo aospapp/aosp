@@ -17,4 +17,5 @@
 package com.android.bedstead.testapp.processor.annotations;
 
 public @interface TestAppReceiver {
+    FrameworkClass[] frameworkClasses();
 }

@@ -81,7 +81,7 @@
     <string name="enable_public_safety_messages_title" msgid="5576770949182656524">"Segurtasun publikoari buruzko mezuak"</string>
     <string name="enable_public_safety_messages_summary" msgid="7868069748857851521">"Bizia edo ondasunak salbatzeko ekintza gomendatuak"</string>
     <string name="enable_full_screen_public_safety_messages_title" msgid="1790574642368284876">"Erakutsi mezuak pantaila osoan"</string>
-    <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"Desaktibatu hau segurtasun publikoari buruzko mezuak SMS mezuetarako aplikaziora soilik bidaltzeko"</string>
+    <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"Desaktibatu hau segurtasun publikoari buruzko mezuak SMSetarako aplikaziora soilik bidaltzeko"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Estatuko eta tokiko erakundeen probak"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Jaso probako mezuak estatuko eta tokiko agintaritzengandik"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Larrialdi-alertak"</string>

@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include "IoPerfCollection.h"
-#include "UidIoStats.h"
-
 #include <android-base/file.h>
 #include <fuzzer/FuzzedDataProvider.h>
+
 #include <iostream>
+
+#include "IoPerfCollection.h"
+#include "ProcStat.h"
+#include "UidIoStatsCollector.h"
 
 namespace android {
 namespace automotive {
@@ -41,7 +43,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, std::size_t size) {
     std::string uidIoStatsSnapshot;
     std::string procStatsSnapshot;
 
-    // Prepare for UidIOStats data
+    // Prepare for UidIoStatsCollector data
     int count = 0;
     while (fdp.remaining_bytes() > (size / 2)) {
         uint64_t val = fdp.ConsumeIntegral<uint64_t>();
@@ -76,18 +78,18 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, std::size_t size) {
     }
 
     if (uidIoStatsSnapshot.size() > 0 && procStatsSnapshot.size() > 0) {
-        // Test UidIoStats
-        TemporaryFile tf1;
-        WriteStringToFile(uidIoStatsSnapshot, tf1.path);
-        UidIoStats uidIoStats(tf1.path);
-        assert(uidIoStats.enabled() == true);
-        uidIoStats.collect();
-        // Test ProcStats
-        TemporaryFile tf2;
-        WriteStringToFile(procStatsSnapshot, tf2.path);
-        ProcStat procStat(tf2.path);
-        assert(procStat.enabled() == true);
-        procStat.collect();
+      // Test UidIoStatsCollector
+      TemporaryFile tf1;
+      WriteStringToFile(uidIoStatsSnapshot, tf1.path);
+      UidIoStatsCollector uidIoStatsCollector(tf1.path);
+      assert(uidIoStatsCollector.enabled() == true);
+      uidIoStatsCollector.collect();
+      // Test ProcStat
+      TemporaryFile tf2;
+      WriteStringToFile(procStatsSnapshot, tf2.path);
+      ProcStat procStat(tf2.path);
+      assert(procStat.enabled() == true);
+      procStat.collect();
     }
     return 0;
 }

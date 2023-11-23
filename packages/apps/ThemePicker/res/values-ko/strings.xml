@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"적용"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"탭하여 수정"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"현재 배경화면 유지"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"적용"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"스타일 미리보기"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"그리드 미리보기"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"글꼴 미리보기"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, 현재 적용됨"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, 현재 적용되어 미리보기 중"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, 현재 미리보기 중"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, 선택 및 미리보기 표시 가능"</string>
     <string name="theme_description" msgid="3697012391785254635">"글꼴: <xliff:g id="ID_1">%1$s</xliff:g>, 아이콘: <xliff:g id="ID_2">%2$s</xliff:g>, 도형: <xliff:g id="ID_3">%3$s</xliff:g>, 색상: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"기본값"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"글꼴"</string>
@@ -80,7 +80,8 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"맞춤 스타일 이름"</string>
     <string name="mode_title" msgid="2394873501427436055">"어두운 테마"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"절전 모드로 인해 일시적으로 사용 중지됨"</string>
-    <string name="themed_icon_title" msgid="7312460430471956558">"테마형 아이콘"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"테마 변경됨"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"테마 아이콘"</string>
     <string name="beta_title" msgid="8703819523760746458">"베타"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"앱 그리드 변경"</string>
 </resources>

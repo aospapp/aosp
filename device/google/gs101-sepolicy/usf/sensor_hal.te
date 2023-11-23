@@ -1,0 +1,71 @@
+#
+# USF sensor HAL SELinux type enforcements.
+#
+
+# Allow reading of sensor registry persist files and camera persist files.
+allow hal_sensors_default persist_file:dir search;
+allow hal_sensors_default mnt_vendor_file:dir search;
+r_dir_file(hal_sensors_default, persist_sensor_reg_file)
+r_dir_file(hal_sensors_default, persist_camera_file)
+
+# Allow creation and writing of sensor registry data files.
+allow hal_sensors_default sensor_reg_data_file:dir rw_dir_perms;
+allow hal_sensors_default sensor_reg_data_file:file create_file_perms;
+
+# Allow access to the AoC communication driver.
+allow hal_sensors_default aoc_device:chr_file rw_file_perms;
+
+# Allow access to the AoC clock and kernel boot time sys FS node. This is needed
+# to synchronize the AP and AoC clock timestamps.
+allow hal_sensors_default sysfs_aoc_boottime:file rw_file_perms;
+
+# Allow create thread to watch AOC's device.
+allow hal_sensors_default device:dir r_dir_perms;
+
+# Allow access to the files of CDT information.
+r_dir_file(hal_sensors_default, sysfs_chosen)
+
+# Allow display_info_service access to the backlight driver.
+allow hal_sensors_default sysfs_leds:dir search;
+allow hal_sensors_default sysfs_leds:file rw_file_perms;
+
+# Allow access to the power supply files for MagCC.
+r_dir_file(hal_sensors_default, sysfs_batteryinfo)
+allow hal_sensors_default sysfs_wlc:dir r_dir_perms;
+
+# Allow access to sensor service for sensor_listener.
+binder_call(hal_sensors_default, system_server);
+
+# Allow access to the sysfs_aoc.
+allow hal_sensors_default sysfs_aoc:dir search;
+allow hal_sensors_default sysfs_aoc:file r_file_perms;
+
+# Allow use of the USF low latency transport.
+usf_low_latency_transport(hal_sensors_default)
+
+# Allow sensor HAL to reset AOC.
+allow hal_sensors_default sysfs_aoc_reset:file rw_file_perms;
+
+# Allow sensor HAL to read AoC dumpstate.
+allow hal_sensors_default sysfs_aoc_dumpstate:file r_file_perms;
+
+# Allow access for dynamic sensor properties.
+get_prop(hal_sensors_default, vendor_dynamic_sensor_prop)
+
+# Allow access to raw HID devices for dynamic sensors.
+allow hal_sensors_default hidraw_device:chr_file rw_file_perms;
+
+# Allow sensor HAL to access the display service HAL
+allow hal_sensors_default hal_pixel_display_service:service_manager find;
+binder_call(hal_sensors_default, hal_graphics_composer_default)
+
+#
+# Suez type enforcements.
+#
+
+# Allow SensorSuez to connect AIDL stats.
+binder_use(hal_sensors_default);
+allow hal_sensors_default fwk_stats_service:service_manager find;
+
+# Allow access to CHRE socket to connect to nanoapps.
+unix_socket_connect(hal_sensors_default, chre, chre)

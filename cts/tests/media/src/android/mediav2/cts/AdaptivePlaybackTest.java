@@ -219,6 +219,7 @@ public class AdaptivePlaybackTest extends CodecDecoderTestBase {
             queueEOS();
             waitForAllOutputs();
             mCodec.reset();
+            mCodec.release();
         }
         tearDownSurface();
     }

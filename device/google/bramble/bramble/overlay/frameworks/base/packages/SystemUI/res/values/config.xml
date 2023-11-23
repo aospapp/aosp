@@ -31,21 +31,14 @@
          always-on display) -->
     <string name="doze_brightness_sensor_type" translatable="false">com.google.sensor.binned_brightness</string>
 
-    <!-- Override value to use for proximity sensor.  -->
-    <string name="proximity_sensor_type" translatable="false">com.google.sensor.binned_brightness</string>
-
-    <!-- If using proximity_sensor_type, specifies a threshold value to distinguish near and
-         far break points.-->
-    <item name="proximity_sensor_threshold" translatable="false" format="float" type="dimen">1</item>
-    
     <!-- Doze: can we assume the pickup sensor includes a proximity check? -->
     <bool name="doze_pickup_performs_proximity_check">true</bool>
 
     <!-- Doze: whether the double tap sensor reports 2D touch coordinates -->
     <bool name="doze_double_tap_reports_touch_coordinates">true</bool>
 
-    <!-- Height of the status bar header bar when on Keyguard (match status_bar_portrait) -->
-    <dimen name="status_bar_header_height_keyguard">@*android:dimen/status_bar_height_portrait</dimen>
+    <!-- Height of the status bar header bar when on Keyguard (match status_bar_height) -->
+    <dimen name="status_bar_header_height_keyguard">@*android:dimen/status_bar_height</dimen>
 
     <!-- Doze: Table that translates sensor values from the doze_brightness_sensor_type sensor
                to brightness values; -1 means keeping the current brightness. -->
@@ -93,7 +86,4 @@
     <string translatable="false" name="config_cameraProtectionExcludedPackages">com.google.android.as</string>
 
     <bool name="config_enableDisplayCutoutProtection">true</bool>
-
-    <!-- Whether global actions should show an informational message about changes in S -->
-    <bool name="global_actions_show_change_info">true</bool>
 </resources>

@@ -25,6 +25,8 @@ on early-init
     # GTS tests are migrated to ro.boot.qemu.
     setprop ro.kernel.qemu 1
 
+    verity_update_state
+
 on init
     # set RLIMIT_MEMLOCK to 8MB for BPF network statistics
     setrlimit memlock 8388608 8388608
@@ -63,11 +65,12 @@ on init
 on post-fs-data
     setprop vold.post_fs_data_done 1
     mkdir /data/vendor/adb 0755 root root
+    mkdir /data/vendor/devicestate 0755 root root
     mkdir /data/vendor/var 0755 root root
     mkdir /data/vendor/var/run 0755 root root
-    mkdir /data/vendor/var/run/netns 0755 root root
 
     start qemu-adb-keys
+    start qemu-device-state
 
 on zygote-start
     # Create the directories used by the Wireless subsystem
@@ -125,14 +128,11 @@ on property:dev.bootcomplete=1
     setprop vendor.qemu.dev.bootcomplete 1
     start ranchu-setup
 
-on post-fs-data && property:ro.boot.qemu.wifi=1
-    start create_router_ns
-
 on post-fs-data && property:ro.boot.qemu.virtiowifi=1
     start ranchu-net
 
-on property:vendor.qemu.networknamespace=ready
-    start ranchu-net
+on property:ro.boot.qemu.cpuvulkan.version=*
+    setprop ro.cpuvulkan.version ${ro.boot.qemu.cpuvulkan.version}
 
 service ranchu-net /vendor/bin/init.ranchu-net.sh
     class late_start
@@ -141,39 +141,10 @@ service ranchu-net /vendor/bin/init.ranchu-net.sh
     oneshot
     disabled    # Started on post-fs-data
 
-service emu_hostapd /vendor/bin/execns router /vendor/bin/hostapd_nohidl /data/vendor/wifi/hostapd/hostapd.conf
-    user root
-    group root wifi net_raw net_admin
-    disabled
-
-service netmgr /vendor/bin/execns router /vendor/bin/netmgr --if-prefix wlan1 --bridge eth0,radio0-peer
-    user root
-    group root wifi
-    disabled
-
-service create_router_ns /vendor/bin/createns router
-    user root
-    group root
-    disabled
-    oneshot
-
-service wifi_forwarder /vendor/bin/wifi_forwarder
-    user root
-    group root wifi
-    disabled
-
-service dhcpclient_rtr /vendor/bin/dhcpclient -i radio0 --no-gateway
-    user root
-    group root
-    disabled
-
 service dhcpclient_wifi /vendor/bin/dhcpclient -i wlan0 --no-gateway
     user root
     group root
     disabled
-
-on property:vendor.network.bridged=1
-    start dhcpclient_rtr
 
 service dhcpclient_def /vendor/bin/dhcpclient -i eth0 --no-gateway
     user root
@@ -193,6 +164,12 @@ service qemu-props /vendor/bin/qemu-props
     oneshot
 
 service qemu-adb-keys /vendor/bin/qemu-adb-keys
+    class core
+    user root
+    group root
+    oneshot
+
+service qemu-device-state /vendor/bin/qemu-device-state
     class core
     user root
     group root

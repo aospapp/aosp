@@ -42,4 +42,32 @@ data class Configuration(
             smallestScreenWidthDp == 0 &&
             screenLayout == 0 &&
             uiMode == 0
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Configuration) return false
+
+        if (windowConfiguration != other.windowConfiguration) return false
+        if (densityDpi != other.densityDpi) return false
+        if (orientation != other.orientation) return false
+        if (screenHeightDp != other.screenHeightDp) return false
+        if (screenWidthDp != other.screenWidthDp) return false
+        if (smallestScreenWidthDp != other.smallestScreenWidthDp) return false
+        if (screenLayout != other.screenLayout) return false
+        if (uiMode != other.uiMode) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = windowConfiguration?.hashCode() ?: 0
+        result = 31 * result + densityDpi
+        result = 31 * result + orientation
+        result = 31 * result + screenHeightDp
+        result = 31 * result + screenWidthDp
+        result = 31 * result + smallestScreenWidthDp
+        result = 31 * result + screenLayout
+        result = 31 * result + uiMode
+        return result
+    }
 }

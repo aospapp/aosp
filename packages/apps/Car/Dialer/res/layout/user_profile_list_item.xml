@@ -16,6 +16,7 @@
   -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="@dimen/user_profile_list_item_height"
     android:gravity="start|center_vertical"
@@ -28,25 +29,46 @@
         android:layout_height="@dimen/in_call_avatar_icon_size_small"
         android:scaleType="fitCenter"/>
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_height="wrap_content"
         android:layout_width="fill_parent"
-        android:theme="@style/Theme.Dialer.BidiText"
-        android:orientation="vertical"
-        android:paddingStart="@dimen/in_call_margin_between_avatar_and_text">
+        android:theme="@style/Theme.Dialer.BidiText">
         <TextView
             android:id="@+id/user_profile_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/in_call_margin_between_avatar_and_text"
             android:textAppearance="@style/TextAppearance.Display3"
-            android:singleLine="true"/>
+            android:singleLine="true"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"/>
+
+        <TextView
+            android:id="@+id/user_profile_phone_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/in_call_margin_between_avatar_and_text"
+            android:textAppearance="@style/TextAppearance.Body3"
+            android:singleLine="true"
+            android:layout_marginTop="@dimen/in_call_phone_number_margin_top"
+            app:layout_constraintHorizontal_chainStyle="packed"
+            app:layout_constraintHorizontal_bias="0.0"
+            app:layout_constrainedWidth="true"
+            app:layout_constraintTop_toBottomOf="@id/user_profile_title"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/user_profile_phone_number"/>
+
         <TextView
             android:id="@+id/user_profile_phone_number"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textAppearance="@style/TextAppearance.Body3"
             android:singleLine="true"
-            android:layout_marginTop="@dimen/in_call_phone_number_margin_top"/>
+            android:layout_marginTop="@dimen/in_call_phone_number_margin_top"
+            app:layout_goneMarginStart="@dimen/in_call_margin_between_avatar_and_text"
+            app:layout_constraintTop_toBottomOf="@id/user_profile_title"
+            app:layout_constraintStart_toEndOf="@id/user_profile_phone_label"
+            app:layout_constraintEnd_toEndOf="parent"/>
 
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </LinearLayout>

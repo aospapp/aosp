@@ -89,6 +89,10 @@ public class DialogsActivity extends Activity implements InsetsChangedListener {
                 v -> showDialogWithSingleChoiceItems()));
         mButtons.add(Pair.create(R.string.dialog_show_list_items_without_default_button,
                 v -> showDialogWithListItemsWithoutDefaultButton()));
+        mButtons.add(Pair.create(R.string.dialog_show_unfocusable_list_items,
+                v -> showDialogWithUnfocusableListItems()));
+        mButtons.add(Pair.create(R.string.dialog_show_empty_list_items,
+                v -> showDialogWithEmptyList()));
         mButtons.add(Pair.create(R.string.dialog_show_permission_dialog,
                 v -> showPermissionDialog()));
         mButtons.add(Pair.create(R.string.dialog_show_multi_permission_dialog,
@@ -233,6 +237,50 @@ public class DialogsActivity extends Activity implements InsetsChangedListener {
                 .setSubtitle("Ony one option may be selected at a time")
                 .setAdapter(new CarUiListItemAdapter(data))
                 .setAllowDismissButton(false)
+                .show();
+    }
+
+    private void showDialogWithUnfocusableListItems() {
+        List<CarUiContentListItem> data = new ArrayList<>();
+
+        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
+        item.setTitle("First item");
+        data.add(item);
+
+        item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
+        item.setTitle("Second item");
+        data.add(item);
+
+        item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
+        item.setTitle("Third item");
+        data.add(item);
+
+        item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
+        item.setTitle("Fourth item");
+        data.add(item);
+
+        item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
+        item.setTitle("Fifth item");
+        data.add(item);
+
+        item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
+        item.setTitle("Sixth item");
+        data.add(item);
+
+        item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
+        item.setTitle("Seventh item");
+        data.add(item);
+
+        new AlertDialogBuilder(this)
+                .setTitle("Unfocusable items")
+                .setAdapter(new CarUiListItemAdapter(data))
+                .show();
+    }
+
+    private void showDialogWithEmptyList() {
+        new AlertDialogBuilder(this)
+                .setTitle("Empty list")
+                .setAdapter(new CarUiListItemAdapter(new ArrayList<CarUiContentListItem>()))
                 .show();
     }
 

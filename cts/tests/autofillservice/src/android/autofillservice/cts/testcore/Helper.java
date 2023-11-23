@@ -33,6 +33,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.app.PendingIntent;
 import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
@@ -758,10 +759,9 @@ public final class Helper {
     /**
      * Asserts the number of children in the Assist structure.
      */
-    public static void assertNumberOfChildren(AssistStructure structure, int expected) {
-        assertWithMessage("wrong number of nodes").that(structure.getWindowNodeCount())
-                .isEqualTo(1);
-        final int actual = getNumberNodes(structure);
+    public static void assertNumberOfChildrenWithWindowTitle(AssistStructure structure,
+            int expected, CharSequence windowTitle) {
+        final int actual = getNumberNodes(structure, windowTitle);
         if (actual != expected) {
             dumpStructure("assertNumberOfChildren()", structure);
             throw new AssertionError("assertNumberOfChildren() for structure failed: expected "
@@ -772,15 +772,28 @@ public final class Helper {
     /**
      * Gets the total number of nodes in an structure.
      */
-    public static int getNumberNodes(AssistStructure structure) {
+    public static int getNumberNodes(AssistStructure structure,
+            CharSequence windowTitle) {
         int count = 0;
         final int nodes = structure.getWindowNodeCount();
         for (int i = 0; i < nodes; i++) {
             final WindowNode windowNode = structure.getWindowNodeAt(i);
-            final ViewNode rootNode = windowNode.getRootViewNode();
-            count += getNumberNodes(rootNode);
+            if (windowNode.getTitle().equals(windowTitle)) {
+                final ViewNode rootNode = windowNode.getRootViewNode();
+                count += getNumberNodes(rootNode);
+            }
         }
         return count;
+    }
+
+    /**
+     * Gets the activity title.
+     */
+    public static CharSequence getActivityTitle(Instrumentation instrumentation,
+            Activity activity) {
+        final StringBuilder titleBuilder = new StringBuilder();
+        instrumentation.runOnMainSync(() -> titleBuilder.append(activity.getTitle()));
+        return titleBuilder;
     }
 
     /**
@@ -904,6 +917,11 @@ public final class Helper {
         }
         if (packageManager.hasSystemFeature(PackageManager.FEATURE_PC)) {
             Log.v(TAG, "isRotationSupported(): is PC");
+            return false;
+        }
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_SCREEN_LANDSCAPE)
+                || !packageManager.hasSystemFeature(PackageManager.FEATURE_SCREEN_PORTRAIT)) {
+            Log.v(TAG, "isRotationSupported(): no screen orientation feature");
             return false;
         }
         return true;

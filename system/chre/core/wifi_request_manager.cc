@@ -282,6 +282,9 @@ void WifiRequestManager::logStateToBuffer(DebugDumpWrapper &debugDump) const {
                     log.timestamp.toRawNanoseconds(), log.instanceId,
                     log.scanType, log.maxScanAgeMs.getMilliseconds());
   }
+
+  debugDump.print(" Last scan event @ %" PRIu64 " ms",
+                  mLastScanEventTime.getMilliseconds());
 }
 
 bool WifiRequestManager::scanMonitorIsEnabled() const {
@@ -435,6 +438,7 @@ void WifiRequestManager::postScanRequestAsyncResultEventFatal(
 }
 
 void WifiRequestManager::postScanEventFatal(chreWifiScanEvent *event) {
+  mLastScanEventTime = Milliseconds(SystemTime::getMonotonicTime());
   EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
       CHRE_EVENT_WIFI_SCAN_RESULT, event, freeWifiScanEventCallback);
 }

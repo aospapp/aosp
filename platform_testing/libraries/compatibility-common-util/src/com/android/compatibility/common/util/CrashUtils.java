@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.math.BigInteger;
 import org.json.JSONArray;
@@ -53,6 +54,9 @@ public class CrashUtils {
     public static final String PID = "pid";
     public static final String TID = "tid";
     public static final String FAULT_ADDRESS = "faultaddress";
+    public static final String FILENAME = "filename";
+    public static final String METHOD = "method";
+    public static final String BACKTRACE = "backtrace";
     // Matches the smallest blob that has the appropriate header and footer
     private static final Pattern sCrashBlobPattern =
             Pattern.compile("DEBUG\\s+?:( [*]{3})+?.*?DEBUG\\s+?:\\s+?backtrace:", Pattern.DOTALL);
@@ -65,8 +69,21 @@ public class CrashUtils {
                     "\\w+? \\d+? \\((.*?)\\), code -*?\\d+? \\(.*?\\), fault addr "
                             + "(?:0x(\\p{XDigit}+)|-+)");
     // Matches the abort message line
-    private static Pattern sAbortMessagePattern =
-            Pattern.compile("(?i)Abort message: (.*)");
+    private static Pattern sAbortMessagePattern = Pattern.compile("(?i)Abort message: (.*)");
+    // Matches one backtrace NOTE line, exactly as tombstone_proto_to_text's print_thread_backtrace
+    private static Pattern sBacktraceNotePattern =
+            Pattern.compile("[0-9\\-\\s:.]+[A-Z] DEBUG\\s+:\\s+NOTE: .*");
+    // Matches one backtrace frame, exactly as tombstone_proto_to_text's print_backtrace
+    // Two versions, because we want to exclude the BuildID section if it exists
+    private static Pattern sBacktraceFrameWithBuildIdPattern =
+            Pattern.compile(
+                    "[0-9\\-\\s:.]+[A-Z] DEBUG\\s+:\\s+#[0-9]+ pc [0-9a-fA-F]+  "
+                            + "(?<filename>[^\\s]+)(\\s+\\((?<method>.*)\\))?"
+                            + "\\s+\\(BuildId: .*\\)");
+    private static Pattern sBacktraceFrameWithoutBuildIdPattern =
+            Pattern.compile(
+                    "[0-9\\-\\s:.]+[A-Z] DEBUG\\s+:\\s+#[0-9]+ pc [0-9a-fA-F]+  "
+                            + "(?<filename>[^\\s]+)(\\s+\\((?<method>.*)\\))?");
 
     public static final String SIGSEGV = "SIGSEGV";
     public static final String SIGBUS = "SIGBUS";
@@ -155,6 +172,37 @@ public class CrashUtils {
                         continue;
                     }
                 }
+
+                JSONArray backtrace = crash.getJSONArray(BACKTRACE);
+
+                /* if backtrace "includes" patterns are present, ignore this crash if there is no
+                 * frame that matches any of the patterns
+                 */
+                List<Config.BacktraceFilterPattern> backtraceIncludes =
+                        config.getBacktraceIncludes();
+                if (!backtraceIncludes.isEmpty()) {
+                    if (!IntStream.range(0, backtrace.length())
+                            .mapToObj(j -> backtrace.optJSONObject(j))
+                            .flatMap(frame -> backtraceIncludes.stream().map(p -> p.match(frame)))
+                            .anyMatch(matched -> matched)) {
+                        continue;
+                    }
+                }
+
+                /* if backtrace "excludes" patterns are present, ignore this crash if there is any
+                 * frame that matches any of the patterns
+                 */
+                List<Config.BacktraceFilterPattern> backtraceExcludes =
+                        config.getBacktraceExcludes();
+                if (!backtraceExcludes.isEmpty()) {
+                    if (IntStream.range(0, backtrace.length())
+                            .mapToObj(j -> backtrace.optJSONObject(j))
+                            .flatMap(frame -> backtraceExcludes.stream().map(p -> p.match(frame)))
+                            .anyMatch(matched -> matched)) {
+                        continue;
+                    }
+                }
+
                 securityCrashes.put(crash);
             } catch (JSONException | NullPointerException e) {}
         }
@@ -185,15 +233,18 @@ public class CrashUtils {
             String process = null;
             String signal = null;
             String abortMessage = null;
+            List<BacktraceFrameInfo> backtraceFrames = new ArrayList<BacktraceFrameInfo>();
 
             Matcher pidtidNameMatcher = sPidtidNamePattern.matcher(crashStr);
             if (pidtidNameMatcher.find()) {
                 try {
                     pid = Integer.parseInt(pidtidNameMatcher.group(1));
-                } catch (NumberFormatException e) {}
+                } catch (NumberFormatException e) {
+                }
                 try {
                     tid = Integer.parseInt(pidtidNameMatcher.group(2));
-                } catch (NumberFormatException e) {}
+                } catch (NumberFormatException e) {
+                }
                 name = pidtidNameMatcher.group(3).trim();
                 process = pidtidNameMatcher.group(4).trim();
             }
@@ -205,7 +256,8 @@ public class CrashUtils {
                 if (faultAddrMatch != null) {
                     try {
                         faultAddress = new BigInteger(faultAddrMatch, 16);
-                    } catch (NumberFormatException e) {}
+                    } catch (NumberFormatException e) {
+                    }
                 }
             }
 
@@ -214,20 +266,85 @@ public class CrashUtils {
                 abortMessage = abortMessageMatcher.group(1);
             }
 
+            // Continue on after the crash block to find all the stacktrace entries.
+            // The format is from tombstone_proto_to_text.cpp's print_thread_backtrace()
+            // This will scan the logcat lines until it finds a line that does not match,
+            // or end of log.
+            int currentIndex = crashBlobFinder.end();
+            while (true) {
+                int firstEndline = input.indexOf('\n', currentIndex);
+                int secondEndline = input.indexOf('\n', firstEndline + 1);
+                currentIndex = secondEndline;
+                if (firstEndline == -1 || secondEndline == -1) break;
+
+                String nextLine = input.substring(firstEndline + 1, secondEndline);
+
+                Matcher backtraceNoteMatcher = sBacktraceNotePattern.matcher(nextLine);
+                if (backtraceNoteMatcher.matches()) {
+                    continue;
+                }
+
+                Matcher backtraceFrameWithBuildIdMatcher =
+                        sBacktraceFrameWithBuildIdPattern.matcher(nextLine);
+                Matcher backtraceFrameWithoutBuildIdMatcher =
+                        sBacktraceFrameWithoutBuildIdPattern.matcher(nextLine);
+
+                Matcher backtraceFrameMatcher = null;
+                if (backtraceFrameWithBuildIdMatcher.matches()) {
+                    backtraceFrameMatcher = backtraceFrameWithBuildIdMatcher;
+
+                } else if (backtraceFrameWithoutBuildIdMatcher.matches()) {
+                    backtraceFrameMatcher = backtraceFrameWithoutBuildIdMatcher;
+
+                } else {
+                    break;
+                }
+
+                backtraceFrames.add(
+                        new BacktraceFrameInfo(
+                                backtraceFrameMatcher.group("filename"),
+                                backtraceFrameMatcher.group("method")));
+            }
+
             try {
                 JSONObject crash = new JSONObject();
                 crash.put(PID, pid);
                 crash.put(TID, tid);
                 crash.put(NAME, name);
                 crash.put(PROCESS, process);
-                crash.put(FAULT_ADDRESS,
-                        faultAddress == null ? null : faultAddress.toString(16));
+                crash.put(FAULT_ADDRESS, faultAddress == null ? null : faultAddress.toString(16));
                 crash.put(SIGNAL, signal);
                 crash.put(ABORT_MESSAGE, abortMessage);
+                JSONArray backtrace = new JSONArray();
+                for (BacktraceFrameInfo frame : backtraceFrames) {
+                    backtrace.put(
+                            new JSONObject()
+                                    .put(FILENAME, frame.getFilename())
+                                    .put(METHOD, frame.getMethod()));
+                }
+                crash.put(BACKTRACE, backtrace);
                 crashes.put(crash);
             } catch (JSONException e) {}
         }
         return crashes;
+    }
+
+    public static class BacktraceFrameInfo {
+        private final String filename;
+        private final String method;
+
+        public BacktraceFrameInfo(String filename, String method) {
+            this.filename = filename;
+            this.method = method;
+        }
+
+        public String getFilename() {
+            return this.filename;
+        }
+
+        public String getMethod() {
+            return this.method;
+        }
     }
 
     public static class Config {
@@ -237,6 +354,8 @@ public class CrashUtils {
         private List<Pattern> processPatterns;
         private List<Pattern> abortMessageIncludes;
         private List<Pattern> abortMessageExcludes;
+        private List<BacktraceFilterPattern> backtraceIncludes;
+        private List<BacktraceFilterPattern> backtraceExcludes;
 
         public Config() {
             checkMinAddress = true;
@@ -245,6 +364,8 @@ public class CrashUtils {
             abortMessageIncludes = new ArrayList<>();
             setAbortMessageExcludes("CHECK_", "CANNOT LINK EXECUTABLE");
             processPatterns = new ArrayList();
+            backtraceIncludes = new ArrayList();
+            backtraceExcludes = new ArrayList();
         }
 
         public Config setMinAddress(BigInteger minCrashAddress) {
@@ -330,6 +451,87 @@ public class CrashUtils {
         public Config appendProcessPatterns(Pattern... processPatterns) {
             Collections.addAll(this.processPatterns, processPatterns);
             return this;
+        }
+
+        public Config setBacktraceIncludes(BacktraceFilterPattern... patterns) {
+            this.backtraceIncludes = new ArrayList<>(Arrays.asList(patterns));
+            return this;
+        }
+
+        public List<BacktraceFilterPattern> getBacktraceIncludes() {
+            return Collections.unmodifiableList(this.backtraceIncludes);
+        }
+
+        public Config appendBacktraceIncludes(BacktraceFilterPattern... patterns) {
+            Collections.addAll(this.backtraceIncludes, patterns);
+            return this;
+        }
+
+        public Config setBacktraceExcludes(BacktraceFilterPattern... patterns) {
+            this.backtraceExcludes = new ArrayList<>(Arrays.asList(patterns));
+            return this;
+        }
+
+        public List<BacktraceFilterPattern> getBacktraceExcludes() {
+            return Collections.unmodifiableList(this.backtraceExcludes);
+        }
+
+        public Config appendBacktraceExcludes(BacktraceFilterPattern... patterns) {
+            Collections.addAll(this.backtraceExcludes, patterns);
+            return this;
+        }
+
+        /**
+         * A utility class that contains patterns to filter backtraces on.
+         *
+         * <p>A filter matches if any of the backtrace frame matches any of the patterns.
+         *
+         * <p>Either filenamePattern or methodPattern can be null, in which case it will act like a
+         * wildcard pattern and matches anything.
+         *
+         * <p>A null filename or method name will not match any non-null pattern.
+         */
+        public static class BacktraceFilterPattern {
+            private final Pattern filenamePattern;
+            private final Pattern methodPattern;
+
+            /**
+             * Constructs a BacktraceFilterPattern with the given file and method name patterns.
+             *
+             * <p>Null patterns are interpreted as wildcards and match anything.
+             *
+             * @param filenamePattern Regex string for the filename pattern. Can be null.
+             * @param methodPattern Regex string for the method name pattern. Can be null.
+             */
+            public BacktraceFilterPattern(String filenamePattern, String methodPattern) {
+                if (filenamePattern == null) {
+                    this.filenamePattern = null;
+                } else {
+                    this.filenamePattern = Pattern.compile(filenamePattern);
+                }
+
+                if (methodPattern == null) {
+                    this.methodPattern = null;
+                } else {
+                    this.methodPattern = Pattern.compile(methodPattern);
+                }
+            }
+
+            /** Returns true if the current patterns match a backtrace frame. */
+            public boolean match(JSONObject frame) {
+                if (frame == null) return false;
+
+                String filename = frame.optString(FILENAME);
+                String method = frame.optString(METHOD);
+
+                boolean filenameMatches =
+                        (filenamePattern == null
+                                || (filename != null && filenamePattern.matcher(filename).find()));
+                boolean methodMatches =
+                        (methodPattern == null
+                                || (method != null && methodPattern.matcher(method).find()));
+                return filenameMatches && methodMatches;
+            }
         }
     }
 

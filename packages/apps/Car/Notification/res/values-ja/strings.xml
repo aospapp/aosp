@@ -18,6 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assist_action_play_label" msgid="6278705468288338172">"再生"</string>
+    <string name="assist_action_reply_label" msgid="6946087036560525072">"返信"</string>
     <string name="action_mute_short" msgid="5239851786101022633">"ミュート"</string>
     <string name="action_mute_long" msgid="6846675719189989477">"会話をミュート"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"ミュートを解除"</string>
@@ -31,13 +32,21 @@
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
     <string name="show_more" msgid="7291378544926443344">"展開"</string>
     <string name="notification_header" msgid="324550431063568049">"通知"</string>
+    <string name="notification_recents" msgid="5855769440781958546">"最近の通知"</string>
+    <string name="notification_older" msgid="8162161020296499690">"以前の通知"</string>
     <string name="empty_notification_header" msgid="4928379791607839720">"通知はありません"</string>
-    <string name="show_less" msgid="7342677676229302829">"折りたたむ"</string>
+    <string name="collapse_group" msgid="4923097735600949715">"グループを閉じる"</string>
+    <string name="show_more_from_app" msgid="4270626118092846628">"<xliff:g id="APP">%2$s</xliff:g> のその他の通知 <xliff:g id="COUNT">%1$d</xliff:g> 件"</string>
     <string name="show_count_more" msgid="480555295700318609">"他 <xliff:g id="COUNT">%d</xliff:g> 件を表示"</string>
-    <string name="message_unshown_count" msgid="2234421277246741233">" 他 <xliff:g id="COUNT">%d</xliff:g> 件"</string>
-    <plurals name="restricted_message_text" formatted="false" msgid="507312322886633308">
-      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> 件の新着メッセージ</item>
-      <item quantity="one">1 件の新着メッセージ</item>
+    <plurals name="message_unshown_count" formatted="false" msgid="2454776257150137504">
+      <item quantity="other">他のメッセージ: <xliff:g id="COUNT_1">%d</xliff:g></item>
+      <item quantity="one">他のメッセージ: <xliff:g id="COUNT_0">%d</xliff:g></item>
     </plurals>
+    <plurals name="restricted_numbered_message_content" formatted="false" msgid="232398073855919710">
+      <item quantity="other">新しいメッセージ <xliff:g id="COUNT_1">%d</xliff:g> 件</item>
+      <item quantity="one">新しいメッセージ <xliff:g id="COUNT_0">%d</xliff:g> 件</item>
+    </plurals>
+    <string name="see_more_message" msgid="6343183827924395955">"もっと見る"</string>
+    <string name="restricted_hun_message_content" msgid="631111937988857716">"新着メッセージ"</string>
     <string name="manage_text" msgid="4225197445283791757">"管理"</string>
 </resources>

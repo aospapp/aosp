@@ -166,16 +166,9 @@ public final class ThemeHelper {
     return PartnerConfigHelper.shouldApplyExtendedPartnerConfig(context);
   }
 
-  /**
-   * Returns {@code true} if the partner provider of SetupWizard is ready to support dynamic color.
-   */
-  public static boolean isSetupWizardDynamicColorEnabled(@NonNull Context context) {
-    return PartnerConfigHelper.isSetupWizardDynamicColorEnabled(context);
-  }
-
   /** Returns {@code true} if this {@code context} should apply dynamic color. */
   public static boolean shouldApplyDynamicColor(@NonNull Context context) {
-    return shouldApplyExtendedPartnerConfig(context) && isSetupWizardDynamicColorEnabled(context);
+    return PartnerConfigHelper.isSetupWizardDynamicColorEnabled(context);
   }
 
   /**
@@ -237,12 +230,12 @@ public final class ThemeHelper {
 
   /** Returns {@code true} if the dynamic color is set. */
   public static boolean trySetDynamicColor(@NonNull Context context) {
-    if (!shouldApplyExtendedPartnerConfig(context)) {
-      LOG.w("SetupWizard does not supports the extended partner configs.");
+    if (!BuildCompatUtils.isAtLeastS()) {
+      LOG.w("Dynamic color require platform version at least S.");
       return false;
     }
 
-    if (!isSetupWizardDynamicColorEnabled(context)) {
+    if (!shouldApplyDynamicColor(context)) {
       LOG.w("SetupWizard does not support the dynamic color or supporting status unknown.");
       return false;
     }

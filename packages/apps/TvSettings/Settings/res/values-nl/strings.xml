@@ -28,8 +28,8 @@
     <string name="action_off_description" msgid="1368039592272701910">"Uit"</string>
     <string name="agree" msgid="8155497436593889753">"Akkoord"</string>
     <string name="disagree" msgid="7402998517682194430">"Niet akkoord"</string>
-    <string name="enabled" msgid="5127188665060746381">"Ingeschakeld"</string>
-    <string name="disabled" msgid="4589065923272201387">"Uitgeschakeld"</string>
+    <string name="enabled" msgid="5127188665060746381">"Aan"</string>
+    <string name="disabled" msgid="4589065923272201387">"Uit"</string>
     <string name="unavailable" msgid="1610732303812180196">"Niet beschikbaar"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"Suggesties"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"Snelle instellingen"</string>
@@ -75,7 +75,7 @@
     <string name="sync_now" msgid="4335217984374620551">"Nu synchroniseren"</string>
     <string name="sync_in_progress" msgid="8081367667406185785">"Synchroniseren…"</string>
     <string name="last_synced" msgid="8371967816955123864">"Laatst gesynchroniseerd: <xliff:g id="TIME">%1$s</xliff:g>"</string>
-    <string name="sync_disabled" msgid="6652778349371079140">"Uitgeschakeld"</string>
+    <string name="sync_disabled" msgid="6652778349371079140">"Uit"</string>
     <string name="account_remove" msgid="8456848988853890155">"Account verwijderen"</string>
     <string name="account_remove_failed" msgid="5654411101098531690">"Kan account niet verwijderen"</string>
     <!-- no translation found for sync_item_title (5884138264243772176) -->
@@ -88,10 +88,10 @@
     <string name="connectivity_ethernet" msgid="4270588618633681766">"Ethernet"</string>
     <string name="connectivity_summary_ethernet_connected" msgid="2612843587731520061">"Ethernet verbonden"</string>
     <string name="connectivity_summary_no_network_connected" msgid="6111160695454212460">"Geen netwerk verbonden"</string>
-    <string name="connectivity_summary_wifi_disabled" msgid="7819225159680467324">"Wifi is uitgeschakeld"</string>
+    <string name="connectivity_summary_wifi_disabled" msgid="7819225159680467324">"Wifi staat uit"</string>
     <string name="wifi_setting_always_scan" msgid="431846292711998602">"Scannen altijd beschikbaar"</string>
-    <string name="wifi_setting_always_scan_context" msgid="1092998659666221222">"De locatieservice en andere apps van Google laten scannen naar netwerken, zelfs wanneer wifi is uitgeschakeld"</string>
-    <string name="wifi_setting_always_scan_content_description" msgid="484630053450137332">"Scannen altijd beschikbaar, de locatieservice en andere apps van Google laten scannen naar netwerken, zelfs wanneer wifi is uitgeschakeld"</string>
+    <string name="wifi_setting_always_scan_context" msgid="1092998659666221222">"De locatieservice en andere apps van Google laten scannen naar netwerken, zelfs wanneer wifi uitstaat"</string>
+    <string name="wifi_setting_always_scan_content_description" msgid="484630053450137332">"Scannen altijd beschikbaar, de locatieservice en andere apps van Google laten scannen naar netwerken, zelfs wanneer wifi uitstaat"</string>
     <string name="wifi_setting_enable_wifi" msgid="5276730445393952969">"Wifi"</string>
     <string name="connectivity_hint_message" msgid="5638304246522516583">"Verbinding maken met netwerk"</string>
     <string name="connectivity_network_diagnostics" msgid="4396132865849151854">"Netwerkdiagnose"</string>
@@ -101,7 +101,7 @@
     <string name="overlay_security_slice_title" msgid="4895032817538300187"></string>
     <string name="update_slice_title" msgid="6553763903108611747"></string>
     <string name="all_apps_title" msgid="3717294436135280133">"Alle apps"</string>
-    <string name="all_apps_show_system_apps" msgid="1260688031005374302">"Systeem-apps weergeven"</string>
+    <string name="all_apps_show_system_apps" msgid="1260688031005374302">"Systeem-apps tonen"</string>
     <string name="all_apps_installed" msgid="8217778476185598971">"Geïnstalleerde apps"</string>
     <string name="all_apps_other" msgid="4420174882983813158">"Systeemapps"</string>
     <string name="all_apps_disabled" msgid="2776041242863791053">"Uitgeschakelde apps"</string>
@@ -160,7 +160,7 @@
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Als de app hierom vraagt, probeert je apparaat de uitvoer te laten overeenkomen met de oorspronkelijke framesnelheid van de content die je bekijkt. Je scherm kan een seconde leeg zijn als de videoweergave wordt afgesloten of geopend."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Nooit"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Zelfs als de app hierom vraagt, probeert je apparaat nooit de uitvoer te laten overeenkomen met de oorspronkelijke framesnelheid van de content die je bekijkt."</string>
-    <string name="font_scale_settings_title" msgid="4114019544800225980">"Tekstschaal"</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"Tekstgrootte"</string>
     <string name="font_scale_item_detail" msgid="1558315053348778805">"Schalen tot <xliff:g id="SCALE">%1$d</xliff:g>%%"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"Voorbeeldtekst"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"De tovenaar van Oz"</string>
@@ -258,7 +258,7 @@
     <string name="accessibility_none" msgid="6355646833528306702">"Geen"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"Gebruik en diagnostische gegevens"</string>
     <string name="no_device_admins" msgid="4628974717150185625">"Geen apparaatbeheer-apps beschikbaar"</string>
-    <string name="security_enable_widgets_disabled_summary" msgid="7678529948487939871">"Uitgeschakeld door beheerder"</string>
+    <string name="security_enable_widgets_disabled_summary" msgid="7678529948487939871">"Uitgezet door beheerder"</string>
     <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"Niet beschikbaar"</string>
     <string name="manage_device_admin" msgid="5714217234035017983">"Apps voor apparaatbeheer"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"Geen actieve apps"</string>
@@ -266,7 +266,7 @@
       <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> actieve apps</item>
       <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> actieve app</item>
     </plurals>
-    <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"Uitgeschakeld door beheerder, versleutelingsbeleid of opslag certificaatgegevens"</string>
+    <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"Uitgezet door beheerder, versleutelingsbeleid of opslag certificaatgegevens"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"Informatie over beheerd apparaat"</string>
     <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"Wijzigingen en instellingen beheerd door je organisatie"</string>
     <string name="enterprise_privacy_settings_summary_with_name" msgid="2866704039759872293">"Wijzigingen en instellingen beheerd door <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>"</string>
@@ -364,7 +364,7 @@
     <string name="show_dev_already" msgid="1522591284776449818">"Niet nodig, je bent al een ontwikkelaar"</string>
     <string name="device_info_default" msgid="2374506935205518448">"Onbekend"</string>
     <string name="selinux_status" msgid="1146662734953021410">"SELinux-status"</string>
-    <string name="selinux_status_disabled" msgid="4027105362332795142">"Uitgeschakeld"</string>
+    <string name="selinux_status_disabled" msgid="4027105362332795142">"Uit"</string>
     <string name="selinux_status_permissive" msgid="8694617578567517527">"Permissive (Tolerant)"</string>
     <string name="selinux_status_enforcing" msgid="4140979635669643342">"Enforcing (Wordt afgedwongen)"</string>
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"Aanvullende systeemupdates"</string>
@@ -396,7 +396,7 @@
     <string name="oem_unlock_enable_disabled_summary_connectivity" msgid="2979556699380115576">"Maak eerst verbinding met internet"</string>
     <string name="oem_unlock_enable_disabled_summary_connectivity_or_locked" msgid="1946089732305102622">"Verbind met internet of neem contact op met je provider"</string>
     <string name="oem_unlock_enable_disabled_summary_sim_locked_device" msgid="5634005787486307657">"Niet beschikbaar op door provider vergrendelde apparaten"</string>
-    <string name="oem_lock_info_message" msgid="2165887409937351689">"Start het apparaat opnieuw op om de functie voor apparaatbeveiliging in te schakelen."</string>
+    <string name="oem_lock_info_message" msgid="2165887409937351689">"Start het apparaat opnieuw op om de functie voor apparaatbeveiliging aan te zetten."</string>
     <string name="automatic_storage_manager_freed_bytes" msgid="1654574152815129396">"<xliff:g id="SIZE">%1$s</xliff:g> in totaal beschikbaar gemaakt\n\nLaatst uitgevoerd op <xliff:g id="DATE">%2$s</xliff:g>"</string>
     <string name="fcc_equipment_id" msgid="6731077083927000108">"Apparatuur-ID"</string>
     <string name="baseband_version" msgid="5618116741093274294">"Smalbandversie"</string>
@@ -472,7 +472,7 @@
     <string name="title_wifi_known_network" msgid="6162483884727898697">"<xliff:g id="SSID">%1$s</xliff:g> is een opgeslagen netwerk"</string>
     <string name="title_wifi_scan_qr_code" msgid="7485605625055717874">"Scan de QR-code om verbinding te maken"</string>
     <string name="wifi_action_try_again" msgid="8920677153891141148">"Opnieuw proberen"</string>
-    <string name="wifi_action_view_available_networks" msgid="609561604257828342">"Beschikbare netwerken weergeven"</string>
+    <string name="wifi_action_view_available_networks" msgid="609561604257828342">"Beschikbare netwerken bekijken"</string>
     <string name="wifi_connecting" msgid="4234341255109283018">"Verbinding maken met <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_saving" msgid="320653339670641708">"Configuratie voor <xliff:g id="SSID">%1$s</xliff:g> opslaan"</string>
     <string name="wifi_connect" msgid="2206086690065242121">"Verbinding maken"</string>
@@ -650,17 +650,17 @@
     <string name="third_party_location_services_title" msgid="2826218400381676508">"Locatieservices van derden"</string>
     <string name="location_reporting" msgid="3552501333650895634">"Locatiemelding"</string>
     <string name="location_history" msgid="4055660203090513120">"Locatiegeschiedenis"</string>
-    <string name="location_reporting_desc" msgid="1580018652781674608">"Google gebruikt deze functie in producten als Google Now en Google Maps. Als je Locatierapportage inschakelt, kan elk Google-product dat deze functie gebruikt de meest recente locatiegegevens van je apparaat gebruiken in combinatie met je Google-account."</string>
-    <string name="location_history_desc" msgid="926674012916014270">"Wanneer \'Locatiegeschiedenis\' voor dit account is ingeschakeld, kan Google de locatiegegevens van je apparaat opslaan voor gebruik door je apps.\n\nGoogle Maps kan je bijvoorbeeld routebeschrijvingen bieden en Google Now kan je informeren over woon-werkverkeer.\n\nJe kunt de Locatiegeschiedenis op elk gewenst moment uitschakelen, maar de geschiedenis wordt hierdoor niet verwijderd. Als je je Locatiegeschiedenis wilt weergeven en beheren, ga je naar maps.google.com/locationhistory."</string>
+    <string name="location_reporting_desc" msgid="1580018652781674608">"Google gebruikt deze functie in producten als Google Now en Google Maps. Als je Locatierapportage aanzet, kan elk Google-product dat deze functie gebruikt de meest recente locatiegegevens van je apparaat gebruiken in combinatie met je Google-account."</string>
+    <string name="location_history_desc" msgid="926674012916014270">"Wanneer \'Locatiegeschiedenis\' voor dit account aanstaat, kan Google de locatiegegevens van je apparaat opslaan voor gebruik door je apps.\n\nGoogle Maps kan je bijvoorbeeld routebeschrijvingen bieden en Google Now kan je informeren over woon-werkverkeer.\n\nJe kunt de Locatiegeschiedenis op elk gewenst moment uitzetten, maar de geschiedenis wordt hierdoor niet verwijderd. Als je je Locatiegeschiedenis wilt bekijken en beheren, ga je naar maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"Locatiegeschiedenis verwijderen"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"Hiermee wordt alle Locatiegeschiedenis voor dit apparaat in dit Google-account gewist. Je kunt dit niet ongedaan maken. Sommige apps, waaronder Google Now, werken niet meer."</string>
     <string name="system_services" msgid="5754310941186053151">"Services"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"Service-instellingen"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"Tekst met hoog contrast"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"Snelkoppeling toegankelijkheid"</string>
-    <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"Snelkoppeling toegankelijkheid inschakelen"</string>
+    <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"Snelkoppeling toegankelijkheid aanzetten"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"Service van sneltoets"</string>
-    <string name="accessibility_shortcut_description" msgid="2050424178481510046">"Wanneer de sneltoets is ingeschakeld, kun je een toegankelijkheidsfunctie starten door drie seconden op de knop Terug en de knop Omlaag te drukken."</string>
+    <string name="accessibility_shortcut_description" msgid="2050424178481510046">"Wanneer de sneltoets aanstaat, kun je een toegankelijkheidsfunctie starten door drie seconden op de knop Terug en de knop Omlaag te drukken."</string>
     <string name="accessibility_captions" msgid="3411554568812306549">"Ondertiteling"</string>
     <string name="accessibility_captions_description" msgid="3827820027578548160">"Instellingen voor ondertitelingsoverlay in video"</string>
     <string name="captions_display" msgid="2598662495450633375">"Weergave"</string>
@@ -677,12 +677,12 @@
     <string name="captions_textcolor" msgid="1566679779609140317">"Tekstkleur"</string>
     <string name="captions_edgetype" msgid="4875636291904824401">"Randtype"</string>
     <string name="captions_edgecolor" msgid="2779925179084237336">"Randkleur"</string>
-    <string name="captions_backgroundshow" msgid="1080183686470477645">"Achtergrond weergeven"</string>
+    <string name="captions_backgroundshow" msgid="1080183686470477645">"Achtergrond tonen"</string>
     <string name="captions_backgroundcolor" msgid="2056944109914399253">"Achtergrondkleur"</string>
     <string name="captions_backgroundopacity" msgid="1850126438162000027">"Ondoorzichtigheid van achtergrond"</string>
     <string name="captioning_preview_text" msgid="3034147586392743237">"Ondertiteling ziet er zo uit"</string>
     <string name="captions_textopacity" msgid="6055602491649526307">"Ondoorzichtigheid van tekst"</string>
-    <string name="captions_windowshow" msgid="6002072054703167886">"Venster weergeven"</string>
+    <string name="captions_windowshow" msgid="6002072054703167886">"Venster tonen"</string>
     <string name="captions_windowcolor" msgid="7460430328878876648">"Vensterkleur"</string>
     <string name="captions_windowopacity" msgid="8645082670322789314">"Ondoorzichtigheid van venster"</string>
     <string name="captions_style_0" msgid="169414884289770256">"Wit op zwart"</string>
@@ -698,7 +698,7 @@
     <string name="color_cyan" msgid="3172130225116530998">"Cyaan"</string>
     <string name="color_yellow" msgid="3519470952904560404">"Geel"</string>
     <string name="color_magenta" msgid="2377854703399624607">"Magenta"</string>
-    <string name="system_accessibility_status" msgid="8504842254080682515">"Inschakelen"</string>
+    <string name="system_accessibility_status" msgid="8504842254080682515">"Aanzetten"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"Configuratie"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"<xliff:g id="SERVICE">%1$s</xliff:g> gebruiken?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1291445700158602622">"<xliff:g id="SERVICE">%1$s</xliff:g> kan alle tekst registreren die je typt, behalve wachtwoorden. Dit omvat ook persoonsgegevens zoals creditcardnummers."</string>
@@ -734,30 +734,30 @@
     <string name="system_verify_apps_over_usb" msgid="7289212844195483932">"Apps verifiëren via USB"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="7737988681480237094">"Apps die zijn geïnstalleerd via ADB/ADT, controleren op schadelijk gedrag"</string>
     <string name="system_wifi_verbose_logging" msgid="3097788974146704831">"Uitgebreide wifi-logregistratie"</string>
-    <string name="system_desc_wifi_verbose_logging" msgid="3537578245428327314">"Uitgebreide wifi-logregistratie inschakelen"</string>
-    <string name="system_show_touches" msgid="8244331695139748286">"Aanraakbewerkingen weergeven"</string>
+    <string name="system_desc_wifi_verbose_logging" msgid="3537578245428327314">"Uitgebreide wifi-logregistratie aanzetten"</string>
+    <string name="system_show_touches" msgid="8244331695139748286">"Aanraakbewerkingen tonen"</string>
     <string name="system_pointer_location" msgid="8724050865245555084">"Cursorlocatie"</string>
-    <string name="system_show_layout_bounds" msgid="8803080672553699649">"Indelingsgrenzen weergeven"</string>
-    <string name="system_show_gpu_view_updates" msgid="1625918928089365222">"GPU-weergave-updates weergeven"</string>
-    <string name="system_show_hardware_layer" msgid="5833664339844452290">"Hardwarelaag weergeven"</string>
-    <string name="system_show_gpu_overdraw" msgid="5073007513540516704">"Overbelasting GPU weergeven"</string>
-    <string name="system_show_surface_updates" msgid="7680759813613585278">"Oppervlakupdates weergeven"</string>
+    <string name="system_show_layout_bounds" msgid="8803080672553699649">"Indelingsgrenzen tonen"</string>
+    <string name="system_show_gpu_view_updates" msgid="1625918928089365222">"GPU-weergave-updates tonen"</string>
+    <string name="system_show_hardware_layer" msgid="5833664339844452290">"Hardwarelaag tonen"</string>
+    <string name="system_show_gpu_overdraw" msgid="5073007513540516704">"Overbelasting GPU tonen"</string>
+    <string name="system_show_surface_updates" msgid="7680759813613585278">"Oppervlakupdates tonen"</string>
     <string name="system_window_animation_scale" msgid="685477540250939659">"Vensteranimatieschaal"</string>
     <string name="system_transition_animation_scale" msgid="7266380208347453619">"Overgangsanimatieschaal"</string>
     <string name="system_animator_duration_scale" msgid="3829445237130423625">"Duur van animatieschaal"</string>
     <string name="system_strict_mode_enabled" msgid="7392183793064579588">"Strikte modus ingeschakeld"</string>
     <string name="system_profile_gpu_rendering" msgid="1113416260742329348">"GPU-rendering van profiel"</string>
-    <string name="system_enable_traces" msgid="108745519968154528">"Sporen inschakelen"</string>
+    <string name="system_enable_traces" msgid="108745519968154528">"Sporen aanzetten"</string>
     <string name="system_dont_keep_activities" msgid="4641165963339846161">"Activiteiten niet opslaan"</string>
     <string name="system_background_process_limit" msgid="1985373407150771045">"Achtergrondproceslimiet"</string>
-    <string name="system_show_all_anrs" msgid="5353216640638263217">"Alle ANR\'s weergeven"</string>
-    <string name="system_desc_stay_awake" msgid="8485868071929937500">"Slaapstand uitschakelen"</string>
+    <string name="system_show_all_anrs" msgid="5353216640638263217">"Alle ANR\'s tonen"</string>
+    <string name="system_desc_stay_awake" msgid="8485868071929937500">"Slaapstand uitzetten"</string>
     <string name="system_desc_hdcp_checking" msgid="1664068008848077241">"Alleen gebruiken voor DRM-content"</string>
     <string name="system_desc_hdmi_optimization" msgid="5695603795556335912">"Optimaliseer het scherm voor maximale resolutie of maximale framesnelheid. Dit betreft alleen Ultra HD-schermen. Als je dit wijzigt, wordt je apparaat opnieuw opgestart."</string>
-    <string name="system_desc_bt_hci_log" msgid="2592649923221658103">"Bluetooth HCI-snoop-registratie inschakelen"</string>
+    <string name="system_desc_bt_hci_log" msgid="2592649923221658103">"Bluetooth HCI-snoop-registratie aanzetten"</string>
     <string name="system_desc_usb_debugging" msgid="5672275208185222785">"Foutopsporingsmodus bij USB-verbinding"</string>
     <string name="system_desc_wait_for_debugger" msgid="7213496668606417691">"Gedebugde app wacht op koppelen van debugger vóór uitvoering"</string>
-    <string name="system_desc_show_layout_bounds" msgid="5275008598296135852">"Clipgrenzen, marges en meer weergeven"</string>
+    <string name="system_desc_show_layout_bounds" msgid="5275008598296135852">"Clipgrenzen, marges en meer tonen"</string>
     <string name="system_desc_show_gpu_view_updates" msgid="9088343415389734854">"Weergaven in vensters laten knipperen indien getekend met de GPU"</string>
     <string name="system_desc_show_hardware_layer" msgid="3483713991865249527">"Hardwarelagen groen laten knipperen bij updates"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="74019834911598588">"Best naar slechtst: blauw, groen, lichtrood, rood"</string>
@@ -774,8 +774,8 @@
     <string name="system_hdmi_optimization_best_resolution" msgid="4916028940107998097">"Beste resolutie"</string>
     <string name="system_hdmi_optimization_best_framerate" msgid="3778579148517609370">"Beste framerate"</string>
     <string name="system_hw_overdraw_off" msgid="6637679040053936280">"Uit"</string>
-    <string name="system_hw_overdraw_areas" msgid="6442009722913530348">"Delen met overbelasting weergeven"</string>
-    <string name="system_hw_overdraw_counter" msgid="9132113146364838852">"Teller voor overbelasting weergeven"</string>
+    <string name="system_hw_overdraw_areas" msgid="6442009722913530348">"Delen met overbelasting tonen"</string>
+    <string name="system_hw_overdraw_counter" msgid="9132113146364838852">"Teller voor overbelasting tonen"</string>
     <string name="no_application" msgid="1904437693440706534">"Niets"</string>
     <string name="enable_opengl_traces_none" msgid="4718084947494592040">"Geen"</string>
   <string-array name="animation_scale_entries">
@@ -830,7 +830,7 @@
     <string name="inputs_custom_name" msgid="2649826613531559538">"Aangepaste naam"</string>
     <string name="inputs_custom_name_description_fmt" msgid="2879134265596928298">"Geef een naam op voor de <xliff:g id="INPUT">%1$s</xliff:g>-ingang."</string>
     <string name="inputs_hide" msgid="9223355763198742416">"Verborgen"</string>
-    <string name="inputs_show" msgid="2937435050499142756">"Deze ingang weergeven"</string>
+    <string name="inputs_show" msgid="2937435050499142756">"Deze ingang tonen"</string>
     <string name="input_header_names" msgid="5903234218909970550">"Naam"</string>
     <string name="inputs_hdmi_control" msgid="650355636965841054">"HDMI-bediening"</string>
     <string name="inputs_hdmi_control_desc" msgid="306769914209526682">"De tv toestaan HDMI-apparaten te bedienen"</string>
@@ -895,10 +895,10 @@
     <string name="device_apps_app_management_uninstall" msgid="4171103696233332967">"Verwijderen"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5647988075828648951">"Updates verwijderen"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="4508586498292236706">"Alle updates van deze systeem-app voor Android worden verwijderd."</string>
-    <string name="device_apps_app_management_disable" msgid="819003297535493633">"Uitschakelen"</string>
-    <string name="device_apps_app_management_disable_desc" msgid="9143166267511427607">"Wil je deze app uitschakelen?"</string>
-    <string name="device_apps_app_management_enable" msgid="9173340340253029114">"Inschakelen"</string>
-    <string name="device_apps_app_management_enable_desc" msgid="8686291003061136476">"Wil je deze app inschakelen?"</string>
+    <string name="device_apps_app_management_disable" msgid="819003297535493633">"Uitzetten"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="9143166267511427607">"Wil je deze app uitzetten?"</string>
+    <string name="device_apps_app_management_enable" msgid="9173340340253029114">"Aanzetten"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="8686291003061136476">"Wil je deze app aanzetten?"</string>
     <string name="device_apps_app_management_storage_used" msgid="6725789557993296433">"Gebruikte opslag"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="8928632612101487179">"<xliff:g id="SIZE">%1$s</xliff:g> gebruikt in <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="7305471678286735600">"Gegevens wissen"</string>
@@ -916,16 +916,16 @@
     <string name="settings_cancel" msgid="576094334743686152">"Annuleren"</string>
     <string name="settings_on" msgid="7734010120323404333">"Aan"</string>
     <string name="settings_off" msgid="4060451657850476369">"Uit"</string>
-    <string name="device_daydreams_none" msgid="3405655350757277348">"Scherm uitschakelen"</string>
+    <string name="device_daydreams_none" msgid="3405655350757277348">"Scherm uitzetten"</string>
     <string name="device_daydreams_select" msgid="7203264446482623438">"Screensaver"</string>
     <string name="device_daydreams_test" msgid="7828275397550076567">"Nu beginnen"</string>
-    <string name="device_daydreams_sleep" msgid="6847770718407377357">"Wanneer inschakelen"</string>
-    <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"De schermbeveiliging wordt ingeschakeld zodra het apparaat gedurende deze tijd inactief is. Als er geen schermbeveiliging is ingesteld, wordt het scherm uitgeschakeld."</string>
+    <string name="device_daydreams_sleep" msgid="6847770718407377357">"Wanneer aanzetten"</string>
+    <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"De schermbeveiliging wordt aangezet zodra het apparaat gedurende deze tijd inactief is. Als er geen schermbeveiliging is ingesteld, wordt het scherm uitgeschakeld."</string>
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"Na <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> inactiviteit"</string>
-    <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"Scherm uitschakelen"</string>
+    <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"Scherm uitzetten"</string>
     <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"Na <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"Scherm uitschakelen na"</string>
-    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"Uitschakelen van scherm toestaan"</string>
+    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"Scherm uitzetten na"</string>
+    <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"Uitzetten van scherm toestaan"</string>
     <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"Tijdens afspelen van media"</string>
     <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"Energiebesparingsinstelling bevestigen"</string>
     <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"Bevestig dat je dit wilt instellen op <xliff:g id="SLEEP_TIME">%1$s</xliff:g>. Hierdoor zou je meer energie kunnen verbruiken."</string>
@@ -1003,8 +1003,8 @@
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>, <xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"Audio"</string>
     <string name="record_audio" msgid="5035689290259575229">"Audio opnemen"</string>
-    <string name="record_audio_summary_on" msgid="8724494646461335090">"Uitschakelen om audio-opname te stoppen"</string>
-    <string name="record_audio_summary_off" msgid="1392440365091422816">"Inschakelen om audio-opname direct te starten"</string>
+    <string name="record_audio_summary_on" msgid="8724494646461335090">"Uitzetten om audio-opname te stoppen"</string>
+    <string name="record_audio_summary_off" msgid="1392440365091422816">"Aanzetten om audio-opname direct te starten"</string>
     <string name="play_recorded_audio_title" msgid="4627717067151602729">"Opgenomen audio afspelen"</string>
     <string name="save_recorded_audio_title" msgid="378003351782124651">"Opgenomen audio opslaan"</string>
     <string name="time_to_start_read_title" msgid="6565449163802837806">"Tijd voordat audio wordt gelezen"</string>
@@ -1031,9 +1031,9 @@
     <string name="admin_device_owner_message" msgid="1935507216776040907">"Je beheerder kan apps en gegevens bijhouden en beheren die aan dit apparaat zijn gekoppeld (waaronder instellingen, rechten, zakelijke toegang, netwerkactiviteit en locatiegegevens van het apparaat)."</string>
     <string name="remove_managed_profile_label" msgid="8950011141359605612">"Werkprofiel verwijderen"</string>
     <string name="active_device_admin_msg" msgid="185537304726228624">"Apparaatbeheer-app"</string>
-    <string name="remove_device_admin" msgid="2623866073546295104">"Deze apparaatbeheer-app uitschakelen"</string>
+    <string name="remove_device_admin" msgid="2623866073546295104">"Deze apparaatbeheer-app uitzetten"</string>
     <string name="uninstall_device_admin" msgid="6301368408620948266">"App verwijderen"</string>
-    <string name="remove_and_uninstall_device_admin" msgid="1504351551194915633">"Uitschakelen en verwijderen"</string>
+    <string name="remove_and_uninstall_device_admin" msgid="1504351551194915633">"Uitzetten en verwijderen"</string>
     <string name="select_device_admin_msg" msgid="8475934459999710332">"Apparaatbeheer-apps"</string>
     <string name="add_device_admin_msg" msgid="5390773166682603421">"Apparaatbeheer-app activeren?"</string>
     <string name="add_device_admin" msgid="5078281377915844544">"Deze apparaatbeheer-app activeren"</string>
@@ -1048,7 +1048,7 @@
     <string name="share_remote_bugreport_action" msgid="6760197666368262892">"Delen"</string>
     <string name="decline_remote_bugreport_action" msgid="2130779396296090961">"Weigeren"</string>
     <string name="network_connection_request_dialog_title" msgid="4103963119407212989">"Apparaat om te gebruiken met <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
-    <string name="network_connection_timeout_dialog_message" msgid="8408857135950230472">"Geen apparaten gevonden. Zorg dat apparaten zijn ingeschakeld en beschikbaar zijn voor verbinding."</string>
+    <string name="network_connection_timeout_dialog_message" msgid="8408857135950230472">"Geen apparaten gevonden. Zorg dat apparaten aanstaan en beschikbaar zijn voor verbinding."</string>
     <string name="network_connection_timeout_dialog_ok" msgid="5374522862360880609">"Opnieuw proberen"</string>
     <string name="network_connection_errorstate_dialog_message" msgid="3346121178275518630">"Er is een probleem opgetreden. De app heeft het verzoek om een apparaat te kiezen geannuleerd."</string>
     <string name="network_connection_connect_successful" msgid="2981223044343511313">"Verbinding gemaakt"</string>

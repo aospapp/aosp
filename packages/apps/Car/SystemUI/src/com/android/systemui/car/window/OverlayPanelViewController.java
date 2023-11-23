@@ -31,7 +31,6 @@ import android.view.ViewTreeObserver;
 
 import androidx.annotation.CallSuper;
 
-import com.android.systemui.R;
 import com.android.systemui.car.CarDeviceProvisionedController;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.wm.shell.animation.FlingAnimationUtils;
@@ -81,6 +80,8 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
     private static final int POSITIVE_DIRECTION = 1;
     private static final int NEGATIVE_DIRECTION = -1;
 
+    private final Context mContext;
+    private final int mScreenHeightPx;
     private final FlingAnimationUtils mFlingAnimationUtils;
     private final CarDeviceProvisionedController mCarDeviceProvisionedController;
     private final View.OnTouchListener mDragOpenTouchListener;
@@ -88,8 +89,9 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
 
     protected int mAnimateDirection = POSITIVE_DIRECTION;
 
-    private final int mSettleClosePercentage;
+    private int mSettleClosePercentage;
     private int mPercentageFromEndingEdge;
+    private int mPercentageCursorPositionOnScreen;
 
     private boolean mPanelVisible;
     private boolean mPanelExpanded;
@@ -110,14 +112,13 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
     ) {
         super(stubId, overlayViewGlobalStateController);
 
+        mContext = context;
+        mScreenHeightPx = Resources.getSystem().getDisplayMetrics().heightPixels;
         mFlingAnimationUtils = flingAnimationUtilsBuilder
                 .setMaxLengthSeconds(FLING_ANIMATION_MAX_TIME)
                 .setSpeedUpFactor(FLING_SPEED_UP_FACTOR)
                 .build();
         mCarDeviceProvisionedController = carDeviceProvisionedController;
-
-        mSettleClosePercentage = resources.getInteger(
-                R.integer.notification_settle_close_percentage);
 
         // Attached to a navigation bar to open the overlay panel
         GestureDetector openGestureDetector = new GestureDetector(context,
@@ -166,6 +167,11 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
             maybeCompleteAnimation(event);
             return true;
         };
+    }
+
+    @Override
+    protected void onFinishInflate() {
+        setUpHandleBar();
     }
 
     /** Sets the overlay panel animation direction along the x or y axis. */
@@ -270,16 +276,22 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
     /** Called when the panel is beginning to expand. */
     protected abstract void onAnimateExpandPanel();
 
+    /** Returns the percentage at which we've determined whether to open or close the panel. */
+    protected abstract int getSettleClosePercentage();
+
     /**
      * Depending on certain conditions, determines whether to fully expand or collapse the panel.
      */
     protected void maybeCompleteAnimation(MotionEvent event) {
-        if (isClosingAction(event) && isPanelVisible()) {
-            if (mSettleClosePercentage < mPercentageFromEndingEdge) {
-                animatePanel(DEFAULT_FLING_VELOCITY, false);
-            } else {
-                animatePanel(DEFAULT_FLING_VELOCITY, true);
+        if (isPanelVisible()) {
+            if (mSettleClosePercentage == 0) {
+                mSettleClosePercentage = getSettleClosePercentage();
             }
+
+            boolean closePanel = mAnimateDirection == POSITIVE_DIRECTION
+                    ? mSettleClosePercentage > mPercentageCursorPositionOnScreen
+                    : mSettleClosePercentage < mPercentageCursorPositionOnScreen;
+            animatePanel(DEFAULT_FLING_VELOCITY, closePanel);
         }
     }
 
@@ -296,6 +308,8 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
             float from = getCurrentStartPosition(rect);
             if (from != to) {
                 animate(from, to, velocity, isClosing);
+            } else if (isClosing) {
+                resetPanelVisibility();
             }
 
             // If we swipe down the notification panel all the way to the bottom of the screen
@@ -359,10 +373,7 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
                 mOpeningVelocity = DEFAULT_FLING_VELOCITY;
                 mClosingVelocity = DEFAULT_FLING_VELOCITY;
                 if (isClosing) {
-                    setPanelVisible(false);
-                    getLayout().setClipBounds(null);
-                    onCollapseAnimationEnd();
-                    setPanelExpanded(false);
+                    resetPanelVisibility();
                 } else {
                     onExpandAnimationEnd();
                     setPanelExpanded(true);
@@ -371,6 +382,13 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
         });
         getFlingAnimationUtils().apply(animator, from, to, Math.abs(velocity));
         animator.start();
+    }
+
+    private void resetPanelVisibility() {
+        setPanelVisible(false);
+        getLayout().setClipBounds(null);
+        onCollapseAnimationEnd();
+        setPanelExpanded(false);
     }
 
     /**
@@ -414,6 +432,11 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
             getOverlayViewGlobalStateController().hideView(/* panelViewController= */ this);
         }
         getLayout().setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
+
+        // TODO(b/202890142): Unify OverlayPanelViewController with super class show and hide
+        for (OverlayViewStateListener l : mViewStateListeners) {
+            l.onVisibilityChanged(visible);
+        }
     }
 
     /* ***************************************************************************************** *
@@ -456,6 +479,14 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
         }
     }
 
+    /**
+     * Given the position of the pointer dragging the panel, update its vertical position in terms
+     * of the percentage of the total height of the screen.
+     */
+    protected void calculatePercentageCursorPositionOnScreen(float y) {
+        mPercentageCursorPositionOnScreen = Math.round(Math.abs(y / mScreenHeightPx * 100));
+    }
+
     private float getVisiblePanelHeight(float y) {
         return mAnimateDirection > 0 ? y : getLayout().getHeight() - y;
     }
@@ -482,7 +513,13 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
      * Called while scrolling, this passes the position of the clip boundary that is currently
      * changing.
      */
-    protected abstract void onScroll(int y);
+    protected void onScroll(int y) {
+        if (getHandleBarViewId() == null) return;
+        View handleBar = getLayout().findViewById(getHandleBarViewId());
+        if (handleBar == null) return;
+
+        handleBar.setTranslationY(y);
+    }
 
     /* ***************************************************************************************** *
      * Getters
@@ -523,11 +560,6 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
         return mPercentageFromEndingEdge;
     }
 
-    /** Returns the percentage at which we've determined whether to open or close the panel. */
-    protected final int getSettleClosePercentage() {
-        return mSettleClosePercentage;
-    }
-
     /* ***************************************************************************************** *
      * Gesture Listeners
      * ***************************************************************************************** */
@@ -557,6 +589,7 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
             // Initially the scroll starts with height being zero. This checks protects from divide
             // by zero error.
             calculatePercentageFromEndingEdge(event2.getRawY());
+            calculatePercentageCursorPositionOnScreen(event2.getRawY());
 
             mIsTracking = true;
             return true;
@@ -603,6 +636,7 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
             if (getLayout().getHeight() > 0) {
                 mPercentageFromEndingEdge = (int) Math.abs(
                         y / getLayout().getHeight() * 100);
+                mPercentageCursorPositionOnScreen = (int) Math.abs(y / mScreenHeightPx * 100);
                 boolean isInClosingDirection = mAnimateDirection * distanceY > 0;
 
                 // This check is to figure out if onScroll was called while swiping the card at
@@ -678,7 +712,62 @@ public abstract class OverlayPanelViewController extends OverlayViewController {
         public boolean onScroll(MotionEvent event1, MotionEvent event2, float distanceX,
                 float distanceY) {
             calculatePercentageFromEndingEdge(event2.getRawY());
+            calculatePercentageCursorPositionOnScreen(event2.getRawY());
             setViewClipBounds((int) event2.getRawY());
+            return true;
+        }
+    }
+
+    /**
+     * Optionally returns the ID of the handle bar view which enables dragging the panel to close
+     * it. Return null if no handle bar is to be set up.
+     */
+    protected Integer getHandleBarViewId() {
+        return null;
+    };
+
+    protected void setUpHandleBar() {
+        Integer handleBarViewId = getHandleBarViewId();
+        if (handleBarViewId == null) return;
+        View handleBar = getLayout().findViewById(handleBarViewId);
+        if (handleBar == null) return;
+        GestureDetector handleBarCloseGestureDetector =
+                new GestureDetector(mContext, new HandleBarCloseGestureListener());
+        handleBar.setOnTouchListener((v, event) -> {
+            int action = event.getAction();
+            switch (action & MotionEvent.ACTION_MASK) {
+                case MotionEvent.ACTION_UP:
+                    maybeCompleteAnimation(event);
+                    // Intentionally not breaking here, since handleBarClosureGestureDetector's
+                    // onTouchEvent should still be called with MotionEvent.ACTION_UP.
+                default:
+                    handleBarCloseGestureDetector.onTouchEvent(event);
+                    return true;
+            }
+        });
+    }
+
+    /**
+     * A GestureListener to be installed on the handle bar.
+     */
+    private class HandleBarCloseGestureListener extends GestureDetector.SimpleOnGestureListener {
+
+        @Override
+        public boolean onScroll(MotionEvent event1, MotionEvent event2, float distanceX,
+                float distanceY) {
+            calculatePercentageFromEndingEdge(event2.getRawY());
+            calculatePercentageCursorPositionOnScreen(event2.getRawY());
+            // To prevent the jump in the clip bounds while closing the notification panel using
+            // the handle bar, we should calculate the height using the diff of event1 and event2.
+            // This will help the notification shade to clip smoothly as the event2 value changes
+            // as event1 value will be fixed.
+            float diff = mAnimateDirection * (event1.getRawY() - event2.getRawY());
+            float y = mAnimateDirection > 0
+                    ? getLayout().getHeight() - diff
+                    : diff;
+            // Ensure the position is within the overlay panel.
+            y = Math.max(0, Math.min(y, getLayout().getHeight()));
+            setViewClipBounds((int) y);
             return true;
         }
     }

@@ -17,6 +17,7 @@ package com.android.bedstead.dpmwrapper;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 
 import android.content.Context;
 import android.os.UserManager;
@@ -44,14 +45,17 @@ final class UserManagerWrapper extends ServiceManagerWrapper<UserManager> {
             return spy;
         }
 
-        Log.d(TAG, "get(): creating spy for user " + context.getUserId());
         spy = Mockito.spy(manager);
+        String spyString = "UserManagerWrapper#" + System.identityHashCode(spy);
+        Log.d(TAG, "get(): created spy for user " + context.getUserId() + ": " + spyString);
 
         // TODO(b/176993670): ideally there should be a way to automatically mock all DPM methods,
         // but that's probably not doable, as there is no contract (such as an interface) to specify
         // which ones should be spied and which ones should not (in fact, if there was an interface,
         // we wouldn't need Mockito and could wrap the calls using java's DynamicProxy
         try {
+            doReturn(spyString).when(spy).toString();
+
             // Used by HardwarePropertiesManagerTest
             doAnswer(answer).when(spy).getApplicationRestrictions(any());
         } catch (Exception e) {
@@ -60,8 +64,7 @@ final class UserManagerWrapper extends ServiceManagerWrapper<UserManager> {
         }
 
         sSpies.put(context, spy);
-        Log.d(TAG, "get(): returning new spy for context " + context + " and user "
-                + userId);
+        Log.d(TAG, "get(): returning new spy for context " + context + " and user " + userId);
 
         return spy;
     }

@@ -85,7 +85,7 @@ public class OverlayViewGlobalStateController {
         Log.d(TAG, "Registering content mediator: " + overlayViewMediator.getClass().getName());
 
         overlayViewMediator.registerListeners();
-        overlayViewMediator.setupOverlayContentViewControllers();
+        overlayViewMediator.setUpOverlayContentViewControllers();
     }
 
     /**

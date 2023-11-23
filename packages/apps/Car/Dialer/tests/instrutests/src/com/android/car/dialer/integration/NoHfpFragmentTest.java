@@ -21,12 +21,14 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.intent.Intents.intended;
 import static androidx.test.espresso.intent.matcher.IntentMatchers.hasAction;
 import static androidx.test.espresso.intent.matcher.IntentMatchers.hasCategories;
+import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.Matchers.allOf;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 
@@ -67,6 +69,8 @@ public class NoHfpFragmentTest {
 
     @Before
     public void setup() {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().grantRuntimePermission(
+                "com.android.car.dialer", Manifest.permission.BLUETOOTH_CONNECT);
         mHiltAndroidRule.inject();
 
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -77,7 +81,7 @@ public class NoHfpFragmentTest {
     public void bluetoothDisabled_displayErrorMsg() {
         mFakeHfpManager.getBluetoothStateLiveData().postValue(BluetoothState.DISABLED);
 
-        onView(withId(R.id.error_string)).check(
+        onView(withId(R.id.error_string)).inRoot(isDialog()).check(
                 matches(allOf(isDisplayed(), withText(R.string.bluetooth_disabled))));
     }
 
@@ -86,18 +90,19 @@ public class NoHfpFragmentTest {
         mFakeHfpManager.getBluetoothStateLiveData().postValue(BluetoothState.ENABLED);
         mFakeHfpManager.getBluetoothPairListLiveData().postValue(Collections.EMPTY_SET);
 
-        onView(withId(R.id.error_string)).check(
+        onView(withId(R.id.error_string)).inRoot(isDialog()).check(
                 matches(allOf(isDisplayed(), withText(R.string.bluetooth_unpaired))));
     }
 
     @Test
     public void clickButton_navigateToBluetoothSettings() {
-        onView(withId(R.id.connect_bluetooth_button)).check(matches(isDisplayed()));
+        onView(withId(R.id.connect_bluetooth_button)).inRoot(isDialog()).check(
+                matches(isDisplayed()));
 
         Intents.init();
         // Use swipe action to perform the click action since the UI messes up and overlaps with
         // each other.
-        onView(withId(R.id.connect_bluetooth_button)).perform(swipeLeft());
+        onView(withId(R.id.connect_bluetooth_button)).inRoot(isDialog()).perform(swipeLeft());
         intended(allOf(hasAction(Bluetooth_Setting_ACTION),
                 hasCategories(Collections.singleton(Bluetooth_Setting_CATEGORY))));
         Intents.release();

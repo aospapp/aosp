@@ -70,6 +70,21 @@ public class NotificationPayloadHandler {
     }
 
     /**
+     * Retrieves all messages associated with the provided {@link Notification}
+     * These messages are provided through the notification's {@link MessagingStyle},
+     * using {@link MessagingStyle#addMessage(Message)}.
+     *
+     * @param notification the notification delivered to the voice interaction session
+     * @return all messages provided in the {@link MessagingStyle}
+     */
+    public List<Message> getMessages(Notification notification) {
+        MessagingStyle messagingStyle = NotificationCompat.MessagingStyle
+                .extractMessagingStyleFromNotification(notification);
+
+        return messagingStyle == null ? new ArrayList<>() : messagingStyle.getMessages();
+    }
+
+    /**
      * Retrieves all messages associated with the provided {@link StatusBarNotification} in the
      * args {@link Bundle}. These messages are provided through the notification's
      * {@link MessagingStyle}, using {@link MessagingStyle#addMessage(Message)}.
@@ -79,11 +94,27 @@ public class NotificationPayloadHandler {
      */
     public List<Message> getMessages(Bundle args) {
         Notification notification = getNotification(args);
+        return getMessages(notification);
+    }
 
-        MessagingStyle messagingStyle = NotificationCompat.MessagingStyle
-                .extractMessagingStyleFromNotification(notification);
+    /**
+     * Retrieves the corresponding {@link Action} from the notification's callback actions.
+     *
+     * @param notification the notification delivered to the voice interaction session
+     * @param semanticAction the {@link Action.SemanticAction} on which to select
+     * @return the first action for which {@link Action#getSemanticAction()} returns semanticAction,
+     * or null if no such action exists
+     */
+    @Nullable
+    public Action getAction(Notification notification, int semanticAction) {
+        for (Action action : notification.actions) {
+            if (action.getSemanticAction() == semanticAction) {
+                return action;
+            }
+        }
 
-        return messagingStyle == null ? new ArrayList<>() : messagingStyle.getMessages();
+        Log.w(TAG, String.format("Semantic action not found: %d", semanticAction));
+        return null;
     }
 
     /**
@@ -97,20 +128,7 @@ public class NotificationPayloadHandler {
     @Nullable
     public Action getAction(Bundle args, int semanticAction) {
         Notification notification = getNotification(args);
-
-        if (notification == null) {
-            Log.w(TAG, "getAction args bundle did not contain a notification");
-            return null;
-        }
-
-        for (Action action : notification.actions) {
-            if (action.getSemanticAction() == semanticAction) {
-                return action;
-            }
-        }
-
-        Log.w(TAG, String.format("Semantic action not found: %d", semanticAction));
-        return null;
+        return getAction(notification, semanticAction);
     }
 
     /**

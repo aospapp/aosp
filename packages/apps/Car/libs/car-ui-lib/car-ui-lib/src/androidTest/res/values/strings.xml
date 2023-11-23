@@ -40,6 +40,12 @@
     <string name="title_twoaction_preference">TwoAction preference</string>
     <string name="summary_twoaction_preference">A widget should be visible on the right</string>
     <string name="twoaction_secondary_text">Secondary text</string>
+    <string name="title">Title!</string>
+    <string name="subtitle">Subtitle!</string>
+    <string name="message">Message!</string>
+    <string name="positive">Positive!</string>
+    <string name="negative">Negative!</string>
+    <string name="neutral">Neutral!</string>
 
 
     <string-array name="test_string_array">

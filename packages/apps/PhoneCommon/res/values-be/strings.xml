@@ -26,8 +26,8 @@
     <string name="callFailed_userBusy" msgid="8760595520859373561">"Лінія занята"</string>
     <string name="callFailed_congestion" msgid="660130739882090863">"Сетка занята"</string>
     <string name="callFailed_timedOut" msgid="6780964135550644777">"Няма адказу, перавышаны час чакання"</string>
-    <string name="callFailed_server_unreachable" msgid="7004372091099175338">"Сервер недасягальны"</string>
-    <string name="callFailed_number_unreachable" msgid="2855741498610643943">"Нумар недасягальны"</string>
+    <string name="callFailed_server_unreachable" msgid="7004372091099175338">"Сервер недаступны"</string>
+    <string name="callFailed_number_unreachable" msgid="2855741498610643943">"Нумар недаступны"</string>
     <string name="callFailed_invalid_credentials" msgid="1915881596632385418">"Няправільнае імя карыстальніка ці пароль"</string>
     <string name="callFailed_out_of_network" msgid="3725361800376129141">"Выклік з-за межаў сеткі"</string>
     <string name="callFailed_server_error" msgid="8449565039784274698">"Памылка сервера. Паўтарыце спробу пазней."</string>

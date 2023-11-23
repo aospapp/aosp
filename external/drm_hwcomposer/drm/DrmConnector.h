@@ -111,7 +111,7 @@ class DrmConnector {
 
   std::vector<DrmEncoder *> possible_encoders_;
 
-  uint32_t preferred_mode_id_;
+  uint32_t preferred_mode_id_{};
 };
 }  // namespace android
 

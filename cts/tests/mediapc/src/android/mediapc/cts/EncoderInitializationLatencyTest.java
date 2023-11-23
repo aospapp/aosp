@@ -50,6 +50,7 @@ import static android.mediapc.cts.CodecTestBase.selectCodecs;
 import static android.mediapc.cts.CodecTestBase.selectHardwareCodecs;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 /**
@@ -69,9 +70,6 @@ public class EncoderInitializationLatencyTest {
     private static String AVC_DECODER_NAME;
     private static String AVC_ENCODER_NAME;
     static {
-        AVC_DECODER_NAME = selectHardwareCodecs(AVC, null, null, false).get(0);
-        AVC_ENCODER_NAME = selectHardwareCodecs(AVC, null, null, true).get(0);
-
         if (Utils.isRPerfClass()) {
             MAX_AUDIOENC_INITIALIZATION_LATENCY_MS = 50;
             MAX_VIDEOENC_INITIALIZATION_LATENCY_MS = 65;
@@ -95,6 +93,14 @@ public class EncoderInitializationLatencyTest {
     @Before
     public void setUp() throws Exception {
         assumeTrue("Test requires performance class.", Utils.isPerfClass());
+        ArrayList<String>  listOfAvcHwDecoders = selectHardwareCodecs(AVC, null, null, false);
+        assumeFalse("Test requires h/w avc decoder", listOfAvcHwDecoders.isEmpty());
+        AVC_DECODER_NAME = listOfAvcHwDecoders.get(0);
+
+        ArrayList<String> listOfAvcHwEncoders = selectHardwareCodecs(AVC, null, null, true);
+        assumeFalse("Test requires h/w avc encoder", listOfAvcHwEncoders.isEmpty());
+        AVC_ENCODER_NAME = listOfAvcHwEncoders.get(0);
+
         Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         Context context = instrumentation.getTargetContext();
         PackageManager packageManager = context.getPackageManager();

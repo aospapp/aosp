@@ -1,0 +1,15 @@
+{
+  "pts-prebuilt": [
+    {
+      "name": "NfcNciInstrumentationTests",
+      "options" : [
+        {
+          "include-filter": "com.android.nfc.NfcStateTest#testDisableWhenEnabled"
+        },
+        {
+          "include-filter": "com.android.nfc.NfcStateTest#testEnableWhenDisabled"
+        }
+      ]
+    }
+  ]
+}

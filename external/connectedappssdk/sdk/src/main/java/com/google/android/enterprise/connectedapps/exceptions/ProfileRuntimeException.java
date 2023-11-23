@@ -16,12 +16,12 @@
 package com.google.android.enterprise.connectedapps.exceptions;
 
 /**
- * Thrown when a {@link RuntimeException} is thrown during a cross-profile call.
+ * Thrown when a {@link Throwable} is thrown during a cross-profile call.
  *
  * <p>To get the original exception, call {@link #getCause()}.
  */
 public class ProfileRuntimeException extends RuntimeException {
-  public ProfileRuntimeException(RuntimeException cause) {
+  public ProfileRuntimeException(Throwable cause) {
     super(cause);
   }
 }

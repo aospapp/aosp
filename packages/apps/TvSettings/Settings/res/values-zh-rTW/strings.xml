@@ -988,7 +988,7 @@
     <string name="directory_on_volume" msgid="5628089584970521703">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="5790572489650085051">"顯示在其他應用程式上層"</string>
     <string name="permit_draw_overlay" msgid="5312730681030266735">"允許顯示在其他應用程式上層"</string>
-    <string name="allow_overlay_description" msgid="5152329837278240259">"允許應用程式顯示在畫面上層 (覆蓋你使用的其他應用程式)。這可能會干擾你使用相關的應用程式，或是影響它們的顯示或運作方式。"</string>
+    <string name="allow_overlay_description" msgid="5152329837278240259">"允許應用程式覆蓋你使用的其他應用程式而顯示在畫面上層。這可能會干擾你使用相關的應用程式，或是影響它們的顯示或運作方式。"</string>
     <string name="write_system_settings" msgid="4284654265954461890">"修改系統設定"</string>
     <string name="write_settings_title" msgid="2361816483383105754">"可以修改系統設定"</string>
     <string name="write_settings_description" msgid="7382397926674265937">"這項權限可讓應用程式修改系統設定。"</string>

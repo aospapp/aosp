@@ -48,7 +48,8 @@ public class CellBroadcastBackupAgent extends BackupAgentHelper
     @Override
     public void onRestoreFinished() {
         Log.d(TAG, "Restore finished.");
-        Intent intent = new Intent(CellBroadcastReceiver.CELLBROADCAST_START_CONFIG_ACTION);
+        Intent intent = new Intent(getApplicationContext(), CellBroadcastInternalReceiver.class);
+        intent.setAction(CellBroadcastReceiver.CELLBROADCAST_START_CONFIG_ACTION);
 
         // Cell broadcast was configured during boot up before the shared preference is restored,
         // we need to re-configure it.

@@ -652,7 +652,7 @@ status_t RemoveFdInfoFromResult(HalCameraMetadata* metadata) {
 }
 
 void DumpStreamConfiguration(const StreamConfiguration& stream_configuration,
-                             std::string title) {
+                             const std::string& title) {
   std::string str = "======== " + title + " ========";
   ALOGI("%s", str.c_str());
   ALOGI("== stream num: %zu, operation_mode:%d",
@@ -670,7 +670,8 @@ void DumpStreamConfiguration(const StreamConfiguration& stream_configuration,
 }
 
 void DumpHalConfiguredStreams(
-    const std::vector<HalStream>& hal_configured_streams, std::string title) {
+    const std::vector<HalStream>& hal_configured_streams,
+    const std::string& title) {
   std::string str = "======== " + title + " ========";
   ALOGI("%s", str.c_str());
   ALOGI("== stream num: %zu", hal_configured_streams.size());
@@ -685,7 +686,8 @@ void DumpHalConfiguredStreams(
   ALOGI("%s", str.c_str());
 }
 
-void DumpCaptureRequest(const CaptureRequest& request, std::string title) {
+void DumpCaptureRequest(const CaptureRequest& request,
+                        const std::string& title) {
   std::string str = "======== " + title + " ========";
   ALOGI("%s", str.c_str());
   ALOGI("== frame_number:%u", request.frame_number);
@@ -703,7 +705,8 @@ void DumpCaptureRequest(const CaptureRequest& request, std::string title) {
   ALOGI("%s", str.c_str());
 }
 
-void DumpCaptureResult(const ProcessBlockResult& result, std::string title) {
+void DumpCaptureResult(const ProcessBlockResult& result,
+                       const std::string& title) {
   std::string str = "======== " + title + " ========";
   ALOGI("%s", str.c_str());
   ALOGI("== frame_number:%u", result.result->frame_number);
@@ -720,7 +723,7 @@ void DumpCaptureResult(const ProcessBlockResult& result, std::string title) {
   ALOGI("%s", str.c_str());
 }
 
-void DumpCaptureResult(const CaptureResult& result, std::string title) {
+void DumpCaptureResult(const CaptureResult& result, const std::string& title) {
   std::string str = "======== " + title + " ========";
   ALOGI("%s", str.c_str());
   ALOGI("== frame_number:%u", result.frame_number);
@@ -734,7 +737,7 @@ void DumpCaptureResult(const CaptureResult& result, std::string title) {
   ALOGI("%s", str.c_str());
 }
 
-void DumpNotify(const NotifyMessage& message, std::string title) {
+void DumpNotify(const NotifyMessage& message, const std::string& title) {
   std::string str = "======== " + title + " ========";
   ALOGI("%s", str.c_str());
   if (message.type == MessageType::kShutter) {
@@ -747,7 +750,7 @@ void DumpNotify(const NotifyMessage& message, std::string title) {
   ALOGI("%s", str.c_str());
 }
 
-void DumpStream(const Stream& stream, std::string title) {
+void DumpStream(const Stream& stream, const std::string& title) {
   std::string str = "======== " + title + " ========";
   ALOGI("%s", str.c_str());
   ALOGI("== stream_id %d, format %d, res %ux%u, usage %" PRIu64
@@ -758,7 +761,7 @@ void DumpStream(const Stream& stream, std::string title) {
 }
 
 // Dump HalStream
-void DumpHalStream(const HalStream& hal_stream, std::string title) {
+void DumpHalStream(const HalStream& hal_stream, const std::string& title) {
   std::string str = "======== " + title + " ========";
   ALOGI("%s", str.c_str());
   ALOGI("== id %d, override_format %d, producer_usage %" PRIu64 ", %" PRIu64
@@ -771,7 +774,7 @@ void DumpHalStream(const HalStream& hal_stream, std::string title) {
 }
 
 void DumpBufferReturn(const std::vector<StreamBuffer>& stream_buffers,
-                      std::string title) {
+                      const std::string& title) {
   std::string str = "======== " + title + " ========";
   ALOGI("%s", str.c_str());
   for (auto stream_buffer : stream_buffers) {
@@ -783,7 +786,7 @@ void DumpBufferReturn(const std::vector<StreamBuffer>& stream_buffers,
 
 void DumpBufferRequest(const std::vector<BufferRequest>& hal_buffer_requests,
                        const std::vector<BufferReturn>* hal_buffer_returns,
-                       std::string title) {
+                       const std::string& title) {
   std::string str = "======== " + title + " ========";
   ALOGI("%s", str.c_str());
   for (const auto& buffer_request : hal_buffer_requests) {

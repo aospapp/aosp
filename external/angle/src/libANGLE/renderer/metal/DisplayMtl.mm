@@ -243,7 +243,6 @@ id<MTLDevice> DisplayMtl::getMetalDeviceMatchingAttribute(const egl::AttributeMa
             {
                 NSLog(@"Using Metal Device: %@", [device name]);
                 return device;
-                break;
             }
         }
     }
@@ -299,7 +298,6 @@ SurfaceImpl *DisplayMtl::createPbufferFromClientBuffer(const egl::SurfaceState &
     {
         case EGL_IOSURFACE_ANGLE:
             return new IOSurfaceSurfaceMtl(this, state, clientBuffer, attribs);
-            break;
         default:
             UNREACHABLE();
     }
@@ -752,13 +750,23 @@ void DisplayMtl::ensureCapsInitialized() const
     mNativeCaps.programBinaryFormats.push_back(GL_PROGRAM_BINARY_ANGLE);
 
     // GL_APPLE_clip_distance
-    mNativeCaps.maxClipDistances = 8;
+    mNativeCaps.maxClipDistances = mFeatures.directMetalGeneration.enabled ? 0 : 8;
 
     // Metal doesn't support GL_TEXTURE_COMPARE_MODE=GL_NONE for shadow samplers
     mNativeLimitations.noShadowSamplerCompareModeNone = true;
 
     // Apple platforms require PVRTC1 textures to be squares.
     mNativeLimitations.squarePvrtc1 = true;
+
+    // Older Metal does not support compressed formats for TEXTURE_3D target.
+    if (ANGLE_APPLE_AVAILABLE_XCI(10.15, 13.0, 13.0))
+    {
+        mNativeLimitations.noCompressedTexture3D = !supportsEitherGPUFamily(3, 1);
+    }
+    else
+    {
+        mNativeLimitations.noCompressedTexture3D = true;
+    }
 
     // Direct-to-metal constants:
     mNativeCaps.driverUniformsBindingIndex    = mtl::kDriverUniformsBindingIndex;
@@ -781,6 +789,7 @@ void DisplayMtl::initializeExtensions() const
     mNativeExtensions.drawBuffersIndexedOES  = true;
     mNativeExtensions.fragDepth              = true;
     mNativeExtensions.framebufferBlitANGLE   = true;
+    mNativeExtensions.framebufferBlitNV      = true;
     mNativeExtensions.framebufferMultisample = true;
     mNativeExtensions.copyTexture            = true;
     mNativeExtensions.copyCompressedTexture  = false;
@@ -848,7 +857,7 @@ void DisplayMtl::initializeExtensions() const
     mNativeExtensions.getProgramBinaryOES = true;
 
     // GL_APPLE_clip_distance
-    mNativeExtensions.clipDistanceAPPLE = true;
+    mNativeExtensions.clipDistanceAPPLE = !mFeatures.directMetalGeneration.enabled;
 
     // GL_NV_pixel_buffer_object
     mNativeExtensions.pixelBufferObjectNV = true;
@@ -980,10 +989,20 @@ void DisplayMtl::initializeFeatures()
 
     ANGLE_FEATURE_CONDITION((&mFeatures), forceNonCSBaseMipmapGeneration, isIntel());
 
+    bool defaultDirectToMetal = true;
+#if ANGLE_ENABLE_METAL_SPIRV
+    defaultDirectToMetal = false;
+#endif
+    ANGLE_FEATURE_CONDITION((&mFeatures), directMetalGeneration, defaultDirectToMetal);
+
     angle::PlatformMethods *platform = ANGLEPlatformCurrent();
     platform->overrideFeaturesMtl(platform, &mFeatures);
 
     ApplyFeatureOverrides(&mFeatures, getState());
+#ifdef ANGLE_ENABLE_ASSERTS
+    fprintf(stderr, "Shader compiler output: %s\n",
+            mFeatures.directMetalGeneration.enabled ? "Metal" : "SPIR-V");
+#endif
 }
 
 angle::Result DisplayMtl::initializeShaderLibrary()
@@ -1115,7 +1134,9 @@ bool DisplayMtl::supportsAppleGPUFamily(uint8_t iOSFamily) const
 
     // If device doesn't support [MTLDevice supportsFamily:], then use
     // [MTLDevice supportsFeatureSet:].
+#    if TARGET_OS_IOS || TARGET_OS_TV
     MTLFeatureSet featureSet;
+#    endif
     switch (iOSFamily)
     {
 #    if TARGET_OS_IOS
@@ -1149,8 +1170,10 @@ bool DisplayMtl::supportsAppleGPUFamily(uint8_t iOSFamily) const
             return false;
     }
 
+#    if TARGET_OS_IOS || TARGET_OS_TV
     return [getMetalDevice() supportsFeatureSet:featureSet];
-#endif      // TARGET_OS_IOS || TARGET_OS_TV
+#    endif
+#endif  // TARGET_OS_MACCATALYST
 }
 
 bool DisplayMtl::supportsMacGPUFamily(uint8_t macFamily) const
@@ -1249,5 +1272,10 @@ mtl::AutoObjCObj<MTLSharedEventListener> DisplayMtl::getOrCreateSharedEventListe
     return mSharedEventListener;
 }
 #endif
+
+bool DisplayMtl::useDirectToMetalCompiler()
+{
+    return mFeatures.directMetalGeneration.enabled;
+}
 
 }  // namespace rx

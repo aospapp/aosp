@@ -36,7 +36,7 @@
     <string name="header_category_general_settings" msgid="3897615781153506434">"सामान्य सेटिंग्ज"</string>
     <string name="dismiss_suggestion" msgid="6200814545590126814">"सूचना डिसमिस करा"</string>
     <string name="hotwording_title" msgid="2606899304616599026">"\"Ok Google\" शोध"</string>
-    <string name="hotwording_summary" msgid="2170375928302175449">"Google असिस्टंटशी कधीही बोला"</string>
+    <string name="hotwording_summary" msgid="2170375928302175449">"Google Assistant शी कधीही बोला"</string>
     <string name="header_category_device" msgid="3023893663454705969">"डिव्हाइस"</string>
     <string name="header_category_preferences" msgid="3738388885555798797">"प्राधान्ये"</string>
     <string name="header_category_accessories" msgid="6479803330480847199">"रिमोट आणि अ‍ॅक्सेसरी"</string>
@@ -164,7 +164,7 @@
     <string name="font_scale_item_detail" msgid="1558315053348778805">"<xliff:g id="SCALE">%1$d</xliff:g>%% वर स्केल करा"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"नमुन्याचा मजकूर"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"Oz चा अद्भुत जादूगार"</string>
-    <string name="font_scale_preview_text_subtitle" msgid="677394182922188048">"अध्याय ११: Oz चे अद्भूत पाचूंचे शहर"</string>
+    <string name="font_scale_preview_text_subtitle" msgid="677394182922188048">"अध्याय ११: Oz चे अद्भुत पाचूंचे शहर"</string>
     <string name="font_scale_preview_text_body" msgid="2040384234251207410">"डॉर्थी आणि तिच्या मित्रांचे डोळे हिरव्या चष्म्याने झाकले असले तरीही अद्भुत शहराच्या झगमगाटाने ते विस्मयचकित झाले. रस्त्यांवर हिरव्या संगमरवराने बनलेल्या आणि चमचमणारे पाचू सगळीकडे बसवलेल्या सुंदर घरांच्या रांगा होत्या. ते त्याच हिरव्या मार्बलच्या रस्त्यावरून चालत गेले आणि जेथे ते ब्लॉक एकत्र जुळत होते तेथे पाचू लावलेल्या पंक्ती होत्या व त्या सूर्यप्रकाशात चमकत होते. खिडक्यांचे भाग हिरव्या काचांचे होते; त्या शहरावर असलेल्या आकाशात देखील हिरव्या रंगाची छटा होती आणि सूर्याचे किरण हिरवे होते. \n\n तेथे अनेक पुरुष, स्त्रिया आणि लहान मुले चालत होती, त्यांचे पोशाख हिरव्या रंगाचे होते आणि त्यांची त्वचा हिरवट रंगाची होती. त्यांनी डॉर्थीकडे आणि तिच्या विचित्र सोबत्याकडे आश्चर्यचकित होऊन पाहिले आणि सिंहाला पाहून सर्व लहान मुले पळाली व त्यांच्या आयांच्या पाठीमागे जाऊन लपली, परंतु त्यांच्याशी कोणीही बोलले नाही. रस्त्यांमध्ये अनेक दुकाने होती आणि डॉर्थीने पाहिले की त्यामधील प्रत्येक गोष्ट हिरवी होती. विकण्यासाठी हिरवी कँडी आणि हिरवे पॉप-कॉर्न होते, तसेच हिरवे जोडे, हिरव्या टोप्या आणि सर्व प्रकारचे हिरवे कपडे विक्रीसाठी ठेवले होते. एका ठिकाणी एक माणूस लिंबाचे हिरवे सरबत विकत होता आणि डॉर्थीने पाहिले की लहान मुलांनी ते विकत घेतले आणि त्याच्यासाठी त्यांनी हिरवे पैसे दिले. \n\nतेथे घोडे किंवा कोणत्याही प्रकारचे प्राणी दिसत नव्हते; माणसे ढकलून लहान हिरव्या गाड्यांमध्ये वस्तू घेऊन जात होते. प्रत्येकजण आनंदी, समाधनी आणि समृद्ध दिसत होता."</string>
     <string name="hdr_format_selection_title" msgid="4042679694363850581">"फॉरमॅटची निवड"</string>
     <string name="hdr_format_selection_auto_title" msgid="2370148695440344232">"ऑटोमॅटिक"</string>
@@ -246,7 +246,7 @@
     <string name="system_keyboard_autofill" msgid="8530944165814838255">"कीबोर्ड आणि ऑटोफिल"</string>
     <string name="system_autofill" msgid="6983989261108020046">"ऑटोफिल"</string>
     <string name="system_home" msgid="2149349845791104094">"मुख्य स्क्रीन"</string>
-    <string name="system_search" msgid="3170169128257586925">"Search"</string>
+    <string name="system_search" msgid="3170169128257586925">"शोधा"</string>
     <string name="system_google" msgid="945985164023885276">"Google"</string>
     <string name="system_security" msgid="1012999639810957132">"सुरक्षा आणि निर्बंध"</string>
     <string name="system_speech" msgid="8779582280374089518">"उच्चारण"</string>
@@ -324,7 +324,7 @@
       <item quantity="other">कॅमेरा ॲप्स</item>
       <item quantity="one">कॅमेरा ॲप</item>
     </plurals>
-    <string name="default_calendar_app_title" msgid="1533912443930743532">"कॅलेंडर अ‍ॅप"</string>
+    <string name="default_calendar_app_title" msgid="1533912443930743532">"Calendar अ‍ॅप"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"संपर्क अ‍ॅप"</string>
     <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
       <item quantity="other">ईमेल क्लायंट ॲप्स</item>
@@ -588,7 +588,7 @@
     <string name="storage_wizard_forget_action" msgid="5609631662522950596">"विसरा"</string>
     <string name="storage_new_title" msgid="4768955281180255038">"USB ड्राइव्ह कनेक्‍ट केला"</string>
     <string name="storage_new_action_browse" msgid="3355241742574072658">"ब्राउझ करा"</string>
-    <string name="storage_new_action_adopt" msgid="6809707961170895964">"साधन स्टोरेज म्हणून सेट करा"</string>
+    <string name="storage_new_action_adopt" msgid="6809707961170895964">"टूल स्टोरेज म्हणून सेट करा"</string>
     <string name="storage_new_action_format_public" msgid="1964662216574764811">"काढण्‍यायोग्य संचयन म्हणून सेट करा"</string>
     <string name="storage_new_action_eject" msgid="919249291814300000">"बाहेर काढा"</string>
     <string name="storage_missing_title" msgid="9068915586235805818">"<xliff:g id="NAME">%1$s</xliff:g> काढला"</string>
@@ -624,7 +624,7 @@
     <string name="microphone" msgid="7893752847683941214">"मायक्रोफोन"</string>
     <string name="mic_toggle_title" msgid="7193417007060235665">"मायक्रोफोनचा अ‍ॅक्सेस"</string>
     <string name="open_mic_permissions" msgid="8121871594807641073">"ॲपला मायक्रोफोनचा असलेला अ‍ॅक्सेस"</string>
-    <string name="camera" msgid="1226671478936288283">"कॅमेरा"</string>
+    <string name="camera" msgid="1226671478936288283">"Camera"</string>
     <string name="camera_toggle_title" msgid="5566469574224956142">"कॅमेराचा अ‍ॅक्सेस"</string>
     <string name="open_camera_permissions" msgid="301360297337141591">"ॲपला कॅमेराचा असलेला अ‍ॅक्सेस"</string>
     <string name="mic_toggle_info_title" msgid="1086545614315873599">"मायक्रोफोनचा अ‍ॅक्सेस: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>

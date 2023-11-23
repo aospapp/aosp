@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -265,8 +264,6 @@ public class KernelApiSysfsTest extends BaseHostJUnit4Test {
     }
 
     /* /sys/module/kfence/parameters/sample_interval contains KFENCE sampling rate. */
-
-    @Ignore("KFENCE is temporarily disabled in GKI, see bug 185280916.")
     @Test
     public void testKfenceSampleRate() throws Exception {
         final int kRecommendedSampleRate = 500;

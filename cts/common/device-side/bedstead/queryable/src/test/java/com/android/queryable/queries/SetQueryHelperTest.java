@@ -37,13 +37,18 @@ public class SetQueryHelperTest {
     private static final String BUNDLE_KEY = "key";
     private static final Bundle BUNDLE_CONTAINING_KEY = new Bundle();
     private static final Bundle BUNDLE_NOT_CONTAINING_KEY = new Bundle();
+    private static final Integer INTEGER = 1;
+    private static final Integer DIFFERENT_INTEGER = 2;
+    private static final Integer ANOTHER_DIFFERENT_INTEGER = 3;
+
     static {
         BUNDLE_CONTAINING_KEY.putString(BUNDLE_KEY, "value");
     }
 
     @Test
     public void matches_size_matches_returnsTrue() {
-        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper = new SetQueryHelper<>(mQuery);
+        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
 
         setQueryHelper.size().isEqualTo(1);
 
@@ -52,7 +57,8 @@ public class SetQueryHelperTest {
 
     @Test
     public void matches_size_doesNotMatch_returnsFalse() {
-        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper = new SetQueryHelper<>(mQuery);
+        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
 
         setQueryHelper.size().isEqualTo(1);
 
@@ -60,8 +66,9 @@ public class SetQueryHelperTest {
     }
 
     @Test
-    public void matches_contains_doesContain_returnsTrue() {
-        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper = new SetQueryHelper<>(mQuery);
+    public void matches_contains_withQuery_doesContain_returnsTrue() {
+        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
 
         setQueryHelper.contains(
                 bundle().key(BUNDLE_KEY).exists()
@@ -71,8 +78,9 @@ public class SetQueryHelperTest {
     }
 
     @Test
-    public void matches_contains_doesNotContain_returnsFalse() {
-        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper = new SetQueryHelper<>(mQuery);
+    public void matches_contains_withQuery_doesNotContain_returnsFalse() {
+        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
 
         setQueryHelper.contains(
                 bundle().key(BUNDLE_KEY).exists()
@@ -82,8 +90,9 @@ public class SetQueryHelperTest {
     }
 
     @Test
-    public void matches_doesNotContain_doesContain_returnsFalse() {
-        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper = new SetQueryHelper<>(mQuery);
+    public void matches_doesNotContain_withQuery_doesContain_returnsFalse() {
+        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
 
         setQueryHelper.doesNotContain(
                 bundle().key(BUNDLE_KEY).exists()
@@ -93,8 +102,9 @@ public class SetQueryHelperTest {
     }
 
     @Test
-    public void matches_doesNotContain_doesNotContain_returnsTrue() {
-        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper = new SetQueryHelper<>(mQuery);
+    public void matches_doesNotContain_withQuery_doesNotContain_returnsTrue() {
+        SetQueryHelper<Queryable, Bundle, BundleQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
 
         setQueryHelper.doesNotContain(
                 bundle().key(BUNDLE_KEY).exists()
@@ -103,4 +113,89 @@ public class SetQueryHelperTest {
         assertThat(setQueryHelper.matches(Set.of(BUNDLE_NOT_CONTAINING_KEY))).isTrue();
     }
 
+    @Test
+    public void matches_contains_withNonQuery_doesContain_returnsTrue() {
+        SetQueryHelper<Queryable, Integer, IntegerQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
+
+        setQueryHelper.contains(INTEGER);
+
+        assertThat(setQueryHelper.matches(
+                Set.of(INTEGER, DIFFERENT_INTEGER))).isTrue();
+    }
+
+    @Test
+    public void matches_contains_withNonQuery_doesNotContain_returnsFalse() {
+        SetQueryHelper<Queryable, Integer, IntegerQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
+
+        setQueryHelper.contains(INTEGER);
+
+        assertThat(setQueryHelper.matches(Set.of(DIFFERENT_INTEGER))).isFalse();
+    }
+
+    @Test
+    public void matches_doesNotContain_withNonQuery_doesContain_returnsFalse() {
+        SetQueryHelper<Queryable, Integer, IntegerQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
+
+        setQueryHelper.doesNotContain(INTEGER);
+
+        assertThat(setQueryHelper.matches(
+                Set.of(INTEGER, DIFFERENT_INTEGER))).isFalse();
+    }
+
+    @Test
+    public void matches_doesNotContain_withNonQuery_doesNotContain_returnsTrue() {
+        SetQueryHelper<Queryable, Integer, IntegerQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
+
+        setQueryHelper.doesNotContain(INTEGER);
+
+        assertThat(setQueryHelper.matches(Set.of(DIFFERENT_INTEGER))).isTrue();
+    }
+
+    @Test
+    public void matches_containsAll_withNonQueries_doesContain_returnsTrue() {
+        SetQueryHelper<Queryable, Integer, IntegerQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
+
+        setQueryHelper.containsAll(Set.of(INTEGER, DIFFERENT_INTEGER));
+
+        assertThat(setQueryHelper.matches(
+                Set.of(INTEGER, DIFFERENT_INTEGER, ANOTHER_DIFFERENT_INTEGER))).isTrue();
+    }
+
+    @Test
+    public void matches_containsAll_withNonQueries_doesNotContain_returnsFalse() {
+        SetQueryHelper<Queryable, Integer, IntegerQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
+
+        setQueryHelper.containsAll(Set.of(INTEGER, DIFFERENT_INTEGER));
+
+        assertThat(setQueryHelper.matches(
+                Set.of(DIFFERENT_INTEGER, ANOTHER_DIFFERENT_INTEGER))).isFalse();
+    }
+
+    @Test
+    public void matches_doesNotContainAny_withNonQueries_doesContain_returnsFalse() {
+        SetQueryHelper<Queryable, Integer, IntegerQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
+
+        setQueryHelper.doesNotContainAny(Set.of(INTEGER, DIFFERENT_INTEGER));
+
+        assertThat(setQueryHelper.matches(
+                Set.of(INTEGER, ANOTHER_DIFFERENT_INTEGER))).isFalse();
+    }
+
+    @Test
+    public void matches_doesNotContainAny_withNonQueries_doesNotContain_returnsTrue() {
+        SetQueryHelper<Queryable, Integer, IntegerQuery<Queryable>> setQueryHelper =
+                new SetQueryHelper<>(mQuery);
+
+        setQueryHelper.doesNotContainAny(Set.of(INTEGER, DIFFERENT_INTEGER));
+
+        assertThat(setQueryHelper.matches(
+                Set.of(ANOTHER_DIFFERENT_INTEGER))).isTrue();
+    }
 }

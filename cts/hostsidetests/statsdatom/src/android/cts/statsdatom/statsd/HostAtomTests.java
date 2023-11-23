@@ -75,6 +75,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
 
     private static final String FEATURE_AUTOMOTIVE = "android.hardware.type.automotive";
     private static final String FEATURE_WATCH = "android.hardware.type.watch";
+    private static final String FEATURE_TWM = "com.google.clockwork.hardware.traditional_watch_mode";
     private static final String FEATURE_WIFI = "android.hardware.wifi";
     private static final String FEATURE_LEANBACK_ONLY = "android.software.leanback_only";
 
@@ -229,14 +230,19 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
 
         // Trigger events in same order.
         DeviceUtils.plugInAc(getDevice());
+        DeviceUtils.flushBatteryStatsHandlers(getDevice());
         Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
         DeviceUtils.unplugDevice(getDevice());
+        DeviceUtils.flushBatteryStatsHandlers(getDevice());
         Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
         plugInUsb();
+        DeviceUtils.flushBatteryStatsHandlers(getDevice());
         Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
         DeviceUtils.unplugDevice(getDevice());
+        DeviceUtils.flushBatteryStatsHandlers(getDevice());
         Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
         plugInWireless();
+        DeviceUtils.flushBatteryStatsHandlers(getDevice());
         Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
         DeviceUtils.unplugDevice(getDevice());
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
@@ -335,6 +341,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
     }
 
     public void testBatterySaverModeStateChangedAtom() throws Exception {
+        if (DeviceUtils.hasFeature(getDevice(), FEATURE_TWM)) return;
         if (DeviceUtils.hasFeature(getDevice(), FEATURE_AUTOMOTIVE)) return;
         // Setup, turn off battery saver.
         turnBatterySaverOff();

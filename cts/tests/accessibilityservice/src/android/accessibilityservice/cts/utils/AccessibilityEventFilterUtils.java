@@ -38,6 +38,12 @@ public class AccessibilityEventFilterUtils {
         return (new AccessibilityEventTypeMatcher(eventType))::matches;
     }
 
+    public static AccessibilityEventFilter filterWindowContentChangedWithChangeTypes(int changes) {
+        return (both(new AccessibilityEventTypeMatcher(
+                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)).and(
+                        new ContentChangesMatcher(changes)))::matches;
+    }
+
     public static AccessibilityEventFilter filterWindowsChangedWithChangeTypes(int changes) {
         return (both(new AccessibilityEventTypeMatcher(AccessibilityEvent.TYPE_WINDOWS_CHANGED))
                         .and(new WindowChangesMatcher(changes)))::matches;

@@ -87,8 +87,7 @@ public abstract class ServiceBinder {
                 ServiceConnection connection = new ServiceBinderConnection(call);
 
                 Log.addEvent(call, LogUtils.Events.BIND_CS, mComponentName);
-                final int bindingFlags = Context.BIND_AUTO_CREATE | Context.BIND_FOREGROUND_SERVICE
-                        | Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS;
+                final int bindingFlags = Context.BIND_AUTO_CREATE | Context.BIND_FOREGROUND_SERVICE;
                 final boolean isBound;
                 if (mUserHandle != null) {
                     isBound = mContext.bindServiceAsUser(serviceIntent, connection, bindingFlags,

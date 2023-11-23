@@ -49,9 +49,7 @@ on fs
 
     start setup_wifi
     # works around framework netiface enumeration issue
-    start rename_eth1
-
-    start bt_vhci_forwarder
+    start rename_eth0
 
     # So GceBootReporter can print to kmsg
     chmod 622 /dev/kmsg
@@ -59,6 +57,8 @@ on fs
 on post-fs
     # set RLIMIT_MEMLOCK to 64MB
     setrlimit 8 67108864 67108864
+
+    start bt_vhci_forwarder
 
 on post-fs-data
     mkdir /data/vendor/modem_dump 0777 system system
@@ -79,15 +79,16 @@ on boot
     mkdir /data/vendor/wifi/wpa 0770 wifi wifi
     mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi
     start socket_vsock_proxy
+    setprop ro.hardware.audio.primary goldfish
 
-service bt_vhci_forwarder /vendor/bin/bt_vhci_forwarder -virtio_console_dev=/dev/hvc5
+service bt_vhci_forwarder /vendor/bin/bt_vhci_forwarder -virtio_console_dev=${vendor.ser.bt-uart}
     user bluetooth
     group bluetooth
 
 service setup_wifi /vendor/bin/setup_wifi
     oneshot
 
-service rename_eth1 /vendor/bin/rename_netiface eth1 rmnet0
+service rename_eth0 /vendor/bin/rename_netiface eth0 rmnet0
     oneshot
 
 on property:sys.boot_completed=1

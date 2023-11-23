@@ -37,6 +37,12 @@ public final class MessageConstants {
      */
     @NonNull public static final String LAST_REPLY_TIMESTAMP_EXTRA = "LAST_REPLY_TIMESTAMP_EXTRA";
 
+    /**
+     * This is added as an extra in the {@link com.android.car.messenger.common.Conversation} to
+     * indicate what the last reply is, if any
+     */
+    @NonNull public static final String LAST_REPLY_TEXT_EXTRA = "LAST_REPLY_TEXT_EXTRA";
+
     /** Used to reply to message. */
     @NonNull public static final String ACTION_REPLY = "ACTION_REPLY";
 

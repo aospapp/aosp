@@ -22,7 +22,7 @@ import androidx.test.runner.AndroidJUnit4
 import com.android.modules.utils.build.SdkLevel.isAtLeastS
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
-import com.android.testutils.assertParcelSane
+import com.android.testutils.assertParcelingIsLossless
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -48,13 +48,7 @@ class NetworkAgentConfigTest {
                 setBypassableVpn(true)
             }
         }.build()
-        if (isAtLeastS()) {
-            // From S, the config will have 12 items
-            assertParcelSane(config, 12)
-        } else {
-            // For R or below, the config will have 10 items
-            assertParcelSane(config, 10)
-        }
+        assertParcelingIsLossless(config)
     }
 
     @Test @IgnoreUpTo(Build.VERSION_CODES.Q)

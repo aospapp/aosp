@@ -19,7 +19,6 @@ package android.net
 import android.os.Build
 import androidx.test.filters.SmallTest
 import com.android.modules.utils.build.SdkLevel
-import com.android.testutils.assertParcelSane
 import com.android.testutils.assertParcelingIsLossless
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
@@ -71,9 +70,8 @@ class CaptivePortalDataTest {
 
     @Test
     fun testParcelUnparcel() {
-        val fieldCount = if (SdkLevel.isAtLeastS()) 10 else 7
-        assertParcelSane(data, fieldCount)
-        assertParcelSane(dataFromPasspoint, fieldCount)
+        assertParcelingIsLossless(data)
+        assertParcelingIsLossless(dataFromPasspoint)
 
         assertParcelingIsLossless(makeBuilder().setUserPortalUrl(null).build())
         assertParcelingIsLossless(makeBuilder().setVenueInfoUrl(null).build())

@@ -17,6 +17,7 @@
 package com.android.car.carlauncher.homescreen.audio;
 
 import android.Manifest;
+import android.app.ActivityOptions;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -27,6 +28,7 @@ import android.os.IBinder;
 import android.telecom.Call;
 import android.telecom.TelecomManager;
 import android.util.Log;
+import android.view.Display;
 import android.view.View;
 
 import androidx.core.content.ContextCompat;
@@ -175,7 +177,12 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
         PackageManager pm = mContext.getPackageManager();
         Intent intent = pm.getLaunchIntentForPackage(mTelecomManager.getDefaultDialerPackage());
         if (intent != null) {
-            mContext.startActivity(intent);
+            // Launch activity in the default app task container: the display area where
+            // applications are launched by default.
+            // If not set, activity launches in the calling TDA.
+            ActivityOptions options = ActivityOptions.makeBasic();
+            options.setLaunchDisplayId(Display.DEFAULT_DISPLAY);
+            mContext.startActivity(intent, options.toBundle());
         } else {
             if (DEBUG) {
                 Log.d(TAG, "No launch intent found for dialer package: "
@@ -257,9 +264,10 @@ public class InCallModel implements HomeCardInterface.Model, InCallServiceImpl.I
 
     private void initializeAudioControls() {
         mMuteButton = new DescriptiveTextWithControlsView.Control(
-                mContext.getDrawable(R.drawable.ic_mic_off),
+                mContext.getDrawable(R.drawable.ic_mute_activatable),
                 v -> {
                     mInCallService.setMuted(mMuteCallToggle);
+                    v.setSelected(mMuteCallToggle);
                     mMuteCallToggle = !mMuteCallToggle;
                 });
         mEndCallButton = new DescriptiveTextWithControlsView.Control(

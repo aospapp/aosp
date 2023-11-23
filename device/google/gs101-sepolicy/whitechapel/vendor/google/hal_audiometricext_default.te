@@ -1,0 +1,12 @@
+type hal_audiometricext_default, domain;
+type hal_audiometricext_default_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(hal_audiometricext_default)
+
+allow hal_audiometricext_default amcs_device:chr_file rw_file_perms;
+allow hal_audiometricext_default sysfs_pixelstats:file rw_file_perms;
+
+get_prop(hal_audiometricext_default, vendor_audio_prop);
+get_prop(hal_audiometricext_default, hwservicemanager_prop);
+
+hwbinder_use(hal_audiometricext_default);
+add_hwservice(hal_audiometricext_default, hal_audiometricext_hwservice);

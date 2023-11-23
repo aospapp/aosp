@@ -30,6 +30,7 @@ import static android.contentcaptureservice.cts.Assertions.assertViewTextChanged
 import static android.contentcaptureservice.cts.Assertions.assertViewTreeFinished;
 import static android.contentcaptureservice.cts.Assertions.assertViewTreeStarted;
 import static android.contentcaptureservice.cts.Assertions.assertViewsOptionallyDisappeared;
+import static android.contentcaptureservice.cts.Assertions.assertWindowBoundsChanged;
 import static android.contentcaptureservice.cts.Helper.MY_PACKAGE;
 import static android.contentcaptureservice.cts.Helper.newImportantView;
 import static android.view.contentcapture.DataRemovalRequest.FLAG_IS_PREFIX;
@@ -227,6 +228,9 @@ public class LoginActivityTest
         assertMainSessionContext(mainSession, activity);
 
         // Check events
+        final List<ContentCaptureEvent> unfilteredEvents = mainSession.getUnfilteredEvents();
+        assertWindowBoundsChanged(unfilteredEvents);
+
         final List<ContentCaptureEvent> mainEvents = mainSession.getEvents();
         Log.v(TAG, "events(" + mainEvents.size() + ") for main session: " + mainEvents);
 

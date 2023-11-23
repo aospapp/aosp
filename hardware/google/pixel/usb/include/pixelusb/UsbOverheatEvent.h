@@ -86,7 +86,7 @@ class UsbOverheatEvent : public IServiceNotification, public IThermalChangedCall
   private:
     // To wake up thread to record max temperature
     unique_fd timer_fd_;
-    // Pools on timer_fd_
+    // Polls on timer_fd_ & event_fd. Thread waits here when port is cold.
     unique_fd epoll_fd_;
     // To wake up the thread when waiting on TimerFd
     unique_fd event_fd_;
@@ -99,10 +99,6 @@ class UsbOverheatEvent : public IServiceNotification, public IThermalChangedCall
     vector<ZoneInfo> queried_zones_;
     //  Sampling interval for monitoring the temperature
     int monitor_interval_sec_;
-    // protects the CV.
-    std::mutex lock_;
-    // Thread waits here when mRecordMaxTemp is false
-    std::condition_variable cv_;
     // Thread object that executes the ep monitoring logic
     unique_ptr<thread> monitor_;
     // Maximum overheat temperature recorded
@@ -113,6 +109,8 @@ class UsbOverheatEvent : public IServiceNotification, public IThermalChangedCall
     static void *monitorThread(void *param);
     // Register service notification listener
     bool registerListener();
+    // Helper function to wakeup monitor thread
+    void wakeupMonitor();
     // Thermal ServiceNotification listener
     Return<void> onRegistration(const hidl_string & /*fully_qualified_name*/,
                                 const hidl_string & /*instance_name*/,

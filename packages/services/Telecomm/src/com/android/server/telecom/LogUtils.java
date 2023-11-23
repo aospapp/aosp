@@ -138,6 +138,7 @@ public class LogUtils {
         public static final String REMOVE_CHILD = "REMOVE_CHILD";
         public static final String SET_PARENT = "SET_PARENT";
         public static final String CONF_STATE_CHANGED = "CONF_STATE_CHANGED";
+        public static final String CONF_CALLS_CHANGED = "CONF_CALLS_CHANGED";
         public static final String CALL_DIRECTION_CHANGED = "CALL_DIRECTION_CHANGED";
         public static final String MUTE = "MUTE";
         public static final String UNMUTE = "UNMUTE";

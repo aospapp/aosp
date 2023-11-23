@@ -22,6 +22,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -30,6 +31,8 @@ import android.os.UserHandle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.car.notification.headsup.CarHeadsUpNotificationAppContainer;
 
@@ -45,9 +48,11 @@ import java.util.stream.Stream;
 public class CarNotificationListener extends NotificationListenerService implements
         CarHeadsUpNotificationManager.OnHeadsUpNotificationStateChange {
     private static final String TAG = "CarNotificationListener";
+    private static final boolean DEBUG = Build.IS_ENG || Build.IS_USERDEBUG;
     static final String ACTION_LOCAL_BINDING = "local_binding";
     static final int NOTIFY_NOTIFICATION_POSTED = 1;
     static final int NOTIFY_NOTIFICATION_REMOVED = 2;
+    static final int NOTIFY_RANKING_UPDATED = 3;
     /** Temporary {@link Ranking} object that serves as a reused value holder */
     final private Ranking mTemporaryRanking = new Ranking();
 
@@ -73,14 +78,12 @@ public class CarNotificationListener extends NotificationListenerService impleme
      * @param context Context required for registering the service.
      * @param carUxRestrictionManagerWrapper will have the heads up manager registered with it.
      * @param carHeadsUpNotificationManager HUN controller.
-     * @param notificationDataManager used for keeping track of additional notification states.
      */
     public void registerAsSystemService(Context context,
             CarUxRestrictionManagerWrapper carUxRestrictionManagerWrapper,
-            CarHeadsUpNotificationManager carHeadsUpNotificationManager,
-            NotificationDataManager notificationDataManager) {
+            CarHeadsUpNotificationManager carHeadsUpNotificationManager) {
         try {
-            mNotificationDataManager = notificationDataManager;
+            mNotificationDataManager = NotificationDataManager.getInstance();
             registerAsSystemService(context,
                     new ComponentName(context.getPackageName(), getClass().getCanonicalName()),
                     ActivityManager.getCurrentUser());
@@ -93,15 +96,19 @@ public class CarNotificationListener extends NotificationListenerService impleme
         }
     }
 
+    @VisibleForTesting
+    void setNotificationDataManager(NotificationDataManager notificationDataManager) {
+        mNotificationDataManager = notificationDataManager;
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
-        mNotificationDataManager = new NotificationDataManager();
+        mNotificationDataManager = NotificationDataManager.getInstance();
         NotificationApplication app = (NotificationApplication) getApplication();
 
-        app.getClickHandlerFactory().setNotificationDataManager(mNotificationDataManager);
         mHeadsUpManager = new CarHeadsUpNotificationManager(/* context= */ this,
-                app.getClickHandlerFactory(), mNotificationDataManager, new CarHeadsUpNotificationAppContainer(this));
+                app.getClickHandlerFactory(), new CarHeadsUpNotificationAppContainer(this));
         mHeadsUpManager.registerHeadsUpNotificationStateChangeListener(this);
         app.getCarUxRestrictionWrapper().setCarHeadsUpNotificationManager(mHeadsUpManager);
     }
@@ -120,7 +127,16 @@ public class CarNotificationListener extends NotificationListenerService impleme
         }
 
         Log.d(TAG, "onNotificationPosted: " + sbn);
+        if (DEBUG) {
+            Log.d(TAG, "Is incoming notification a group summary?: "
+                    + sbn.getNotification().isGroupSummary());
+        }
         if (!isNotificationForCurrentUser(sbn)) {
+            if (DEBUG) {
+                Log.d(TAG, "Notification is not for current user: " + sbn.toString());
+                Log.d(TAG, "Notification user: " + sbn.getUser().getIdentifier());
+                Log.d(TAG, "Current user: " + ActivityManager.getCurrentUser());
+            }
             return;
         }
         AlertEntry alertEntry = new AlertEntry(sbn);
@@ -152,17 +168,33 @@ public class CarNotificationListener extends NotificationListenerService impleme
     @Override
     public void onNotificationRankingUpdate(RankingMap rankingMap) {
         mRankingMap = rankingMap;
+        boolean overrideGroupKeyUpdated = false;
         for (AlertEntry alertEntry : mActiveNotifications.values()) {
-            if (!mRankingMap.getRanking(alertEntry.getKey(), mTemporaryRanking)) {
-                continue;
-            }
-            String oldOverrideGroupKey =
-                    alertEntry.getStatusBarNotification().getOverrideGroupKey();
-            String newOverrideGroupKey = getOverrideGroupKey(alertEntry.getKey());
-            if (!Objects.equals(oldOverrideGroupKey, newOverrideGroupKey)) {
-                alertEntry.getStatusBarNotification().setOverrideGroupKey(newOverrideGroupKey);
+            if (updateOverrideGroupKey(alertEntry)) {
+                overrideGroupKeyUpdated = true;
             }
         }
+        if (overrideGroupKeyUpdated) {
+            sendNotificationEventToHandler(/* alertEntry= */ null, NOTIFY_RANKING_UPDATED);
+        }
+    }
+
+    private boolean updateOverrideGroupKey(AlertEntry alertEntry) {
+        if (!mRankingMap.getRanking(alertEntry.getKey(), mTemporaryRanking)) {
+            if (DEBUG) {
+                Log.d(TAG, "OverrideGroupKey not applied: " + alertEntry);
+            }
+            return false;
+        }
+
+        String oldOverrideGroupKey =
+                alertEntry.getStatusBarNotification().getOverrideGroupKey();
+        String newOverrideGroupKey = getOverrideGroupKey(alertEntry.getKey());
+        if (Objects.equals(oldOverrideGroupKey, newOverrideGroupKey)) {
+            return false;
+        }
+        alertEntry.getStatusBarNotification().setOverrideGroupKey(newOverrideGroupKey);
+        return true;
     }
 
     /**
@@ -210,7 +242,7 @@ public class CarNotificationListener extends NotificationListenerService impleme
     }
 
     private void notifyNotificationPosted(AlertEntry alertEntry) {
-        if (shouldTrackUnseen(alertEntry)) {
+        if (isNotificationHigherThanLowImportance(alertEntry)) {
             mNotificationDataManager.addNewMessageNotification(alertEntry);
         } else {
             mNotificationDataManager.untrackUnseenNotification(alertEntry);
@@ -218,8 +250,11 @@ public class CarNotificationListener extends NotificationListenerService impleme
 
         boolean isShowingHeadsUp = mHeadsUpManager.maybeShowHeadsUp(alertEntry, getCurrentRanking(),
                 mActiveNotifications);
-
+        if (DEBUG) {
+            Log.d(TAG, "Is " + alertEntry + " shown as HUN?: " + isShowingHeadsUp);
+        }
         if (!isShowingHeadsUp) {
+            updateOverrideGroupKey(alertEntry);
             postNewNotification(alertEntry);
         }
     }
@@ -236,6 +271,7 @@ public class CarNotificationListener extends NotificationListenerService impleme
     public void onStateChange(AlertEntry alertEntry, boolean isHeadsUp) {
         // No more a HUN
         if (!isHeadsUp) {
+            updateOverrideGroupKey(alertEntry);
             postNewNotification(alertEntry);
         }
     }
@@ -266,9 +302,7 @@ public class CarNotificationListener extends NotificationListenerService impleme
         mHandler.sendMessage(msg);
     }
 
-    // Don't show unseen markers for <= LOW importance notifications to be consistent
-    // with how these notifications are handled on phones
-    boolean shouldTrackUnseen(AlertEntry alertEntry) {
+    private boolean isNotificationHigherThanLowImportance(AlertEntry alertEntry) {
         Ranking ranking = new NotificationListenerService.Ranking();
         mRankingMap.getRanking(alertEntry.getKey(), ranking);
         return ranking.getImportance() > NotificationManager.IMPORTANCE_LOW;

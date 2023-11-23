@@ -111,7 +111,7 @@ Example of a failed test:
 
 ## Running Tests
 
-The tests can be run as any other Android JUnit tests. `frameworks/base/tests/FlickerTests` uses the library to test common UI transitions. Run `atest FlickerTest` to execute these tests.
+The tests can be run as any other Android JUnit tests. `frameworks/base/tests/FlickerTests` uses the library to test common UI transitions. Run `atest FlickerTests` to execute these tests.
 
 ---
 

@@ -102,38 +102,40 @@ status_t RemoveLsInfoFromResult(HalCameraMetadata* metadata);
 
 // Dump the information in the stream configuration
 void DumpStreamConfiguration(const StreamConfiguration& stream_configuration,
-                             std::string title);
+                             const std::string& title);
 
 // Dump the information in the HAL configured streams
 void DumpHalConfiguredStreams(
-    const std::vector<HalStream>& hal_configured_streams, std::string title);
+    const std::vector<HalStream>& hal_configured_streams,
+    const std::string& title);
 
 // Dump the information in a capture request
-void DumpCaptureRequest(const CaptureRequest& request, std::string title);
+void DumpCaptureRequest(const CaptureRequest& request, const std::string& title);
 
 // Dump the information in a capture result
-void DumpCaptureResult(const ProcessBlockResult& result, std::string title);
+void DumpCaptureResult(const ProcessBlockResult& result,
+                       const std::string& title);
 
 // Dump the information in a capture result
-void DumpCaptureResult(const CaptureResult& result, std::string title);
+void DumpCaptureResult(const CaptureResult& result, const std::string& title);
 
 // Dump the information in a notification
-void DumpNotify(const NotifyMessage& message, std::string title);
+void DumpNotify(const NotifyMessage& message, const std::string& title);
 
 // Dump Stream
-void DumpStream(const Stream& stream, std::string title);
+void DumpStream(const Stream& stream, const std::string& title);
 
 // Dump HalStream
-void DumpHalStream(const HalStream& hal_stream, std::string title);
+void DumpHalStream(const HalStream& hal_stream, const std::string& title);
 
 // Dump the information in a buffer return
 void DumpBufferReturn(const std::vector<StreamBuffer>& stream_buffers,
-                      std::string title);
+                      const std::string& title);
 
 // Dump the information in a buffer request
 void DumpBufferRequest(const std::vector<BufferRequest>& hal_buffer_requests,
                        const std::vector<BufferReturn>* hal_buffer_returns,
-                       std::string title);
+                       const std::string& title);
 
 }  // namespace hal_utils
 }  // namespace google_camera_hal

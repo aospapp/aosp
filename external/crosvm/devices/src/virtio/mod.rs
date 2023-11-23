@@ -5,13 +5,10 @@
 //! Implements virtio devices, queues, and transport mechanisms.
 
 mod balloon;
-mod block;
-mod block_async;
-mod console;
 mod descriptor_utils;
 mod input;
 mod interrupt;
-mod net;
+mod iommu;
 mod p9;
 mod pmem;
 mod queue;
@@ -23,11 +20,14 @@ mod video;
 mod virtio_device;
 mod virtio_pci_common_config;
 mod virtio_pci_device;
-mod wl;
+pub mod wl;
 
+pub mod block;
+pub mod console;
 pub mod fs;
 #[cfg(feature = "gpu")]
 pub mod gpu;
+pub mod net;
 pub mod resource_bridge;
 #[cfg(feature = "audio")]
 pub mod snd;
@@ -35,7 +35,6 @@ pub mod vhost;
 
 pub use self::balloon::*;
 pub use self::block::*;
-pub use self::block_async::*;
 pub use self::console::*;
 pub use self::descriptor_utils::Error as DescriptorError;
 pub use self::descriptor_utils::*;
@@ -43,11 +42,14 @@ pub use self::descriptor_utils::*;
 pub use self::gpu::*;
 pub use self::input::*;
 pub use self::interrupt::*;
+pub use self::iommu::*;
 pub use self::net::*;
 pub use self::p9::*;
 pub use self::pmem::*;
 pub use self::queue::*;
 pub use self::rng::*;
+#[cfg(feature = "audio")]
+pub use self::snd::*;
 #[cfg(feature = "tpm")]
 pub use self::tpm::*;
 #[cfg(any(feature = "video-decoder", feature = "video-encoder"))]
@@ -59,6 +61,8 @@ pub use self::wl::*;
 use crate::ProtectionType;
 use std::cmp;
 use std::convert::TryFrom;
+
+use virtio_sys::virtio_ring::VIRTIO_RING_F_EVENT_IDX;
 
 const DEVICE_RESET: u32 = 0x0;
 const DEVICE_ACKNOWLEDGE: u32 = 0x01;
@@ -83,8 +87,10 @@ const TYPE_INPUT: u32 = 18;
 const TYPE_VSOCK: u32 = 19;
 const TYPE_CRYPTO: u32 = 20;
 const TYPE_IOMMU: u32 = 23;
+const TYPE_SOUND: u32 = 25;
 const TYPE_FS: u32 = 26;
 const TYPE_PMEM: u32 = 27;
+const TYPE_MAC80211_HWSIM: u32 = 29;
 const TYPE_VIDEO_ENC: u32 = 30;
 const TYPE_VIDEO_DEC: u32 = 31;
 // Additional types invented by crosvm
@@ -122,6 +128,7 @@ pub fn type_to_str(type_: u32) -> Option<&'static str> {
         TYPE_VSOCK => "vsock",
         TYPE_CRYPTO => "crypto",
         TYPE_IOMMU => "iommu",
+        TYPE_SOUND => "snd",
         TYPE_FS => "fs",
         TYPE_PMEM => "pmem",
         TYPE_WL => "wl",
@@ -158,7 +165,7 @@ pub fn copy_config(dst: &mut [u8], dst_offset: u64, src: &[u8], src_offset: u64)
 
 /// Returns the set of reserved base features common to all virtio devices.
 pub fn base_features(protected_vm: ProtectionType) -> u64 {
-    let mut features: u64 = 1 << VIRTIO_F_VERSION_1;
+    let mut features: u64 = 1 << VIRTIO_F_VERSION_1 | 1 << VIRTIO_RING_F_EVENT_IDX;
 
     if protected_vm == ProtectionType::Protected {
         features |= 1 << VIRTIO_F_ACCESS_PLATFORM;

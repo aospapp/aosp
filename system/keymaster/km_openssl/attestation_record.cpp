@@ -26,6 +26,7 @@
 
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/attestation_context.h>
+#include <keymaster/km_openssl/hmac.h>
 #include <keymaster/km_openssl/openssl_err.h>
 #include <keymaster/km_openssl/openssl_utils.h>
 
@@ -253,27 +254,6 @@ bool is_valid_attestation_challenge(const keymaster_blob_t& attestation_challeng
     // TODO(171864369): Limit apps targeting >= API 30 to attestations in the range of
     // [0, 128] bytes.
     return (attestation_challenge.data_length <= kMaximumAttestationChallengeLength);
-}
-
-Buffer generate_unique_id(const AttestationContext& context,  //
-                          const AuthorizationSet& sw_enforced,
-                          const AuthorizationSet& attestation_params,  //
-                          keymaster_error_t* error) {
-    uint64_t creation_datetime;
-    // Only check sw_enforced for TAG_CREATION_DATETIME, since it shouldn't be in tee_enforced,
-    // since this implementation has no secure wall clock.
-    if (!sw_enforced.GetTagValue(TAG_CREATION_DATETIME, &creation_datetime)) {
-        LOG_E("Unique ID cannot be created without creation datetime", 0);
-        *error = KM_ERROR_INVALID_KEY_BLOB;
-        return {};
-    }
-
-    keymaster_blob_t application_id = {nullptr, 0};
-    sw_enforced.GetTagValue(TAG_APPLICATION_ID, &application_id);
-
-    return context.GenerateUniqueId(creation_datetime, application_id,
-                                    attestation_params.GetTagValue(TAG_RESET_SINCE_ID_ROTATION),
-                                    error);
 }
 
 // Put the contents of the keymaster AuthorizationSet auth_list into the EAT record structure.
@@ -536,7 +516,6 @@ keymaster_error_t build_auth_list(const AuthorizationSet& auth_list, KM_AUTH_LIS
         case KM_TAG_AUTH_TOKEN:
         case KM_TAG_MAC_LENGTH:
         case KM_TAG_ATTESTATION_CHALLENGE:
-        case KM_TAG_RESET_SINCE_ID_ROTATION:
         case KM_TAG_KDF:
 
         /* Tags ignored because they're used only to provide for certificate generation */
@@ -544,6 +523,8 @@ keymaster_error_t build_auth_list(const AuthorizationSet& auth_list, KM_AUTH_LIS
         case KM_TAG_CERTIFICATE_SUBJECT:
         case KM_TAG_CERTIFICATE_NOT_BEFORE:
         case KM_TAG_CERTIFICATE_NOT_AFTER:
+        case KM_TAG_INCLUDE_UNIQUE_ID:
+        case KM_TAG_RESET_SINCE_ID_ROTATION:
 
         /* Tags ignored because they have no meaning off-device */
         case KM_TAG_USER_ID:
@@ -552,7 +533,6 @@ keymaster_error_t build_auth_list(const AuthorizationSet& auth_list, KM_AUTH_LIS
 
         /* Tags ignored because they're not usable by app keys */
         case KM_TAG_BOOTLOADER_ONLY:
-        case KM_TAG_INCLUDE_UNIQUE_ID:
         case KM_TAG_MAX_BOOT_LEVEL:
         case KM_TAG_MAX_USES_PER_BOOT:
         case KM_TAG_MIN_SECONDS_BETWEEN_OPS:
@@ -932,9 +912,7 @@ keymaster_error_t build_eat_record(const AuthorizationSet& attestation_params,
         eat_record.add(EatClaim::SUBMODS, std::move(submods));
     }
 
-    // Only check tee_enforced for TAG_INCLUDE_UNIQUE_ID.  If we don't have hardware we can't
-    // generate unique IDs.
-    if (tee_enforced.GetTagValue(TAG_INCLUDE_UNIQUE_ID)) {
+    if (attestation_params.GetTagValue(TAG_INCLUDE_UNIQUE_ID)) {
         uint64_t creation_datetime;
         // Only check sw_enforced for TAG_CREATION_DATETIME, since it shouldn't be in tee_enforced,
         // since this implementation has no secure wall clock.
@@ -943,11 +921,8 @@ keymaster_error_t build_eat_record(const AuthorizationSet& attestation_params,
             return KM_ERROR_INVALID_KEY_BLOB;
         }
 
-        keymaster_blob_t application_id = {nullptr, 0};
-        sw_enforced.GetTagValue(TAG_APPLICATION_ID, &application_id);
-
         Buffer unique_id = context.GenerateUniqueId(
-            creation_datetime, application_id,
+            creation_datetime, attestation_app_id,
             attestation_params.GetTagValue(TAG_RESET_SINCE_ID_ROTATION), &error);
         if (error != KM_ERROR_OK) return error;
 
@@ -958,6 +933,33 @@ keymaster_error_t build_eat_record(const AuthorizationSet& attestation_params,
     *eat_token = eat_record.encode();
 
     return KM_ERROR_OK;
+}
+
+std::vector<uint8_t> build_unique_id_input(uint64_t creation_date_time,
+                                           const keymaster_blob_t& application_id,
+                                           bool reset_since_rotation) {
+    uint64_t rounded_date = creation_date_time / 2592000000LLU;
+    uint8_t* serialized_date = reinterpret_cast<uint8_t*>(&rounded_date);
+
+    std::vector<uint8_t> input;
+    input.insert(input.end(), serialized_date, serialized_date + sizeof(rounded_date));
+    input.insert(input.end(), application_id.data,
+                 application_id.data + application_id.data_length);
+    input.push_back(reset_since_rotation ? 1 : 0);
+    return input;
+}
+
+Buffer generate_unique_id(const std::vector<uint8_t>& hbk, uint64_t creation_date_time,
+                          const keymaster_blob_t& application_id, bool reset_since_rotation) {
+    HmacSha256 hmac;
+    hmac.Init(hbk.data(), hbk.size());
+
+    std::vector<uint8_t> input =
+        build_unique_id_input(creation_date_time, application_id, reset_since_rotation);
+    Buffer unique_id(UNIQUE_ID_SIZE);
+    hmac.Sign(input.data(), input.size(), unique_id.peek_write(), unique_id.available_write());
+    unique_id.advance_write(UNIQUE_ID_SIZE);
+    return unique_id;
 }
 
 // Construct an ASN1.1 DER-encoded attestation record containing the values from sw_enforced and
@@ -1057,9 +1059,7 @@ keymaster_error_t build_attestation_record(const AuthorizationSet& attestation_p
     error = build_auth_list(tee_enforced, key_desc->tee_enforced);
     if (error != KM_ERROR_OK) return error;
 
-    // Only check tee_enforced for TAG_INCLUDE_UNIQUE_ID.  If we don't have hardware we can't
-    // generate unique IDs.
-    if (tee_enforced.GetTagValue(TAG_INCLUDE_UNIQUE_ID)) {
+    if (attestation_params.GetTagValue(TAG_INCLUDE_UNIQUE_ID)) {
         uint64_t creation_datetime;
         // Only check sw_enforced for TAG_CREATION_DATETIME, since it shouldn't be in tee_enforced,
         // since this implementation has no secure wall clock.
@@ -1068,11 +1068,8 @@ keymaster_error_t build_attestation_record(const AuthorizationSet& attestation_p
             return KM_ERROR_INVALID_KEY_BLOB;
         }
 
-        keymaster_blob_t application_id = {nullptr, 0};
-        sw_enforced.GetTagValue(TAG_APPLICATION_ID, &application_id);
-
         Buffer unique_id = context.GenerateUniqueId(
-            creation_datetime, application_id,
+            creation_datetime, attestation_app_id,
             attestation_params.GetTagValue(TAG_RESET_SINCE_ID_ROTATION), &error);
         if (error != KM_ERROR_OK) return error;
 

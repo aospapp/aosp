@@ -120,12 +120,11 @@ public class RecentNotificationsAppsPreferenceControllerTest {
 
     @Test
     public void areEvents_showValidRecents() throws Exception {
+        long timestamp = System.currentTimeMillis();
         List<UsageEvents.Event> events = new ArrayList<>();
-        UsageEvents.Event app1 = createUsageEvent("a", System.currentTimeMillis());
-        UsageEvents.Event app2 = createUsageEvent("com.android.settings",
-                System.currentTimeMillis());
-        UsageEvents.Event app3 = createUsageEvent("pkg.class2",
-                System.currentTimeMillis() - 1000);
+        UsageEvents.Event app1 = createUsageEvent("a", timestamp);
+        UsageEvents.Event app2 = createUsageEvent("com.android.settings", timestamp);
+        UsageEvents.Event app3 = createUsageEvent("pkg.class2", timestamp - 1000);
 
         events.add(app1);
         events.add(app2);
@@ -135,12 +134,10 @@ public class RecentNotificationsAppsPreferenceControllerTest {
         ApplicationsState.AppEntry app2Entry = createAppEntry("app 2");
 
         // app1, app2 are valid apps. app3 is invalid.
-        when(mMockApplicationsState.getEntry(app1.getPackageName(), UserHandle.myUserId()))
-                .thenReturn(app1Entry);
-        when(mMockApplicationsState.getEntry(app2.getPackageName(), UserHandle.myUserId()))
-                .thenReturn(app2Entry);
-        when(mMockApplicationsState.getEntry(app3.getPackageName(), UserHandle.myUserId()))
-                .thenReturn(null);
+        int userId = UserHandle.myUserId();
+        when(mMockApplicationsState.getEntry(app1.getPackageName(), userId)).thenReturn(app1Entry);
+        when(mMockApplicationsState.getEntry(app2.getPackageName(), userId)).thenReturn(app2Entry);
+        when(mMockApplicationsState.getEntry(app3.getPackageName(), userId)).thenReturn(null);
 
         UsageEvents usageEvents = getUsageEvents(
                 new String[] {app1.getPackageName(), app2.getPackageName(), app3.getPackageName()},
@@ -161,14 +158,12 @@ public class RecentNotificationsAppsPreferenceControllerTest {
 
     @Test
     public void areEvents_showMaximumRecents() throws Exception {
+        long timestamp = System.currentTimeMillis();
         List<UsageEvents.Event> events = new ArrayList<>();
-        UsageEvents.Event app1 = createUsageEvent("a", System.currentTimeMillis());
-        UsageEvents.Event app2 = createUsageEvent("com.android.settings",
-                System.currentTimeMillis());
-        UsageEvents.Event app3 = createUsageEvent("pkg.class2",
-                System.currentTimeMillis() - 1000);
-        UsageEvents.Event app4 = createUsageEvent("pkg.class3",
-                System.currentTimeMillis() - 1000);
+        UsageEvents.Event app1 = createUsageEvent("a", timestamp);
+        UsageEvents.Event app2 = createUsageEvent("com.android.settings", timestamp);
+        UsageEvents.Event app3 = createUsageEvent("pkg.class2", timestamp - 1000);
+        UsageEvents.Event app4 = createUsageEvent("pkg.class3", timestamp - 1000);
 
         events.add(app1);
         events.add(app2);
@@ -181,14 +176,11 @@ public class RecentNotificationsAppsPreferenceControllerTest {
         ApplicationsState.AppEntry app4Entry = createAppEntry("app 4");
 
         // Four valid apps found
-        when(mMockApplicationsState.getEntry(app1.getPackageName(), UserHandle.myUserId()))
-                .thenReturn(app1Entry);
-        when(mMockApplicationsState.getEntry(app2.getPackageName(), UserHandle.myUserId()))
-                .thenReturn(app2Entry);
-        when(mMockApplicationsState.getEntry(app3.getPackageName(), UserHandle.myUserId()))
-                .thenReturn(app3Entry);
-        when(mMockApplicationsState.getEntry(app4.getPackageName(), UserHandle.myUserId()))
-                .thenReturn(app4Entry);
+        int userId = UserHandle.myUserId();
+        when(mMockApplicationsState.getEntry(app1.getPackageName(), userId)).thenReturn(app1Entry);
+        when(mMockApplicationsState.getEntry(app2.getPackageName(), userId)).thenReturn(app2Entry);
+        when(mMockApplicationsState.getEntry(app3.getPackageName(), userId)).thenReturn(app3Entry);
+        when(mMockApplicationsState.getEntry(app4.getPackageName(), userId)).thenReturn(app4Entry);
 
         UsageEvents usageEvents = getUsageEvents(
                 new String[] {app1.getPackageName(), app2.getPackageName(), app3.getPackageName(),

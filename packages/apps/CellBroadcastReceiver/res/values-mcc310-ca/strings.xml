@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Vull rebre les proves mensuals obligatòries del sistema d\'alertes de seguretat"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Alerta nacional"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Mostra un quadre de diàleg de desactivació després de la primera alerta (tret d\'alerta nacional)."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Alertes nacionals"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Missatges d\'advertiment nacionals. No es poden desactivar."</string>
 </resources>

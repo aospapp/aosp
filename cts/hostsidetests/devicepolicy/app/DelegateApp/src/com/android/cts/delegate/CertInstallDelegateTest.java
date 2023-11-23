@@ -27,13 +27,13 @@ import android.content.ComponentName;
 import android.util.Base64;
 import android.util.Base64InputStream;
 
-import com.android.cts.devicepolicy.ParcelablePrivateKey;
-
 import java.io.ByteArrayInputStream;
+import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.List;
 
 /**
@@ -77,15 +77,14 @@ public class CertInstallDelegateTest extends BaseJUnit3TestCase {
 
         // Exercise installKeyPair.
         final String alias = "delegated-cert-installer-test-key";
-
-        PrivateKey privatekey = new ParcelablePrivateKey("RSA",
-                Base64.decode(TEST_KEY, Base64.DEFAULT));
+        PrivateKey privateKey = KeyFactory.getInstance("RSA").generatePrivate(
+                new PKCS8EncodedKeySpec(Base64.decode(TEST_KEY, Base64.DEFAULT)));
 
         Certificate certificate = CertificateFactory.getInstance("X.509").generateCertificate(
                 new Base64InputStream(new ByteArrayInputStream(TEST_CERT.getBytes()),
                     Base64.DEFAULT));
         assertTrue("Key pair not installed successfully",
-                mDpm.installKeyPair(null, privatekey, certificate, alias));
+                mDpm.installKeyPair(null, privateKey, certificate, alias));
 
         // Exercise removeKeyPair.
         assertTrue("Key pair not removed successfully", mDpm.removeKeyPair(null, alias));

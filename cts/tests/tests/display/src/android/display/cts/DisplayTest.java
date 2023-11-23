@@ -21,8 +21,15 @@ import static android.view.Display.DEFAULT_DISPLAY;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
-import static org.junit.Assert.*;
-import static org.junit.Assume.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeNotNull;
+import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
 import android.app.Activity;
@@ -64,8 +71,11 @@ import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.AdoptShellPermissionsRule;
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.DisplayUtil;
 import com.android.compatibility.common.util.PropertyUtil;
+
+import com.google.common.truth.Truth;
 
 import org.junit.After;
 import org.junit.Before;
@@ -83,10 +93,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Scanner;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -112,6 +122,7 @@ public class DisplayTest {
     private static final String OVERLAY_DISPLAY_NAME_PREFIX = "Overlay #";
 
     private static final int BRIGHTNESS_MAX = 255;
+    private static final float REFRESH_RATE_TOLERANCE = 0.001f;
 
     private DisplayManager mDisplayManager;
     private WindowManager mWindowManager;
@@ -120,6 +131,7 @@ public class DisplayTest {
     private ColorSpace[] mSupportedWideGamuts;
     private Display mDefaultDisplay;
     private HdrSettings mOriginalHdrSettings;
+    private int mInitialRefreshRateSwitchingType;
 
     // To test display mode switches.
     private TestPresentation mPresentation;
@@ -193,7 +205,8 @@ public class DisplayTest {
             Manifest.permission.OVERRIDE_DISPLAY_MODE_REQUESTS,
             Manifest.permission.ACCESS_SURFACE_FLINGER,
             Manifest.permission.WRITE_SECURE_SETTINGS,
-            Manifest.permission.HDMI_CEC);
+            Manifest.permission.HDMI_CEC,
+            Manifest.permission.MODIFY_REFRESH_RATE_SWITCHING_TYPE);
 
     @Before
     public void setUp() throws Exception {
@@ -577,29 +590,35 @@ public class DisplayTest {
         Display.Mode[] modes = mDefaultDisplay.getSupportedModes();
         assumeTrue("Need two or more display modes to exercise switching.", modes.length > 1);
 
-        // Create a deterministically shuffled list of display modes, which ends with the
-        // current active mode. We'll switch to the modes in this order. The active mode is last
-        // so we don't need an extra mode switch in case the test completes successfully.
-        Display.Mode activeMode = mDefaultDisplay.getMode();
-        List<Display.Mode> modesList = new ArrayList<>(modes.length);
-        for (Display.Mode mode : modes) {
-            if (mode.getModeId() != activeMode.getModeId()) {
-                modesList.add(mode);
-            }
-        }
-        Random random = new Random(42);
-        Collections.shuffle(modesList, random);
-        modesList.add(activeMode);
-
         try {
             mDisplayManager.setShouldAlwaysRespectAppRequestedMode(true);
             assertTrue(mDisplayManager.shouldAlwaysRespectAppRequestedMode());
+            mInitialRefreshRateSwitchingType =
+                    DisplayUtil.getRefreshRateSwitchingType(mDisplayManager);
+            mDisplayManager.setRefreshRateSwitchingType(DisplayManager.SWITCHING_TYPE_NONE);
+
             final DisplayTestActivity activity = launchActivity(mRetainedDisplayTestActivity);
+
+            // Create a deterministically shuffled list of display modes, which ends with the
+            // current active mode. We'll switch to the modes in this order. The active mode is last
+            // so we don't need an extra mode switch in case the test completes successfully.
+            Display.Mode activeMode = mDefaultDisplay.getMode();
+            List<Display.Mode> modesList = new ArrayList<>(modes.length);
+            for (Display.Mode mode : modes) {
+                if (mode.getModeId() != activeMode.getModeId()) {
+                    modesList.add(mode);
+                }
+            }
+            Random random = new Random(42);
+            Collections.shuffle(modesList, random);
+            modesList.add(activeMode);
+
             for (Display.Mode mode : modesList) {
                 testSwitchToModeId(activity, mode);
             }
         } finally {
             mDisplayManager.setShouldAlwaysRespectAppRequestedMode(false);
+            mDisplayManager.setRefreshRateSwitchingType(mInitialRefreshRateSwitchingType);
         }
     }
 
@@ -618,10 +637,13 @@ public class DisplayTest {
         try {
             mDisplayManager.setShouldAlwaysRespectAppRequestedMode(true);
             assertTrue(mDisplayManager.shouldAlwaysRespectAppRequestedMode());
-            final DisplayTestActivity activity = launchActivity(mDisplayTestActivity);
+            mInitialRefreshRateSwitchingType =
+                    DisplayUtil.getRefreshRateSwitchingType(mDisplayManager);
+            mDisplayManager.setRefreshRateSwitchingType(DisplayManager.SWITCHING_TYPE_NONE);
             testSwitchToModeId(launchActivity(mDisplayTestActivity), newMode.get());
         } finally {
             mDisplayManager.setShouldAlwaysRespectAppRequestedMode(false);
+            mDisplayManager.setRefreshRateSwitchingType(mInitialRefreshRateSwitchingType);
         }
     }
 
@@ -629,16 +651,18 @@ public class DisplayTest {
         return new Point(mode.getPhysicalWidth(), mode.getPhysicalHeight());
     }
 
-    private void testSwitchToModeId(DisplayTestActivity activity, Display.Mode mode)
+    private void testSwitchToModeId(DisplayTestActivity activity, Display.Mode targetMode)
             throws Exception {
-        Log.i(TAG, "Switching to mode " + mode);
+        final DisplayModeState initialMode = new DisplayModeState(mDefaultDisplay);
+        Log.i(TAG, "Testing switching to mode " + targetMode + ". Current mode = " + initialMode);
 
         final CountDownLatch changeSignal = new CountDownLatch(1);
         final AtomicInteger changeCounter = new AtomicInteger(0);
-        final DisplayModeState activeMode = new DisplayModeState(mDefaultDisplay);
+        final AtomicInteger changesToReachTargetMode = new AtomicInteger(0);
 
         DisplayListener listener = new DisplayListener() {
-            private DisplayModeState mLastMode = activeMode;
+            private DisplayModeState mLastMode = initialMode;
+            private boolean mIsDesiredModeReached = false;
             @Override
             public void onDisplayAdded(int displayId) {}
 
@@ -656,7 +680,16 @@ public class DisplayTest {
 
                 Log.i(TAG, "Switched mode from=" + mLastMode + " to=" + newMode);
                 changeCounter.incrementAndGet();
-                changeSignal.countDown();
+
+                if (targetMode.getPhysicalHeight() == newMode.mHeight
+                        && targetMode.getPhysicalWidth() == newMode.mWidth
+                        && Math.abs(targetMode.getRefreshRate() - newMode.mRefreshRate)
+                            < REFRESH_RATE_TOLERANCE
+                        && !mIsDesiredModeReached) {
+                    mIsDesiredModeReached = true;
+                    changeSignal.countDown();
+                    changesToReachTargetMode.set(changeCounter.get());
+                }
 
                 mLastMode = newMode;
             }
@@ -670,7 +703,7 @@ public class DisplayTest {
 
         final CountDownLatch presentationSignal = new CountDownLatch(1);
         handler.post(() -> {
-            activity.setPreferredDisplayMode(mode);
+            activity.setPreferredDisplayMode(targetMode);
             presentationSignal.countDown();
         });
 
@@ -679,13 +712,33 @@ public class DisplayTest {
         // Wait until the display change is effective.
         assertTrue(changeSignal.await(5, TimeUnit.SECONDS));
         DisplayModeState currentMode = new DisplayModeState(mDefaultDisplay);
-        assertEquals(mode.getPhysicalHeight(), currentMode.mHeight);
-        assertEquals(mode.getPhysicalWidth(), currentMode.mWidth);
-        assertEquals(mode.getRefreshRate(), currentMode.mRefreshRate, 0.001f);
+        assertEquals(targetMode.getPhysicalHeight(), currentMode.mHeight);
+        assertEquals(targetMode.getPhysicalWidth(), currentMode.mWidth);
+        assertEquals(targetMode.getRefreshRate(), currentMode.mRefreshRate, REFRESH_RATE_TOLERANCE);
+
+
+        boolean isResolutionSwitch = initialMode.mHeight != targetMode.getPhysicalHeight()
+                || initialMode.mWidth != targetMode.getPhysicalHeight();
+        boolean isRefreshRateSwitch =
+                Math.abs(initialMode.mRefreshRate - targetMode.getRefreshRate())
+                        > REFRESH_RATE_TOLERANCE;
+        // When both resolution and refresh rate are changed the transition can happen with two
+        // mode switches:
+        // 1) When the frame rate vote is applied in
+        //        java.com.android.server.wm.WindowState#updateFrameRateSelectionPriorityIfNeeded
+        // 2) When the DisplayManager policy is applied to RefreshRateConfigs in SurfaceFlinger.
+        // TODO(b/199895248) Expect only 1 mode change.
+        Truth.assertThat(changesToReachTargetMode.get())
+                .isAtMost((isResolutionSwitch && isRefreshRateSwitch) ? 2 : 1);
 
         // Make sure no more display mode changes are registered.
         Thread.sleep(Duration.ofSeconds(3).toMillis());
-        assertEquals(1, changeCounter.get());
+
+        // When a resolution switch occurs the DisplayManager policy in RefreshRateConfigs
+        // is cleared  and later reapplied. This may lead to two additional mode switches.
+        // TODO(b/200265160) Expect no changes.
+        Truth.assertThat(changeCounter.get() - changesToReachTargetMode.get())
+                .isAtMost(isResolutionSwitch ? 2 : 0);
 
         // Many TV apps use the vendor.display-size sysprop to detect the display size (although
         // it's not an official API). In Android S the bugs which required this workaround were
@@ -695,8 +748,8 @@ public class DisplayTest {
         if (PropertyUtil.getVendorApiLevel() >= Build.VERSION_CODES.S) {
             Point vendorDisplaySize = getVendorDisplaySize();
             if (vendorDisplaySize != null) {
-                assertEquals(mode.getPhysicalWidth(), vendorDisplaySize.x);
-                assertEquals(mode.getPhysicalHeight(), vendorDisplaySize.y);
+                assertEquals(targetMode.getPhysicalWidth(), vendorDisplaySize.x);
+                assertEquals(targetMode.getPhysicalHeight(), vendorDisplaySize.y);
             }
         }
 
@@ -972,6 +1025,7 @@ public class DisplayTest {
         assertEquals(supportsWideGamut, supportsP3);
     }
 
+    @CddTest(requirement="7.1.1.1/H-0-2")
     @Test
     public void testRestrictedFramebufferSize() {
         PackageManager packageManager = mContext.getPackageManager();

@@ -1,0 +1,36 @@
+vendor.samsung_slsi.hardware.radio::IOemSamsungslsi                   u:object_r:hal_telephony_hwservice:s0
+vendor.samsung_slsi.hardware.ExynosHWCServiceTW::IExynosHWCServiceTW  u:object_r:hal_vendor_surfaceflinger_hwservice:s0
+vendor.samsung_slsi.hardware.configstore::IExynosHWCConfigs  u:object_r:hal_configstore_ISurfaceFlingerConfigs:s0
+
+# dmd HAL
+vendor.samsung_slsi.telephony.hardware.oemservice::IOemService  u:object_r:hal_vendor_oem_hwservice:s0
+
+# rild HAL
+vendor.samsung_slsi.telephony.hardware.radio::IOemSamsungslsi        u:object_r:hal_exynos_rild_hwservice:s0
+android.vendor.samsung_slsi.telephony.hardware.radio::IOemSamsungslsi        u:object_r:hal_exynos_rild_hwservice:s0
+vendor.samsung_slsi.telephony.hardware.radioExternal::IOemSlsiRadioExternal        u:object_r:hal_exynos_rild_hwservice:s0
+
+# VIDEO
+android.hardware.media.c2::IComponentStore                      u:object_r:hal_codec2_hwservice:s0
+android.hardware.media.c2::IConfigurable                        u:object_r:hal_codec2_hwservice:s0
+
+# GRIL HAL
+vendor.google.radioext::IRadioExt                               u:object_r:hal_radioext_hwservice:s0
+
+#Audio
+vendor.google.whitechapel.audio.audioext::IAudioExt             u:object_r:hal_audio_ext_hwservice:s0
+
+# Wireless charger hal
+vendor.google.wireless_charger::IWirelessCharger                u:object_r:hal_wlc_hwservice:s0
+
+# Bluetooth HAL extension
+hardware.google.bluetooth.bt_channel_avoidance::IBTChannelAvoidance   u:object_r:hal_bluetooth_coexistence_hwservice:s0
+hardware.google.bluetooth.sar::IBluetoothSar                          u:object_r:hal_bluetooth_coexistence_hwservice:s0
+hardware.google.bluetooth.ccc::IBluetoothCcc                          u:object_r:hal_bluetooth_coexistence_hwservice:s0
+
+# Fingerprint
+vendor.goodix.hardware.biometrics.fingerprint::IGoodixFingerprintDaemon  u:object_r:hal_fingerprint_ext_hwservice:s0
+
+#Audio
+vendor.google.audiometricext::IAudioMetricExt             u:object_r:hal_audiometricext_hwservice:s0
+

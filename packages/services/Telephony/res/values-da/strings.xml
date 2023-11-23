@@ -310,7 +310,7 @@
     <string name="sim_change_data_title" msgid="9142726786345906606">"Skift SIM-kortet til data?"</string>
     <string name="sim_change_data_message" msgid="3567358694255933280">"Vil du bruge <xliff:g id="NEW_SIM">%1$s</xliff:g> i stedet for <xliff:g id="OLD_SIM">%2$s</xliff:g> til mobildata?"</string>
     <string name="wifi_calling_settings_title" msgid="5800018845662016507">"Wi-Fi-opkald"</string>
-    <string name="video_calling_settings_title" msgid="342829454913266078">"Videoopkald via mobilselskab"</string>
+    <string name="video_calling_settings_title" msgid="342829454913266078">"Videoopkald via mobilnetværk"</string>
     <string name="gsm_umts_options" msgid="4968446771519376808">"Indstillinger for GSM/UMTS"</string>
     <string name="cdma_options" msgid="3669592472226145665">"Indstillinger for CDMA"</string>
     <string name="throttle_data_usage" msgid="1944145350660420711">"Databrug"</string>

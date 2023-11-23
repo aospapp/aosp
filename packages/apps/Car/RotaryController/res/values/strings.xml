@@ -29,13 +29,4 @@
         <item></item>
         <item></item>
     </string-array>
-
-    <!-- Window accessibility titles that shouldn't be considered an overlay window. For example,
-         application windows that represent TaskViews or TaskDisplayAreas should be included here.
-         Window accessibility titles can be checked by using the following command:
-             $ adb shell dumpsys accessibility
-         TODO(b/185399833): Replace this with an explicit API to check for special windows. -->
-    <string-array name="excluded_application_overlay_window_titles" translatable="false">
-        <item>Maps</item>
-    </string-array>
 </resources>

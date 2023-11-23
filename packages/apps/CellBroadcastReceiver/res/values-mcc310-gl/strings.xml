@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Recibe as probas mensuais requiridas do sistema de alertas de seguranza"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Alerta nacional"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Mostra un cadro de diálogo de desactivación despois da primeira alerta (agás alerta nacional)."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Alertas nacionais"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Mensaxes de advertencia nacional. Esta función non se pode desactivar."</string>
 </resources>

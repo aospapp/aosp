@@ -352,6 +352,10 @@ Supplicant::addInterfaceInternal(const IfaceInfo& iface_info)
 		if (!wpa_s) {
 			return {{SupplicantStatusCode::FAILURE_UNKNOWN, ""}, {}};
 		}
+		//Request the current scan results from the driver and updates
+		//the local BSS list wpa_s->bss. This is to avoid a full scan
+		//while processing the connect request on newly created interface.
+		wpa_supplicant_update_scan_results(wpa_s);
 	}
 	// The supplicant core creates a corresponding hidl object via
 	// HidlManager when |wpa_supplicant_add_iface| is called.

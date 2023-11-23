@@ -321,12 +321,15 @@ public class ProfileGridRecyclerView extends RecyclerView {
         public void onBindViewHolder(ProfileAdapterViewHolder holder, int position) {
             ProfileRecord profileRecord = mProfiles.get(position);
             Drawable circleIcon = getCircularProfileRecordIcon(profileRecord);
-            if (profileRecord.mInfo != null) {
+            if (profileRecord.mType == ProfileRecord.ADD_PROFILE) {
+                // 'Add Profile' has badges if device admin exists.
+                holder.mProfileAvatarImageView.setDrawableWithBadge(circleIcon);
+            } else if (profileRecord.mInfo != null) {
                 // Profile might have badges (like managed profile)
                 holder.mProfileAvatarImageView.setDrawableWithBadge(circleIcon,
                         profileRecord.mInfo.id);
             } else {
-                // Guest or "Add Profile" don't have badges
+                // Guest does not have badges
                 holder.mProfileAvatarImageView.setDrawable(circleIcon);
             }
             holder.mProfileNameTextView.setText(getProfileRecordName(profileRecord));

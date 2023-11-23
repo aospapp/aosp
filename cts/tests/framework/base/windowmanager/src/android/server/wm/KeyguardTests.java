@@ -443,7 +443,7 @@ public class KeyguardTests extends KeyguardTestBase {
     }
 
     @Test
-    public void testTurnScreenOnOnActivityOnAod() {
+    public void testTurnScreenOnActivityOnAod() {
         final AodSession aodSession = createManagedAodSession();
         assumeTrue(aodSession.isAodAvailable());
         aodSession.setAodEnabled(true);
@@ -460,10 +460,13 @@ public class KeyguardTests extends KeyguardTestBase {
                             false);
                 }).setTargetActivity(TURN_SCREEN_ON_ACTIVITY));
 
-        mWmState.computeState(TURN_SCREEN_ON_ACTIVITY);
-        mWmState.assertVisibility(TURN_SCREEN_ON_ACTIVITY, true);
-        assertFalse(mWmState.getKeyguardControllerState().keyguardShowing);
-        assertTrue(isDisplayOn(DEFAULT_DISPLAY));
+        mWmState.waitForAllStoppedActivities();
+        // An activity without set showWhenLocked or dismissKeyguard cannot wakeup device and/or
+        // unlock insecure keyguard even if it has setTurnScreenOn, so the device should stay
+        // invisible and the display stay in dozing.
+        mWmState.assertVisibility(TURN_SCREEN_ON_ACTIVITY, false);
+        assertTrue(mWmState.getKeyguardControllerState().keyguardShowing);
+        assertFalse(isDisplayOn(DEFAULT_DISPLAY));
     }
     /**
      * Tests whether a FLAG_DISMISS_KEYGUARD activity occludes Keyguard.
@@ -604,7 +607,6 @@ public class KeyguardTests extends KeyguardTestBase {
         mWmState.waitForKeyguardGone();
         mWmState.assertVisibility(TURN_SCREEN_ON_ATTR_DISMISS_KEYGUARD_ACTIVITY, true);
         assertFalse(mWmState.getKeyguardControllerState().keyguardShowing);
-        assertOnDismissSucceeded(TURN_SCREEN_ON_ATTR_DISMISS_KEYGUARD_ACTIVITY);
         assertTrue(isDisplayOn(DEFAULT_DISPLAY));
     }
 

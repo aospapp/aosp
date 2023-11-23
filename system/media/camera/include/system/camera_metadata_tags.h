@@ -460,6 +460,7 @@ typedef enum camera_metadata_tag {
             ANDROID_INFO_START,
     ANDROID_INFO_VERSION,                             // byte         | public       | HIDL v3.3
     ANDROID_INFO_SUPPORTED_BUFFER_MANAGEMENT_VERSION, // enum         | system       | HIDL v3.4
+    ANDROID_INFO_DEVICE_STATE_ORIENTATIONS,           // int64[]      | ndk_public   | HIDL v3.7
     ANDROID_INFO_END,
 
     ANDROID_BLACK_LEVEL_LOCK =                        // enum         | public       | HIDL v3.2
@@ -751,20 +752,20 @@ typedef enum camera_metadata_enum_android_control_extended_scene_mode {
 
 // ANDROID_CONTROL_AF_REGIONS_SET
 typedef enum camera_metadata_enum_android_control_af_regions_set {
-    ANDROID_CONTROL_AF_REGIONS_SET_TRUE                             ,
     ANDROID_CONTROL_AF_REGIONS_SET_FALSE                            ,
+    ANDROID_CONTROL_AF_REGIONS_SET_TRUE                             ,
 } camera_metadata_enum_android_control_af_regions_set_t;
 
 // ANDROID_CONTROL_AE_REGIONS_SET
 typedef enum camera_metadata_enum_android_control_ae_regions_set {
-    ANDROID_CONTROL_AE_REGIONS_SET_TRUE                             ,
     ANDROID_CONTROL_AE_REGIONS_SET_FALSE                            ,
+    ANDROID_CONTROL_AE_REGIONS_SET_TRUE                             ,
 } camera_metadata_enum_android_control_ae_regions_set_t;
 
 // ANDROID_CONTROL_AWB_REGIONS_SET
 typedef enum camera_metadata_enum_android_control_awb_regions_set {
-    ANDROID_CONTROL_AWB_REGIONS_SET_TRUE                            ,
     ANDROID_CONTROL_AWB_REGIONS_SET_FALSE                           ,
+    ANDROID_CONTROL_AWB_REGIONS_SET_TRUE                            ,
 } camera_metadata_enum_android_control_awb_regions_set_t;
 
 
@@ -985,8 +986,8 @@ typedef enum camera_metadata_enum_android_scaler_multi_resolution_stream_support
 
 // ANDROID_SCALER_CROP_REGION_SET
 typedef enum camera_metadata_enum_android_scaler_crop_region_set {
-    ANDROID_SCALER_CROP_REGION_SET_TRUE                             ,
     ANDROID_SCALER_CROP_REGION_SET_FALSE                            ,
+    ANDROID_SCALER_CROP_REGION_SET_TRUE                             ,
 } camera_metadata_enum_android_scaler_crop_region_set_t;
 
 

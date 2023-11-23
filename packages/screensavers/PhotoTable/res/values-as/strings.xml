@@ -24,7 +24,7 @@
     <string name="stock_photo_album_name" msgid="3150527596227525460">"ফট\' ভাণ্ডাৰ"</string>
     <string name="local_source_name" msgid="6487253091085518505">"ডিভাইচত থকা ফট\'বোৰ"</string>
     <string name="need_to_configure" msgid="1269102638159389032">"কোনো ফট\' বাছনি কৰা নহ\'ল।"</string>
-    <string name="photodream_select_all" msgid="6364858563337927827">"সকলো বাছনি কৰক"</string>
-    <string name="photodream_select_none" msgid="8816452124894525861">"সকলো বাছনি নোহোৱা কৰক"</string>
+    <string name="photodream_select_all" msgid="6364858563337927827">"আটাইবোৰ বাছনি কৰক"</string>
+    <string name="photodream_select_none" msgid="8816452124894525861">"আটাইবোৰ বাছনি নোহোৱা কৰক"</string>
     <string name="no_photos" msgid="4262083523147564199">"ডিভাইচটোত কোনো ফট\' নাই৷"</string>
 </resources>

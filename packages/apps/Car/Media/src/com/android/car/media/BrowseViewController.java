@@ -32,20 +32,19 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.FragmentActivity;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProviders;
-import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.car.apps.common.util.FutureData;
 import com.android.car.apps.common.util.ViewUtils;
-import com.android.car.arch.common.FutureData;
 import com.android.car.media.browse.BrowseAdapter;
 import com.android.car.media.browse.LimitedBrowseAdapter;
-import com.android.car.media.common.GridSpacingItemDecoration;
 import com.android.car.media.common.MediaItemMetadata;
 import com.android.car.media.common.browse.MediaBrowserViewModelImpl;
 import com.android.car.media.common.browse.MediaItemsRepository.MediaItemsLiveData;
 import com.android.car.media.common.source.MediaSource;
 import com.android.car.ui.FocusArea;
 import com.android.car.ui.baselayout.Insets;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.uxr.LifeCycleObserverUxrContentLimiter;
 import com.android.car.uxr.UxrContentLimiterImpl;
 
@@ -69,7 +68,7 @@ public class BrowseViewController {
     private final boolean mDisplayMediaItems;
     private final LifeCycleObserverUxrContentLimiter mUxrContentLimiter;
     private final View mContent;
-    private final RecyclerView mBrowseList;
+    private final CarUiRecyclerView mBrowseList;
     private final ImageView mErrorIcon;
     private final TextView mMessage;
     private final LimitedBrowseAdapter mLimitedBrowseAdapter;
@@ -184,12 +183,8 @@ public class BrowseViewController {
         FragmentActivity activity = callbacks.getActivity();
         mViewModel = ViewModelProviders.of(activity).get(MediaActivity.ViewModel.class);
 
-        mBrowseList.addItemDecoration(new GridSpacingItemDecoration(
-                activity.getResources().getDimensionPixelSize(R.dimen.grid_item_spacing)));
-
-        GridLayoutManager manager = (GridLayoutManager) mBrowseList.getLayoutManager();
         BrowseAdapter browseAdapter = new BrowseAdapter(mBrowseList.getContext());
-        mLimitedBrowseAdapter = new LimitedBrowseAdapter(browseAdapter, manager,
+        mLimitedBrowseAdapter = new LimitedBrowseAdapter(mBrowseList, browseAdapter,
                 mBrowseAdapterObserver);
         mBrowseList.setAdapter(mLimitedBrowseAdapter);
 
@@ -362,16 +357,16 @@ public class BrowseViewController {
         int duration = mFadeDuration;
         if (items == null) {
             mMessage.setText(getErrorMessage());
-            ViewUtils.hideViewAnimated(mBrowseList, duration);
+            ViewUtils.hideViewAnimated(mBrowseList.getView(), duration);
             ViewUtils.showViewAnimated(mMessage, duration);
             ViewUtils.showViewAnimated(mErrorIcon, duration);
         } else if (items.isEmpty()) {
             mMessage.setText(R.string.nothing_to_play);
-            ViewUtils.hideViewAnimated(mBrowseList, duration);
+            ViewUtils.hideViewAnimated(mBrowseList.getView(), duration);
             ViewUtils.hideViewAnimated(mErrorIcon, duration);
             ViewUtils.showViewAnimated(mMessage, duration);
         } else {
-            ViewUtils.showViewAnimated(mBrowseList, duration);
+            ViewUtils.showViewAnimated(mBrowseList.getView(), duration);
             ViewUtils.hideViewAnimated(mErrorIcon, duration);
             ViewUtils.hideViewAnimated(mMessage, duration);
         }

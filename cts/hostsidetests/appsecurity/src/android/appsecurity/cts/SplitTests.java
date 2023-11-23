@@ -21,6 +21,7 @@ import static org.junit.Assert.assertNotNull;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AppModeInstant;
 
+import com.android.compatibility.common.util.CpuFeatures;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.Abi;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -28,6 +29,7 @@ import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.util.AbiUtils;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -337,6 +339,10 @@ public class SplitTests extends BaseAppSecurityTest {
         testNativeSingle(true, true);
     }
 
+    private void assumeNativeAbi() throws Exception {
+        // Skip this test if not running on the device's native abi.
+        Assume.assumeTrue(CpuFeatures.isNativeAbi(getDevice(), getAbi().getName()));
+    }
     /**
      * Install test app with <em>all</em> possible ABI splits. This also
      * explicitly forces ABI when installing.
@@ -344,6 +350,7 @@ public class SplitTests extends BaseAppSecurityTest {
     @Test
     @AppModeFull(reason = "'full' portion of the hostside test")
     public void testNativeAll_full() throws Exception {
+        assumeNativeAbi();
         testNativeAll(false, false);
     }
     @Test
@@ -386,6 +393,7 @@ public class SplitTests extends BaseAppSecurityTest {
     @Test
     @AppModeFull(reason = "'full' portion of the hostside test")
     public void testNativeAllNatural_full() throws Exception {
+        assumeNativeAbi();
         testNativeAll(false, true);
     }
     @Test

@@ -151,7 +151,7 @@ public class ErrorPolicyManager {
     private Map<String, List<ErrorPolicy>> mCarrierConfigPolicies = new HashMap<>();
 
     // String APN as key to identify the ErrorInfo associated with that APN
-    private Map<String, ErrorInfo> mLastErrorForApn = new HashMap<>();
+    private Map<String, ErrorInfo> mLastErrorForApn = new ConcurrentHashMap<>();
 
     // List of current Unthrottling events registered with IwlanEventListener
     private Set<Integer> mUnthrottlingEvents;

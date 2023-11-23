@@ -24,6 +24,7 @@ import static com.google.common.truth.Truth.assertThat;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.WindowManagerState.DisplayArea;
 import android.server.wm.WindowManagerState.DisplayContent;
+import android.view.Display;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -52,14 +53,21 @@ public class DisplayAreaPolicyTests extends ActivityManagerTestBase {
         mDisplays = mWmState.getDisplays();
     }
 
+    private boolean isTrustedDisplay(DisplayContent displayContent) {
+        return (displayContent.getFlags() & Display.FLAG_TRUSTED) != 0;
+    }
+
     /**
-     * DisplayContent should have feature id of FEATURE_ROOT. It should not be organized.
+     * DisplayContent should have feature id of FEATURE_ROOT. It should be organized.
      */
     @Test
     public void testDisplayContent() {
         for (DisplayContent displayContent : mDisplays) {
             assertThat(displayContent.getFeatureId()).isEqualTo(FEATURE_ROOT);
-            assertThat(displayContent.isOrganized()).isFalse();
+            // DisplayAreaOrganizerController registers the organizer for the trusted displays only.
+            if (isTrustedDisplay(displayContent)) {
+                assertThat(displayContent.isOrganized()).isTrue();
+            }
         }
     }
 

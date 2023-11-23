@@ -20,8 +20,8 @@
 #include "InjectionState.h"
 #include "InputTarget.h"
 
+#include <gui/InputApplication.h>
 #include <input/Input.h>
-#include <input/InputApplication.h>
 #include <stdint.h>
 #include <utils/Timers.h>
 #include <functional>
@@ -104,9 +104,9 @@ struct FocusEntry : EventEntry {
 };
 
 struct PointerCaptureChangedEntry : EventEntry {
-    bool pointerCaptureEnabled;
+    const PointerCaptureRequest pointerCaptureRequest;
 
-    PointerCaptureChangedEntry(int32_t id, nsecs_t eventTime, bool hasPointerCapture);
+    PointerCaptureChangedEntry(int32_t id, nsecs_t eventTime, const PointerCaptureRequest&);
     std::string getDescription() const override;
 
     ~PointerCaptureChangedEntry() override;
@@ -215,6 +215,7 @@ struct DispatchEntry {
     int32_t targetFlags;
     ui::Transform transform;
     float globalScaleFactor;
+    uint32_t displayOrientation;
     int2 displaySize;
     // Both deliveryTime and timeoutTime are only populated when the entry is sent to the app,
     // and will be undefined before that.
@@ -228,7 +229,8 @@ struct DispatchEntry {
     int32_t resolvedFlags;
 
     DispatchEntry(std::shared_ptr<EventEntry> eventEntry, int32_t targetFlags,
-                  ui::Transform transform, float globalScaleFactor, int2 displaySize);
+                  ui::Transform transform, float globalScaleFactor, uint32_t displayOrientation,
+                  int2 displaySize);
 
     inline bool hasForegroundTarget() const { return targetFlags & InputTarget::FLAG_FOREGROUND; }
 
@@ -284,7 +286,7 @@ struct CommandEntry {
     sp<IBinder> oldToken;
     sp<IBinder> newToken;
     std::string obscuringPackage;
-    bool enabled;
+    PointerCaptureRequest pointerCaptureRequest;
     int32_t pid;
     nsecs_t consumeTime; // time when the event was consumed by InputConsumer
     int32_t displayId;

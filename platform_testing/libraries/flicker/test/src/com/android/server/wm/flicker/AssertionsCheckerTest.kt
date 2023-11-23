@@ -21,6 +21,7 @@ import com.android.server.wm.flicker.assertions.FlickerSubject
 import com.android.server.wm.flicker.traces.FlickerFailureStrategy
 import com.android.server.wm.flicker.traces.FlickerSubjectException
 import com.android.server.wm.traces.common.ITraceEntry
+import com.google.common.truth.Fact
 import com.google.common.truth.FailureMetadata
 import com.google.common.truth.StandardSubjectBuilder
 import com.google.common.truth.Subject
@@ -46,6 +47,47 @@ class AssertionsCheckerTest {
         val checker = AssertionsChecker<SimpleEntrySubject>()
         checker.add("isData42") { it.isData42() }
         checker.add("isData0") { it.isData0() }
+        checker.test(getTestEntries(42, 0, 0, 0, 0))
+    }
+
+    @Test
+    fun canCheckChangingAssertions_IgnoreOptionalStart() {
+        val checker = AssertionsChecker<SimpleEntrySubject>()
+        checker.add("isData1", isOptional = true) { it.isData1() }
+        checker.add("isData42") { it.isData42() }
+        checker.add("isData0") { it.isData0() }
+        checker.test(getTestEntries(42, 0, 0, 0, 0))
+    }
+
+    @Test
+    fun canCheckChangingAssertions_IgnoreOptionalEnd() {
+        val checker = AssertionsChecker<SimpleEntrySubject>()
+        checker.add("isData42") { it.isData42() }
+        checker.add("isData0") { it.isData0() }
+        checker.add("isData1", isOptional = true) { it.isData1() }
+        checker.test(getTestEntries(42, 0, 0, 0, 0))
+    }
+
+    @Test
+    fun canCheckChangingAssertions_IgnoreOptionalMiddle() {
+        val checker = AssertionsChecker<SimpleEntrySubject>()
+        checker.add("isData42") { it.isData42() }
+        checker.add("isData1", isOptional = true) { it.isData1() }
+        checker.add("isData0") { it.isData0() }
+        checker.test(getTestEntries(42, 0, 0, 0, 0))
+    }
+
+    @Test
+    fun canCheckChangingAssertions_IgnoreOptionalMultiple() {
+        val checker = AssertionsChecker<SimpleEntrySubject>()
+        checker.add("isData1", isOptional = true) { it.isData1() }
+        checker.add("isData1", isOptional = true) { it.isData1() }
+        checker.add("isData42") { it.isData42() }
+        checker.add("isData1", isOptional = true) { it.isData1() }
+        checker.add("isData1", isOptional = true) { it.isData1() }
+        checker.add("isData0") { it.isData0() }
+        checker.add("isData1", isOptional = true) { it.isData1() }
+        checker.add("isData1", isOptional = true) { it.isData1() }
         checker.test(getTestEntries(42, 0, 0, 0, 0))
     }
 
@@ -98,7 +140,7 @@ class AssertionsCheckerTest {
             require(failure is FlickerSubjectException) { "Unknown failure $failure" }
             assertFailure(failure.cause)
                 .hasMessageThat()
-                .contains("Assertion never became false: isData42")
+                .contains("Assertion never failed: isData42")
         }
     }
 
@@ -121,7 +163,9 @@ class AssertionsCheckerTest {
         failureMetadata: FailureMetadata,
         private val entry: SimpleEntry
     ) : FlickerSubject(failureMetadata, entry) {
-        override val defaultFacts: String = "SimpleEntry(${entry.mData})"
+        override val timestamp: Long get() = 0
+        override val parent: FlickerSubject? get() = null
+        override val selfFacts = listOf(Fact.fact("SimpleEntry", entry.mData.toString()))
         override fun clone(): FlickerSubject {
             return SimpleEntrySubject(fm, entry)
         }
@@ -132,6 +176,10 @@ class AssertionsCheckerTest {
 
         fun isData0() = apply {
             check("is0").that(entry.mData).isEqualTo(0)
+        }
+
+        fun isData1() = apply {
+            check("is1").that(entry.mData).isEqualTo(1)
         }
 
         companion object {

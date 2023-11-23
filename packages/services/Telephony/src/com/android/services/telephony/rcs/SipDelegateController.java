@@ -34,6 +34,7 @@ import android.util.Log;
 import android.util.Pair;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.metrics.RcsStats;
 import com.android.internal.util.IndentingPrintWriter;
 
 import java.io.PrintWriter;
@@ -102,7 +103,7 @@ public class SipDelegateController {
         mMessageTransportWrapper = new MessageTransportWrapper(mSubId, executorService,
                 messageCallback);
         mDelegateStateTracker = new DelegateStateTracker(mSubId, stateCallback,
-                mMessageTransportWrapper.getDelegateConnection());
+                mMessageTransportWrapper.getDelegateConnection(), RcsStats.getInstance());
     }
 
     /**
@@ -191,7 +192,7 @@ public class SipDelegateController {
                     .collect(Collectors.toSet()));
             mMessageTransportWrapper.openTransport(resultPair.first, allowedTags,
                     resultPair.second);
-            mDelegateStateTracker.sipDelegateConnected(resultPair.second);
+            mDelegateStateTracker.sipDelegateConnected(allowedTags, resultPair.second);
             return true;
         });
     }

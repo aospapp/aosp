@@ -14,7 +14,6 @@ use virtio_sys::virtio_net;
 use virtio_sys::virtio_ring::VIRTIO_RING_F_EVENT_IDX;
 use vm_memory::GuestMemory;
 use vmm_vhost::vhost_user::message::{VhostUserProtocolFeatures, VhostUserVirtioFeatures};
-use vmm_vhost::vhost_user::Master;
 
 use crate::virtio::vhost::user::handler::VhostUserHandler;
 use crate::virtio::vhost::user::worker::Worker;
@@ -35,11 +34,11 @@ pub struct Net {
 impl Net {
     pub fn new<P: AsRef<Path>>(base_features: u64, socket_path: P) -> Result<Net> {
         let socket = UnixStream::connect(&socket_path).map_err(Error::SocketConnect)?;
-        let vhost_user_net = Master::from_stream(socket, 16 /* # of queues */);
 
-        // TODO(b/182430355): Support VIRTIO_NET_F_CTRL_VQ and VIRTIO_NET_F_CTRL_GUEST_OFFLOADS.
         let allow_features = 1 << crate::virtio::VIRTIO_F_VERSION_1
             | 1 << virtio_net::VIRTIO_NET_F_CSUM
+            | 1 << virtio_net::VIRTIO_NET_F_CTRL_VQ
+            | 1 << virtio_net::VIRTIO_NET_F_CTRL_GUEST_OFFLOADS
             | 1 << virtio_net::VIRTIO_NET_F_GUEST_CSUM
             | 1 << virtio_net::VIRTIO_NET_F_GUEST_TSO4
             | 1 << virtio_net::VIRTIO_NET_F_GUEST_UFO
@@ -47,18 +46,20 @@ impl Net {
             | 1 << virtio_net::VIRTIO_NET_F_HOST_UFO
             | 1 << virtio_net::VIRTIO_NET_F_MQ
             | 1 << VIRTIO_RING_F_EVENT_IDX
+            | base_features
             | VhostUserVirtioFeatures::PROTOCOL_FEATURES.bits();
         let init_features = base_features | VhostUserVirtioFeatures::PROTOCOL_FEATURES.bits();
         let allow_protocol_features =
             VhostUserProtocolFeatures::MQ | VhostUserProtocolFeatures::CONFIG;
 
-        let mut handler = VhostUserHandler::new(
-            vhost_user_net,
+        let mut handler = VhostUserHandler::new_from_stream(
+            socket,
+            3, /* # of queues */
             allow_features,
             init_features,
             allow_protocol_features,
         )?;
-        let queue_sizes = handler.queue_sizes(QUEUE_SIZE, 2 /* 1 rx + 1 tx */)?;
+        let queue_sizes = handler.queue_sizes(QUEUE_SIZE, 3 /* rx, tx, ctrl */)?;
 
         Ok(Net {
             kill_evt: None,
@@ -122,14 +123,6 @@ impl VirtioDevice for Net {
         queues: Vec<Queue>,
         queue_evts: Vec<Event>,
     ) {
-        // TODO(b/182430355): Remove this check once ctrlq is supported.
-        if queues.len() % 2 != 0 {
-            error!(
-                "The number of queues must be an even number but {}",
-                queues.len()
-            );
-        }
-
         if let Err(e) = self
             .handler
             .borrow_mut()
@@ -166,7 +159,6 @@ impl VirtioDevice for Net {
         match worker_result {
             Err(e) => {
                 error!("failed to spawn virtio_net worker: {}", e);
-                return;
             }
             Ok(join_handle) => {
                 self.worker_thread = Some(join_handle);

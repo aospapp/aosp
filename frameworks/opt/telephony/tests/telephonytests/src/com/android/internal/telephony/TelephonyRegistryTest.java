@@ -30,6 +30,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -90,6 +91,8 @@ public class TelephonyRegistryTest extends TelephonyTest {
     private TelephonyDisplayInfo mTelephonyDisplayInfo;
     private int mSrvccState = -1;
     private int mRadioPowerState = RADIO_POWER_UNAVAILABLE;
+    private int mDataConnectionState = TelephonyManager.DATA_UNKNOWN;
+    private int mNetworkType = TelephonyManager.NETWORK_TYPE_UNKNOWN;
     private List<PhysicalChannelConfig> mPhysicalChannelConfigs;
     private TelephonyRegistry.ConfigurationProvider mMockConfigurationProvider;
     private CellLocation mCellLocation;
@@ -154,6 +157,7 @@ public class TelephonyRegistryTest extends TelephonyTest {
             TelephonyCallback.ActiveDataSubscriptionIdListener,
             TelephonyCallback.RadioPowerStateListener,
             TelephonyCallback.PreciseDataConnectionStateListener,
+            TelephonyCallback.DataConnectionStateListener,
             TelephonyCallback.DisplayInfoListener,
             TelephonyCallback.LinkCapacityEstimateChangedListener,
             TelephonyCallback.PhysicalChannelConfigListener,
@@ -186,6 +190,12 @@ public class TelephonyRegistryTest extends TelephonyTest {
         @Override
         public void onPreciseDataConnectionStateChanged(PreciseDataConnectionState preciseState) {
             invocationCount.incrementAndGet();
+        }
+        @Override
+        public void onDataConnectionStateChanged(int state, int networkType) {
+            invocationCount.incrementAndGet();
+            mDataConnectionState = state;
+            mNetworkType = networkType;
         }
         @Override
         public void onDisplayInfoChanged(TelephonyDisplayInfo displayInfo) {
@@ -272,7 +282,6 @@ public class TelephonyRegistryTest extends TelephonyTest {
         processAllMessages();
         assertEquals(phoneCapability, mPhoneCapability);
     }
-
 
     @Test @SmallTest
     public void testActiveDataSubChanged() {
@@ -371,6 +380,285 @@ public class TelephonyRegistryTest extends TelephonyTest {
         mTelephonyRegistry.notifyRadioPowerStateChanged(0, 1, RADIO_POWER_OFF);
         processAllMessages();
         assertEquals(RADIO_POWER_OFF, mRadioPowerState);
+    }
+
+    /**
+     * Test {@link TelephonyCallback.DataConnectionStateListener}
+     */
+    @Test
+    public void testDataConnectionStateChanged() {
+        final int subId = 1;
+        int[] events = {TelephonyCallback.EVENT_DATA_CONNECTION_STATE_CHANGED};
+        doReturn(mMockSubInfo).when(mSubscriptionManager).getActiveSubscriptionInfo(anyInt());
+        doReturn(0/*slotIndex*/).when(mMockSubInfo).getSimSlotIndex();
+
+        assertEquals(TelephonyManager.DATA_UNKNOWN, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_UNKNOWN, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_CONNECTED)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT)
+                                .setApnName("default")
+                                .setEntryName("default")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+        mTelephonyRegistry.listenWithEventList(subId, mContext.getOpPackageName(),
+                mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
+
+        assertEquals(TelephonyManager.DATA_CONNECTED, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_DISCONNECTING)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT)
+                                .setApnName("default")
+                                .setEntryName("default")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        assertEquals(TelephonyManager.DATA_DISCONNECTING, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_DISCONNECTED)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT)
+                                .setApnName("default")
+                                .setEntryName("default")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        assertEquals(TelephonyManager.DATA_DISCONNECTED, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+    }
+
+    /**
+     * Test the scenario that multiple PDNs support default type APN scenario. Make sure it reports
+     * aggregate data connection state.
+     */
+    @Test
+    public void testDataConnectionStateChangedMultipleInternet() {
+        final int subId = 1;
+        int[] events = {TelephonyCallback.EVENT_DATA_CONNECTION_STATE_CHANGED};
+        doReturn(mMockSubInfo).when(mSubscriptionManager).getActiveSubscriptionInfo(anyInt());
+        doReturn(0/*slotIndex*/).when(mMockSubInfo).getSimSlotIndex();
+
+        assertEquals(TelephonyManager.DATA_UNKNOWN, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_UNKNOWN, mNetworkType);
+
+        mTelephonyRegistry.listenWithEventList(subId, mContext.getOpPackageName(),
+                mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_CONNECTED)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT)
+                                .setApnName("default")
+                                .setEntryName("default")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        assertEquals(TelephonyManager.DATA_CONNECTED, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_CONNECTING)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_MMS)
+                                .setApnName("default+mms")
+                                .setEntryName("default+mms")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        assertEquals(TelephonyManager.DATA_CONNECTED, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_DISCONNECTING)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_MMS)
+                                .setApnName("default+mms")
+                                .setEntryName("default+mms")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+        assertEquals(TelephonyManager.DATA_CONNECTED, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_DISCONNECTED)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_MMS)
+                                .setApnName("default+mms")
+                                .setEntryName("default+mms")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+        assertEquals(TelephonyManager.DATA_CONNECTED, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_CONNECTING)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_MMS)
+                                .setApnName("default+mms")
+                                .setEntryName("default+mms")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        assertEquals(TelephonyManager.DATA_CONNECTED, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_CONNECTED)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_MMS)
+                                .setApnName("default+mms")
+                                .setEntryName("default+mms")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        assertEquals(TelephonyManager.DATA_CONNECTED, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_DISCONNECTING)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT)
+                                .setApnName("default")
+                                .setEntryName("default")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        assertEquals(TelephonyManager.DATA_CONNECTED, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_DISCONNECTING)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_MMS)
+                                .setApnName("default+mms")
+                                .setEntryName("default+mms")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        assertEquals(TelephonyManager.DATA_DISCONNECTING, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_DISCONNECTED)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT)
+                                .setApnName("default")
+                                .setEntryName("default")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        assertEquals(TelephonyManager.DATA_DISCONNECTING, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
+
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*phoneId*/ 0, subId,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_DISCONNECTED)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_DEFAULT | ApnSetting.TYPE_MMS)
+                                .setApnName("default+mms")
+                                .setEntryName("default+mms")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        assertEquals(TelephonyManager.DATA_DISCONNECTED, mDataConnectionState);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, mNetworkType);
     }
 
     /**
@@ -616,9 +904,13 @@ public class TelephonyRegistryTest extends TelephonyTest {
         int[] events = {TelephonyCallback.EVENT_DISPLAY_INFO_CHANGED};
         mTelephonyRegistry.listenWithEventList(2, mContext.getOpPackageName(),
                 mContext.getAttributionTag(), mTelephonyCallback.callback, events, false);
+        when(mMockConfigurationProvider.isDisplayInfoNrAdvancedSupported(
+                anyString(), any())).thenReturn(true);
+        TelephonyDisplayInfo displayInfo = new TelephonyDisplayInfo(
+                TelephonyManager.NETWORK_TYPE_LTE,
+                TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_ADVANCED);
 
         // Notify with invalid subId on default phone. Should NOT trigger callback.
-        TelephonyDisplayInfo displayInfo = new TelephonyDisplayInfo(0, 0);
         mTelephonyRegistry.notifyDisplayInfoChanged(0, INVALID_SUBSCRIPTION_ID, displayInfo);
         processAllMessages();
         assertEquals(null, mTelephonyDisplayInfo);
@@ -627,6 +919,82 @@ public class TelephonyRegistryTest extends TelephonyTest {
         mTelephonyRegistry.notifyDisplayInfoChanged(0, 2, displayInfo);
         processAllMessages();
         assertEquals(displayInfo, mTelephonyDisplayInfo);
+    }
+
+    @Test
+    public void testDisplayInfoCompatibility() {
+        mContext.sendBroadcast(new Intent(ACTION_DEFAULT_SUBSCRIPTION_CHANGED)
+                .putExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, 12)
+                .putExtra(SubscriptionManager.EXTRA_SLOT_INDEX, 0));
+        processAllMessages();
+        int[] events = {TelephonyCallback.EVENT_DISPLAY_INFO_CHANGED};
+        mTelephonyRegistry.listenWithEventList(2, mContext.getOpPackageName(),
+                mContext.getAttributionTag(), mTelephonyCallback.callback, events, false);
+        when(mMockConfigurationProvider.isDisplayInfoNrAdvancedSupported(
+                anyString(), any())).thenReturn(false);
+        TelephonyDisplayInfo displayInfo = new TelephonyDisplayInfo(
+                TelephonyManager.NETWORK_TYPE_LTE,
+                TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_ADVANCED);
+        TelephonyDisplayInfo expectDisplayInfo = new TelephonyDisplayInfo(
+                TelephonyManager.NETWORK_TYPE_LTE,
+                TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_NSA_MMWAVE);
+
+        // Notify with invalid subId on default phone. Should NOT trigger callback.
+        mTelephonyRegistry.notifyDisplayInfoChanged(0, INVALID_SUBSCRIPTION_ID, displayInfo);
+        processAllMessages();
+        assertEquals(null, mTelephonyDisplayInfo);
+
+        // Notify with the matching subId on default phone. Should trigger callback.
+        mTelephonyRegistry.notifyDisplayInfoChanged(0, 2, displayInfo);
+        processAllMessages();
+        assertEquals(expectDisplayInfo, mTelephonyDisplayInfo);
+    }
+
+    @Test
+    public void testDisplayInfoCompatibility_moreCallingPackages() {
+        mContext.sendBroadcast(new Intent(ACTION_DEFAULT_SUBSCRIPTION_CHANGED)
+                .putExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, 12)
+                .putExtra(SubscriptionManager.EXTRA_SLOT_INDEX, 0));
+        processAllMessages();
+        int[] events = {TelephonyCallback.EVENT_DISPLAY_INFO_CHANGED};
+        TelephonyDisplayInfo displayInfo = new TelephonyDisplayInfo(
+                TelephonyManager.NETWORK_TYPE_LTE,
+                TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_ADVANCED);
+        TelephonyDisplayInfo expectDisplayInfo = new TelephonyDisplayInfo(
+                TelephonyManager.NETWORK_TYPE_LTE,
+                TelephonyDisplayInfo.OVERRIDE_NETWORK_TYPE_NR_NSA_MMWAVE);
+        TelephonyCallback telephonyCallback2 = new TelephonyCallbackWrapper() {
+            @Override
+            public void onDisplayInfoChanged(TelephonyDisplayInfo displayInfoNotify) {
+                assertEquals(displayInfo, displayInfoNotify);
+            }
+        };
+        Executor mSimpleExecutor2 = new Executor() {
+            @Override
+            public void execute(Runnable r) {
+                r.run();
+            }
+        };
+        telephonyCallback2.init(mSimpleExecutor2);
+        mTelephonyRegistry.listenWithEventList(2, "pkg1",
+                mContext.getAttributionTag(), mTelephonyCallback.callback, events, false);
+        mTelephonyRegistry.listenWithEventList(2, "pkg2",
+                mContext.getAttributionTag(), telephonyCallback2.callback, events, false);
+        when(mMockConfigurationProvider.isDisplayInfoNrAdvancedSupported(
+                eq("pkg1"), any())).thenReturn(false);
+        when(mMockConfigurationProvider.isDisplayInfoNrAdvancedSupported(
+                eq("pkg2"), any())).thenReturn(true);
+
+
+        // Notify with invalid subId on default phone. Should NOT trigger callback.
+        mTelephonyRegistry.notifyDisplayInfoChanged(0, INVALID_SUBSCRIPTION_ID, displayInfo);
+        processAllMessages();
+        assertEquals(null, mTelephonyDisplayInfo);
+
+        // Notify with the matching subId on default phone. Should trigger callback.
+        mTelephonyRegistry.notifyDisplayInfoChanged(0, 2, displayInfo);
+        processAllMessages();
+        assertEquals(expectDisplayInfo, mTelephonyDisplayInfo);
     }
 
     @Test
@@ -723,5 +1091,68 @@ public class TelephonyRegistryTest extends TelephonyTest {
         mTelephonyRegistry.notifyLinkCapacityEstimateChanged(0, 2, lceList);
         processAllMessages();
         assertEquals(lceList, mLinkCapacityEstimateList);
+    }
+
+    @Test
+    public void testPreciseDataConnectionStateChangedForInvalidSubId() {
+        //set dual sim
+        doReturn(2).when(mTelephonyManager).getActiveModemCount();
+        mContext.sendBroadcast(new Intent(ACTION_MULTI_SIM_CONFIG_CHANGED));
+        // set default slot
+        mContext.sendBroadcast(new Intent(ACTION_DEFAULT_SUBSCRIPTION_CHANGED)
+                .putExtra(SubscriptionManager.EXTRA_SUBSCRIPTION_INDEX, 2)
+                .putExtra(SubscriptionManager.EXTRA_SLOT_INDEX, 0));
+        processAllMessages();
+
+        final int subId = 1;
+        int[] events = {TelephonyCallback.EVENT_PRECISE_DATA_CONNECTION_STATE_CHANGED};
+        doReturn(mMockSubInfo).when(mSubscriptionManager).getActiveSubscriptionInfo(anyInt());
+        doReturn(1).when(mMockSubInfo).getSimSlotIndex();
+
+        mTelephonyRegistry.listenWithEventList(subId, mContext.getOpPackageName(),
+                mContext.getAttributionTag(), mTelephonyCallback.callback, events, true);
+        processAllMessages();
+
+        // notify data connection with invalid sub id and default phone id
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*default phoneId*/ 0, /*invalid subId*/ -1,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(1)
+                        .setState(TelephonyManager.DATA_CONNECTED)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_IMS)
+                                .setApnName("ims")
+                                .setEntryName("ims")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        processAllMessages();
+
+        assertEquals(0, mTelephonyCallback.invocationCount.get());
+
+        // notify data connection with invalid sub id and default phone id
+        mTelephonyRegistry.notifyDataConnectionForSubscriber(
+                /*target phoneId*/ 1, /*invalid subId*/ -1,
+                new PreciseDataConnectionState.Builder()
+                        .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                        .setId(2)
+                        .setState(TelephonyManager.DATA_SUSPENDED)
+                        .setNetworkType(TelephonyManager.NETWORK_TYPE_LTE)
+                        .setApnSetting(new ApnSetting.Builder()
+                                .setApnTypeBitmask(ApnSetting.TYPE_IMS)
+                                .setApnName("ims")
+                                .setEntryName("ims")
+                                .build())
+                        .setLinkProperties(new LinkProperties())
+                        .setFailCause(0)
+                        .build());
+
+        processAllMessages();
+
+        assertEquals(1, mTelephonyCallback.invocationCount.get());
     }
 }

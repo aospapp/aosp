@@ -46,21 +46,22 @@ gch_lazy_hal_cc_defaults {
     },
 }
 
-sh_binary_host {
+// Exported for use in vendor/google/services/LyricCameraHAL/src/
+python_binary_host {
     name: "camera_hal_version_script",
-    src: "version_script.sh",
-    filename_from_src: true,
+    main: "version_script.py",
+    srcs: ["version_script.py"],
 }
 
 cc_genrule {
-    name: "hidl_camera_build_version",
-    tools: [":camera_hal_version_script"],
-    cmd: "$(location :camera_hal_version_script) $(in) $(out)",
-    vendor: true,
-    srcs: [
-        "hidl_camera_build_version.inl",
-    ],
-    out: ["hidl_camera_build_version.h"],
+   name: "hidl_camera_build_version",
+   tool_files: ["version_script.py"],
+   cmd: "python3 $(location version_script.py) $(in) $(out)",
+   vendor: true,
+   srcs: [
+       "hidl_camera_build_version.inl",
+   ],
+   out: ["hidl_camera_build_version.h"],
 }
 
 cc_defaults {

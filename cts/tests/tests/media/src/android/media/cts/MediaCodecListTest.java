@@ -508,12 +508,15 @@ public class MediaCodecListTest extends AndroidTestCase {
             }
             for (String mime: info.getSupportedTypes()) {
                 CodecCapabilities caps = info.getCapabilitiesForType(mime);
-                boolean isVideo = (caps.getVideoCapabilities() != null);
+                // it advertised this mime, it should have appropriate capabilities
+                assertNotNull("codec=" + info.getName()
+                              + " no capabilities for advertised mime=" + mime, caps);
+                AudioCapabilities acaps = caps.getAudioCapabilities();
+                boolean isAudio = (acaps != null);
 
-                if (isVideo) {
+                if (!isAudio) {
                     continue;
                 }
-                AudioCapabilities acaps = caps.getAudioCapabilities();
 
                 int countMin = acaps.getMinInputChannelCount();
                 int countMax = acaps.getMaxInputChannelCount();

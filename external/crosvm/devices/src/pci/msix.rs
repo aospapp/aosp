@@ -100,7 +100,8 @@ impl MsixConfig {
         let mut table_entries: Vec<MsixTableEntry> = Vec::new();
         table_entries.resize_with(msix_vectors as usize, Default::default);
         let mut pba_entries: Vec<u64> = Vec::new();
-        let num_pba_entries: usize = ((msix_vectors as usize) / BITS_PER_PBA_ENTRY) + 1;
+        let num_pba_entries: usize =
+            ((msix_vectors as usize) + BITS_PER_PBA_ENTRY - 1) / BITS_PER_PBA_ENTRY;
         pba_entries.resize_with(num_pba_entries, Default::default);
 
         MsixConfig {
@@ -555,6 +556,11 @@ impl PciCapability for MsixCap {
 
     fn id(&self) -> PciCapabilityID {
         PciCapabilityID::MSIX
+    }
+
+    fn writable_bits(&self) -> Vec<u32> {
+        // Only msg_ctl[15:14] is writable
+        vec![0x3000_0000, 0, 0]
     }
 }
 

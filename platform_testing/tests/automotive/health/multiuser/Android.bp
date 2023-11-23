@@ -25,7 +25,6 @@ java_library_static {
         "androidx.test.rules",
         "automotive-settings-app-helper",
         "automotive-utility-helper",
-        "automotive-settings-scenarios",
         "app-helpers-auto-interfaces",
         "app-helpers-common-interfaces",
         "common-platform-scenarios",

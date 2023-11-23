@@ -129,7 +129,7 @@ public class WaitForValidActivityState {
             return this;
         }
 
-        public Builder setStackId(int stackId) {
+        public Builder setRootTaskId(int stackId) {
             mStackId = stackId;
             return this;
         }

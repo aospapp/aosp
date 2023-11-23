@@ -1,11 +1,11 @@
 drops {
   android_build_drop {
-    build_id: "7613625"
+    build_id: "8080176"
     target: "kernel_bonito_kasan"
     source_file: "dtbo.img"
   }
   dest_file: "kasan/dtbo.img"
-  version: "Linux version 4.9.270-g862f51bac900-ab7613625 (android-build@abfarm-01193) (Android (7284624, based on r416183b) clang version 12.0.5 (https://android.googlesource.com/toolchain/llvm-project c935d99d7cf2016289302412d708641d52d2f7ee)) #0 SMP PREEMPT Thu Aug 5 07:29:46 UTC 2021"
+  version: "Linux version 4.9.292-g5f518a30d143-ab8080176 (android-build@abfarm367) (Android (7284624, based on r416183b) clang version 12.0.5 (https://android.googlesource.com/toolchain/llvm-project c935d99d7cf2016289302412d708641d52d2f7ee)) #0 SMP PREEMPT Fri Jan 14 10:23:32 UTC 2022"
   version_group: "kernel-and-modules"
   git_project: "device/google/bonito-kernel"
 }

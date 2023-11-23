@@ -657,11 +657,14 @@ public class NetworkStatsServiceTest extends NetworkStatsBaseTest {
     @Test
     public void testMobileStatsByRatType() throws Exception {
         final NetworkTemplate template3g =
-                buildTemplateMobileWithRatType(null, TelephonyManager.NETWORK_TYPE_UMTS);
+                buildTemplateMobileWithRatType(null, TelephonyManager.NETWORK_TYPE_UMTS,
+                METERED_YES);
         final NetworkTemplate template4g =
-                buildTemplateMobileWithRatType(null, TelephonyManager.NETWORK_TYPE_LTE);
+                buildTemplateMobileWithRatType(null, TelephonyManager.NETWORK_TYPE_LTE,
+                METERED_YES);
         final NetworkTemplate template5g =
-                buildTemplateMobileWithRatType(null, TelephonyManager.NETWORK_TYPE_NR);
+                buildTemplateMobileWithRatType(null, TelephonyManager.NETWORK_TYPE_NR,
+                METERED_YES);
         final NetworkStateSnapshot[] states =
                 new NetworkStateSnapshot[]{buildMobile3gState(IMSI_1)};
 
@@ -1478,11 +1481,13 @@ public class NetworkStatsServiceTest extends NetworkStatsBaseTest {
         // Build 3G template, type unknown template to get stats while network type is unknown
         // and type all template to get the sum of all network type stats.
         final NetworkTemplate template3g =
-                buildTemplateMobileWithRatType(null, TelephonyManager.NETWORK_TYPE_UMTS);
+                buildTemplateMobileWithRatType(null, TelephonyManager.NETWORK_TYPE_UMTS,
+                METERED_YES);
         final NetworkTemplate templateUnknown =
-                buildTemplateMobileWithRatType(null, TelephonyManager.NETWORK_TYPE_UNKNOWN);
+                buildTemplateMobileWithRatType(null, TelephonyManager.NETWORK_TYPE_UNKNOWN,
+                METERED_YES);
         final NetworkTemplate templateAll =
-                buildTemplateMobileWithRatType(null, NETWORK_TYPE_ALL);
+                buildTemplateMobileWithRatType(null, NETWORK_TYPE_ALL, METERED_YES);
         final NetworkStateSnapshot[] states =
                 new NetworkStateSnapshot[]{buildMobile3gState(IMSI_1)};
 
@@ -1580,7 +1585,7 @@ public class NetworkStatsServiceTest extends NetworkStatsBaseTest {
 
         // Verify mobile summary is not changed by the operation count.
         final NetworkTemplate templateMobile =
-                buildTemplateMobileWithRatType(null, NETWORK_TYPE_ALL);
+                buildTemplateMobileWithRatType(null, NETWORK_TYPE_ALL, METERED_YES);
         final NetworkStats statsMobile = mSession.getSummaryForAllUid(
                 templateMobile, Long.MIN_VALUE, Long.MAX_VALUE, true);
         assertValues(statsMobile, IFACE_ALL, UID_RED, SET_ALL, TAG_NONE, METERED_ALL, ROAMING_ALL,

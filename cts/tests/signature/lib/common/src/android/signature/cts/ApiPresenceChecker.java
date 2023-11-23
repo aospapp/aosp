@@ -18,6 +18,7 @@ package android.signature.cts;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -138,15 +139,24 @@ public class ApiPresenceChecker {
      * @return a {@link Map} of fieldName to {@link Field}
      */
     private static Map<String, Field> buildFieldMap(Class<?> testClass) {
+        try {
+            return buildFieldMapImpl(testClass);
+        } catch (NoClassDefFoundError e) {
+            LogHelper.loge("AbstractApiChecker: Could not retrieve fields of " + testClass, e);
+            return Collections.emptyMap();
+        }
+    }
+
+    private static Map<String, Field> buildFieldMapImpl(Class<?> testClass) {
         Map<String, Field> fieldMap = new HashMap<>();
         // Scan the superclass
         if (testClass.getSuperclass() != null) {
-            fieldMap.putAll(buildFieldMap(testClass.getSuperclass()));
+            fieldMap.putAll(buildFieldMapImpl(testClass.getSuperclass()));
         }
 
         // Scan the interfaces
         for (Class<?> interfaceClass : testClass.getInterfaces()) {
-            fieldMap.putAll(buildFieldMap(interfaceClass));
+            fieldMap.putAll(buildFieldMapImpl(interfaceClass));
         }
 
         // Check the fields in the test class

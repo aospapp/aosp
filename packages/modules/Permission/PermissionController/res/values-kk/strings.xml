@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"Қолданба рұқсаттары"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Пайдаланылмайтын қолданбалар"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Пайдаланылмайтын қолданбалар жоқ"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"0 пайдаланылмайтын қолданба бар"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Қолданбаны өшіру"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Бұл қолданбаны өшірсеңіз, Android жүйесі мен басқа қолданбалар тиісінше жұмыс істемеуі мүмкін. Бұл қолданба құрылғыға алдын ала орнатылатындықтан, оны жою мүмкін еместігін ескеріңіз. Өшіріп қою арқылы сіз бұл қолданбаны ажыратып, оны құрылғыда жасыра аласыз."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Рұқсат менеджері"</string>
@@ -71,7 +72,7 @@
     <string name="menu_hide_system" msgid="3855390843744028465">"Жүйені жасыру"</string>
     <string name="manage_permission" msgid="2895385393037061964">"Рұқсатты басқару"</string>
     <string name="no_apps" msgid="2412612731628386816">"Қолданба жоқ"</string>
-    <string name="location_settings" msgid="3624412509133422562">"Орналасу параметрлері"</string>
+    <string name="location_settings" msgid="3624412509133422562">"Локация параметрлері"</string>
     <string name="location_warning" msgid="2381649060929040962">"<xliff:g id="APP_NAME">%1$s</xliff:g> – осы құрылғыға орынды анықтау қызметтерін көрсететін қолданба. Орынды пайдалану мүмкіндігін орынды анықтау параметрлерінде өзгертуге болады."</string>
     <string name="system_warning" msgid="1173400963234358816">"Бұл рұқсатты бермесеңіз, құрылғының негізгі функциялары енді көзделгендей жұмыс істемеуі мүмкін."</string>
     <string name="cdm_profile_revoke_warning" msgid="4443893270719106700">"Бұл рұқсаттан бас тартсаңыз, осы қолданба арқылы басқарылатын құрылғыңыздың кейбір функциясы бұдан былай ойдағыдай жұмыс істемеуі мүмкін."</string>

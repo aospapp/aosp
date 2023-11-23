@@ -53,6 +53,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 // TODO(b/123540602): if we don't move this service to a separate package, we need to handle the
 // onXXXX methods in a separate thread
@@ -560,7 +561,14 @@ public class CtsContentCaptureService extends ContentCaptureService {
         // TODO(b/123540602): currently we're only interested on all events, but eventually we
         // should track individual requests as well to make sure they're probably batch (it will
         // require adding a Settings to tune the buffer parameters.
+        // TODO: remove filtering of TYPE_WINDOW_BOUNDS_CHANGED events.
         public List<ContentCaptureEvent> getEvents() {
+            return Collections.unmodifiableList(mEvents).stream().filter(
+                    e -> e.getType() != ContentCaptureEvent.TYPE_WINDOW_BOUNDS_CHANGED
+            ).collect(Collectors.toList());
+        }
+
+        public List<ContentCaptureEvent> getUnfilteredEvents() {
             return Collections.unmodifiableList(mEvents);
         }
 

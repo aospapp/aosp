@@ -38,20 +38,25 @@ public class PixelColor {
     public short mMinGreen;
     public short mMaxGreen;
 
-    public PixelColor(int color) {
-        short alpha = (short) ((color >> 24) & 0xFF);
-        short blue = (short) ((color >> 16) & 0xFF);
-        short green = (short) ((color >> 8) & 0xFF);
-        short red = (short) (color & 0xFF);
+    public short mAlpha;
+    public short mRed;
+    public short mGreen;
+    public short mBlue;
 
-        mMinAlpha = (short) getMinValue(alpha);
-        mMaxAlpha = (short) getMaxValue(alpha);
-        mMinRed = (short) getMinValue(red);
-        mMaxRed = (short) getMaxValue(red);
-        mMinBlue = (short) getMinValue(blue);
-        mMaxBlue = (short) getMaxValue(blue);
-        mMinGreen = (short) getMinValue(green);
-        mMaxGreen = (short) getMaxValue(green);
+    public PixelColor(int color) {
+        mAlpha = (short) ((color >> 24) & 0xFF);
+        mBlue = (short) ((color >> 16) & 0xFF);
+        mGreen = (short) ((color >> 8) & 0xFF);
+        mRed = (short) (color & 0xFF);
+
+        mMinAlpha = (short) getMinValue(mAlpha);
+        mMaxAlpha = (short) getMaxValue(mAlpha);
+        mMinRed = (short) getMinValue(mRed);
+        mMaxRed = (short) getMaxValue(mRed);
+        mMinBlue = (short) getMinValue(mBlue);
+        mMaxBlue = (short) getMaxValue(mBlue);
+        mMinGreen = (short) getMinValue(mGreen);
+        mMaxGreen = (short) getMaxValue(mGreen);
     }
 
     public PixelColor() {

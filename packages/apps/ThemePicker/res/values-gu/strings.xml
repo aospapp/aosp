@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"લાગુ કરો"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"ફેરફાર કરવા માટે ટૅપ કરો"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"હાલનું વૉલપેપર રાખો"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"લાગુ કરો"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"શૈલીનો પ્રીવ્યૂ કરો"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"ગ્રિડનો પ્રીવ્યૂ કરો"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"ફોન્ટનો પ્રીવ્યૂ"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, હાલમાં લાગુ કરેલી થીમ"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>ને, હાલમાં લાગુ કરીને પ્રીવ્યૂ કરવામાં આવી રહ્યું છે"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>ને, હાલમાં પ્રીવ્યૂ કરવામાં આવી રહ્યું છે"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, પસંદ કરેલા અને પ્રીવ્યૂ કરેલા વિકલ્પમાં ફેરફાર કરો"</string>
     <string name="theme_description" msgid="3697012391785254635">"ફોન્ટ: <xliff:g id="ID_1">%1$s</xliff:g>, આઇકન: <xliff:g id="ID_2">%2$s</xliff:g>, આકાર: <xliff:g id="ID_3">%3$s</xliff:g>, રંગ: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"ડિફૉલ્ટ"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"ફોન્ટ"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"કસ્ટમ શૈલી નામ"</string>
     <string name="mode_title" msgid="2394873501427436055">"ઘેરી થીમ"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"બૅટરી સેવરના લીધે હંગામીરૂપે બંધ કર્યું"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"થીમ બદલી છે"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"થીમવાળા આઇકન"</string>
     <string name="beta_title" msgid="8703819523760746458">"બીટા"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ઍપ ગ્રિડ બદલો"</string>

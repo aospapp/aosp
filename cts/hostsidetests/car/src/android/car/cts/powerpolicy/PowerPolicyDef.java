@@ -300,7 +300,9 @@ public final class PowerPolicyDef {
         static final PowerComponent[] TEST1_DISABLE = {};
 
         static final PowerComponent[] TEST2_ENABLE = {};
-        static final PowerComponent[] TEST2_DISABLE = ALL_COMPONENTS;
+        static final PowerComponent[] TEST2_DISABLE = {
+            PowerComponent.LOCATION
+        };
 
         static final PowerComponent[] ERROR_TEST1_ENABLE = ALL_COMPONENTS;
         static final PowerComponent[] ERROR_TEST1_DISABLE = {PowerComponent.UNKNOWN};

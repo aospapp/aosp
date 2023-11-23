@@ -17,7 +17,7 @@
 package android.content.pm.cts;
 
 import static android.content.pm.cts.PackageManagerShellCommandIncrementalTest.checkIncrementalDeliveryFeature;
-import static android.content.pm.cts.PackageManagerShellCommandIncrementalTest.isAppInstalled;
+import static android.content.pm.cts.PackageManagerShellCommandIncrementalTest.isAppInstalledForUser;
 import static android.content.pm.cts.PackageManagerShellCommandIncrementalTest.uninstallPackageSilently;
 
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
@@ -373,20 +373,20 @@ public class ResourcesHardeningTest {
         final String v4SignatureSuffix = ".idsig";
         final TestBlockFilter filter = new TestBlockFilter();
         final IncrementalInstallSession.Builder builder = new IncrementalInstallSession.Builder()
-                .addExtraArgs("-t", "-i", getContext().getPackageName())
+                .addExtraArgs("--user", String.valueOf(getContext().getUserId()),
+                              "-t", "-i", getContext().getPackageName())
                 .setLogger(new IncrementalDeviceConnection.Logger())
                 .setBlockFilter(filter);
         for (final String apk : apks) {
             final String path = TEST_APK_PATH + apk;
             builder.addApk(Paths.get(path), Paths.get(path + v4SignatureSuffix));
         }
-
         final ShellInstallSession session = new ShellInstallSession(
                 builder.build(), filter, packageName);
         session.session.start(Executors.newSingleThreadExecutor(),
                 IncrementalDeviceConnection.Factory.reliable());
         session.session.waitForInstallCompleted(10, TimeUnit.SECONDS);
-        assertTrue(isAppInstalled(packageName));
+        assertTrue(isAppInstalledForUser(packageName, getContext().getUserId()));
         return session;
     }
 

@@ -488,6 +488,7 @@ public:
         registerVendorHandler(GOOGLE_OUI, RTT_EVENT_COMPLETE);
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
+            unregisterVendorHandler(GOOGLE_OUI, RTT_EVENT_COMPLETE);
             ALOGE("failed to configure RTT setup; result = %d", result);
             return result;
         }

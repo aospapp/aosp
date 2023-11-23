@@ -16,12 +16,9 @@
 
 package com.android.car.radio;
 
-import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_BROWSE;
-
 import static com.android.car.ui.core.CarUi.requireToolbar;
 import static com.android.car.ui.toolbar.Toolbar.State.HOME;
 
-import android.car.Car;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -32,8 +29,9 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.viewpager.widget.ViewPager;
 
 import com.android.car.media.common.source.MediaSource;
-import com.android.car.media.common.source.MediaSourceViewModel;
+import com.android.car.media.common.source.MediaTrampolineHelper;
 import com.android.car.radio.bands.ProgramType;
+import com.android.car.radio.service.RadioAppService;
 import com.android.car.radio.util.Log;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.baselayout.InsetsChangedListener;
@@ -68,6 +66,7 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
     private RadioPagerAdapter mRadioPagerAdapter;
 
     private boolean mUseSourceLogoForAppSelector;
+    private MediaTrampolineHelper mMediaTrampoline;
 
     @Override
     public void onCarUiInsetsChanged(Insets insets) {
@@ -83,6 +82,8 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
         Log.d(TAG, "Radio app main activity created");
 
         setContentView(R.layout.radio_activity);
+
+        mMediaTrampoline = new MediaTrampolineHelper(this);
 
         mRadioController = new RadioController(this);
         mRadioController.getCurrentProgram().observe(this, info -> {
@@ -112,16 +113,6 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
 
         updateMenuItems();
         setupTabsWithViewPager(viewPager);
-
-        MediaSourceViewModel model =
-                MediaSourceViewModel.get(getApplication(), MEDIA_SOURCE_MODE_BROWSE);
-        model.getPrimaryMediaSource().observe(this, source -> {
-            if (source != null) {
-                // Always go through the trampoline activity to keep all the dispatching logic
-                // there.
-                startActivity(new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE));
-            }
-        });
     }
 
     @Override
@@ -133,6 +124,34 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
         Intent broadcast = new Intent(ACTION_RADIO_APP_STATE_CHANGE);
         broadcast.putExtra(EXTRA_RADIO_APP_FOREGROUND, true);
         sendBroadcast(broadcast);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent); // getIntent() should always return the most recent
+
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "onNewIntent: " + intent);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        Intent intent = getIntent();
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "onResume intent: " + intent);
+        }
+
+        if (intent != null) {
+            mMediaTrampoline.setLaunchedMediaSource(RadioAppService.getMediaSourceComp(this));
+
+            // Mark the intent as consumed so that coming back from the media app selector doesn't
+            // set the source again.
+            setIntent(null);
+        }
     }
 
     @Override

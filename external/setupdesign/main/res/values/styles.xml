@@ -187,6 +187,10 @@
         <item name="sudContentIllustrationPaddingTop">@dimen/sud_content_illustration_padding_vertical</item>
         <item name="sudContentIllustrationPaddingBottom">@dimen/sud_content_illustration_padding_vertical</item>
         <item name="sudLoadingHeaderHeight">@dimen/sud_loading_header_height</item>
+        <item name="sudSwitchBarThumbOnColor">@color/sud_switch_thumb_on_dark</item>
+        <item name="sudSwitchBarTrackOnColor">@color/sud_switch_track_on_dark</item>
+        <item name="sudSwitchBarThumbOffColor">@color/sud_switch_thumb_off_dark</item>
+        <item name="sudSwitchBarTrackOffColor">@color/sud_switch_track_off_dark</item>
     </style>
     <style name="SudThemeGlif" parent="SudBaseThemeGlif"/>
 
@@ -264,6 +268,10 @@
         <item name="sudContentIllustrationPaddingTop">@dimen/sud_content_illustration_padding_vertical</item>
         <item name="sudContentIllustrationPaddingBottom">@dimen/sud_content_illustration_padding_vertical</item>
         <item name="sudLoadingHeaderHeight">@dimen/sud_loading_header_height</item>
+        <item name="sudSwitchBarThumbOnColor">@color/sud_switch_thumb_on_light</item>
+        <item name="sudSwitchBarTrackOnColor">@color/sud_switch_track_on_light</item>
+        <item name="sudSwitchBarThumbOffColor">@color/sud_switch_thumb_off_light</item>
+        <item name="sudSwitchBarTrackOffColor">@color/sud_switch_track_off_light</item>
     </style>
     <style name="SudThemeGlif.Light" parent="SudBaseThemeGlif.Light"/>
 
@@ -693,6 +701,8 @@
         <item name="android:fontFamily" tools:targetApi="jelly_bean">@string/sudFontSecondary</item>
         <item name="android:textAlignment" tools:targetApi="jelly_bean_mr1">gravity</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textDirection" tools:targetApi="jelly_bean_mr1">locale</item>
+        <item name="android:accessibilityHeading" tools:targetApi="p">true</item>
     </style>
 
     <style name="SudGlifDescription" parent="SudDescription.Glif">
@@ -704,6 +714,7 @@
         <item name="android:layout_marginEnd">?attr/sudMarginEnd</item>
         <item name="android:fontFamily" tools:targetApi="jelly_bean">@string/sudFontSecondary</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textDirection" tools:targetApi="jelly_bean_mr1">locale</item>
     </style>
 
     <style name="SudGlifHeaderContainer">

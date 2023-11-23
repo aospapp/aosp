@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"প্ৰয়োগ কৰক"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"সম্পাদনা কৰিবলৈ টিপক"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"বৰ্তমানৰ ৱালপেপাৰখন ৰাখক"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"প্ৰয়োগ কৰক"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"শৈলীৰ পূৰ্বদৰ্শন"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"গ্ৰিডৰ পূৰ্বদৰ্শন"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"ফণ্টৰ পূৰ্বদৰ্শন"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"বৰ্তমান <xliff:g id="ID_1">%1$s</xliff:g> প্ৰয়োগ কৰা হৈছে"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, বৰ্তমান প্ৰয়োগ আৰু পূৰ্বদৰ্শন কৰি থকা হৈছে"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, বৰ্তমান পূৰ্বদৰ্শন কৰি থকা হৈছে"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, সালসলনি বাছনি কৰি পর্যালোচনা কৰা হ\'ল"</string>
     <string name="theme_description" msgid="3697012391785254635">"ফ’ণ্ট: <xliff:g id="ID_1">%1$s</xliff:g>, আইকন: <xliff:g id="ID_2">%2$s</xliff:g>, আকৃতি: <xliff:g id="ID_3">%3$s</xliff:g>, ৰং: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"ডিফ’ল্ট"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"ফ’ণ্ট"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"কাষ্টম শৈলীৰ নাম"</string>
     <string name="mode_title" msgid="2394873501427436055">"গাঢ় ৰঙৰ থীম"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"বেটাৰী সঞ্চয়কাৰীৰ বাবে অস্থায়ীভাৱে অক্ষম কৰা হৈছে"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"থীম সলনি কৰা হৈছে"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"থীমযুক্ত চিহ্ন"</string>
     <string name="beta_title" msgid="8703819523760746458">"বিটা"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"এপৰ গ্ৰিড সলনি কৰক"</string>

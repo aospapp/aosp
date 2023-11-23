@@ -15,20 +15,29 @@
 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Message history -->
-    <style name="TextAppearance.MessageHistoryTitle" parent="TextAppearance.Body1" />
-
-    <style name="TextAppearance.MessageHistorySubtitle" parent="TextAppearance.Body3">
-        <item name="android:textColor">@color/secondary_text_color</item>
+    <style name="TextAppearance.MessageHistoryTitle" parent="TextAppearance.Body1" >
     </style>
+
+    <style name="TextAppearance.MessageHistoryTextPreviewUnread" parent="TextAppearance.Body3">
+        <item name="android:textColor">@color/unread_color</item>
+        <item name="android:alpha">0.72</item>
+    </style>
+
+    <style name="TextAppearance.MessageHistoryTextPreview" parent="TextAppearance.Body3">
+        <item name="android:textColor">@color/secondary_text_color</item>
+        <item name="android:alpha">0.72</item>
+    </style>
+
     <!-- Customized text color for unread messages can be added here -->
     <style name="TextAppearance.MessageHistoryUnreadTitle"
         parent="TextAppearance.MessageHistoryTitle">
         <item name="android:textStyle">bold</item>
     </style>
 
-    <style name="TextAppearance.MessageHistoryUnreadSubtitle"
-        parent="TextAppearance.MessageHistorySubtitle">
+    <style name="TextAppearance.MessageHistoryUnreadMetadata"
+        parent="TextAppearance.MessageHistoryTextPreview">
         <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/unread_color</item>
     </style>
 
     <style name="Widget.Button" parent="android:Widget.DeviceDefault.Button">
@@ -57,6 +66,7 @@
         <item name="android:fontFamily">roboto-regular</item>
         <item name="android:textColor">@color/primary_text_color</item>
         <item name="android:textAlignment">viewStart</item>
+        <item name="android:textFontWeight">400</item>
     </style>
 
     <style name="TextAppearance.Display3" parent="TextAppearance">
@@ -67,16 +77,19 @@
     <style name="TextAppearance.Body1" parent="TextAppearance">
         <item name="android:textSize">32sp</item>
         <item name="android:letterSpacing">@dimen/letter_spacing_body1</item>
+        <item name="android:lineHeight">40sp</item>
     </style>
 
     <style name="TextAppearance.Body2" parent="TextAppearance">
         <item name="android:textSize">28sp</item>
         <item name="android:letterSpacing">@dimen/letter_spacing_body2</item>
+        <item name="android:lineHeight">36sp</item>
     </style>
 
     <style name="TextAppearance.Body3" parent="TextAppearance">
         <item name="android:textSize">24sp</item>
         <item name="android:letterSpacing">@dimen/letter_spacing_body3</item>
+        <item name="android:lineHeight">32sp</item>
     </style>
 
     <!-- Styles for ControlBar -->

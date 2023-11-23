@@ -497,28 +497,6 @@ class DocumentStore {
       bool force_recovery_and_revalidate_documents,
       InitializeStatsProto* initialize_stats);
 
-  // Initializes a new DocumentStore and sets up any underlying files.
-  //
-  // Returns:
-  //   Data loss status on success, effectively always DataLoss::NONE
-  //   INTERNAL on I/O error
-  libtextclassifier3::StatusOr<DataLoss> InitializeNewStore(
-      InitializeStatsProto* initialize_stats);
-
-  // Initializes a DocumentStore over an existing directory of files.
-  //
-  // stats will be set if non-null
-  //
-  // Returns:
-  //   Data loss status on success
-  //   INTERNAL on I/O error
-  libtextclassifier3::StatusOr<DataLoss> InitializeExistingStore(
-      bool force_recovery_and_revalidate_documents,
-      InitializeStatsProto* initialize_stats);
-
-  libtextclassifier3::StatusOr<DataLoss> MigrateFromV0ToV1(
-      InitializeStatsProto* initialize_stats);
-
   // Creates sub-components and verifies the integrity of each sub-component.
   // This assumes that the the underlying files already exist, and will return
   // an error if it doesn't find what it's expecting.

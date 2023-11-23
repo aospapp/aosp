@@ -20,10 +20,11 @@
     xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/data_warning_limit_title"
     android:key="@string/psk_data_warning_and_limit">
-    <Preference
+    <ListPreference
         android:key="@string/pk_data_usage_cycle"
-        android:title="@string/app_usage_cycle"
+        android:title="@string/mobile_data_usage"
         settings:controller="com.android.car.settings.datausage.CycleResetDayOfMonthPickerPreferenceController"/>
+    <com.android.car.settings.common.DividerPreference/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_data_warning_group"
         settings:controller="com.android.car.settings.datausage.DataWarningPreferenceController">
@@ -34,6 +35,7 @@
             android:key="@string/pk_data_warning"
             android:title="@string/data_warning"/>
     </com.android.car.settings.common.LogicalPreferenceGroup>
+    <com.android.car.settings.common.DividerPreference/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_data_limit_group"
         settings:controller="com.android.car.settings.datausage.DataLimitPreferenceController">
@@ -44,4 +46,10 @@
             android:key="@string/pk_data_limit"
             android:title="@string/data_limit"/>
     </com.android.car.settings.common.LogicalPreferenceGroup>
+    <com.android.car.settings.common.DividerPreference/>
+    <Preference
+        android:key="@string/pk_data_usage_footer"
+        android:summary="@string/data_usage_settings_footer"
+        android:icon="@drawable/ic_settings_about"
+        android:selectable="false"/>
 </PreferenceScreen>

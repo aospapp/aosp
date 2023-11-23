@@ -15,29 +15,35 @@
  */
 package com.android.car.ui.core;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Application;
+import android.content.ComponentName;
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatDelegate;
 
 import com.android.car.ui.CarUiLayoutInflaterFactory;
+import com.android.car.ui.R;
 import com.android.car.ui.baselayout.Insets;
+import com.android.car.ui.utils.CarUiUtils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.Locale;
+import java.util.HashSet;
 
 /**
  * {@link ContentProvider ContentProvider's} onCreate() methods are "called for all registered
@@ -54,6 +60,9 @@ import java.util.Locale;
  * {@link BaseLayoutController} class otherwise the base layout will be loaded
  * by the wrong classloader. And then calls to {@see CarUi#getToolbar(Activity)} will return null.
  */
+// TODO: (b/200322953)
+@SuppressLint("LogConditional")
+@RequiresApi(MIN_TARGET_API)
 public class CarUiInstaller extends ContentProvider {
 
     private static final String TAG = "CarUiInstaller";
@@ -62,27 +71,59 @@ public class CarUiInstaller extends ContentProvider {
     private static final String CAR_UI_INSET_TOP = "CAR_UI_INSET_TOP";
     private static final String CAR_UI_INSET_BOTTOM = "CAR_UI_INSET_BOTTOM";
 
-    private static final boolean IS_DEBUG_DEVICE =
-            Build.TYPE.toLowerCase(Locale.ROOT).contains("debug")
-                    || Build.TYPE.toLowerCase(Locale.ROOT).equals("eng");
+    // applications against which we have already called register
+    private static final HashSet<Application> sAppsRegistered = new HashSet<Application>();
+
+    private static boolean hasAlreadyRegistered(Application application) {
+        synchronized (sAppsRegistered) {
+            return !sAppsRegistered.add(application);
+        }
+    }
 
     @Override
     public boolean onCreate() {
         Context context = getContext();
-        if (context == null) {
-            Log.e(TAG, "CarUiInstaller had a null context!");
+        if (context == null || !(context.getApplicationContext() instanceof Application)) {
+            Log.e(TAG, "CarUiInstaller had a null context, unable to call register!"
+                        + " Need app to call register by itself");
             return false;
         }
-        Log.i(TAG, "CarUiInstaller started for " + context.getPackageName());
 
         Application application = (Application) context.getApplicationContext();
+        register(application);
+
+        return true;
+    }
+
+    /**
+     * In some cases {@link CarUiInstaller#onCreate} is called before the {@link Application}
+     * instance is created. In those cases applications have to call this method separately
+     * after the Application instance is fully initialized.
+     */
+    public static void register(@NonNull Application application) {
+        if (hasAlreadyRegistered(application)) {
+            return;
+        }
+
         application.registerActivityLifecycleCallbacks(
                 new Application.ActivityLifecycleCallbacks() {
                     private Insets mInsets = null;
                     private boolean mIsActivityStartedForFirstTime = false;
 
+                    private boolean shouldRun(Activity activity) {
+                        return CarUiUtils.getThemeBoolean(activity, R.attr.carUiActivity);
+                    }
+
                     @Override
                     public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+                        if (!shouldRun(activity)) {
+                            return;
+                        }
+
+                        ComponentName comp = ComponentName.createRelative(
+                                activity, activity.getClass().getName());
+                        Log.i(TAG, "CarUiInstaller started for " + comp.flattenToShortString());
+
                         injectLayoutInflaterFactory(activity);
 
                         callMethodReflective(
@@ -105,6 +146,10 @@ public class CarUiInstaller extends ContentProvider {
 
                     @Override
                     public void onActivityPostStarted(Activity activity) {
+                        if (!shouldRun(activity)) {
+                            return;
+                        }
+
                         Object controller = callMethodReflective(
                                 activity.getClassLoader(),
                                 BaseLayoutController.class,
@@ -141,6 +186,10 @@ public class CarUiInstaller extends ContentProvider {
 
                     @Override
                     public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
+                        if (!shouldRun(activity)) {
+                            return;
+                        }
+
                         Object controller = callMethodReflective(
                                 activity.getClassLoader(),
                                 BaseLayoutController.class,
@@ -182,6 +231,10 @@ public class CarUiInstaller extends ContentProvider {
 
                     @Override
                     public void onActivityDestroyed(Activity activity) {
+                        if (!shouldRun(activity)) {
+                            return;
+                        }
+
                         callMethodReflective(
                                 activity.getClassLoader(),
                                 BaseLayoutController.class,
@@ -190,8 +243,6 @@ public class CarUiInstaller extends ContentProvider {
                                 activity);
                     }
                 });
-
-        return true;
     }
 
     @Nullable

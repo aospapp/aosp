@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"ប្រើ"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"ចុច ដើម្បី​កែ"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"រក្សាទុក​ផ្ទាំងរូបភាព​បច្ចុប្បន្ន"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"ប្រើ"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"ការមើល​រចនាប័ទ្មសាកល្បង"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"ការមើល​ក្រឡាសាកល្បង"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"ការមើលពុម្ព​អក្សរសាកល្បង"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g> ត្រូវបានប្រើ​បច្ចុប្បន្ននេះ"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g> កំពុងត្រូវបានអនុវត្ត និង​មើលសាកល្បង​បច្ចុប្បន្ននេះ"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g> កំពុងត្រូវបាន​មើលសាកល្បង​បច្ចុប្បន្ននេះ"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, ផ្លាស់ប្ដូរអ្វីដែលបានជ្រើសរើស និងបានមើលសាកល្បង"</string>
     <string name="theme_description" msgid="3697012391785254635">"ពុម្ព​អក្សរ៖ <xliff:g id="ID_1">%1$s</xliff:g>, រូបតំណាង៖ <xliff:g id="ID_2">%2$s</xliff:g>, រូបរាង៖ <xliff:g id="ID_3">%3$s</xliff:g>, ពណ៌៖ <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"លំនាំដើម"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"ពុម្ពអក្សរ"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"ឈ្មោះ​រចនាប័ទ្ម​ផ្ទាល់ខ្លួន"</string>
     <string name="mode_title" msgid="2394873501427436055">"​រចនាប័ទ្ម​ងងឹត"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"បានបិទ​ជា​បណ្តោះអាសន្ន ដោយសារ​មុខងារ​សន្សំ​ថ្ម"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"បាន​ផ្លាស់ប្ដូរ​រចនាប័ទ្ម"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"រូបតំណាងប្ដូររចនាប័ទ្ម"</string>
     <string name="beta_title" msgid="8703819523760746458">"បេតា"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ប្ដូរ​ក្រឡា​កម្មវិធី"</string>

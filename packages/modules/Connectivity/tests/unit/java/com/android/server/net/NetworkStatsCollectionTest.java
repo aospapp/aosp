@@ -98,14 +98,11 @@ public class NetworkStatsCollectionTest {
     @Before
     public void setUp() throws Exception {
         sOriginalClock = RecurrenceRule.sClock;
-        // ignore any device overlay while testing
-        NetworkTemplate.forceAllNetworkTypes();
     }
 
     @After
     public void tearDown() throws Exception {
         RecurrenceRule.sClock = sOriginalClock;
-        NetworkTemplate.resetForceAllNetworkTypes();
     }
 
     private void setClock(Instant instant) {
@@ -123,7 +120,7 @@ public class NetworkStatsCollectionTest {
 
         // verify that history read correctly
         assertSummaryTotal(collection, buildTemplateMobileAll(TEST_IMSI),
-                636016770L, 709306L, 88038768L, 518836L, NetworkStatsAccess.Level.DEVICE);
+                636014522L, 709291L, 88037144L, 518820L, NetworkStatsAccess.Level.DEVICE);
 
         // now export into a unified format
         final ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -137,7 +134,7 @@ public class NetworkStatsCollectionTest {
         // and read back into structure, verifying that totals are same
         collection.read(new ByteArrayInputStream(bos.toByteArray()));
         assertSummaryTotal(collection, buildTemplateMobileAll(TEST_IMSI),
-                636016770L, 709306L, 88038768L, 518836L, NetworkStatsAccess.Level.DEVICE);
+                636014522L, 709291L, 88037144L, 518820L, NetworkStatsAccess.Level.DEVICE);
     }
 
     @Test
@@ -151,7 +148,7 @@ public class NetworkStatsCollectionTest {
 
         // verify that history read correctly
         assertSummaryTotal(collection, buildTemplateMobileAll(TEST_IMSI),
-                637076152L, 711413L, 88343717L, 521022L, NetworkStatsAccess.Level.DEVICE);
+                637073904L, 711398L, 88342093L, 521006L, NetworkStatsAccess.Level.DEVICE);
 
         // now export into a unified format
         final ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -165,7 +162,7 @@ public class NetworkStatsCollectionTest {
         // and read back into structure, verifying that totals are same
         collection.read(new ByteArrayInputStream(bos.toByteArray()));
         assertSummaryTotal(collection, buildTemplateMobileAll(TEST_IMSI),
-                637076152L, 711413L, 88343717L, 521022L, NetworkStatsAccess.Level.DEVICE);
+                637073904L, 711398L, 88342093L, 521006L, NetworkStatsAccess.Level.DEVICE);
     }
 
     @Test

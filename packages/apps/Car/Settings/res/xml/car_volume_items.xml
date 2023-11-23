@@ -31,87 +31,108 @@
 -->
 <carVolumeItems xmlns:car="http://schemas.android.com/apk/res-auto">
     <item
-        car:icon="@*android:drawable/ic_audio_ring_notif"
+        car:icon="@drawable/car_ic_phone_volume"
+        car:mute_icon="@drawable/car_ic_phone_volume_mute"
         car:titleText="@*android:string/volume_call"
         car:usage="voice_communication"/>
     <item
-        car:icon="@*android:drawable/ic_audio_ring_notif"
+        car:icon="@drawable/car_ic_phone_volume"
+        car:mute_icon="@drawable/car_ic_phone_volume_mute"
         car:titleText="@*android:string/volume_call"
         car:usage="voice_communication_signalling"/>
     <item
         car:icon="@*android:drawable/ic_audio_media"
+        car:mute_icon="@*android:drawable/ic_audio_media_mute"
         car:titleText="@*android:string/volume_music"
         car:usage="media"/>
     <item
         car:icon="@*android:drawable/ic_audio_media"
+        car:mute_icon="@*android:drawable/ic_audio_media_mute"
         car:titleText="@*android:string/volume_music"
         car:usage="game"/>
     <item
         car:icon="@*android:drawable/ic_audio_alarm"
+        car:mute_icon="@*android:drawable/ic_audio_alarm_mute"
         car:titleText="@*android:string/volume_alarm"
         car:usage="alarm"/>
     <item
         car:icon="@drawable/car_ic_navigation"
+        car:mute_icon="@drawable/car_ic_navigation_mute"
         car:titleText="@string/navi_volume_title"
         car:usage="assistance_navigation_guidance"/>
     <item
         car:icon="@*android:drawable/ic_audio_ring_notif"
+        car:mute_icon="@*android:drawable/ic_audio_ring_notif_mute"
         car:titleText="@*android:string/volume_ringtone"
         car:usage="notification_ringtone"/>
     <item
         car:icon="@*android:drawable/ic_audio_vol"
+        car:mute_icon="@*android:drawable/ic_audio_vol_mute"
         car:titleText="@*android:string/volume_unknown"
         car:usage="assistant"/>
     <item
         car:icon="@*android:drawable/ic_audio_ring_notif"
+        car:mute_icon="@*android:drawable/ic_audio_ring_notif_mute"
         car:titleText="@*android:string/volume_notification"
         car:usage="notification"/>
     <item
         car:icon="@*android:drawable/ic_audio_ring_notif"
+        car:mute_icon="@*android:drawable/ic_audio_ring_notif_mute"
         car:titleText="@*android:string/volume_notification"
         car:usage="notification_communication_request"/>
     <item
         car:icon="@*android:drawable/ic_audio_ring_notif"
+        car:mute_icon="@*android:drawable/ic_audio_ring_notif_mute"
         car:titleText="@*android:string/volume_notification"
         car:usage="notification_communication_instant"/>
     <item
         car:icon="@*android:drawable/ic_audio_ring_notif"
+        car:mute_icon="@*android:drawable/ic_audio_ring_notif_mute"
         car:titleText="@*android:string/volume_notification"
         car:usage="notification_communication_delayed"/>
     <item
         car:icon="@*android:drawable/ic_audio_ring_notif"
+        car:mute_icon="@*android:drawable/ic_audio_ring_notif_mute"
         car:titleText="@*android:string/volume_notification"
         car:usage="notification_event"/>
     <item
         car:icon="@*android:drawable/ic_audio_ring_notif"
+        car:mute_icon="@*android:drawable/ic_audio_ring_notif_mute"
         car:titleText="@*android:string/volume_notification"
         car:usage="assistance_accessibility"/>
     <item
         car:icon="@*android:drawable/ic_audio_vol"
+        car:mute_icon="@*android:drawable/ic_audio_vol_mute"
         car:titleText="@*android:string/volume_unknown"
         car:usage="assistance_sonification"/>
     <item
         car:icon="@*android:drawable/ic_audio_vol"
+        car:mute_icon="@*android:drawable/ic_audio_vol_mute"
         car:titleText="@*android:string/volume_unknown"
         car:usage="unknown"/>
     <item
         car:icon="@*android:drawable/ic_audio_vol"
+        car:mute_icon="@*android:drawable/ic_audio_vol_mute"
         car:titleText="@*android:string/volume_unknown"
         car:usage="call_assistant"/>
     <item
         car:icon="@*android:drawable/ic_audio_vol"
+        car:mute_icon="@*android:drawable/ic_audio_vol_mute"
         car:titleText="@*android:string/volume_unknown"
         car:usage="emergency"/>
     <item
         car:icon="@*android:drawable/ic_audio_vol"
+        car:mute_icon="@*android:drawable/ic_audio_vol_mute"
         car:titleText="@*android:string/volume_unknown"
         car:usage="safety"/>
     <item
         car:icon="@*android:drawable/ic_audio_vol"
+        car:mute_icon="@*android:drawable/ic_audio_vol_mute"
         car:titleText="@*android:string/volume_unknown"
         car:usage="vehicle_status"/>
     <item
         car:icon="@*android:drawable/ic_audio_vol"
+        car:mute_icon="@*android:drawable/ic_audio_vol_mute"
         car:titleText="@*android:string/volume_unknown"
         car:usage="announcement"/>
 </carVolumeItems>

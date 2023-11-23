@@ -21,6 +21,7 @@ import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
+import static android.content.pm.PackageManager.FEATURE_AUTOMOTIVE;
 import static android.server.wm.RoundedCornerTests.TestActivity.EXTRA_ORIENTATION;
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
@@ -31,9 +32,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 
 import android.app.Activity;
 import android.app.AppOpsManager;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Bundle;
@@ -56,7 +59,7 @@ import org.junit.runners.Parameterized;
 
 @Presubmit
 @RunWith(Parameterized.class)
-public class PrivacyIndicatorBoundsTests {
+public class PrivacyIndicatorBoundsTests extends ActivityManagerTestBase {
 
     private static final String TAG = PrivacyIndicatorBoundsTests.class.getSimpleName();
     private static final long TIMEOUT_MS = 1000;
@@ -85,6 +88,10 @@ public class PrivacyIndicatorBoundsTests {
 
     @Test
     public void testStaticBoundsAreNotNull() {
+        // TODO(b/187757919): Allow Automotive to skip this test until privacy chip is implemented
+        // in immersive mode
+        assumeFalse(isCar());
+
         final PrivacyIndicatorBoundsTests.TestActivity activity = mTestActivity.launchActivity(
                 new Intent().putExtra(EXTRA_ORIENTATION, orientation));
         getInstrumentation().runOnMainSync(() -> {

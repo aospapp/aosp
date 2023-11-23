@@ -3810,4 +3810,13 @@ abstract class TelephonyConnection extends Connection implements Holdable, Commu
             mCommunicator.sendMessages(set);
         }
     }
+
+    /**
+     * Returns the current telephony connection listeners for test purposes.
+     * @return list of telephony connection listeners.
+     */
+    @VisibleForTesting
+    public List<TelephonyConnectionListener> getTelephonyConnectionListeners() {
+        return new ArrayList<>(mTelephonyListeners);
+    }
 }

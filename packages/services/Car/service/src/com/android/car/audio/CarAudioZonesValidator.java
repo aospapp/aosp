@@ -16,9 +16,16 @@
 package com.android.car.audio;
 
 
+import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
+import static android.media.AudioDeviceInfo.TYPE_BUILTIN_MIC;
+
+import android.media.AudioDeviceAttributes;
 import android.util.SparseArray;
 
+import com.android.internal.util.Preconditions;
+
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 final class CarAudioZonesValidator {
@@ -29,6 +36,20 @@ final class CarAudioZonesValidator {
         validateAtLeastOneZoneDefined(carAudioZones);
         validateVolumeGroupsForEachZone(carAudioZones);
         validateEachAddressAppearsAtMostOnce(carAudioZones);
+        validatePrimaryZoneHasInputDevice(carAudioZones);
+    }
+
+    private static void validatePrimaryZoneHasInputDevice(SparseArray<CarAudioZone> carAudioZones) {
+        CarAudioZone primaryZone = carAudioZones.get(PRIMARY_AUDIO_ZONE);
+        List<AudioDeviceAttributes> devices = primaryZone.getInputAudioDevices();
+        Preconditions.checkCollectionNotEmpty(devices, "Primary Zone Input Devices");
+        for (int index = 0; index < devices.size(); index++) {
+            AudioDeviceAttributes device = devices.get(index);
+            if (device.getType() == TYPE_BUILTIN_MIC) {
+                return;
+            }
+        }
+        throw new RuntimeException("Primary Zone must have at least one microphone input device");
     }
 
     private static void validateAtLeastOneZoneDefined(SparseArray<CarAudioZone> carAudioZones) {

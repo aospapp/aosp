@@ -13,44 +13,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.android.car.ui.recyclerview;
 
 import android.content.Context;
 import android.util.AttributeSet;
-import android.view.View;
 import android.widget.FrameLayout;
 
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.android.car.ui.R;
+
 /**
- * Container that contains the scrollbar and RecyclerView when scrollbar is enabled.
- *
- * This container is required to expose addViewInLayout such that the scrollbar and be added without
- * triggering multiple invalidate and relayout calls.
+ * @deprecated Only maintained for legacy reasons.
+ * Historically this class used to contain the CarUiRecyclerView, and ScrollBar.
+ * This class can't be removed because OEMs might have overlaid car_ui_recycler_view.xml with their
+ * RROs.
+ * Now this class is only an FrameLayout that contains a {@link RecyclerView} to maintain backwards
+ * compatibility.
  */
+@Deprecated
 public class CarUiRecyclerViewContainer extends FrameLayout {
 
     public CarUiRecyclerViewContainer(Context context) {
-        super(context);
+        this(context, null);
     }
 
     public CarUiRecyclerViewContainer(Context context, AttributeSet attrs) {
-        super(context, attrs);
+        this(context, attrs, 0);
     }
 
     public CarUiRecyclerViewContainer(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-    }
-
-    public CarUiRecyclerViewContainer(Context context, AttributeSet attrs, int defStyleAttr,
-            int defStyleRes) {
-        super(context, attrs, defStyleAttr, defStyleRes);
-    }
-
-    /**
-     * Adds the recyclerview using addViewInLayout so that invalidate and relayout calls are not
-     * triggered.
-     */
-    void addRecyclerView(View view, LayoutParams layoutParams) {
-        addViewInLayout(view, 0, layoutParams);
+        // We have to inflate this from layout because some of the attributes e.g.
+        // android:scrollbars can't be set from code.
+        inflate(context, R.layout.car_ui_recycler_view_only, this);
     }
 }

@@ -30,12 +30,17 @@ import static android.app.admin.DevicePolicyManager.CODE_USER_SETUP_COMPLETED;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ALLOWED_PROVISIONING_MODES;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMERS;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_IMEI;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCALE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCAL_TIME;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SERIAL_NUMBER;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_EDUCATION_SCREENS;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_TIME_ZONE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_TRIGGER;
 import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_DEVICE_OWNER;
 import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_ORGANIZATION_OWNED;
@@ -47,6 +52,8 @@ import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
 import static com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker.CANCELLED_BEFORE_PROVISIONING;
 import static com.android.managedprovisioning.common.Globals.ACTION_RESUME_PROVISIONING;
 import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_KEEP_ACCOUNT_MIGRATED;
+import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_PERMISSION_GRANT_OPT_OUT;
+import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_SKIP_ENCRYPTION;
 import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED;
 import static com.android.managedprovisioning.model.ProvisioningParams.FLOW_TYPE_ADMIN_INTEGRATED;
 import static com.android.managedprovisioning.model.ProvisioningParams.FLOW_TYPE_LEGACY;
@@ -91,13 +98,19 @@ import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferenc
 import com.android.managedprovisioning.common.PolicyComplianceUtils;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.SettingsFacade;
+import com.android.managedprovisioning.common.StoreUtils;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.CustomizationParams;
+import com.android.managedprovisioning.model.DisclaimersParam;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.model.ProvisioningParams.FlowType;
+import com.android.managedprovisioning.parser.DisclaimerParser;
+import com.android.managedprovisioning.parser.DisclaimersParserImpl;
 import com.android.managedprovisioning.preprovisioning.PreProvisioningViewModel.PreProvisioningViewModelFactory;
 
+import java.util.IllformedLocaleException;
 import java.util.List;
+import java.util.function.BiFunction;
 
 /**
  * Controller which contains business logic related to provisioning preparation.
@@ -122,6 +135,7 @@ public class PreProvisioningActivityController {
     private final ManagedProvisioningSharedPreferences mSharedPreferences;
 
     private final PreProvisioningViewModel mViewModel;
+    private final BiFunction<Context, Long, DisclaimerParser> mDisclaimerParserProvider;
 
     public PreProvisioningActivityController(
             @NonNull ComponentActivity activity,
@@ -135,7 +149,8 @@ public class PreProvisioningActivityController {
                         activity,
                         new PreProvisioningViewModelFactory(
                                 (ManagedProvisioningBaseApplication) activity.getApplication()))
-                                        .get(PreProvisioningViewModel.class));
+                                        .get(PreProvisioningViewModel.class),
+                DisclaimersParserImpl::new);
     }
     @VisibleForTesting
     PreProvisioningActivityController(
@@ -146,7 +161,8 @@ public class PreProvisioningActivityController {
             @NonNull ManagedProvisioningSharedPreferences sharedPreferences,
             @NonNull PolicyComplianceUtils policyComplianceUtils,
             @NonNull GetProvisioningModeUtils getProvisioningModeUtils,
-            @NonNull PreProvisioningViewModel viewModel) {
+            @NonNull PreProvisioningViewModel viewModel,
+            @NonNull BiFunction<Context, Long, DisclaimerParser> disclaimerParserProvider) {
         mContext = requireNonNull(context, "Context must not be null");
         mUi = requireNonNull(ui, "Ui must not be null");
         mSettingsFacade = requireNonNull(settingsFacade);
@@ -167,6 +183,7 @@ public class PreProvisioningActivityController {
         mProvisioningAnalyticsTracker = new ProvisioningAnalyticsTracker(
                 MetricsWriterFactory.getMetricsWriter(mContext, mSettingsFacade),
                 mSharedPreferences);
+        mDisclaimerParserProvider = requireNonNull(disclaimerParserProvider);
     }
 
     interface Ui {
@@ -469,6 +486,8 @@ public class PreProvisioningActivityController {
         builder.setIsOrganizationOwnedProvisioning(isOrganizationOwnedProvisioning);
         maybeUpdateAdminExtrasBundle(builder, resultIntent);
         maybeUpdateSkipEducationScreens(builder, resultIntent);
+        maybeUpdateDisclaimers(builder, resultIntent);
+        maybeUpdateSkipEncryption(builder, resultIntent);
         if (updateAccountToMigrate) {
             maybeUpdateAccountToMigrate(builder, resultIntent);
         }
@@ -476,7 +495,70 @@ public class PreProvisioningActivityController {
             maybeUpdateKeepAccountMigrated(builder, resultIntent);
             maybeUpdateLeaveAllSystemAppsEnabled(builder, resultIntent);
         }
+        else if (provisioningAction.equals(ACTION_PROVISION_MANAGED_DEVICE)){
+            maybeUpdateDeviceOwnerPermissionGrantOptOut(builder, resultIntent);
+            maybeUpdateLocale(builder, resultIntent);
+            maybeUpdateLocalTime(builder, resultIntent);
+            maybeUpdateTimeZone(builder, resultIntent);
+        }
         mViewModel.updateParams(builder.build());
+    }
+
+    private void maybeUpdateDeviceOwnerPermissionGrantOptOut(
+            ProvisioningParams.Builder builder, Intent resultIntent) {
+        if (resultIntent.hasExtra(EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT)) {
+            builder.setDeviceOwnerPermissionGrantOptOut(resultIntent.getBooleanExtra(
+                    EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT,
+                    DEFAULT_EXTRA_PROVISIONING_PERMISSION_GRANT_OPT_OUT));
+        }
+    }
+
+    private void maybeUpdateSkipEncryption(
+            ProvisioningParams.Builder builder, Intent resultIntent) {
+        if (resultIntent.hasExtra(EXTRA_PROVISIONING_SKIP_ENCRYPTION)) {
+            builder.setSkipEncryption(resultIntent.getBooleanExtra(
+                    EXTRA_PROVISIONING_SKIP_ENCRYPTION,
+                    DEFAULT_EXTRA_PROVISIONING_SKIP_ENCRYPTION));
+        }
+    }
+
+    private void maybeUpdateTimeZone(ProvisioningParams.Builder builder, Intent resultIntent) {
+        if (resultIntent.hasExtra(EXTRA_PROVISIONING_TIME_ZONE)) {
+            builder.setTimeZone(resultIntent.getStringExtra(EXTRA_PROVISIONING_TIME_ZONE));
+        }
+    }
+
+    private void maybeUpdateLocalTime(ProvisioningParams.Builder builder, Intent resultIntent) {
+        if (resultIntent.hasExtra(EXTRA_PROVISIONING_LOCAL_TIME)) {
+            builder.setLocalTime(resultIntent.getLongExtra(
+                    EXTRA_PROVISIONING_LOCAL_TIME, ProvisioningParams.DEFAULT_LOCAL_TIME));
+        }
+    }
+
+    private void maybeUpdateLocale(ProvisioningParams.Builder builder, Intent resultIntent) {
+        if (resultIntent.hasExtra(EXTRA_PROVISIONING_LOCALE)) {
+            try {
+                builder.setLocale(StoreUtils.stringToLocale(
+                        resultIntent.getStringExtra(EXTRA_PROVISIONING_LOCALE)));
+            } catch (IllformedLocaleException e) {
+                ProvisionLogger.loge("Could not parse locale.", e);
+            }
+        }
+    }
+
+    private void maybeUpdateDisclaimers(ProvisioningParams.Builder builder, Intent resultIntent) {
+        if (resultIntent.hasExtra(EXTRA_PROVISIONING_DISCLAIMERS)) {
+            try {
+                DisclaimersParam disclaimersParam = mDisclaimerParserProvider.apply(
+                        mContext,
+                        mSharedPreferences.getProvisioningId())
+                        .parse(resultIntent.getParcelableArrayExtra(
+                                EXTRA_PROVISIONING_DISCLAIMERS));
+                builder.setDisclaimersParam(disclaimersParam);
+            } catch (ClassCastException e) {
+                ProvisionLogger.loge("Could not parse disclaimer params.", e);
+            }
+        }
     }
 
     private void maybeUpdateSkipEducationScreens(ProvisioningParams.Builder builder,

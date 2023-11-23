@@ -16,59 +16,53 @@
 
 package com.android.car.settings.enterprise;
 
+import static android.text.Html.FROM_HTML_MODE_LEGACY;
+
 import android.app.admin.DeviceAdminInfo;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.text.Html;
 
-import androidx.preference.PreferenceGroup;
+import androidx.preference.Preference;
 
-import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
-import com.android.car.ui.preference.CarUiPreference;
 
 /**
  * Controller for the screen that shows the device policies requested by a device admin app.
  */
 public final class DeviceAdminAddPoliciesPreferenceController
-        extends BaseDeviceAdminAddPreferenceController<PreferenceGroup> {
-
-    private final int mMaxDevicePoliciesShown;
+        extends BaseDeviceAdminAddPreferenceController<Preference> {
 
     public DeviceAdminAddPoliciesPreferenceController(Context context, String preferenceKey,
-            FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+                FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mMaxDevicePoliciesShown = context.getResources()
-                .getInteger(R.integer.max_device_policies_shown);
     }
 
     @Override
-    protected Class<PreferenceGroup> getPreferenceType() {
-        return PreferenceGroup.class;
-    }
+    protected int getAvailabilityStatus() {
+        int superStatus = super.getAvailabilityStatus();
+        if (superStatus != AVAILABLE) return superStatus;
 
-    @Override
-    protected int getRealAvailabilityStatus() {
         return isProfileOrDeviceOwner() ? DISABLED_FOR_PROFILE : AVAILABLE;
     }
 
     @Override
-    protected void updateState(PreferenceGroup preferenceGroup) {
-        Context context = getContext();
-        preferenceGroup.removeAll();
-        preferenceGroup.setInitialExpandedChildrenCount(mMaxDevicePoliciesShown);
+    protected void updateState(Preference preference) {
+        preference.setTitle(getPolicyText());
+    }
 
-        boolean isAdminUser = mUm.isAdminUser();
+    private CharSequence getPolicyText() {
+        Context context = getContext();
+        boolean isSystemUser = mUm.isSystemUser();
+        StringBuilder result = new StringBuilder();
 
         for (DeviceAdminInfo.PolicyInfo pi : mDeviceAdminInfo.getUsedPolicies()) {
-            int descriptionId = isAdminUser ? pi.description : pi.descriptionForSecondaryUsers;
-            int labelId = isAdminUser ? pi.label : pi.labelForSecondaryUsers;
+            int labelId = isSystemUser ? pi.label : pi.labelForSecondaryUsers;
             CharSequence label = context.getText(labelId);
-            CharSequence description = context.getText(descriptionId);
-            mLogger.v("Adding policy '" + label + "': " + description);
-            CarUiPreference preference = new CarUiPreference(context);
-            preference.setTitle(label);
-            preference.setSummary(description);
-            preferenceGroup.addPreference(preference);
+            mLogger.v("Adding policy: " + label);
+            result.append("<li>&nbsp;").append(label).append("</li>");
         }
+
+        return Html.fromHtml(result.toString(), FROM_HTML_MODE_LEGACY);
     }
 }

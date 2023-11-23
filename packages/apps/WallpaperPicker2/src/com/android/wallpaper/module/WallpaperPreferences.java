@@ -16,11 +16,16 @@
 package com.android.wallpaper.module;
 
 import android.annotation.TargetApi;
+import android.app.WallpaperColors;
+import android.graphics.Bitmap;
 import android.os.Build;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.wallpaper.model.LiveWallpaperInfo;
+import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.WallpaperPersister.Destination;
 
 import java.util.List;
@@ -511,5 +516,43 @@ public interface WallpaperPreferences {
             DAILY_WALLPAPER_UPDATE_NOT_PENDING,
             DAILY_WALLPAPER_UPDATE_PENDING})
     @interface PendingDailyWallpaperUpdateStatus {
+    }
+
+    /**
+     * Stores the given live wallpaper in the recent wallpapers list
+     * @param wallpaperId unique identifier for this wallpaper
+     * @param wallpaper {@link LiveWallpaperInfo} for the applied wallpaper
+     * @param colors WallpaperColors to be used as placeholder for quickswitching
+     */
+    default void storeLatestHomeWallpaper(String wallpaperId,
+            @NonNull LiveWallpaperInfo wallpaper, WallpaperColors colors) {
+        // Do nothing in the default case.
+    }
+
+    /**
+     * Stores the given static wallpaper data in the recent wallpapers list.
+     * @param wallpaperId unique identifier for this wallpaper
+     * @param wallpaper {@link WallpaperInfo} for the applied wallpaper
+     * @param croppedWallpaperBitmap wallpaper bitmap exactly as applied to WallaperManager
+     * @param colors WallpaperColors to be used as placeholder for quickswitching
+     */
+    default void storeLatestHomeWallpaper(String wallpaperId, @NonNull WallpaperInfo wallpaper,
+            @NonNull Bitmap croppedWallpaperBitmap, WallpaperColors colors) {
+        // Do nothing in the default case.
+    }
+
+    /**
+     * Stores the given static wallpaper data in the recent wallpapers list.
+     * @param wallpaperId unique identifier for this wallpaper
+     * @param attributions List of attribution items.
+     * @param actionUrl The action or "explore" URL for the wallpaper.
+     * @param collectionId identifier of this wallpaper's collection.
+     * @param croppedWallpaperBitmap wallpaper bitmap exactly as applied to WallaperManager
+     * @param colors {@link WallpaperColors} to be used as placeholder for quickswitching
+     */
+    default void storeLatestHomeWallpaper(String wallpaperId, List<String> attributions,
+            String actionUrl, String collectionId,
+            @NonNull Bitmap croppedWallpaperBitmap, WallpaperColors colors) {
+        // Do nothing in the default case.
     }
 }

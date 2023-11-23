@@ -111,7 +111,7 @@
     <string name="device_display" msgid="244634591698925025">"Приказ"</string>
     <string name="device_display_sound" msgid="7399153506435649193">"Приказ и звук"</string>
     <string name="device_sound" msgid="8616320533559404963">"Звук"</string>
-    <string name="device_surround_sound" msgid="1889436002598316470">"Звучни систем"</string>
+    <string name="device_surround_sound" msgid="1889436002598316470">"Просторни звук"</string>
     <string name="device_sound_effects" msgid="2000295001122684957">"Системски звуци"</string>
     <string name="device_apps" msgid="2134756632245008919">"Апликације"</string>
     <string name="device_storage" msgid="8540243547121791073">"Меморијски простор"</string>
@@ -121,7 +121,7 @@
     <string name="device_calibration" msgid="2907914144048739705">"Калибрација"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"Уштеда енергије"</string>
     <string name="surround_sound_select_formats" msgid="6070283650131226239">"Изаберите формате"</string>
-    <string name="surround_sound_category_title" msgid="5688539514178173911">"Звучни систем"</string>
+    <string name="surround_sound_category_title" msgid="5688539514178173911">"Просторни звук"</string>
     <string name="surround_sound_format_ac3" msgid="4759143098751306492">"Dolby Digital"</string>
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>

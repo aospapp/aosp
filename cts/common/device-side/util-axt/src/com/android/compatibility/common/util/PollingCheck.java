@@ -16,10 +16,12 @@
 
 package com.android.compatibility.common.util;
 
+import junit.framework.Assert;
+
 import java.util.concurrent.Callable;
 import java.util.function.BooleanSupplier;
-
-import junit.framework.Assert;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 public abstract class PollingCheck {
     private static final long TIME_SLICE = 50;
@@ -44,6 +46,10 @@ public abstract class PollingCheck {
     public PollingCheck(long timeout, String errorMessage) {
         mTimeout = timeout;
         mErrorMessage = errorMessage;
+    }
+
+    public PollingCheck(String errorMessage) {
+        this(DEFAULT_TIMEOUT, errorMessage);
     }
 
     protected abstract boolean check();
@@ -71,6 +77,30 @@ public abstract class PollingCheck {
         Assert.assertTrue(mErrorMessage, check());
     }
 
+    public <E> E runWaitAndReturnResult(Supplier<E> supplier, Function<E, Boolean> condition) {
+        E output = supplier.get();
+        if (condition.apply(output)) {
+            return output;
+        }
+        long timeout = mTimeout;
+        while (timeout > 0) {
+            try {
+                Thread.sleep(TIME_SLICE);
+            } catch (InterruptedException e) {
+                Assert.fail("unexpected InterruptedException");
+            }
+
+            output = supplier.get();
+            if (condition.apply(output)) {
+                return output;
+            }
+
+            timeout -= TIME_SLICE;
+        }
+
+        return output;
+    }
+
     public static void check(CharSequence message, long timeout, Callable<Boolean> condition)
             throws Exception {
         while (timeout > 0) {
@@ -94,6 +124,15 @@ public abstract class PollingCheck {
         }.run();
     }
 
+    public static void waitFor(final PollingCheckCondition condition, String errorMessage) {
+        new PollingCheck(errorMessage) {
+            @Override
+            protected boolean check() {
+                return condition.canProceed();
+            }
+        }.run();
+    }
+
     public static void waitFor(long timeout, final PollingCheckCondition condition) {
         new PollingCheck(timeout) {
             @Override
@@ -110,5 +149,17 @@ public abstract class PollingCheck {
                 return condition.getAsBoolean();
             }
         }.run();
+    }
+
+    public static <E> E waitFor(long timeout, Supplier<E> supplier,
+            Function<E, Boolean> condition) {
+        return new PollingCheck(timeout) {
+            // Not used in the corresponding runWaitAndReturnResult function, Added just to provide
+            // default implementation of abstract check function.
+            @Override
+            protected boolean check() {
+                return true;
+            }
+        }.runWaitAndReturnResult(supplier, condition);
     }
 }

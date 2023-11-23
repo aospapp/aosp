@@ -20,8 +20,12 @@
 
     <!-- System permission to access the CarProjectionManager for projection status-->
     <uses-permission android:name="android.car.permission.ACCESS_CAR_PROJECTION_STATUS"/>
+    <!-- Permission to assign Activity to TDA -->
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_APP_LAUNCH"/>
     <!-- System permission to host maps activity -->
     <uses-permission android:name="android.permission.ACTIVITY_EMBEDDING"/>
+    <!-- Needed to change component enabled state when user opens disabled apps. -->
+    <uses-permission android:name="android.permission.CHANGE_COMPONENT_ENABLED_STATE"/>
     <!-- Permission for the InCallController to bind the InCallService -->
     <uses-permission android:name="android.permission.CONTROL_INCALL_EXPERIENCE"/>
     <!-- System permission to send events to hosted maps activity -->
@@ -46,6 +50,14 @@
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <!-- Permission for read-only access to phone state, namely the status of any ongoing calls -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <!-- Allows input events to be monitored by CarDisplayAreaTouchHandler. -->
+    <uses-permission android:name="android.permission.MONITOR_INPUT"/>
+    <!-- Needed to use TYPE_APPLICATION_OVERLAY window type to display title bar. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <!-- Permission to start a voice interaction service. -->
+    <uses-permission android:name="android.permission.ACCESS_VOICE_INTERACTION_SERVICE" />
+    <!-- Permission to use InteractionJankMonitor. -->
+    <uses-permission android:name="android.permission.READ_DEVICE_CONFIG" />
 
     <!-- To connect to media browser services in other apps, media browser clients
     that target Android 11 need to add the following in their manifest -->
@@ -56,6 +68,7 @@
     </queries>
 
     <application
+        android:name=".CarLauncherApplication"
         android:icon="@drawable/ic_launcher_home"
         android:label="@string/app_title"
         android:theme="@style/Theme.Launcher"
@@ -74,7 +87,18 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.HOME"/>
                 <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER_APP"/>
             </intent-filter>
+        </activity>
+        <activity
+            android:name=".ControlBarActivity"
+            android:launchMode="singleInstance"
+            android:clearTaskOnLaunch="true"
+            android:stateNotNeeded="true"
+            android:resumeWhilePausing="true"
+            android:exported="true"
+            android:windowSoftInputMode="adjustPan">
+            <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
         <activity
             android:name=".AppGridActivity"

@@ -140,10 +140,14 @@ public abstract class BusinessLogicExecutor {
         }
         String className = method.substring(0, index);
         Class cls = Class.forName(className);
-        Object obj = cls.getDeclaredConstructor().newInstance();
+        Object obj = null;
         if (getTestObject() != null && cls.isAssignableFrom(getTestObject().getClass())) {
             // The given method is a member of the test class, use the known test class instance
             obj = getTestObject();
+        } else {
+            // Only instantiate a new object if we don't already have one.
+            // Otherwise the class could have been an interface which isn't instantiatable.
+            obj = cls.getDeclaredConstructor().newInstance();
         }
         ResolvedMethod rm = getResolvedMethod(cls, method.substring(index + 1), args);
         return rm.invoke(obj);

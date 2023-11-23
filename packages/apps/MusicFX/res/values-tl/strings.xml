@@ -16,14 +16,24 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="5717136097222561957">"MusicFX"</string>
-    <string name="no_effects" msgid="5067916002004255814">"Hindi available ang mga effect."</string>
-    <string name="eq_dialog_title" msgid="2020244436368289652">"Equalizer"</string>
-    <string name="headset_plug" msgid="4505819850289423141">"I-plug in ang mga headphone para sa mga effect na ito."</string>
-    <string name="bass_boost_strength" msgid="882301530007752270">"Bass Boost"</string>
-    <string name="virtualizer_strength" msgid="106561253469770096">"Surround sound"</string>
-    <string name="setup" msgid="1103677904576339192">"Setup"</string>
-    <string name="ci_extreme" msgid="1736938429763948084">"FX booster"</string>
-    <string name="user" msgid="3949460956502898057">"User"</string>
-    <string name="picker_title" msgid="8464126693702817261">"Control panel ng mga effect sa musika"</string>
+    <string name="app_name" msgid="2227320688818248940">"MusicFX"</string>
+    <string name="no_effects" msgid="9023408561505030260">"Hindi available ang mga effect."</string>
+    <string name="eq_dialog_title" msgid="3237402214371962070">"Equalizer"</string>
+    <string name="headset_plug" msgid="1774198554148807517">"I-plug in ang headphones para sa mga effect na ito."</string>
+    <string name="bass_boost_strength" msgid="8643071340166812205">"Bass boost"</string>
+    <string name="virtualizer_strength" msgid="2139410708760989842">"Surround sound"</string>
+    <string name="setup" msgid="4811197673396615722">"Setup"</string>
+    <string name="normal" msgid="757786146857325609">"Normal"</string>
+    <string name="classical" msgid="1975693421508209132">"Classical"</string>
+    <string name="dance" msgid="212617702657103572">"Dance"</string>
+    <string name="flat" msgid="2844441946717126606">"Flat"</string>
+    <string name="folk" msgid="5648693824262941979">"Folk"</string>
+    <string name="heavy_metal" msgid="3885222304402494034">"Heavy Metal"</string>
+    <string name="hip_hop" msgid="4147534012796302488">"Hip Hop"</string>
+    <string name="jazz" msgid="556328727821095055">"Jazz"</string>
+    <string name="pop" msgid="8568493898002509539">"Pop"</string>
+    <string name="rock" msgid="4226553710464965901">"Rock"</string>
+    <string name="ci_extreme" msgid="67259122484788490">"FX booster"</string>
+    <string name="user" msgid="8392147515328861077">"User"</string>
+    <string name="picker_title" msgid="4756201760847390691">"Control panel ng effect sa musika"</string>
 </resources>

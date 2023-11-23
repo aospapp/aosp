@@ -19,11 +19,9 @@ package com.android.systemui.wm;
 import android.annotation.NonNull;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.RemoteException;
-import android.util.Log;
-import android.view.IDisplayWindowInsetsController;
 import android.view.InsetsController;
 import android.view.InsetsState;
+import android.view.InsetsVisibilities;
 import android.view.SurfaceControl;
 import android.view.SyncRtSurfaceTransactionApplier;
 import android.view.WindowInsets;
@@ -32,6 +30,7 @@ import android.view.WindowInsetsController;
 import android.view.inputmethod.InputMethodManager;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Implements {@link InsetsController.Host} for usage by
@@ -43,13 +42,13 @@ public class DisplaySystemBarsInsetsControllerHost implements InsetsController.H
     private static final String TAG = DisplaySystemBarsInsetsControllerHost.class.getSimpleName();
 
     private final Handler mHandler;
-    private final IDisplayWindowInsetsController mController;
     private final float[] mTmpFloat9 = new float[9];
+    private final Consumer<InsetsVisibilities> mRequestedVisibilityCallback;
 
-    public DisplaySystemBarsInsetsControllerHost(
-            Handler handler, IDisplayWindowInsetsController controller) {
+    public DisplaySystemBarsInsetsControllerHost(Handler handler,
+            Consumer<InsetsVisibilities> requestedVisibilityCallback) {
         mHandler = handler;
-        mController = controller;
+        mRequestedVisibilityCallback = requestedVisibilityCallback;
     }
 
     @Override
@@ -101,12 +100,8 @@ public class DisplaySystemBarsInsetsControllerHost implements InsetsController.H
     }
 
     @Override
-    public void onInsetsModified(InsetsState insetsState) {
-        try {
-            mController.insetsChanged(insetsState);
-        } catch (RemoteException e) {
-            Log.e(TAG, "Failed to send insets to controller");
-        }
+    public void updateRequestedVisibilities(InsetsVisibilities visibilities) {
+        mRequestedVisibilityCallback.accept(visibilities);
     }
 
     @Override

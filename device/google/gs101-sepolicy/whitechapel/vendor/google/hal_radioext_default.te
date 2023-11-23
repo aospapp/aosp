@@ -1,0 +1,21 @@
+type hal_radioext_default, domain;
+type hal_radioext_default_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(hal_radioext_default)
+
+hwbinder_use(hal_radioext_default)
+get_prop(hal_radioext_default, hwservicemanager_prop)
+add_hwservice(hal_radioext_default, hal_radioext_hwservice)
+
+binder_call(hal_radioext_default, grilservice_app)
+binder_call(hal_radioext_default, hal_bluetooth_btlinux)
+
+# RW /dev/oem_ipc0
+allow hal_radioext_default radio_device:chr_file rw_file_perms;
+
+# RW MIPI Freq files
+allow hal_radioext_default radio_vendor_data_file:dir create_dir_perms;
+allow hal_radioext_default radio_vendor_data_file:file create_file_perms;
+allow hal_radioext_default sysfs_display:file rw_file_perms;
+
+# Bluetooth
+allow hal_radioext_default hal_bluetooth_coexistence_hwservice:hwservice_manager find;

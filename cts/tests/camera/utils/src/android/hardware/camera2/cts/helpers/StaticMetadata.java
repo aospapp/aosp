@@ -909,6 +909,13 @@ public class StaticMetadata {
         return activeArray;
     }
 
+    public StreamConfigurationMap getStreamConfigMap() {
+        Key<StreamConfigurationMap> key =
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
+        StreamConfigurationMap config = getValueFromKeyNonNull(key);
+        return config;
+    }
+
     /**
      * Get and check active array size.
      */
@@ -2558,6 +2565,13 @@ public class StaticMetadata {
     public boolean isDepthOutputSupported() {
         return isCapabilitySupported(
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT);
+    }
+
+    /* Check if this is a depth only camera (no color output is supported AND depth output is
+     * supported)
+     */
+    public boolean isDepthOnlyCamera() {
+        return isDepthOutputSupported() && !isColorOutputSupported();
     }
 
     /**

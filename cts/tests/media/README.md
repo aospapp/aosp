@@ -3,7 +3,7 @@ Current folder comprises of files necessary for testing media extractor, media m
 
 The aim of these tests is not solely to verify the CDD requirements but also to test components, their plugins and their interactions with media framework.
 
-The test vectors used by the test suite is available at [link](https://storage.googleapis.com/android_media/cts/tests/media/CtsMediaV2TestCases-1.13.zip) and is downloaded automatically while running tests. Manual installation of these can be done using copy_media.sh script in this directory.
+The test vectors used by the test suite is available at [link](https://storage.googleapis.com/android_media/cts/tests/media/CtsMediaV2TestCases-1.14.zip) and is downloaded automatically while running tests. Manual installation of these can be done using copy_media.sh script in this directory.
 
 The test suite looks to cover sdk/ndk api in normal and error scenarios. Error scenarios are separated from regular usage and are placed under class *UnitTest (MuxerUnitTest, ExtractorUnitTest, ...).
 

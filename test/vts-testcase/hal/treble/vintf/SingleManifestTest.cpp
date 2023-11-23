@@ -133,7 +133,7 @@ static sp<IBase> GetPassthroughService(const FqInstance &fq_instance) {
       return nullptr;
     }
 
-    auto hal_service = VtsTrebleVintfTestBase::GetHalService(
+    auto hal_service = VtsTrebleVintfTestBase::GetHidlService(
         interface.string(), fq_instance.getInstance(), Transport::PASSTHROUGH);
 
     if (hal_service != nullptr) {
@@ -312,12 +312,12 @@ TEST_P(SingleManifestTest, HalsAreServed) {
 
         const FQName lowest_name =
             fq_name.withVersion(fq_name.getPackageMajorVersion(), 0);
-        hal_service = GetHalService(lowest_name, instance_name, transport);
+        hal_service = GetHidlService(lowest_name, instance_name, transport);
         EXPECT_TRUE(
             canCastInterface(hal_service.get(), fq_name.string().c_str()))
             << fq_name.string() << " is not on the device.";
       } else {
-        hal_service = GetHalService(fq_name, instance_name, transport);
+        hal_service = GetHidlService(fq_name, instance_name, transport);
       }
 
       if (hal_service == nullptr) {
@@ -362,10 +362,10 @@ TEST_P(SingleManifestTest, ServedHwbinderHalsAreInManifest) {
       EXPECT_TRUE(fqInstanceName.setTo(name));
 
       auto service =
-          GetHalService(toFQNameString(fqInstanceName.getPackage(),
-                                       fqInstanceName.getVersion(),
-                                       fqInstanceName.getInterface()),
-                        fqInstanceName.getInstance(), Transport::HWBINDER);
+          GetHidlService(toFQNameString(fqInstanceName.getPackage(),
+                                        fqInstanceName.getVersion(),
+                                        fqInstanceName.getInterface()),
+                         fqInstanceName.getInstance(), Transport::HWBINDER);
       ASSERT_NE(service, nullptr);
 
       Partition partition = GetPartition(service);
@@ -403,7 +403,7 @@ TEST_P(SingleManifestTest, ServedPassthroughHalsAreInManifest) {
     const FQName lowest_name =
         fq_name.withVersion(fq_name.getPackageMajorVersion(), 0);
     sp<IBase> hal_service =
-        GetHalService(lowest_name, instance_name, transport);
+        GetHidlService(lowest_name, instance_name, transport);
     if (hal_service == nullptr) {
       ADD_FAILURE() << "Could not get service " << fq_name.string() << "/"
                     << instance_name;
@@ -443,7 +443,7 @@ TEST_P(SingleManifestTest, InterfacesAreReleased) {
       return;
     }
 
-    sp<IBase> hal_service = GetHalService(fq_name, instance_name, transport);
+    sp<IBase> hal_service = GetHidlService(fq_name, instance_name, transport);
 
     if (hal_service == nullptr) {
       FailureHalMissing(fq_name, instance_name);
@@ -561,18 +561,15 @@ static void CheckAidlVersionMatchesDeclared(sp<IBinder> binder,
     return;
   }
 
-  // b/178458001: Identity V2 is introduced in R but we don't have AIDL version
-  // support in VINTF in R. So devices launching <= R may not declare version
-  // for identity AIDL HAL correctly.
+  // Android R VINTF did not support AIDL version in the manifest.
   Level shipping_fcm_version = VintfObject::GetDeviceHalManifest()->level();
   if (shipping_fcm_version != Level::UNSPECIFIED &&
-      shipping_fcm_version <= Level::R &&
-      name == "android.hardware.identity.IIdentityCredentialStore/default" &&
-      declared_version == 1 && actual_version == 2) {
+      shipping_fcm_version <= Level::R) {
     std::cout << "For " << name << ", manifest declares version "
               << declared_version << ", but the actual version is "
               << actual_version << ". Exempted for shipping FCM version "
-              << shipping_fcm_version << ". (b/178458001)";
+              << shipping_fcm_version << ". (b/178458001, b/199190514)"
+              << std::endl;
     return;
   }
 
@@ -592,8 +589,9 @@ TEST_P(SingleManifestTest, ManifestAidlHalsServed) {
                                           &updatable_via_apex) {
     const std::string type = package + "." + interface;
     const std::string name = type + "/" + instance;
-    sp<IBinder> binder =
-        defaultServiceManager()->waitForService(String16(name.c_str()));
+
+    sp<IBinder> binder = GetAidlService(name);
+
     ASSERT_NE(binder, nullptr) << "Failed to get " << name;
 
     // allow upgrade if updatable HAL's declared APEX is actually updated.

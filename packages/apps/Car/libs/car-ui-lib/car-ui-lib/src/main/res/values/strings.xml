@@ -78,8 +78,8 @@ limitations under the License.
         ro.build.automotive.ime.wide_screen.enabled
     </string>
 
-    <!-- Name of system property used that contains the package name of the CarUi shared library. -->
-    <string name="car_ui_shared_library_package_system_property_name" translatable="false">
-        ro.build.automotive.car.ui.shared.library.package.name
+    <!-- Authority of content provider in the CarUi plugin. -->
+    <string name="car_ui_plugin_package_provider_authority_name" translatable="false">
+        com.android.car.ui.plugin
     </string>
 </resources>

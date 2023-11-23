@@ -16,6 +16,9 @@
 
 package com.android.car.ui.preference;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
@@ -35,6 +38,7 @@ import java.util.function.Consumer;
 
 /** A class implements some basic methods of a seekbar dialog preference. */
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(MIN_TARGET_API)
 public class CarUiSeekBarDialogPreference extends DialogPreference
         implements DialogFragmentCallbacks, UxRestrictablePreference {
 

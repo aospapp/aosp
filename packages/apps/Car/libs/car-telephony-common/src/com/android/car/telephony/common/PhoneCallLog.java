@@ -20,13 +20,18 @@ import android.content.Context;
 import android.database.Cursor;
 import android.provider.CallLog;
 import android.text.TextUtils;
+import android.text.format.DateUtils;
 
+import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
+
+import com.google.common.base.Preconditions;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Entity class for call logs of a phone number. This call log may contains multiple call
@@ -34,6 +39,13 @@ import java.util.Objects;
  */
 public class PhoneCallLog {
     private static final String TAG = "CD.PhoneCallLog";
+
+    @IntDef({TimeRange.TODAY, TimeRange.YESTERDAY, TimeRange.OLDER})
+    public @interface TimeRange {
+        int TODAY = 0;
+        int YESTERDAY = 1;
+        int OLDER = 2;
+    }
 
     /** Call log record. */
     public static class Record implements Comparable<Record> {
@@ -72,6 +84,7 @@ public class PhoneCallLog {
     private I18nPhoneNumberWrapper mI18nPhoneNumberWrapper;
     private String mAccountName;
     private List<Record> mCallRecords = new ArrayList<>();
+    private int mTimeRange;
 
     /**
      * Creates a {@link PhoneCallLog} from a {@link Cursor}.
@@ -90,6 +103,7 @@ public class PhoneCallLog {
                 phoneCallLog.mPhoneNumberString);
         Record record = new Record(cursor.getLong(dateColumn), cursor.getInt(callTypeColumn));
         phoneCallLog.mCallRecords.add(record);
+        phoneCallLog.mTimeRange = getTimeRange(record.getCallEndTimestamp());
         phoneCallLog.mAccountName = cursor.getString(accountNameColumn);
         return phoneCallLog;
     }
@@ -112,15 +126,10 @@ public class PhoneCallLog {
         return mId;
     }
 
-    /**
-     * Returns the last call end timestamp of this number. Returns -1 if there's no call log
-     * records.
-     */
+    /** Returns the last call end timestamp of this number. */
     public long getLastCallEndTimestamp() {
-        if (!mCallRecords.isEmpty()) {
-            return mCallRecords.get(0).getCallEndTimestamp();
-        }
-        return -1;
+        Preconditions.checkState(!mCallRecords.isEmpty(), "Unexpected empty call records");
+        return mCallRecords.get(0).getCallEndTimestamp();
     }
 
     /**
@@ -131,17 +140,28 @@ public class PhoneCallLog {
         return new ArrayList<>(mCallRecords);
     }
 
+    /** Returns the time range when the phone call was made. */
+    @TimeRange
+    public int getTimeRange() {
+        return mTimeRange;
+    }
+
     /**
      * Merges all call records with this call log's call records if they are representing the same
      * phone number.
+     *
+     * @param checkTimeRange if true, only merge the call records if they are in the same time range
      */
-    public boolean merge(@NonNull PhoneCallLog phoneCallLog) {
-        if (equals(phoneCallLog)) {
-            mCallRecords.addAll(phoneCallLog.mCallRecords);
-            Collections.sort(mCallRecords);
-            return true;
+    public boolean merge(@NonNull PhoneCallLog phoneCallLog, boolean checkTimeRange) {
+        if (!equals(phoneCallLog)) {
+            return false;
         }
-        return false;
+        if (checkTimeRange && mTimeRange != phoneCallLog.getTimeRange()) {
+            return false;
+        }
+        mCallRecords.addAll(phoneCallLog.mCallRecords);
+        Collections.sort(mCallRecords);
+        return true;
     }
 
     @Override
@@ -177,5 +197,18 @@ public class PhoneCallLog {
         sb.append(" Account: ");
         sb.append(mAccountName);
         return sb.toString();
+    }
+
+    @TimeRange
+    private static int getTimeRange(long callLogTime) {
+        if (DateUtils.isToday(callLogTime)) {
+            return TimeRange.TODAY;
+        }
+
+        if (DateUtils.isToday(callLogTime + TimeUnit.DAYS.toMillis(1))) {
+            return TimeRange.YESTERDAY;
+        }
+
+        return TimeRange.OLDER;
     }
 }

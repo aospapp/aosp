@@ -738,8 +738,7 @@ static int refine_output_parameters(uint32_t *sample_rate, audio_format_t *forma
 
 static int refine_input_parameters(uint32_t *sample_rate, audio_format_t *format, audio_channel_mask_t *channel_mask)
 {
-    // Crosvm only supports 48kHz streams for input
-    static const uint32_t sample_rates [] = {48000};
+    static const uint32_t sample_rates [] = {8000, 11025, 16000, 22050, 44100, 48000};
     static const int sample_rates_count = sizeof(sample_rates)/sizeof(uint32_t);
     bool inval = false;
     // Only PCM_16_bit is supported. If this is changed, stereo to mono drop
@@ -1339,6 +1338,11 @@ static int adev_set_voice_volume(struct audio_hw_device *dev, float volume)
     return 0;
 }
 
+static int adev_set_audio_port_config(struct audio_hw_device *dev,
+                                      const struct audio_port_config *config) {
+  return 0;
+}
+
 static int adev_set_master_volume(struct audio_hw_device *dev, float volume)
 {
     return -ENOSYS;
@@ -1783,6 +1787,7 @@ static int adev_open(const hw_module_t* module, const char* name,
     adev->device.set_parameters = adev_set_parameters;       // no op
     adev->device.get_parameters = adev_get_parameters;       // no op
     adev->device.get_audio_port = adev_get_audio_port;       // no op
+    adev->device.set_audio_port_config = adev_set_audio_port_config;  // no op
     adev->device.get_input_buffer_size = adev_get_input_buffer_size;
     adev->device.open_output_stream = adev_open_output_stream;
     adev->device.close_output_stream = adev_close_output_stream;

@@ -257,20 +257,10 @@ public class TelecomUtils {
     @WorkerThread
     public static PhoneNumberInfo lookupNumberInBackground(Context context, String number) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS)
-                != PackageManager.PERMISSION_GRANTED) {
+                != PackageManager.PERMISSION_GRANTED
+                || TextUtils.isEmpty(number)) {
             String readableNumber = getReadableNumber(context, number);
             return new PhoneNumberInfo(number, readableNumber, readableNumber, null, null, null,
-                    null);
-        }
-
-        if (TextUtils.isEmpty(number)) {
-            return new PhoneNumberInfo(
-                    number,
-                    context.getString(R.string.unknown),
-                    context.getString(R.string.unknown),
-                    null,
-                    null,
-                    "",
                     null);
         }
 
@@ -372,10 +362,13 @@ public class TelecomUtils {
                 lookupKey);
     }
 
-    private static String getReadableNumber(Context context, String number) {
+    /**
+     * Formats the phone number and presents as "Unknown" if empty.
+     */
+    public static String getReadableNumber(Context context, String number) {
         String readableNumber = getFormattedNumber(context, number);
 
-        if (readableNumber == null) {
+        if (TextUtils.isEmpty(readableNumber)) {
             readableNumber = context.getString(R.string.unknown);
         }
         return readableNumber;

@@ -185,6 +185,9 @@ int main(int /*argc*/, char** argv) {
     lifecycle.WaitForBootStatus(android::apex::RevertActiveSessionsAndReboot);
   }
 
+  // Run cleanup routine before AllowServiceShutdown(), to prevent
+  // service_manager killing apexd in the middle of the cleanup.
+  android::apex::BootCompletedCleanup();
   android::apex::binder::AllowServiceShutdown();
 
   android::apex::binder::JoinThreadPool();

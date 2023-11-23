@@ -5,8 +5,6 @@
 # Base image for crosvm_builder and crosvm_aarch64_builder containing basic
 # devleopment environment for building rust.
 
-# TODO(b/177078591): Use debian buster and backports (or manual dpkg downloads)
-# of outdated libraries. Sid could blow up on us any day.
 FROM debian:buster
 
 # Set timezone so apt-get won't try to prompt
@@ -20,10 +18,13 @@ RUN echo 'APT::Default-Release "stable";' >/etc/apt/apt.conf.d/99_default_stable
 RUN apt-get update && apt-get install --yes --no-install-recommends \
     ca-certificates \
     curl \
+    clang \
+    libclang-dev \
     g++ \
     gcc \
     git \
     jq \
+    libasound2-dev \
     make \
     meson/testing \
     nasm \
@@ -51,21 +52,25 @@ VOLUME /workspace/logs
 
 # Install the current crosvm rust toolchain via rustup.
 COPY rust-toolchain ./
-RUN curl https://sh.rustup.rs -sSf | sh -s -- \
-    -y \
+RUN curl https://static.rust-lang.org/rustup/archive/1.24.3/x86_64-unknown-linux-gnu/rustup-init -sSf -o rustup-init \
+    && echo "3dc5ef50861ee18657f9db2eeb7392f9c2a6c95c90ab41e45ab4ca71476b4338 rustup-init" | sha256sum --check \
+    && chmod +x rustup-init \
+    && ./rustup-init -y \
     --profile minimal \
     -c rustfmt,clippy \
     --default-toolchain $(cat rust-toolchain)
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+# The bindgen tool is required to build a crosvm dependency.
+RUN cargo install bindgen
+
+# The mdbook and mdbook-mermaid tools are used to build the crosvm book.
+RUN cargo install mdbook --no-default-features --version "^0.4.10"
+RUN cargo install mdbook-mermaid --version "^0.8.3"
+
 # Point cargo to store data on the scratch volume.
 ENV CARGO_TARGET_DIR=/workspace/scratch/cargo_target
 ENV CARGO_HOME=/workspace/scratch/cargo_home
-
-# Warms up the cargo registry cache for future cargo runs. Cargo will still
-# update the cache using a git pull, but it only needs to download files that
-# were changed since this image was built.
-RUN cargo install thisiznotarealpackage -q || true
 
 # We are building out of source with a readonly source filesystem. This flag
 # tells some build.rs files to not write into the src filesystem.
@@ -75,4 +80,4 @@ ENV RUSTFLAGS='--cfg hermetic'
 ENV CROSVM_CROS_BUILD=1
 
 # All commands will be executed in the crosvm src directory.
-WORKDIR /workspace/src/platform/crosvm
+WORKDIR /workspace/src/crosvm

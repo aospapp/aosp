@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"ಕಾರಿನ ಪವರ್ ನೀತಿಯನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"ಟೆಂಪ್ಲೇಟ್‌ಗಳನ್ನು ರೆಂಡರ್ ಮಾಡಿ"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"ಟೆಂಪ್ಲೇಟ್‌ಗಳನ್ನು ರೆಂಡರ್ ಮಾಡಿ."</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"ಪ್ರಾರಂಭಿಸುವ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"ಪ್ರಾರಂಭಿಸುವ ಅಪ್ಲಿಕೇಶನ್‌ಗಳನ್ನು ನಿಯಂತ್ರಿಸಿ."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"ನನ್ನ ಸಾಧನ"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"ಅತಿಥಿ"</string>
     <string name="importance_default" msgid="8587741629268312938">"ಮಹತ್ವವಾದುದು: ಡೀಫಾಲ್ಟ್"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"ನಂತರ ರೀಸೆಟ್ ಮಾಡಿ"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"ಮುಂದಿನ ಬಾರಿ ಕಾರ್ ಆರಂಭವಾದಾಗ ಇನ್‌ಫೋಟೈನ್‌ಮೆಂಟ್ ಸಿಸ್ಟಂ ಅನ್ನು ರೀಸೆಟ್ ಮಾಡಲಾಗುತ್ತದೆ."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"ರೀಸೆಟ್ ಅನ್ನು ಪ್ರಾರಂಭಿಸಲು ಕಾರ್ ಅನ್ನು ನಿಲ್ಲಿಸಿರಬೇಕು."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> ನಿಮ್ಮ ಸಿಸ್ಟಂ ಕಾರ್ಯಕ್ಷಮತೆಯ ಮೇಲೆ ಪರಿಣಾಮ ಬೀರುತ್ತಿದೆ"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"ಸಿಸ್ಟಂ ಕಾರ್ಯಕ್ಷಮತೆಯನ್ನು ಸುಧಾರಿಸಲು ಆ್ಯಪ್ ಅನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ. ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ನೀವು ಆ್ಯಪ್ ಅನ್ನು ಪುನಃ ಸಕ್ರಿಯಗೊಳಿಸಬಹುದು."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"ಆ್ಯಪ್ ಬಳಸುವುದನ್ನು ಮುಂದುವರಿಸಲು ಆ್ಯಪ್ ಅನ್ನು ಆದ್ಯತೆಗೊಳಿಸಿ."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"ಸಿಸ್ಟಂ ಕಾರ್ಯಕ್ಷಮತೆಯನ್ನು ಸುಧಾರಿಸಲು ಆ್ಯಪ್ ಅನ್ನು ಅನ್‌ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿ."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"ಆ್ಯಪ್ ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"ಆ್ಯಪ್ ಅನ್ನು ಆದ್ಯತೆಗೊಳಿಸಿ"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"ಆ್ಯಪ್‌ ಅನ್‌ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿ"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> ಅನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ. ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ನೀವು ಇದನ್ನು ಪುನಃ ಸಕ್ರಿಯಗೊಳಿಸಬಹುದು."</string>
 </resources>

@@ -119,15 +119,15 @@ std::string FocusEntry::getDescription() const {
 // PointerCaptureChanged notifications always go to apps, so set the flag POLICY_FLAG_PASS_TO_USER
 // for all entries.
 PointerCaptureChangedEntry::PointerCaptureChangedEntry(int32_t id, nsecs_t eventTime,
-                                                       bool hasPointerCapture)
+                                                       const PointerCaptureRequest& request)
       : EventEntry(id, Type::POINTER_CAPTURE_CHANGED, eventTime, POLICY_FLAG_PASS_TO_USER),
-        pointerCaptureEnabled(hasPointerCapture) {}
+        pointerCaptureRequest(request) {}
 
 PointerCaptureChangedEntry::~PointerCaptureChangedEntry() {}
 
 std::string PointerCaptureChangedEntry::getDescription() const {
     return StringPrintf("PointerCaptureChangedEvent(pointerCaptureEnabled=%s)",
-                        pointerCaptureEnabled ? "true" : "false");
+                        pointerCaptureRequest.enable ? "true" : "false");
 }
 
 // --- DragEntry ---
@@ -296,12 +296,14 @@ std::string SensorEntry::getDescription() const {
 volatile int32_t DispatchEntry::sNextSeqAtomic;
 
 DispatchEntry::DispatchEntry(std::shared_ptr<EventEntry> eventEntry, int32_t targetFlags,
-                             ui::Transform transform, float globalScaleFactor, int2 displaySize)
+                             ui::Transform transform, float globalScaleFactor,
+                             uint32_t displayOrientation, int2 displaySize)
       : seq(nextSeq()),
         eventEntry(std::move(eventEntry)),
         targetFlags(targetFlags),
         transform(transform),
         globalScaleFactor(globalScaleFactor),
+        displayOrientation(displayOrientation),
         displaySize(displaySize),
         deliveryTime(0),
         resolvedAction(0),
@@ -324,8 +326,7 @@ CommandEntry::CommandEntry(Command command)
         keyEntry(nullptr),
         userActivityEventType(0),
         seq(0),
-        handled(false),
-        enabled(false) {}
+        handled(false) {}
 
 CommandEntry::~CommandEntry() {}
 

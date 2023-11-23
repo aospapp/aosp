@@ -29,6 +29,9 @@
     <uses-permission android:name="android.permission.ADD_TRUSTED_DISPLAY"/>
     <!-- to get current user id -->
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"/>
+    <!-- to query maps for nav icon -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
     <!--
         android:directBootAware to start the application regardless of user-unlocking.
         android:persistent not to be killed by OOM.

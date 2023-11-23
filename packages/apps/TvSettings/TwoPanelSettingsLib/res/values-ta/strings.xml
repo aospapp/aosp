@@ -18,7 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="info_status_on" msgid="8274851391556672594">"ஆனில் உள்ளது"</string>
-    <string name="info_status_off" msgid="1947357954040244822">"ஆஃபில் உள்ளது"</string>
+    <string name="info_status_off" msgid="1947357954040244822">"ஆஃப்"</string>
     <string name="switch_on" msgid="6078857185301284868">"ஆன்"</string>
     <string name="switch_off" msgid="2555309941117626592">"ஆஃப்"</string>
     <string name="switch_talkback_identifier" msgid="3243563960920396436">"ஸ்விட்ச்"</string>

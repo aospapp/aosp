@@ -28,7 +28,7 @@ BUILD_BROKEN_DUP_RULES := true
 
 TARGET_PRELINK_MODULE := false
 
-include build/make/target/board/BoardConfigMainlineCommon.mk
+include build/make/target/board/BoardConfigGsiCommon.mk
 include build/make/target/board/BoardConfigEmuCommon.mk
 
 # the settings differ from BoardConfigMainlineCommon.mk

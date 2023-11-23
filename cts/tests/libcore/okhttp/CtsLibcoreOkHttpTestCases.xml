@@ -21,6 +21,7 @@
          See source.android.com/devices/tech/admin/multi-user#user_types -->
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <!-- This CTS test module requires wifi, ensure wifi is on -->
         <option name="run-command" value="settings put global wifi_on 1" />

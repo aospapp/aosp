@@ -42,8 +42,6 @@
 
 #include <set>
 
-struct vk_executor;
-
 namespace vkt
 {
 

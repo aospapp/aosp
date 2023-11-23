@@ -30,6 +30,17 @@ genfscon sysfs /devices/pci0000:00/0000:00:06.0/virtio3/block/vdd u:object_r:sys
 genfscon sysfs /devices/pci0000:00/0000:00:07.0/virtio4/block/vde u:object_r:sysfs_virtio_block:s0
 genfscon sysfs /devices/pci0000:00/0000:00:08.0/virtio5/block/vdf u:object_r:sysfs_virtio_block:s0
 
+# for arm64 virtio block devices
+genfscon sysfs /devices/platform/a003600.virtio_mmio/virtio2/block/vda/stat u:object_r:sysfs_virtio_block:s0
+genfscon sysfs /devices/platform/a003600.virtio_mmio/virtio2/block/vda/vda1/stat u:object_r:sysfs_virtio_block:s0
+genfscon sysfs /devices/platform/a003600.virtio_mmio/virtio2/block/vda/vda2/stat u:object_r:sysfs_virtio_block:s0
+genfscon sysfs /devices/platform/a003800.virtio_mmio/virtio3/block/vdb/stat u:object_r:sysfs_virtio_block:s0
+genfscon sysfs /devices/platform/a003a00.virtio_mmio/virtio4/block/vdc/stat u:object_r:sysfs_virtio_block:s0
+genfscon sysfs /devices/platform/a003c00.virtio_mmio/virtio5/block/vdd/stat u:object_r:sysfs_virtio_block:s0
+genfscon sysfs /devices/platform/a003c00.virtio_mmio/virtio5/block/vdd/vdd1/stat u:object_r:sysfs_virtio_block:s0
+genfscon sysfs /devices/platform/a003e00.virtio_mmio/virtio6/block/vde/stat u:object_r:sysfs_virtio_block:s0
+genfscon sysfs /devices/platform/a003e00.virtio_mmio/virtio6/block/vde/vde1/stat u:object_r:sysfs_virtio_block:s0
+
 # /sys/class/power_supply
 genfscon sysfs /devices/platform/9020000.goldfish_battery/power_supply u:object_r:sysfs_batteryinfo:s0
 
@@ -86,6 +97,8 @@ genfscon sysfs /devices/pnp0/00:00/rtc/rtc0/alarmtimer.0.auto/wakeup/wakeup31   
 genfscon sysfs /devices/pnp0/00:00/rtc/rtc0/alarmtimer.0.auto/wakeup/wakeup31/event_count u:object_r:sysfs_wakeup:s0
 genfscon sysfs /devices/pnp0/00:00/rtc/rtc0/alarmtimer.0.auto/wakeup/wakeup32      u:object_r:sysfs_wakeup:s0
 genfscon sysfs /devices/pnp0/00:00/rtc/rtc0/alarmtimer.0.auto/wakeup/wakeup32/event_count u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/pnp0/00:00/rtc/rtc0/alarmtimer.0.auto/wakeup/wakeup33      u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/pnp0/00:00/rtc/rtc0/alarmtimer.0.auto/wakeup/wakeup33/event_count u:object_r:sysfs_wakeup:s0
 genfscon sysfs /devices/pnp0/00:00/rtc/rtc0/wakeup                                 u:object_r:sysfs_wakeup:s0
 genfscon sysfs /devices/pnp0/00:00/wakeup/wakeup                                   u:object_r:sysfs_wakeup:s0
 genfscon sysfs /devices/virtual/wakeup/wakeup                                      u:object_r:sysfs_wakeup:s0

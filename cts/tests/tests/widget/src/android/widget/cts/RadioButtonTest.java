@@ -19,6 +19,7 @@ package android.widget.cts;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -160,7 +161,7 @@ public class RadioButtonTest {
     }
 
     @Test
-    public void testToggleViaEmulatedTap() {
+    public void testToggleViaEmulatedTap() throws Throwable {
         final RadioButton.OnCheckedChangeListener mockCheckedChangeListener =
                 mock(RadioButton.OnCheckedChangeListener.class);
         mRadioButton.setOnCheckedChangeListener(mockCheckedChangeListener);
@@ -170,7 +171,8 @@ public class RadioButtonTest {
 
         // tap to checked
         CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mRadioButton);
-        verify(mockCheckedChangeListener, times(1)).onCheckedChanged(mRadioButton, true);
+        // wait for the posted onClick() after the tap
+        verify(mockCheckedChangeListener, timeout(5000)).onCheckedChanged(mRadioButton, true);
         assertTrue(mRadioButton.isChecked());
 
         // tap to not checked - this should leave the radio button in checked state

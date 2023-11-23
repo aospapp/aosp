@@ -32,6 +32,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.StatsManager;
 import android.automotive.watchdog.internal.ICarWatchdog;
 import android.automotive.watchdog.internal.ICarWatchdogServiceForSystem;
 import android.car.Car;
@@ -39,6 +40,7 @@ import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.car.watchdog.CarWatchdogManager;
 import android.content.Context;
 import android.content.pm.UserInfo;
+import android.content.res.Resources;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
@@ -50,6 +52,11 @@ import android.os.UserManager;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.car.CarLocalServices;
+import com.android.car.CarUxRestrictionsManagerService;
+import com.android.car.power.CarPowerManagementService;
+import com.android.car.systeminterface.SystemInterface;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,6 +64,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
@@ -72,36 +81,64 @@ public class CarWatchdogServiceTest extends AbstractExtendedMockitoTestCase {
     private static final String CAR_WATCHDOG_DAEMON_INTERFACE = "carwatchdogd_system";
     private static final int MAX_WAIT_TIME_MS = 3000;
     private static final int INVALID_SESSION_ID = -1;
+    private static final int RECURRING_OVERUSE_TIMES = 2;
+    private static final int RECURRING_OVERUSE_PERIOD_IN_DAYS = 2;
 
     private final Handler mMainHandler = new Handler(Looper.getMainLooper());
     private final Executor mExecutor =
             InstrumentationRegistry.getInstrumentation().getTargetContext().getMainExecutor();
+    private final TestTimeSource mTimeSource = new TestTimeSource();
     private final UserInfo[] mUserInfos = new UserInfo[] {
-            new UserInfoBuilder(10).setName("user 1").build(),
-            new UserInfoBuilder(11).setName("user 2").build()
+            new UserInfoBuilder(100).setName("user 1").build(),
+            new UserInfoBuilder(101).setName("user 2").build()
     };
 
     @Mock private Context mMockContext;
-    @Mock private Car mCar;
-    @Mock private UserManager mUserManager;
-    @Mock private IBinder mDaemonBinder;
-    @Mock private IBinder mServiceBinder;
-    @Mock private ICarWatchdog mCarWatchdogDaemon;
+    @Mock private Car mMockCar;
+    @Mock private Resources mMockResources;
+    @Mock private UserManager mMockUserManager;
+    @Mock private StatsManager mMockStatsManager;
+    @Mock private SystemInterface mMockSystemInterface;
+    @Mock private CarUxRestrictionsManagerService mMockCarUxRestrictionsManagerService;
+    @Mock private CarPowerManagementService mMockCarPowerManagementService;
+    @Mock private IBinder mMockDaemonBinder;
+    @Mock private IBinder mMockServiceBinder;
+    @Mock private ICarWatchdog mMockCarWatchdogDaemon;
+    @Mock private WatchdogStorage mMockWatchdogStorage;
+    @Mock private UserNotificationHelper mMockUserNotificationHelper;
 
     private CarWatchdogService mCarWatchdogService;
     private ICarWatchdogServiceForSystem mWatchdogServiceForSystemImpl;
 
     @Before
-    public void setUpMocks() throws Exception {
-        mCarWatchdogService = new CarWatchdogService(mMockContext);
+    public void setUp() throws Exception {
+        mockQueryService(CAR_WATCHDOG_DAEMON_INTERFACE, mMockDaemonBinder, mMockCarWatchdogDaemon);
+        when(mMockCar.getEventHandler()).thenReturn(mMainHandler);
+        when(mMockContext.getSystemService(Context.USER_SERVICE)).thenReturn(mMockUserManager);
+        when(mMockContext.getSystemService(StatsManager.class)).thenReturn(mMockStatsManager);
+        when(mMockContext.getResources()).thenReturn(mMockResources);
+        when(mMockResources.getInteger(
+                com.android.car.R.integer.recurringResourceOverusePeriodInDays))
+                .thenReturn(RECURRING_OVERUSE_PERIOD_IN_DAYS);
+        when(mMockResources.getInteger(
+                com.android.car.R.integer.recurringResourceOveruseTimes))
+                .thenReturn(RECURRING_OVERUSE_TIMES);
 
-        mockQueryService(CAR_WATCHDOG_DAEMON_INTERFACE, mDaemonBinder, mCarWatchdogDaemon);
-        when(mCar.getEventHandler()).thenReturn(mMainHandler);
-        when(mServiceBinder.queryLocalInterface(anyString())).thenReturn(mCarWatchdogService);
-        when(mMockContext.getSystemService(Context.USER_SERVICE)).thenReturn(mUserManager);
-        mockUmGetAllUsers(mUserManager, mUserInfos);
-        mockUmIsUserRunning(mUserManager, 10, true);
-        mockUmIsUserRunning(mUserManager, 11, false);
+        doReturn(mMockSystemInterface)
+                .when(() -> CarLocalServices.getService(SystemInterface.class));
+        doReturn(mMockCarUxRestrictionsManagerService)
+                .when(() -> CarLocalServices.getService(CarUxRestrictionsManagerService.class));
+        doReturn(mMockCarPowerManagementService)
+                .when(() -> CarLocalServices.getService(CarPowerManagementService.class));
+
+        mockUmGetAllUsers(mMockUserManager, mUserInfos);
+        mockUmIsUserRunning(mMockUserManager, 100, true);
+        mockUmIsUserRunning(mMockUserManager, 101, false);
+
+        mCarWatchdogService = new CarWatchdogService(mMockContext, mMockWatchdogStorage,
+                mMockUserNotificationHelper, mTimeSource);
+
+        when(mMockServiceBinder.queryLocalInterface(anyString())).thenReturn(mCarWatchdogService);
 
         mCarWatchdogService.init();
         mWatchdogServiceForSystemImpl = registerCarWatchdogService();
@@ -110,6 +147,7 @@ public class CarWatchdogServiceTest extends AbstractExtendedMockitoTestCase {
     @Override
     protected void onSessionBuilder(CustomMockitoSessionBuilder builder) {
         builder
+            .spyStatic(CarLocalServices.class)
             .spyStatic(ServiceManager.class)
             .spyStatic(UserHandle.class);
     }
@@ -147,12 +185,14 @@ public class CarWatchdogServiceTest extends AbstractExtendedMockitoTestCase {
         client.registerClient();
         mWatchdogServiceForSystemImpl.checkIfAlive(123456, TIMEOUT_CRITICAL);
         ArgumentCaptor<int[]> notRespondingClients = ArgumentCaptor.forClass(int[].class);
-        verify(mCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS)).tellCarWatchdogServiceAlive(
-                eq(mWatchdogServiceForSystemImpl), notRespondingClients.capture(), eq(123456));
+        verify(mMockCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS))
+                .tellCarWatchdogServiceAlive(eq(mWatchdogServiceForSystemImpl),
+                        notRespondingClients.capture(), eq(123456));
         assertThat(notRespondingClients.getValue().length).isEqualTo(0);
         mWatchdogServiceForSystemImpl.checkIfAlive(987654, TIMEOUT_CRITICAL);
-        verify(mCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS)).tellCarWatchdogServiceAlive(
-                eq(mWatchdogServiceForSystemImpl), notRespondingClients.capture(), eq(987654));
+        verify(mMockCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS))
+                .tellCarWatchdogServiceAlive(eq(mWatchdogServiceForSystemImpl),
+                        notRespondingClients.capture(), eq(987654));
         assertThat(notRespondingClients.getValue().length).isEqualTo(0);
     }
 
@@ -174,13 +214,15 @@ public class CarWatchdogServiceTest extends AbstractExtendedMockitoTestCase {
         for (int i = 0; i < clients.size(); i++) {
             assertThat(clients.get(i).mAndroidClient.makeSureHealthCheckDone()).isEqualTo(true);
         }
-        verify(mCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS)).tellCarWatchdogServiceAlive(
-                eq(mWatchdogServiceForSystemImpl), pidsCaptor.capture(), eq(123456));
+        verify(mMockCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS))
+                .tellCarWatchdogServiceAlive(eq(mWatchdogServiceForSystemImpl),
+                        pidsCaptor.capture(), eq(123456));
         assertThat(pidsCaptor.getValue().length).isEqualTo(0);
 
         mWatchdogServiceForSystemImpl.checkIfAlive(987654, TIMEOUT_CRITICAL);
-        verify(mCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS)).tellCarWatchdogServiceAlive(
-                eq(mWatchdogServiceForSystemImpl), pidsCaptor.capture(), eq(987654));
+        verify(mMockCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS))
+                .tellCarWatchdogServiceAlive(eq(mWatchdogServiceForSystemImpl),
+                        pidsCaptor.capture(), eq(987654));
         assertThat(pidsCaptor.getValue().length).isEqualTo(2);
     }
 
@@ -189,8 +231,8 @@ public class CarWatchdogServiceTest extends AbstractExtendedMockitoTestCase {
                 ArgumentCaptor.forClass(ICarWatchdogServiceForSystem.class);
         // Registering to daemon is done through a message handler. So, a buffer time of 1000ms is
         // given.
-        verify(mCarWatchdogDaemon, timeout(1000)).registerCarWatchdogService(
-                watchdogServiceForSystemImplCaptor.capture());
+        verify(mMockCarWatchdogDaemon, timeout(1000))
+                .registerCarWatchdogService(watchdogServiceForSystemImplCaptor.capture());
         return watchdogServiceForSystemImplCaptor.getValue();
     }
 
@@ -201,8 +243,9 @@ public class CarWatchdogServiceTest extends AbstractExtendedMockitoTestCase {
         client.registerClient();
         mWatchdogServiceForSystemImpl.checkIfAlive(123456, TIMEOUT_CRITICAL);
         ArgumentCaptor<int[]> notRespondingClients = ArgumentCaptor.forClass(int[].class);
-        verify(mCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS)).tellCarWatchdogServiceAlive(
-                eq(mWatchdogServiceForSystemImpl), notRespondingClients.capture(), eq(123456));
+        verify(mMockCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS))
+                .tellCarWatchdogServiceAlive(eq(mWatchdogServiceForSystemImpl),
+                        notRespondingClients.capture(), eq(123456));
         // Checking Android client health is asynchronous, so wait at most 1 second.
         int repeat = 10;
         while (repeat > 0) {
@@ -217,17 +260,18 @@ public class CarWatchdogServiceTest extends AbstractExtendedMockitoTestCase {
         assertThat(notRespondingClients.getValue().length).isEqualTo(0);
         assertThat(androidClient.makeSureHealthCheckDone()).isEqualTo(true);
         mWatchdogServiceForSystemImpl.checkIfAlive(987654, TIMEOUT_CRITICAL);
-        verify(mCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS)).tellCarWatchdogServiceAlive(
-                eq(mWatchdogServiceForSystemImpl), notRespondingClients.capture(), eq(987654));
+        verify(mMockCarWatchdogDaemon, timeout(MAX_WAIT_TIME_MS))
+                .tellCarWatchdogServiceAlive(eq(mWatchdogServiceForSystemImpl),
+                        notRespondingClients.capture(), eq(987654));
         assertThat(notRespondingClients.getValue().length).isEqualTo(badClientCount);
     }
 
     private void expectRunningUser() {
-        doReturn(10).when(() -> UserHandle.getUserId(Binder.getCallingUid()));
+        doReturn(100).when(() -> UserHandle.getUserId(Binder.getCallingUid()));
     }
 
     private void expectStoppedUser() {
-        doReturn(11).when(() -> UserHandle.getUserId(Binder.getCallingUid()));
+        doReturn(101).when(() -> UserHandle.getUserId(Binder.getCallingUid()));
     }
 
     private final class TestClient {
@@ -235,7 +279,7 @@ public class CarWatchdogServiceTest extends AbstractExtendedMockitoTestCase {
         BaseAndroidClient mAndroidClient;
 
         TestClient(BaseAndroidClient actualClient) {
-            mCarWatchdogManager = new CarWatchdogManager(mCar, mServiceBinder);
+            mCarWatchdogManager = new CarWatchdogManager(mMockCar, mMockServiceBinder);
             mAndroidClient = actualClient;
             actualClient.setManager(mCarWatchdogManager);
         }
@@ -318,6 +362,29 @@ public class CarWatchdogServiceTest extends AbstractExtendedMockitoTestCase {
             super.onCheckHealthStatus(sessionId, timeout);
             mLatchHealthCheckDone.countDown();
             return false;
+        }
+    }
+
+    private static final class TestTimeSource extends TimeSource {
+        private static final Instant TEST_DATE_TIME = Instant.parse("2021-11-12T13:14:15.16Z");
+        private Instant mNow;
+        TestTimeSource() {
+            mNow = TEST_DATE_TIME;
+        }
+
+        @Override
+        public Instant now() {
+            /* Return the same time, so the tests are deterministic. */
+            return mNow;
+        }
+
+        @Override
+        public String toString() {
+            return "Mocked date to " + now();
+        }
+
+        void updateNow(int numDaysAgo) {
+            mNow = TEST_DATE_TIME.minus(numDaysAgo, ChronoUnit.DAYS);
         }
     }
 }

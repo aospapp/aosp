@@ -21,6 +21,8 @@ PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/coral_car/aosp_coral_car.mk \
     $(LOCAL_DIR)/crosshatch_car/aosp_crosshatch_car.mk \
     $(LOCAL_DIR)/flame_car/aosp_flame_car.mk \
+    $(LOCAL_DIR)/oriole_car/aosp_oriole_car.mk \
+    $(LOCAL_DIR)/raven_car/aosp_raven_car.mk \
     $(LOCAL_DIR)/redfin_car/aosp_redfin_car.mk \
     $(LOCAL_DIR)/sargo_car/aosp_sargo_car.mk \
     $(LOCAL_DIR)/sunfish_car/aosp_sunfish_car.mk
@@ -33,7 +35,8 @@ COMMON_LUNCH_CHOICES := \
     aosp_coral_car-userdebug \
     aosp_crosshatch_car-userdebug \
     aosp_flame_car-userdebug \
+    aosp_oriole_car-userdebug \
+    aosp_raven_car-userdebug \
     aosp_redfin_car-userdebug \
     aosp_sargo_car-userdebug \
     aosp_sunfish_car-userdebug
-

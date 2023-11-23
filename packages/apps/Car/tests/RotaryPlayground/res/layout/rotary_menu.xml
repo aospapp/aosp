@@ -76,4 +76,18 @@
         android:layout_weight="1"
         android:text="Custom FocusAreas"
         style="@style/tab" />
+    <Button
+        android:id="@+id/popup_window"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="Popup window"
+        style="@style/tab" />
+    <Button
+        android:id="@+id/surface_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="SurfaceView"
+        style="@style/tab" />
 </com.android.car.ui.FocusArea>

@@ -31,6 +31,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.View.OnFocusChangeListener;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
@@ -130,6 +131,11 @@ public class WideScreenImeActivity extends AppCompatActivity implements InsetsCh
                                 .setSearchResultItems(mSearchItems)
                                 .setSearchResultsInputViewIcon(ContextCompat.getDrawable(
                                         this, R.drawable.car_ui_icon_search))
+                                .setOnBackClickedListener(() -> {
+                                    Toast.makeText(this, "Back clicked on IME!",
+                                            Toast.LENGTH_SHORT).show();
+                                    Log.i(TAG, "Back clicked on IME!");
+                                })
                                 .build());
                     }
                 })
@@ -137,16 +143,20 @@ public class WideScreenImeActivity extends AppCompatActivity implements InsetsCh
 
         toolbar.setMenuItems(mMenuItems);
 
-        mWidescreenItems.add(new EditTextElement("Default Input Edit Text field", null));
+        mWidescreenItems.add(new EditTextElement("Default Input Edit Text field", null, null));
         mWidescreenItems.add(
-                new EditTextElement("Add Desc to content area", this::addDescToContentArea));
-        mWidescreenItems.add(new EditTextElement("Hide the content area", this::hideContentArea));
-        mWidescreenItems.add(new EditTextElement("Hide extraction view", this::hideExtractionView));
+                new EditTextElement("Add Desc to content area", this::addDescToContentArea,
+                        this::addDescToContentArea));
+        mWidescreenItems.add(new EditTextElement("Hide the content area", this::hideContentArea,
+                this::hideContentArea));
+        mWidescreenItems.add(new EditTextElement("Hide extraction view", this::hideExtractionView,
+                this::hideExtractionView));
 
         mWidescreenItems.add(
-                new EditTextElement("Add icon to extracted view", this::addIconToExtractedView));
+                new EditTextElement("Add icon to extracted view", this::addIconToExtractedView,
+                        this::addIconToExtractedView));
         mWidescreenItems.add(new EditTextElement("Add error message to content area",
-                this::addErrorDescToContentArea));
+                this::addErrorDescToContentArea, this::addErrorDescToContentArea));
 
         CarUiRecyclerView recyclerView = requireViewById(R.id.list);
         recyclerView.setAdapter(mAdapter);
@@ -156,7 +166,10 @@ public class WideScreenImeActivity extends AppCompatActivity implements InsetsCh
         if (!hasFocus) {
             return;
         }
+        addIconToExtractedView(view);
+    }
 
+    private void addIconToExtractedView(View view) {
         Bundle bundle = new Bundle();
         bundle.putInt(WIDE_SCREEN_EXTRACTED_TEXT_ICON_RES_ID, R.drawable.car_ui_icon_edit);
         mInputMethodManager.sendAppPrivateCommand(view, WIDE_SCREEN_ACTION, bundle);
@@ -167,6 +180,10 @@ public class WideScreenImeActivity extends AppCompatActivity implements InsetsCh
             return;
         }
 
+        addErrorDescToContentArea(view);
+    }
+
+    private void addErrorDescToContentArea(View view) {
         Bundle bundle = new Bundle();
         bundle.putString(ADD_ERROR_DESC_TO_INPUT_AREA, "Some error message");
         bundle.putString(ADD_DESC_TITLE_TO_CONTENT_AREA, "Title");
@@ -179,6 +196,10 @@ public class WideScreenImeActivity extends AppCompatActivity implements InsetsCh
             return;
         }
 
+        hideExtractionView(view);
+    }
+
+    private void hideExtractionView(View view) {
         EditText editText = (EditText) view;
         editText.setImeOptions(IME_FLAG_NO_EXTRACT_UI);
 
@@ -191,7 +212,10 @@ public class WideScreenImeActivity extends AppCompatActivity implements InsetsCh
         if (!hasFocus) {
             return;
         }
+        addDescToContentArea(view);
+    }
 
+    private void addDescToContentArea(View view) {
         Bundle bundle = new Bundle();
         bundle.putString(ADD_DESC_TITLE_TO_CONTENT_AREA, "Title");
         bundle.putString(ADD_DESC_TO_CONTENT_AREA, "Description provided by the application");
@@ -203,6 +227,10 @@ public class WideScreenImeActivity extends AppCompatActivity implements InsetsCh
             return;
         }
 
+        hideContentArea(view);
+    }
+
+    private void hideContentArea(View view) {
         Bundle bundle = new Bundle();
         bundle.putBoolean(REQUEST_RENDER_CONTENT_AREA, false);
         mInputMethodManager.sendAppPrivateCommand(view, WIDE_SCREEN_ACTION, bundle);
@@ -219,7 +247,7 @@ public class WideScreenImeActivity extends AppCompatActivity implements InsetsCh
 
     private static class EditTextViewHolder extends ViewHolder {
 
-        private final EditText mEditText;
+        private final EdiTextWithPrivateImeCommand mEditText;
 
         EditTextViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -234,6 +262,7 @@ public class WideScreenImeActivity extends AppCompatActivity implements InsetsCh
             EditTextElement element = (EditTextElement) e;
             mEditText.setText(element.getText());
             mEditText.setOnFocusChangeListener(element.getOnFocusChangeListener());
+            mEditText.setOnClickListener(element.getOnClickListener());
         }
     }
 
@@ -296,15 +325,22 @@ public class WideScreenImeActivity extends AppCompatActivity implements InsetsCh
 
     private static class EditTextElement extends ListElement {
 
-        private final OnFocusChangeListener mListener;
+        private final OnFocusChangeListener mOnFocusChangeListener;
+        private final OnClickListener mOnClickListener;
 
-        EditTextElement(String text, OnFocusChangeListener listener) {
+        EditTextElement(String text, OnFocusChangeListener listener,
+                OnClickListener onClickListener) {
             super(text);
-            mListener = listener;
+            mOnFocusChangeListener = listener;
+            mOnClickListener = onClickListener;
         }
 
         OnFocusChangeListener getOnFocusChangeListener() {
-            return mListener;
+            return mOnFocusChangeListener;
+        }
+
+        OnClickListener getOnClickListener() {
+            return mOnClickListener;
         }
 
         @Override

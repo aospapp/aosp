@@ -45,6 +45,76 @@ int GetPerVertexFieldIndex(const TQualifier qualifier, const ImmutableString &na
 
 // Traverser that:
 //
+// 1. Inspects global qualifier declarations and extracts whether any of the gl_PerVertex built-ins
+//    are invariant or precise.  These declarations are then dropped.
+// 2. Finds the array size of gl_ClipDistance and gl_CullDistance built-in, if any.
+class InspectPerVertexBuiltInsTraverser : public TIntermTraverser
+{
+  public:
+    InspectPerVertexBuiltInsTraverser(TCompiler *compiler,
+                                      TSymbolTable *symbolTable,
+                                      PerVertexMemberFlags *invariantFlagsOut,
+                                      PerVertexMemberFlags *preciseFlagsOut,
+                                      uint32_t *clipDistanceArraySizeOut,
+                                      uint32_t *cullDistanceArraySizeOut)
+        : TIntermTraverser(true, false, false, symbolTable),
+          mInvariantFlagsOut(invariantFlagsOut),
+          mPreciseFlagsOut(preciseFlagsOut),
+          mClipDistanceArraySizeOut(clipDistanceArraySizeOut),
+          mCullDistanceArraySizeOut(cullDistanceArraySizeOut)
+    {}
+
+    bool visitGlobalQualifierDeclaration(Visit visit,
+                                         TIntermGlobalQualifierDeclaration *node) override
+    {
+        TIntermSymbol *symbol = node->getSymbol();
+
+        const int fieldIndex =
+            GetPerVertexFieldIndex(symbol->getType().getQualifier(), symbol->getName());
+        if (fieldIndex < 0)
+        {
+            return false;
+        }
+
+        if (node->isInvariant())
+        {
+            (*mInvariantFlagsOut)[fieldIndex] = true;
+        }
+        else if (node->isPrecise())
+        {
+            (*mPreciseFlagsOut)[fieldIndex] = true;
+        }
+
+        mMultiReplacements.emplace_back(getParentNode()->getAsBlock(), node, TIntermSequence());
+
+        return false;
+    }
+
+    void visitSymbol(TIntermSymbol *symbol) override
+    {
+        const TType &type = symbol->getType();
+        switch (type.getQualifier())
+        {
+            case EvqClipDistance:
+                *mClipDistanceArraySizeOut = type.getOutermostArraySize();
+                break;
+            case EvqCullDistance:
+                *mCullDistanceArraySizeOut = type.getOutermostArraySize();
+                break;
+            default:
+                break;
+        }
+    }
+
+  private:
+    PerVertexMemberFlags *mInvariantFlagsOut;
+    PerVertexMemberFlags *mPreciseFlagsOut;
+    uint32_t *mClipDistanceArraySizeOut;
+    uint32_t *mCullDistanceArraySizeOut;
+};
+
+// Traverser that:
+//
 // 1. Declares the input and output gl_PerVertex types and variables if not already (based on shader
 //    type).
 // 2. Turns built-in references into indexes into these variables.
@@ -54,10 +124,15 @@ class DeclarePerVertexBlocksTraverser : public TIntermTraverser
     DeclarePerVertexBlocksTraverser(TCompiler *compiler,
                                     TSymbolTable *symbolTable,
                                     const PerVertexMemberFlags &invariantFlags,
-                                    const PerVertexMemberFlags &preciseFlags)
+                                    const PerVertexMemberFlags &preciseFlags,
+                                    uint32_t clipDistanceArraySize,
+                                    uint32_t cullDistanceArraySize)
         : TIntermTraverser(true, false, false, symbolTable),
           mShaderType(compiler->getShaderType()),
+          mShaderVersion(compiler->getShaderVersion()),
           mResources(compiler->getResources()),
+          mClipDistanceArraySize(clipDistanceArraySize),
+          mCullDistanceArraySize(cullDistanceArraySize),
           mPerVertexInVar(nullptr),
           mPerVertexOutVar(nullptr),
           mPerVertexInVarRedeclared(false),
@@ -103,7 +178,9 @@ class DeclarePerVertexBlocksTraverser : public TIntermTraverser
 
             if (mPerVertexOutVarRedeclared)
             {
-                queueReplacement(new TIntermSymbol(mPerVertexOutVar), OriginalNode::IS_DROPPED);
+                // Traverse the parents and promote the new type.  Replace the root of
+                // EOpIndex[In]Direct chain.
+                queueAccessChainReplacement(new TIntermSymbol(mPerVertexOutVar));
             }
 
             return;
@@ -124,7 +201,9 @@ class DeclarePerVertexBlocksTraverser : public TIntermTraverser
 
             if (mPerVertexInVarRedeclared)
             {
-                queueReplacement(new TIntermSymbol(mPerVertexInVar), OriginalNode::IS_DROPPED);
+                // Traverse the parents and promote the new type.  Replace the root of
+                // EOpIndex[In]Direct chain.
+                queueAccessChainReplacement(new TIntermSymbol(mPerVertexInVar));
             }
 
             return;
@@ -145,7 +224,8 @@ class DeclarePerVertexBlocksTraverser : public TIntermTraverser
         if (variable->symbolType() != SymbolType::BuiltIn)
         {
             ASSERT(variable->name() != "gl_Position" && variable->name() != "gl_PointSize" &&
-                   variable->name() != "gl_ClipDistance" && variable->name() != "gl_CullDistance");
+                   variable->name() != "gl_ClipDistance" && variable->name() != "gl_CullDistance" &&
+                   variable->name() != "gl_in" && variable->name() != "gl_out");
 
             return;
         }
@@ -202,8 +282,8 @@ class DeclarePerVertexBlocksTraverser : public TIntermTraverser
     {
         TFieldList *fields = new TFieldList;
 
-        const TType *vec4Type  = StaticType::GetBasic<EbtFloat, 4>();
-        const TType *floatType = StaticType::GetBasic<EbtFloat, 1>();
+        const TType *vec4Type  = StaticType::GetBasic<EbtFloat, EbpHigh, 4>();
+        const TType *floatType = StaticType::GetBasic<EbtFloat, EbpHigh, 1>();
 
         TType *positionType     = new TType(*vec4Type);
         TType *pointSizeType    = new TType(*floatType);
@@ -215,8 +295,23 @@ class DeclarePerVertexBlocksTraverser : public TIntermTraverser
         clipDistanceType->setQualifier(EvqClipDistance);
         cullDistanceType->setQualifier(EvqCullDistance);
 
-        clipDistanceType->makeArray(mResources.MaxClipDistances);
-        cullDistanceType->makeArray(mResources.MaxCullDistances);
+        TPrecision pointSizePrecision = EbpHigh;
+        if (mShaderType == GL_VERTEX_SHADER)
+        {
+            // gl_PointSize is mediump in ES100 and highp in ES300+.
+            const TVariable *glPointSize = static_cast<const TVariable *>(
+                mSymbolTable->findBuiltIn(ImmutableString("gl_PointSize"), mShaderVersion));
+            ASSERT(glPointSize);
+
+            pointSizePrecision = glPointSize->getType().getPrecision();
+        }
+        pointSizeType->setPrecision(pointSizePrecision);
+
+        // TODO: handle interaction with GS and T*S where the two can have different sizes.  These
+        // values are valid for EvqPerVertexOut only.  For EvqPerVertexIn, the size should come from
+        // the declaration of gl_in.  http://anglebug.com/5466.
+        clipDistanceType->makeArray(std::max(mClipDistanceArraySize, 1u));
+        cullDistanceType->makeArray(std::max(mCullDistanceArraySize, 1u));
 
         if (qualifier == EvqPerVertexOut)
         {
@@ -297,7 +392,10 @@ class DeclarePerVertexBlocksTraverser : public TIntermTraverser
     }
 
     GLenum mShaderType;
+    int mShaderVersion;
     const ShBuiltInResources &mResources;
+    uint32_t mClipDistanceArraySize;
+    uint32_t mCullDistanceArraySize;
 
     const TVariable *mPerVertexInVar;
     const TVariable *mPerVertexOutVar;
@@ -339,44 +437,29 @@ bool DeclarePerVertexBlocks(TCompiler *compiler, TIntermBlock *root, TSymbolTabl
     }
 
     // First, visit all global qualifier declarations and find which built-ins are invariant or
-    // precise.
+    // precise.  At the same time, find out the size of gl_ClipDistance and gl_CullDistance arrays.
     PerVertexMemberFlags invariantFlags = {};
     PerVertexMemberFlags preciseFlags   = {};
+    uint32_t clipDistanceArraySize = 0, cullDistanceArraySize = 0;
 
-    TIntermSequence withoutPerVertexGlobalQualifierDeclarations;
-
-    for (TIntermNode *node : *root->getSequence())
+    InspectPerVertexBuiltInsTraverser infoTraverser(compiler, symbolTable, &invariantFlags,
+                                                    &preciseFlags, &clipDistanceArraySize,
+                                                    &cullDistanceArraySize);
+    root->traverse(&infoTraverser);
+    if (!infoTraverser.updateTree(compiler, root))
     {
-        TIntermGlobalQualifierDeclaration *asGlobalQualifierDecl =
-            node->getAsGlobalQualifierDeclarationNode();
-        if (asGlobalQualifierDecl == nullptr)
-        {
-            withoutPerVertexGlobalQualifierDeclarations.push_back(node);
-            continue;
-        }
-
-        TIntermSymbol *symbol = asGlobalQualifierDecl->getSymbol();
-
-        const int fieldIndex =
-            GetPerVertexFieldIndex(symbol->getType().getQualifier(), symbol->getName());
-        if (fieldIndex < 0)
-        {
-            withoutPerVertexGlobalQualifierDeclarations.push_back(node);
-            continue;
-        }
-
-        if (asGlobalQualifierDecl->isInvariant())
-        {
-            invariantFlags[fieldIndex] = true;
-        }
-        else if (asGlobalQualifierDecl->isPrecise())
-        {
-            preciseFlags[fieldIndex] = true;
-        }
+        return false;
     }
 
-    // Remove the global qualifier declarations for the gl_PerVertex members.
-    root->replaceAllChildren(withoutPerVertexGlobalQualifierDeclarations);
+    // If not specified, take the clip/cull distance size from the resources.
+    if (clipDistanceArraySize == 0)
+    {
+        clipDistanceArraySize = compiler->getResources().MaxClipDistances;
+    }
+    if (cullDistanceArraySize == 0)
+    {
+        cullDistanceArraySize = compiler->getResources().MaxCullDistances;
+    }
 
     // If #pragma STDGL invariant(all) is specified, make all outputs invariant.
     if (compiler->getPragma().stdgl.invariantAll)
@@ -385,7 +468,8 @@ bool DeclarePerVertexBlocks(TCompiler *compiler, TIntermBlock *root, TSymbolTabl
     }
 
     // Then declare the in and out gl_PerVertex I/O blocks.
-    DeclarePerVertexBlocksTraverser traverser(compiler, symbolTable, invariantFlags, preciseFlags);
+    DeclarePerVertexBlocksTraverser traverser(compiler, symbolTable, invariantFlags, preciseFlags,
+                                              clipDistanceArraySize, cullDistanceArraySize);
     root->traverse(&traverser);
     if (!traverser.updateTree(compiler, root))
     {

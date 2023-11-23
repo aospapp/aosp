@@ -41,10 +41,11 @@
         android:title="@string/storage_application_label"
         settings:controller="com.android.car.settings.applications.StoragePreferenceController"/>
     <SwitchPreference
-        android:key="@string/pk_application_details_peak_performance"
-        android:title="@string/peak_performance_label"
+        android:key="@string/pk_application_details_prioritize_app_performance"
+        android:title="@string/prioritize_app_performance_label"
+        android:summary="@string/prioritize_app_performance_summary"
         settings:controller=
-            "com.android.car.settings.applications.PeakPerformancePreferenceController"/>
+            "com.android.car.settings.applications.PrioritizeAppPerformancePreferenceController"/>
     <SwitchPreference
         android:key="@string/pk_hibernation_switch"
         android:title="@string/unused_apps_switch"

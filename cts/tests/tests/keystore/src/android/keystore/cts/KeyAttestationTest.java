@@ -159,6 +159,10 @@ public class KeyAttestationTest extends AndroidTestCase {
 
     @RequiresDevice
     public void testEcAttestation() throws Exception {
+        if (!TestUtils.isAttestationSupported()) {
+            return;
+        }
+
         if (getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_PC))
             return;
 
@@ -212,6 +216,10 @@ public class KeyAttestationTest extends AndroidTestCase {
     }
 
     public void testEcAttestation_TooLargeChallenge() throws Exception {
+        if (!TestUtils.isAttestationSupported()) {
+            return;
+        }
+
         boolean[] devicePropertiesAttestationValues = {true, false};
         for (boolean devicePropertiesAttestation : devicePropertiesAttestationValues) {
             try {
@@ -220,7 +228,10 @@ public class KeyAttestationTest extends AndroidTestCase {
                 fail("Attestation challenges larger than 128 bytes should be rejected");
             } catch (ProviderException e) {
                 KeyStoreException cause = (KeyStoreException) e.getCause();
-                assertEquals(KM_ERROR_INVALID_INPUT_LENGTH, cause.getErrorCode());
+                assertTrue(KM_ERROR_INVALID_INPUT_LENGTH == cause.getErrorCode() ||
+                        (devicePropertiesAttestation
+                                && KM_ERROR_CANNOT_ATTEST_IDS == cause.getErrorCode())
+                );
             }
         }
     }
@@ -263,6 +274,10 @@ public class KeyAttestationTest extends AndroidTestCase {
     @RestrictedBuildTest
     @RequiresDevice
     public void testEcAttestation_DeviceLocked() throws Exception {
+        if (!TestUtils.isAttestationSupported()) {
+            return;
+        }
+
         if (getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_PC))
             return;
 
@@ -423,6 +438,10 @@ public class KeyAttestationTest extends AndroidTestCase {
 
     @RequiresDevice
     public void testRsaAttestation() throws Exception {
+        if (!TestUtils.isAttestationSupported()) {
+            return;
+        }
+
         if (getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_PC))
             return;
 
@@ -485,6 +504,10 @@ public class KeyAttestationTest extends AndroidTestCase {
     }
 
     public void testRsaAttestation_TooLargeChallenge() throws Exception {
+        if (!TestUtils.isAttestationSupported()) {
+            return;
+        }
+
         boolean[] devicePropertiesAttestationValues = {true, false};
         for (boolean devicePropertiesAttestation : devicePropertiesAttestationValues) {
             try {
@@ -495,7 +518,10 @@ public class KeyAttestationTest extends AndroidTestCase {
                 fail("Attestation challenges larger than 128 bytes should be rejected");
             } catch(ProviderException e){
                 KeyStoreException cause = (KeyStoreException) e.getCause();
-                assertEquals(KM_ERROR_INVALID_INPUT_LENGTH, cause.getErrorCode());
+                assertTrue(KM_ERROR_INVALID_INPUT_LENGTH == cause.getErrorCode() ||
+                        (devicePropertiesAttestation
+                                && KM_ERROR_CANNOT_ATTEST_IDS == cause.getErrorCode())
+                );
             }
         }
     }
@@ -536,6 +562,10 @@ public class KeyAttestationTest extends AndroidTestCase {
     @RestrictedBuildTest
     @RequiresDevice  // Emulators have no place to store the needed key
     public void testRsaAttestation_DeviceLocked() throws Exception {
+        if (!TestUtils.isAttestationSupported()) {
+            return;
+        }
+
         if (getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_PC))
             return;
 
@@ -1078,7 +1108,7 @@ public class KeyAttestationTest extends AndroidTestCase {
                     assertThat("Software KM is version 3", attestation.getKeymasterVersion(),
                             is(3));
                     assertThat(softwareEnforced.getOsVersion(), is(systemOsVersion));
-                    checkSystemPatchLevel(teeEnforced.getOsPatchLevel(), systemPatchLevel);
+                    checkSystemPatchLevel(softwareEnforced.getOsPatchLevel(), systemPatchLevel);
                 }
 
                 assertNull("Software attestation cannot provide root of trust",

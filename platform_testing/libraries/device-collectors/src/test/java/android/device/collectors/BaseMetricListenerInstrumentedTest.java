@@ -52,6 +52,7 @@ public class BaseMetricListenerInstrumentedTest {
     private static final String TEST_END_KEY = "test_end_key";
     private static final String TEST_START_VALUE = "test_start_value";
     private static final String TEST_END_VALUE = "test_end_value";
+    private static final String SKIP_METRICS_OPTION = "skip-metrics";
     private BaseMetricListener mListener;
     private Instrumentation mMockInstrumentation;
 
@@ -67,29 +68,47 @@ public class BaseMetricListenerInstrumentedTest {
             args = new Bundle();
         }
         return new BaseMetricListener(args) {
+            private boolean mSuppressMetrics = false;
+
             @Override
             public void onTestStart(DataRecord testData, Description description) {
                 // In this test check that a new DataRecord is passed to testStart each time.
                 assertFalse(testData.hasMetrics());
-                testData.addStringMetric(TEST_START_KEY, TEST_START_VALUE
-                        + description.getMethodName());
+                if (!mSuppressMetrics) {
+                    testData.addStringMetric(
+                            TEST_START_KEY, TEST_START_VALUE + description.getMethodName());
+                }
             }
 
             @Override
             public void onTestEnd(DataRecord testData, Description description) {
-                testData.addStringMetric(TEST_END_KEY, TEST_END_VALUE
-                        + description.getMethodName());
+                if (!mSuppressMetrics) {
+                    testData.addStringMetric(
+                            TEST_END_KEY, TEST_END_VALUE + description.getMethodName());
+                }
             }
 
             @Override
             public void onTestRunStart(DataRecord runData, Description description) {
                 assertFalse(runData.hasMetrics());
-                runData.addStringMetric(RUN_START_KEY, RUN_START_VALUE);
+                if (!mSuppressMetrics) {
+                    runData.addStringMetric(RUN_START_KEY, RUN_START_VALUE);
+                }
             }
 
             @Override
             public void onTestRunEnd(DataRecord runData, Result result) {
-                runData.addStringMetric(RUN_END_KEY, RUN_END_VALUE);
+                if (!mSuppressMetrics) {
+                    runData.addStringMetric(RUN_END_KEY, RUN_END_VALUE);
+                }
+            }
+
+            @Override
+            public void setupAdditionalArgs() {
+                // We test this method by checking if metrics are suppressed when the skip metrics
+                // option is set.
+                mSuppressMetrics =
+                        Boolean.parseBoolean(getArgsBundle().getString(SKIP_METRICS_OPTION));
             }
         };
     }
@@ -304,6 +323,127 @@ public class BaseMetricListenerInstrumentedTest {
         assertEquals(TEST_START_VALUE + "method2", check.getString(TEST_START_KEY));
         assertEquals(TEST_END_VALUE + "method2", check.getString(TEST_END_KEY));
         assertEquals(2, check.size());
+    }
+
+    /** Test that the parsing of the skip metrics option in setUpAdditionalArgs() is executed. */
+    @MetricOption(group = "testGroup")
+    @Test
+    public void testAdditionalArgs() throws Exception {
+        Bundle args = new Bundle();
+        args.putString(SKIP_METRICS_OPTION, String.valueOf(true));
+        mListener = createWithArgs(args);
+        mListener.setInstrumentation(mMockInstrumentation);
+
+        Description runDescription = Description.createSuiteDescription("run");
+        mListener.testRunStarted(runDescription);
+        Description testDescription = Description.createTestDescription("class", "method");
+        mListener.testStarted(testDescription);
+        mListener.testFinished(testDescription);
+        mListener.testRunFinished(new Result());
+        // AJUR runner is then gonna call instrumentationRunFinished
+        Bundle resultBundle = new Bundle();
+        mListener.instrumentationRunFinished(System.out, resultBundle, new Result());
+
+        Mockito.verify(mMockInstrumentation, Mockito.never())
+                .sendStatus(Mockito.anyInt(), Mockito.any());
+
+        // We have skipped reporting metrics, so no run metrics should be in the bundle either.
+        assertEquals(0, resultBundle.size());
+    }
+
+    @MetricOption(group = "testGroup")
+    @Test
+    public void testSetUpAndCleanUpWithTestCycle() throws Exception {
+        // We use this bundle to mimic device state. We modify it in setUp() and
+        // check that this is maintained throughout the test. We remove the
+        // modification during cleanUp() and check if the bundle has indeed
+        // become empty again.
+        Bundle data = new Bundle();
+        final String arg = "arg";
+        final String value = "value";
+
+        BaseMetricListener listener =
+                new BaseMetricListener() {
+                    public static final String SETUP_ARG = "arg";
+                    private static final String SETUP_VALUE = "value";
+
+                    @Override
+                    protected void onSetUp() {
+                        data.putString(arg, value);
+                    }
+
+                    @Override
+                    protected void onCleanUp() {
+                        data.remove(arg);
+                    }
+
+                    @Override
+                    public void onTestRunStart(DataRecord runData, Description description) {
+                        assertEquals(value, data.getString(arg));
+                    }
+
+                    @Override
+                    public void onTestRunEnd(DataRecord runData, Result result) {
+                        assertEquals(value, data.getString(arg));
+                    }
+
+                    @Override
+                    public void onTestStart(DataRecord testData, Description description) {
+                        assertEquals(value, data.getString(arg));
+                    }
+
+                    @Override
+                    public void onTestEnd(DataRecord testData, Description description) {
+                        assertEquals(value, data.getString(arg));
+                    }
+                };
+
+        Description runDescription = Description.createSuiteDescription("run");
+        Description test1Description = Description.createTestDescription("class", "method1");
+        Description test2Description = Description.createTestDescription("class", "method2");
+        // Simulate a test cycle.
+        listener.testRunStarted(runDescription);
+        listener.testStarted(test1Description);
+        listener.testFinished(test1Description);
+        listener.testStarted(test2Description);
+        listener.testFinished(test2Description);
+        listener.testRunFinished(new Result());
+        listener.instrumentationRunFinished(System.out, new Bundle(), new Result());
+
+        assertFalse(data.containsKey(arg));
+    }
+
+    @MetricOption(group = "testGroup")
+    @Test
+    public void testSetUpAndCleanUpWithCallbacks() throws Exception {
+        // We use this bundle to mimic device state. We modify it in setUp() and
+        // check that this is maintained throughout the test. We remove the
+        // modification during cleanUp() and check if the bundle has indeed
+        // become empty again.
+        Bundle data = new Bundle();
+        final String arg = "arg";
+        final String value = "value";
+
+        BaseMetricListener listener =
+                new BaseMetricListener() {
+                    public static final String SETUP_ARG = "arg";
+                    private static final String SETUP_VALUE = "value";
+
+                    @Override
+                    protected void onSetUp() {
+                        data.putString(arg, value);
+                    }
+
+                    @Override
+                    protected void onCleanUp() {
+                        data.remove(arg);
+                    }
+                };
+
+        listener.setUp();
+        assertEquals(value, data.getString(arg));
+        listener.cleanUp();
+        assertFalse(data.containsKey(arg));
     }
 
     /**

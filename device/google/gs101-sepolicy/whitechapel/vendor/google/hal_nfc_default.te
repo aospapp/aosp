@@ -1,0 +1,13 @@
+# NFC property
+set_prop(hal_nfc_default, vendor_nfc_prop)
+
+# SecureElement property
+set_prop(hal_nfc_default, vendor_secure_element_prop)
+
+# Modem property
+set_prop(hal_nfc_default, vendor_modem_prop)
+
+# Access uwb cal for SecureRanging Applet
+allow hal_nfc_default uwb_data_vendor:dir r_dir_perms;
+allow hal_nfc_default uwb_data_vendor:file r_file_perms;
+

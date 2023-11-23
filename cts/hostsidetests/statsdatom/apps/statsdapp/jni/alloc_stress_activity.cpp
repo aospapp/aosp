@@ -15,34 +15,27 @@
  *
  */
 
-#include <algorithm>
-#include <cstring>
-#include <fstream>
-#include <iostream>
+#include <android/log.h>
 #include <jni.h>
-#include <numeric>
-#include <sstream>
-#include <string>
-#include <tuple>
+#include <sys/mman.h>
 #include <unistd.h>
 
-#include <android/log.h>
+#include <sstream>
 #define LOG(...) __android_log_write(ANDROID_LOG_INFO, "ALLOC-STRESS", __VA_ARGS__)
 
-using namespace std;
-
-size_t s = 8 * (1 << 20); // 8 MB
-void *gptr;
+size_t s = 4 * (1 << 20); // 4 MB
+volatile void *gptr;
 extern "C" JNIEXPORT void JNICALL
-Java_com_android_server_cts_device_statsdatom_StatsdCtsForegroundActivity_cmain(
-        JNIEnv *, jobject /* this */) {
+Java_com_android_server_cts_device_statsdatom_MemoryHogger_allocate(JNIEnv *, jobject /* this */) {
+    volatile void *ptr;
     long long allocCount = 0;
     while (1) {
-        char *ptr = (char *)malloc(s);
-        memset(ptr, (int)allocCount >> 10, s);
-        for (int i = 0; i < s; i += 4096) {
-            *((long long *)&ptr[i]) = allocCount + i;
+        ptr = mmap(NULL, s, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
+        if (ptr == MAP_FAILED) {
+            // Likely exhausted address space
+            break;
         }
+        memset((void *)ptr, (int)allocCount >> 10, s);
         allocCount += s;
         std::stringstream ss;
         ss << "total alloc: " << allocCount / (1 << 20);
@@ -51,6 +44,6 @@ Java_com_android_server_cts_device_statsdatom_StatsdCtsForegroundActivity_cmain(
 
         // If we are too aggressive allocating, we will end up triggering the
         // OOM reaper instead of LMKd.
-        usleep(1000);
+        usleep(5000);
     }
 }

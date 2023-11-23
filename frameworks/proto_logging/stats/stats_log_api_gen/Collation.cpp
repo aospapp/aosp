@@ -53,8 +53,7 @@ AtomDecl::AtomDecl(const AtomDecl& that)
       exclusiveField(that.exclusiveField),
       defaultState(that.defaultState),
       triggerStateReset(that.triggerStateReset),
-      nested(that.nested),
-      uidField(that.uidField) {
+      nested(that.nested) {
 }
 
 AtomDecl::AtomDecl(int c, const string& n, const string& m, const string &o)
@@ -265,18 +264,8 @@ static int collate_field_annotations(AtomDecl* atomDecl, const FieldDescriptor* 
             errorCount++;
         }
 
-        if (atomDecl->uidField == 0) {
-            atomDecl->uidField = fieldNumber;
-
-            addAnnotationToAtomDecl(atomDecl, fieldNumber, ANNOTATION_ID_IS_UID,
-                                    ANNOTATION_TYPE_BOOL, AnnotationValue(true));
-        } else {
-            print_error(field,
-                        "Cannot have more than one field in an atom with is_uid "
-                        "annotation: '%s'\n",
-                        atomDecl->message.c_str());
-            errorCount++;
-        }
+        addAnnotationToAtomDecl(atomDecl, fieldNumber, ANNOTATION_ID_IS_UID, ANNOTATION_TYPE_BOOL,
+                                AnnotationValue(true));
     }
 
     return errorCount;

@@ -95,7 +95,14 @@
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"پیش‌نمای کاغذدیواری"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"مجموعه وجود ندارد"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"پنهان کردن پیش‌نمای رابط کاربری"</string>
+    <string name="hint_hide_ui_preview" msgid="4527603797714586070">"رابط در پیش‌دید پنهان است. دوضربه برای نمایش مجدد"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"نمایش دادن پیش‌نمای رابط کاربری"</string>
+    <string name="hint_show_ui_preview" msgid="2744155435325318349">"رابط در پیش‌دید نمایان است. دوضربه برای پنهان کردن"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"تغییر کاغذدیواری"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"پیش‌نمای کاغذدیواری صفحه قفل"</string>
+    <string name="apply_btn" msgid="5764555565943538528">"اعمال کردن"</string>
+    <string name="accessibility_customize_hidden" msgid="6320568529768181691">"پانل سفارشی‌سازی پنهان است"</string>
+    <string name="accessibility_customize_shown" msgid="590964727831547651">"پانل سفارشی‌سازی نمایان است"</string>
+    <string name="accessibility_info_hidden" msgid="2288603712350168107">"پانل اطلاعات پنهان است"</string>
+    <string name="accessibility_info_shown" msgid="6626025722456105632">"پانل اطلاعات نمایان است"</string>
 </resources>

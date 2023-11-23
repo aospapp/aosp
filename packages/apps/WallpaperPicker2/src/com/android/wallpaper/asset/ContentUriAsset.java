@@ -15,6 +15,7 @@
  */
 package com.android.wallpaper.asset;
 
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Point;
@@ -30,8 +31,11 @@ import androidx.annotation.Nullable;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.MultiTransformation;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
+import com.bumptech.glide.load.resource.bitmap.FitCenter;
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.RequestOptions;
@@ -245,6 +249,19 @@ public final class ContentUriAsset extends StreamableAsset {
                 .apply(mRequestOptions
                         .placeholder(new ColorDrawable(placeholderColor)))
                 .transition(DrawableTransitionOptions.withCrossFade())
+                .into(imageView);
+    }
+
+    @Override
+    public void loadLowResDrawable(Activity activity, ImageView imageView, int placeholderColor,
+            BitmapTransformation transformation) {
+        MultiTransformation<Bitmap> multiTransformation =
+                new MultiTransformation<>(new FitCenter(), transformation);
+        Glide.with(activity)
+                .asDrawable()
+                .load(mUri)
+                .apply(RequestOptions.bitmapTransform(multiTransformation)
+                        .placeholder(new ColorDrawable(placeholderColor)))
                 .into(imageView);
     }
 

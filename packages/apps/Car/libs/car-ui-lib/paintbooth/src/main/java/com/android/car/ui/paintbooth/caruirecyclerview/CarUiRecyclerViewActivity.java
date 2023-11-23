@@ -51,7 +51,7 @@ public class CarUiRecyclerViewActivity extends Activity implements InsetsChanged
         CarUiRecyclerView recyclerView = findViewById(R.id.list);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        RecyclerViewAdapter adapter = new RecyclerViewAdapter(generateSampleData());
+        RecyclerViewAdapter adapter = new RecyclerViewAdapter(this, generateSampleData());
         recyclerView.setAdapter(adapter);
     }
 

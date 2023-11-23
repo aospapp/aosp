@@ -21,6 +21,13 @@ import static android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL;
 import static android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW;
 import static android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE;
 import static android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN;
+import static android.content.Intent.ACTION_MAIN;
+import static android.content.Intent.CATEGORY_HOME;
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
+import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+import static android.content.pm.PackageManager.DONT_KILL_APP;
+import static android.content.pm.PackageManager.MATCH_DEFAULT_ONLY;
 
 import static org.junit.Assert.assertArrayEquals;
 
@@ -36,6 +43,7 @@ import android.app.Instrumentation;
 import android.app.Instrumentation.ActivityMonitor;
 import android.app.Instrumentation.ActivityResult;
 import android.app.PendingIntent;
+import android.app.TaskInfo;
 import android.app.cts.android.app.cts.tools.WatchUidRunner;
 import android.app.stubs.ActivityManagerRecentOneActivity;
 import android.app.stubs.ActivityManagerRecentTwoActivity;
@@ -44,8 +52,10 @@ import android.app.stubs.LocalForegroundService;
 import android.app.stubs.MockApplicationActivity;
 import android.app.stubs.MockService;
 import android.app.stubs.ScreenOnActivity;
+import android.app.stubs.TestHomeActivity;
 import android.app.stubs.TrimMemService;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -53,6 +63,7 @@ import android.content.ServiceConnection;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.os.Binder;
 import android.os.Bundle;
@@ -89,6 +100,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -142,6 +154,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
     private List<Activity> mStartedActivityList;
     private int mErrorProcessID;
     private Instrumentation mInstrumentation;
+    private HomeActivitySession mTestHomeSession;
 
     @Override
     protected void setUp() throws Exception {
@@ -159,6 +172,9 @@ public class ActivityManagerTest extends InstrumentationTestCase {
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
+        if (mTestHomeSession != null) {
+            mTestHomeSession.close();
+        }
         if (mIntent != null) {
             mInstrumentation.getContext().stopService(mIntent);
         }
@@ -195,19 +211,10 @@ public class ActivityManagerTest extends InstrumentationTestCase {
          * than the index of recent1_activity
          */
         recentTaskList = mActivityManager.getRecentTasks(maxNum, flags);
-        int indexRecentOne = -1;
-        int indexRecentTwo = -1;
-        int i = 0;
-        for (RecentTaskInfo rti : recentTaskList) {
-            if (rti.baseIntent.getComponent().getClassName().equals(
-                    ActivityManagerRecentOneActivity.class.getName())) {
-                indexRecentOne = i;
-            } else if (rti.baseIntent.getComponent().getClassName().equals(
-                    ActivityManagerRecentTwoActivity.class.getName())) {
-                indexRecentTwo = i;
-            }
-            i++;
-        }
+        int indexRecentOne = getTaskInfoIndex(recentTaskList,
+                ActivityManagerRecentOneActivity.class);
+        int indexRecentTwo = getTaskInfoIndex(recentTaskList,
+                ActivityManagerRecentTwoActivity.class);
         assertTrue(indexRecentOne != -1 && indexRecentTwo != -1);
         assertTrue(indexRecentTwo < indexRecentOne);
 
@@ -305,6 +312,18 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         mStartedActivityList.add(monitor.waitForActivity());
     }
 
+    private <T extends TaskInfo, S extends Activity> int getTaskInfoIndex(List<T> taskList,
+            Class<S> activityClass) {
+        int i = 0;
+        for (TaskInfo ti : taskList) {
+            if (ti.baseActivity.getClassName().equals(activityClass.getName())) {
+                return i;
+            }
+            i++;
+        }
+        return -1;
+    }
+
     public void testGetRunningTasks() {
         // Test illegal parameter
         List<RunningTaskInfo> runningTaskList;
@@ -320,30 +339,36 @@ public class ActivityManagerTest extends InstrumentationTestCase {
 
         // start recent1_activity.
         startSubActivity(ActivityManagerRecentOneActivity.class);
-        // start recent2_activity
+
+        runningTaskList = mActivityManager.getRunningTasks(20);
+
+        // assert only recent1_activity exists and is visible.
+        int indexRecentOne = getTaskInfoIndex(runningTaskList,
+                ActivityManagerRecentOneActivity.class);
+        int indexRecentTwo = getTaskInfoIndex(runningTaskList,
+                ActivityManagerRecentTwoActivity.class);
+        assertTrue(indexRecentOne != -1 && indexRecentTwo == -1);
+        assertTrue(runningTaskList.get(indexRecentOne).isVisible());
+
+        // start recent2_activity.
         startSubActivity(ActivityManagerRecentTwoActivity.class);
 
         /*
          * assert both recent1_activity and recent2_activity exist in the
          * running tasks list. Moreover,the index of the recent2_activity is
-         * smaller than the index of recent1_activity
+         * smaller than the index of recent1_activity.
          */
         runningTaskList = mActivityManager.getRunningTasks(20);
-        int indexRecentOne = -1;
-        int indexRecentTwo = -1;
-        int i = 0;
-        for (RunningTaskInfo rti : runningTaskList) {
-            if (rti.baseActivity.getClassName().equals(
-                    ActivityManagerRecentOneActivity.class.getName())) {
-                indexRecentOne = i;
-            } else if (rti.baseActivity.getClassName().equals(
-                    ActivityManagerRecentTwoActivity.class.getName())) {
-                indexRecentTwo = i;
-            }
-            i++;
-        }
+        indexRecentOne = getTaskInfoIndex(runningTaskList,
+                ActivityManagerRecentOneActivity.class);
+        indexRecentTwo = getTaskInfoIndex(runningTaskList,
+                ActivityManagerRecentTwoActivity.class);
         assertTrue(indexRecentOne != -1 && indexRecentTwo != -1);
         assertTrue(indexRecentTwo < indexRecentOne);
+
+        // assert only recent2_activity is visible.
+        assertFalse(runningTaskList.get(indexRecentOne).isVisible());
+        assertTrue(runningTaskList.get(indexRecentTwo).isVisible());
     }
 
     public void testGetRunningServices() throws Exception {
@@ -582,6 +607,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
      * Verify that the TimeTrackingAPI works properly when starting and ending an activity.
      */
     public void testTimeTrackingAPI_SimpleStartExit() throws Exception {
+        createManagedHomeActivitySession();
         launchHome();
         // Prepare to start an activity from another APK.
         Intent intent = new Intent(Intent.ACTION_MAIN);
@@ -668,6 +694,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
      * Verify that the TimeTrackingAPI works properly when switching away from the monitored task.
      */
     public void testTimeTrackingAPI_SwitchAwayTriggers() throws Exception {
+        createManagedHomeActivitySession();
         launchHome();
 
         // Prepare to start an activity from another APK.
@@ -716,6 +743,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
      * and ended.
      */
     public void testTimeTrackingAPI_ChainedActivityExit() throws Exception {
+        createManagedHomeActivitySession();
         launchHome();
         // Prepare to start an activity from another APK.
         Intent intent = new Intent(Intent.ACTION_MAIN);
@@ -1312,8 +1340,12 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         final WatchUidRunner watcher3 = new WatchUidRunner(mInstrumentation, ai3.uid, waitForSec);
 
         final CountDownLatch[] latchHolder = new CountDownLatch[1];
-        final int[] levelHolder = new int[1];
-        final Bundle extras = initWaitingForTrimLevel(latchHolder, levelHolder);
+        final int[] expectedLevel = new int[1];
+        final Bundle extras = initWaitingForTrimLevel(level -> {
+            if (level == expectedLevel[0]) {
+                latchHolder[0].countDown();
+            }
+        });
         try {
             // Make sure we could start activity from background
             SystemUtil.runShellCommand(mInstrumentation,
@@ -1326,6 +1358,7 @@ public class ActivityManagerTest extends InstrumentationTestCase {
             toggleScreenOn(true);
 
             latchHolder[0] = new CountDownLatch(1);
+            expectedLevel[0] = TRIM_MEMORY_RUNNING_MODERATE;
 
             // Start an activity
             CommandReceiver.sendCommand(mTargetContext, CommandReceiver.COMMAND_START_ACTIVITY,
@@ -1337,54 +1370,63 @@ public class ActivityManagerTest extends InstrumentationTestCase {
             SystemUtil.runShellCommand(mInstrumentation, "am memory-factor set MODERATE");
             assertTrue("Failed to wait for the trim memory event",
                     latchHolder[0].await(waitForSec, TimeUnit.MILLISECONDS));
-            assertEquals(TRIM_MEMORY_RUNNING_MODERATE, levelHolder[0]);
 
             latchHolder[0] = new CountDownLatch(1);
+            expectedLevel[0] = TRIM_MEMORY_RUNNING_LOW;
             // Force the memory pressure to low
             SystemUtil.runShellCommand(mInstrumentation, "am memory-factor set LOW");
             assertTrue("Failed to wait for the trim memory event",
                     latchHolder[0].await(waitForSec, TimeUnit.MILLISECONDS));
-            assertEquals(TRIM_MEMORY_RUNNING_LOW, levelHolder[0]);
 
             latchHolder[0] = new CountDownLatch(1);
+            expectedLevel[0] = TRIM_MEMORY_RUNNING_CRITICAL;
             // Force the memory pressure to critical
             SystemUtil.runShellCommand(mInstrumentation, "am memory-factor set CRITICAL");
             assertTrue("Failed to wait for the trim memory event",
                     latchHolder[0].await(waitForSec, TimeUnit.MILLISECONDS));
-            assertEquals(TRIM_MEMORY_RUNNING_CRITICAL, levelHolder[0]);
+
+            CommandReceiver.sendCommand(mTargetContext, CommandReceiver.COMMAND_START_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, LocalForegroundService.newCommand(
+                    LocalForegroundService.COMMAND_START_NO_FOREGROUND));
 
             // Reset the memory pressure override
             SystemUtil.runShellCommand(mInstrumentation, "am memory-factor reset");
 
             latchHolder[0] = new CountDownLatch(1);
+            expectedLevel[0] = TRIM_MEMORY_UI_HIDDEN;
             // Start another activity in package2
             CommandReceiver.sendCommand(mTargetContext, CommandReceiver.COMMAND_START_ACTIVITY,
                     PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null);
             watcher2.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_TOP, null);
+            watcher1.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_SERVICE, null);
             assertTrue("Failed to wait for the trim memory event",
                     latchHolder[0].await(waitForSec, TimeUnit.MILLISECONDS));
-            assertEquals(TRIM_MEMORY_UI_HIDDEN, levelHolder[0]);
 
             // Start the heavy weight activity
             final Intent intent = new Intent();
             final CountDownLatch[] heavyLatchHolder = new CountDownLatch[1];
-            final int[] heavyLevelHolder = new int[1];
+            final Predicate[] testFunc = new Predicate[1];
 
             intent.setPackage(CANT_SAVE_STATE_1_PACKAGE_NAME);
             intent.setAction(Intent.ACTION_MAIN);
             intent.addCategory(Intent.CATEGORY_LAUNCHER);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            intent.putExtras(initWaitingForTrimLevel(heavyLatchHolder, heavyLevelHolder));
+            intent.putExtras(initWaitingForTrimLevel(level -> {
+                if (testFunc[0].test(level)) {
+                    heavyLatchHolder[0].countDown();
+                }
+            }));
 
             mTargetContext.startActivity(intent);
             watcher3.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_TOP, null);
 
             heavyLatchHolder[0] = new CountDownLatch(1);
+            testFunc[0] = level -> TRIM_MEMORY_RUNNING_MODERATE <= (int) level
+                    && TRIM_MEMORY_RUNNING_CRITICAL >= (int) level;
             // Force the memory pressure to moderate
             SystemUtil.runShellCommand(mInstrumentation, "am memory-factor set MODERATE");
             assertTrue("Failed to wait for the trim memory event",
                     heavyLatchHolder[0].await(waitForSec, TimeUnit.MILLISECONDS));
-            assertEquals(TRIM_MEMORY_RUNNING_MODERATE, heavyLevelHolder[0]);
 
             // Now go home
             final Intent homeIntent = new Intent();
@@ -1393,27 +1435,11 @@ public class ActivityManagerTest extends InstrumentationTestCase {
             homeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
             heavyLatchHolder[0] = new CountDownLatch(1);
+            testFunc[0] = level -> TRIM_MEMORY_BACKGROUND == (int) level;
             mTargetContext.startActivity(homeIntent);
             assertTrue("Failed to wait for the trim memory event",
                     heavyLatchHolder[0].await(waitForSec, TimeUnit.MILLISECONDS));
-            assertEquals(TRIM_MEMORY_BACKGROUND, heavyLevelHolder[0]);
 
-            // All done, clean up.
-            CommandReceiver.sendCommand(mTargetContext, CommandReceiver.COMMAND_STOP_ACTIVITY,
-                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP2, 0, null);
-            CommandReceiver.sendCommand(mTargetContext, CommandReceiver.COMMAND_STOP_ACTIVITY,
-                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
-
-            final Intent finishIntent = new Intent();
-            finishIntent.setPackage(CANT_SAVE_STATE_1_PACKAGE_NAME);
-            finishIntent.setAction(ACTION_FINISH);
-            finishIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            finishIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            mTargetContext.startActivity(finishIntent);
-
-            watcher1.waitFor(WatchUidRunner.CMD_CACHED, null);
-            watcher2.waitFor(WatchUidRunner.CMD_CACHED, null);
-            watcher3.waitFor(WatchUidRunner.CMD_CACHED, null);
         } finally {
             SystemUtil.runShellCommand(mInstrumentation,
                     "cmd deviceidle whitelist -" + PACKAGE_NAME_APP1);
@@ -1682,16 +1708,15 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         return lru;
     }
 
-    private Bundle initWaitingForTrimLevel(
-            final CountDownLatch[] latchHolder, final int[] levelHolder) {
+    private Bundle initWaitingForTrimLevel(final Consumer<Integer> checker) {
         final IBinder binder = new Binder() {
             @Override
             protected boolean onTransact(int code, Parcel data, Parcel reply, int flags)
                     throws RemoteException {
                 switch (code) {
                     case IBinder.FIRST_CALL_TRANSACTION:
-                        levelHolder[0] = data.readInt();
-                        latchHolder[0].countDown();
+                        final int level = data.readInt();
+                        checker.accept(level);
                         return true;
                     default:
                         return false;
@@ -1757,5 +1782,64 @@ public class ActivityManagerTest extends InstrumentationTestCase {
             Thread.sleep(500);
         } while (!(result = supplier.get()) && SystemClock.uptimeMillis() < deadLine);
         return result;
+    }
+
+    private void createManagedHomeActivitySession()
+            throws Exception {
+        if (noHomeScreen()) return;
+        ComponentName homeActivity = new ComponentName(
+                STUB_PACKAGE_NAME, TestHomeActivity.class.getName());
+        mTestHomeSession = new HomeActivitySession(homeActivity);
+    }
+
+    /**
+     * HomeActivitySession is used to replace the default home component, so that you can use
+     * your preferred home for testing within the session. The original default home will be
+     * restored automatically afterward.
+     */
+    private class HomeActivitySession {
+        private PackageManager mPackageManager;
+        private ComponentName mOrigHome;
+        private ComponentName mSessionHome;
+
+        HomeActivitySession(ComponentName sessionHome) throws Exception {
+            mSessionHome = sessionHome;
+            mPackageManager = mInstrumentation.getContext().getPackageManager();
+            mOrigHome = getDefaultHomeComponent();
+
+            SystemUtil.runWithShellPermissionIdentity(
+                    () -> mPackageManager.setComponentEnabledSetting(mSessionHome,
+                            COMPONENT_ENABLED_STATE_ENABLED, DONT_KILL_APP));
+            setDefaultHome(mSessionHome);
+        }
+
+        public void close() throws Exception {
+            SystemUtil.runWithShellPermissionIdentity(
+                    () -> mPackageManager.setComponentEnabledSetting(mSessionHome,
+                            COMPONENT_ENABLED_STATE_DISABLED, DONT_KILL_APP));
+            if (mOrigHome != null) {
+                setDefaultHome(mOrigHome);
+                mOrigHome = null;
+            }
+        }
+
+        private void setDefaultHome(ComponentName componentName) throws Exception {
+            executeShellCommand("cmd package set-home-activity --user "
+                    + android.os.Process.myUserHandle().getIdentifier() + " "
+                    + componentName.flattenToString());
+        }
+
+        private ComponentName getDefaultHomeComponent() {
+            final Intent intent = new Intent(ACTION_MAIN);
+            intent.addCategory(CATEGORY_HOME);
+            intent.addFlags(FLAG_ACTIVITY_NEW_TASK);
+            final ResolveInfo resolveInfo = mInstrumentation.getContext()
+                    .getPackageManager().resolveActivity(intent, MATCH_DEFAULT_ONLY);
+            if (resolveInfo == null) {
+                throw new AssertionError("Home activity not found");
+            }
+            return new ComponentName(resolveInfo.activityInfo.packageName,
+                    resolveInfo.activityInfo.name);
+        }
     }
 }

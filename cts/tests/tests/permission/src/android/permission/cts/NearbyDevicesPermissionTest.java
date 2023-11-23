@@ -211,25 +211,40 @@ public class NearbyDevicesPermissionTest {
     }
 
     /**
-     * Verify that upgrading an app doesn't gain them any access to Bluetooth
-     * scan results; they'd always need to involve the user to gain permissions.
+     * Verify that a legacy app that was unable to interact with Bluetooth
+     * devices is still unable to interact with them after updating to a modern
+     * SDK; they'd always need to involve the user to gain permissions.
      */
     @Test
-    @Ignore
-    public void testRequestBluetoothPermission_Upgrade() throws Throwable {
+    public void testRequestBluetoothPermission_Default_Upgrade() throws Throwable {
         install(APK_BLUETOOTH_30);
-        grantPermission(TEST_APP_PKG, ACCESS_FINE_LOCATION);
-        grantPermission(TEST_APP_PKG, ACCESS_BACKGROUND_LOCATION);
-        assertScanBluetoothResult(Result.FULL);
+        assertScanBluetoothResult(Result.EMPTY);
 
         // Upgrading to target a new SDK level means they need to explicitly
         // request the new runtime permission; by default it's denied
-        install(APK_BLUETOOTH_31);
+        install(APK_BLUETOOTH_NEVER_FOR_LOCATION_31);
         assertScanBluetoothResult(Result.EXCEPTION);
 
         // If the user does grant it, they can scan again
         grantPermission(TEST_APP_PKG, BLUETOOTH_CONNECT);
         grantPermission(TEST_APP_PKG, BLUETOOTH_SCAN);
+        assertScanBluetoothResult(Result.FILTERED);
+    }
+
+    /**
+     * Verify that a legacy app that was able to interact with Bluetooth devices
+     * is still able to interact with them after updating to a modern SDK.
+     */
+    @Test
+    public void testRequestBluetoothPermission_GrantLocation_Upgrade() throws Throwable {
+        install(APK_BLUETOOTH_30);
+        grantPermission(TEST_APP_PKG, ACCESS_FINE_LOCATION);
+        grantPermission(TEST_APP_PKG, ACCESS_BACKGROUND_LOCATION);
+        assertScanBluetoothResult(Result.FULL);
+
+        // Upgrading to target a new SDK level means they still have the access
+        // they enjoyed as a legacy app
+        install(APK_BLUETOOTH_31);
         assertScanBluetoothResult(Result.FULL);
     }
 

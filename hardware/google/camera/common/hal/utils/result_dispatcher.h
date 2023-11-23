@@ -65,7 +65,6 @@ class ResultDispatcher {
   // Remove a pending request.
   void RemovePendingRequest(uint32_t frame_number);
 
- protected:
   ResultDispatcher(uint32_t partial_result_count,
                    ProcessCaptureResultFunc process_capture_result,
                    NotifyFunc notify);
@@ -180,13 +179,13 @@ class ResultDispatcher {
   // A thread to run NotifyCallbackThreadLoop().
   std::thread notify_callback_thread_;
 
-  std::mutex notify_callback_lock;
+  std::mutex notify_callback_lock_;
 
   // Condition to wake up notify_callback_thread_. Used with notify_callback_lock.
   std::condition_variable notify_callback_condition_;
 
   // Protected by notify_callback_lock.
-  bool notify_callback_thread_exiting = false;
+  bool notify_callback_thread_exiting_ = false;
 
   // State of callback thread is notified or not.
   volatile bool is_result_shutter_updated_ = false;

@@ -16,27 +16,28 @@
 
 #pragma once
 #include <array>
-#include <android/hardware/audio/common/6.0/types.h>
-#include <android/hardware/audio/6.0/types.h>
+#include <android/hardware/audio/common/7.0/types.h>
+#include <android/hardware/audio/7.0/types.h>
 #include <utils/Timers.h>
 
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V6_0 {
+namespace V7_0 {
 namespace implementation {
 namespace util {
 
 using ::android::hardware::hidl_bitfield;
-using ::android::hardware::audio::common::V6_0::AudioFormat;
-using ::android::hardware::audio::common::V6_0::AudioChannelMask;
-using ::android::hardware::audio::common::V6_0::AudioConfig;
-using ::android::hardware::audio::V6_0::MicrophoneInfo;
+using ::android::hardware::hidl_string;
+using ::android::hardware::audio::common::V7_0::AudioFormat;
+using ::android::hardware::audio::common::V7_0::AudioChannelMask;
+using ::android::hardware::audio::common::V7_0::AudioConfig;
+using ::android::hardware::audio::V7_0::MicrophoneInfo;
 
 MicrophoneInfo getMicrophoneInfo();
 
-size_t countChannels(hidl_bitfield<AudioChannelMask>);
-size_t getBytesPerSample(AudioFormat);
+size_t countChannels(const AudioChannelMask &mask);
+size_t getBytesPerSample(const AudioFormat &format);
 
 bool checkAudioConfig(bool isOut,
                       size_t duration_ms,
@@ -49,7 +50,7 @@ void setThreadPriority(int prio);
 
 }  // namespace util
 }  // namespace implementation
-}  // namespace V6_0
+}  // namespace V7_0
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

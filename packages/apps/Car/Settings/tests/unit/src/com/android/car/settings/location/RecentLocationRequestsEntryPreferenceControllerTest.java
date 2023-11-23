@@ -19,20 +19,18 @@ package com.android.car.settings.location;
 import static com.android.car.settings.location.RecentLocationRequestsEntryPreferenceController.INTENT_FILTER_LOCATION_MODE_CHANGED;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.location.LocationManager;
-import android.os.UserHandle;
 
 import androidx.lifecycle.LifecycleOwner;
 import androidx.preference.Preference;
@@ -50,9 +48,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
 @RunWith(AndroidJUnit4.class)
 public class RecentLocationRequestsEntryPreferenceControllerTest {
     private static final long TIMEOUT_MS = 5000;
@@ -62,10 +57,11 @@ public class RecentLocationRequestsEntryPreferenceControllerTest {
     private Preference mPreference;
     private RecentLocationRequestsEntryPreferenceController mPreferenceController;
     private CarUxRestrictions mCarUxRestrictions;
-    private LocationManager mLocationManager;
 
     @Mock
     private FragmentController mFragmentController;
+    @Mock
+    private LocationManager mLocationManager;
 
     @Before
     public void setUp() {
@@ -74,7 +70,7 @@ public class RecentLocationRequestsEntryPreferenceControllerTest {
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
 
-        mLocationManager = mContext.getSystemService(LocationManager.class);
+        when(mContext.getSystemService(LocationManager.class)).thenReturn(mLocationManager);
 
         mPreference = new Preference(mContext);
         mPreferenceController = new RecentLocationRequestsEntryPreferenceController(mContext,
@@ -105,7 +101,7 @@ public class RecentLocationRequestsEntryPreferenceControllerTest {
 
     @Test
     public void refreshUi_locationOn_preferenceIsEnabled() {
-        setLocationEnabled(true);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
         mPreferenceController.refreshUi();
 
         assertThat(mPreference.isEnabled()).isTrue();
@@ -113,7 +109,7 @@ public class RecentLocationRequestsEntryPreferenceControllerTest {
 
     @Test
     public void refreshUi_locationOff_preferenceIsDisabled() {
-        setLocationEnabled(false);
+        when(mLocationManager.isLocationEnabled()).thenReturn(false);
         mPreferenceController.refreshUi();
 
         assertThat(mPreference.isEnabled()).isFalse();
@@ -122,9 +118,10 @@ public class RecentLocationRequestsEntryPreferenceControllerTest {
     @Test
     public void locationModeChangedBroadcastSent_locationOff_preferenceIsDisabled() {
         mPreferenceController.onStart(mLifecycleOwner);
-        setLocationEnabled(true);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
         mPreferenceController.refreshUi();
-        setLocationEnabled(false);
+        when(mLocationManager.isLocationEnabled()).thenReturn(false);
+        mPreferenceController.mReceiver.onReceive(mContext, new Intent());
 
         assertThat(mPreference.isEnabled()).isFalse();
     }
@@ -132,31 +129,11 @@ public class RecentLocationRequestsEntryPreferenceControllerTest {
     @Test
     public void locationModeChangedBroadcastSent_locationOn_preferenceIsEnabled() {
         mPreferenceController.onStart(mLifecycleOwner);
-        setLocationEnabled(false);
+        when(mLocationManager.isLocationEnabled()).thenReturn(false);
         mPreferenceController.refreshUi();
-        setLocationEnabled(true);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
+        mPreferenceController.mReceiver.onReceive(mContext, new Intent());
 
         assertThat(mPreference.isEnabled()).isTrue();
-    }
-
-    private void setLocationEnabled(boolean enabled) {
-        CountDownLatch latch = new CountDownLatch(1);
-        BroadcastReceiver receiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                latch.countDown();
-            }
-        };
-        mContext.registerReceiver(receiver, new IntentFilter(LocationManager.MODE_CHANGED_ACTION));
-        try {
-            mLocationManager.setLocationEnabledForUser(enabled,
-                    UserHandle.of(UserHandle.myUserId()));
-            assertWithMessage("%s intent reveiced in %sms", LocationManager.MODE_CHANGED_ACTION,
-                    TIMEOUT_MS).that(latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)).isTrue();
-        } catch (InterruptedException e) {
-            assertThat(mLocationManager.isLocationEnabled()).isEqualTo(enabled);
-        } finally {
-            mContext.unregisterReceiver(receiver);
-        }
     }
 }

@@ -35,12 +35,14 @@ import com.android.car.settings.common.PreferenceController;
 public class RecentLocationRequestsEntryPreferenceController extends
         PreferenceController<Preference> {
 
+    private final LocationManager mLocationManager;
+
     @VisibleForTesting
     static final IntentFilter INTENT_FILTER_LOCATION_MODE_CHANGED =
             new IntentFilter(LocationManager.MODE_CHANGED_ACTION);
 
-    private final LocationManager mLocationManager;
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+    @VisibleForTesting
+    final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             refreshUi();

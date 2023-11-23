@@ -42,4 +42,22 @@ open class ConfigurationContainer(
         get() = (overrideConfiguration?.isEmpty ?: true) &&
             (fullConfiguration?.isEmpty ?: true) &&
             (mergedOverrideConfiguration?.isEmpty ?: true)
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ConfigurationContainer) return false
+
+        if (overrideConfiguration != other.overrideConfiguration) return false
+        if (fullConfiguration != other.fullConfiguration) return false
+        if (mergedOverrideConfiguration != other.mergedOverrideConfiguration) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = overrideConfiguration?.hashCode() ?: 0
+        result = 31 * result + (fullConfiguration?.hashCode() ?: 0)
+        result = 31 * result + (mergedOverrideConfiguration?.hashCode() ?: 0)
+        return result
+    }
 }

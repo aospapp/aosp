@@ -17,11 +17,14 @@
 package com.android.car.settings.accounts;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -30,17 +33,20 @@ import static org.mockito.Mockito.when;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
+import android.os.UserManager;
 
 import androidx.lifecycle.LifecycleOwner;
-import androidx.preference.Preference;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
+import com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment;
 import com.android.car.settings.profiles.ProfileHelper;
+import com.android.car.settings.testutils.EnterpriseTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
+import com.android.car.ui.preference.CarUiPreference;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -54,9 +60,12 @@ import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
 public class AddAccountPreferenceControllerTest {
+    private static final String TEST_RESTRICTION =
+            android.os.UserManager.DISALLOW_MODIFY_ACCOUNTS;
+
     private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private LifecycleOwner mLifecycleOwner;
-    private Preference mPreference;
+    private CarUiPreference mPreference;
     private CarUxRestrictions mCarUxRestrictions;
     private AddAccountPreferenceController mController;
 
@@ -66,25 +75,61 @@ public class AddAccountPreferenceControllerTest {
     private ProfileHelper mMockProfileHelper;
     @Mock
     private AccountTypesHelper mMockAccountTypesHelper;
+    @Mock
+    private UserManager mMockUserManager;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
+
         mLifecycleOwner = new TestLifecycleOwner();
 
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
 
-        mPreference = new Preference(mContext);
+        mPreference = new CarUiPreference(mContext);
         mController = new TestAddAccountPreferenceController(mContext,
                 /* preferenceKey= */ "key", mFragmentController, mCarUxRestrictions);
         PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mMockUserManager);
         doNothing().when(mContext).startActivity(any());
     }
 
     @Test
-    public void cannotModifyUsers_addAccountButtonShouldBeDisabled() {
-        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(false);
+    public void cannotModifyUsers_restrictedByDpm_addAccountButtonShouldBeAvailableForViewing() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void cannotModifyUsers_restrictedByUm_addAccountButtonShouldBeDisabled() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void cannotModifyUsers_demoOrGuestAndRestricedByDpm_addAccountButtonShouldBeDisabled() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void cannotModifyUsers_demoOrGuestUser_addAccountButtonShouldBeDisabled() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
 
         mController.onCreate(mLifecycleOwner);
 
@@ -143,6 +188,24 @@ public class AddAccountPreferenceControllerTest {
         mPreference.performClick();
 
         verify(mFragmentController).launchFragment(any(ChooseAccountFragment.class));
+    }
+
+    @Test
+    @UiThreadTest
+    public void disabledClick_restrictedByDpm_dialog() {
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        mController.onCreate(mLifecycleOwner);
+
+        mPreference.performClick();
+
+        assertShowingDisabledByAdminDialog();
+    }
+
+    private void assertShowingDisabledByAdminDialog() {
+        verify(mFragmentController).showDialog(any(ActionDisabledByAdminDialogFragment.class),
+                eq(DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG));
     }
 
     private class TestAddAccountPreferenceController extends AddAccountPreferenceController {

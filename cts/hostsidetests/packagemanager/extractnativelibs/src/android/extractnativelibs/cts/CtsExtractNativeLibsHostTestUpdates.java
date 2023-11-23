@@ -23,6 +23,8 @@ import android.cts.host.utils.DeviceJUnit4ClassRunnerWithParameters;
 import android.cts.host.utils.DeviceJUnit4Parameterized;
 import android.platform.test.annotations.AppModeFull;
 
+import com.android.tradefed.util.AbiUtils;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -77,6 +79,8 @@ public class CtsExtractNativeLibsHostTestUpdates extends CtsExtractNativeLibsHos
 
     @Override
     public void setUp() throws Exception {
+        // Skip the test if the requested test ABI is 32 bit (that defeats the purpose of this test)
+        assumeTrue(AbiUtils.getBitness(getAbi().getName()).equals("64"));
         if (mIsIncremental) {
             // Skip incremental installations for non-incremental devices
             assumeTrue(isIncrementalInstallSupported());

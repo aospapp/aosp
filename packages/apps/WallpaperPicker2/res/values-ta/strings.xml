@@ -56,10 +56,10 @@
     <string name="wallpaper_disabled_by_administrator_message" msgid="1551430406714747884">"வால்பேப்பர் அமைவைச் சாதன நிர்வாகி முடக்கியுள்ளார்"</string>
     <string name="wallpaper_set_successfully_message" msgid="2958998799111688578">"வால்பேப்பர் அமைக்கப்பட்டது"</string>
     <string name="wallpapers_unavailable_offline_message" msgid="8136405438621689532">"வால்பேப்பர்களைப் பார்க்க, இணைய இணைப்புத் தேவை. இணையத்துடன் இணைத்து, மீண்டும் முயலவும்."</string>
-    <string name="currently_set_home_wallpaper_thumbnail" msgid="4022381436821898917">"தற்போது அமைக்கப்பட்டுள்ள முகப்புத் திரை வால்பேப்பரின் சிறு படம்"</string>
-    <string name="currently_set_lock_wallpaper_thumbnail" msgid="2094209303934569997">"தற்போது அமைக்கப்பட்டுள்ள பூட்டுத் திரை வால்பேப்பரின் சிறு படம்"</string>
-    <string name="currently_set_wallpaper_thumbnail" msgid="8651887838745545107">"தற்போது அமைக்கப்பட்டுள்ள வால்பேப்பரின் சிறு படம்"</string>
-    <string name="wallpaper_thumbnail" msgid="569931475923605974">"வால்பேப்பரின் சிறு படம்"</string>
+    <string name="currently_set_home_wallpaper_thumbnail" msgid="4022381436821898917">"தற்போது அமைக்கப்பட்டுள்ள முகப்புத் திரை வால்பேப்பரின் சிறுபடம்"</string>
+    <string name="currently_set_lock_wallpaper_thumbnail" msgid="2094209303934569997">"தற்போது அமைக்கப்பட்டுள்ள பூட்டுத் திரை வால்பேப்பரின் சிறுபடம்"</string>
+    <string name="currently_set_wallpaper_thumbnail" msgid="8651887838745545107">"தற்போது அமைக்கப்பட்டுள்ள வால்பேப்பரின் சிறுபடம்"</string>
+    <string name="wallpaper_thumbnail" msgid="569931475923605974">"வால்பேப்பரின் சிறுபடம்"</string>
     <string name="explore_home_screen" msgid="8756346794535765482">"முகப்புத் திரை வால்பேப்பர் பற்றி மேலும் அறிவதற்கான பட்டன்"</string>
     <string name="explore_lock_screen" msgid="268938342103703665">"பூட்டுத் திரை வால்பேப்பர் பற்றி மேலும் அறிவதற்கான பட்டன்"</string>
     <string name="refresh_daily_wallpaper_home_content_description" msgid="2770445044556164259">"முகப்புத் திரையில் தினசரி வால்பேப்பரைப் புதுப்பிக்கும் பட்டன்"</string>
@@ -95,7 +95,14 @@
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"வால்பேப்பர் மாதிரிக்காட்சி"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"இந்தத் தொகுப்பு இல்லை"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"UI மாதிரிக்காட்சியை மறை"</string>
+    <string name="hint_hide_ui_preview" msgid="4527603797714586070">"மாதிரிக்காட்சியில் UI மறைந்துள்ளது. காட்ட இருமுறை தட்டவும்"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"UI மாதிரிக்காட்சியைக் காட்டு"</string>
+    <string name="hint_show_ui_preview" msgid="2744155435325318349">"மாதிரிக்காட்சியில் UI காட்டப்படுகிறது. மறைக்க இருமுறை தட்டவும்"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"வால்பேப்பரை மாற்றுதல்"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"லாக்ஸ்கிரீன் வால்பேப்பர் மாதிரிக்காட்சி"</string>
+    <string name="apply_btn" msgid="5764555565943538528">"பயன்படுத்து"</string>
+    <string name="accessibility_customize_hidden" msgid="6320568529768181691">"பிரத்தியேகமாக்குதலை மறைக்கிறது"</string>
+    <string name="accessibility_customize_shown" msgid="590964727831547651">"பிரத்தியேகமாக்குதலைக் காட்டுகிறது"</string>
+    <string name="accessibility_info_hidden" msgid="2288603712350168107">"தகவலை மறைக்கிறது"</string>
+    <string name="accessibility_info_shown" msgid="6626025722456105632">"தகவலைக் காட்டுகிறது"</string>
 </resources>

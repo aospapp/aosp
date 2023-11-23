@@ -23,7 +23,6 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothProtoEnums;
-import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -367,14 +366,14 @@ public class DatabaseManager {
             String address = device.getAddress();
 
             if (!mMetadataCache.containsKey(address)) {
-                Log.d(TAG, "getProfileConnectionPolicy: device " + address + " is not in cache");
+                Log.d(TAG, "getProfileConnectionPolicy: device xx:xx:xx:xx:xx:xx is not in cache");
                 return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             }
 
             Metadata data = mMetadataCache.get(address);
             int connectionPolicy = data.getProfileConnectionPolicy(profile);
 
-            Log.v(TAG, "getProfileConnectionPolicy: " + address + ", profile=" + profile
+            Log.v(TAG, "getProfileConnectionPolicy: xx:xx:xx:xx:xx:xx, profile=" + profile
                     + ", connectionPolicy = " + connectionPolicy);
             return connectionPolicy;
         }
@@ -529,7 +528,7 @@ public class DatabaseManager {
      */
     public void setConnection(BluetoothDevice device, boolean isA2dpDevice) {
         synchronized (mMetadataCache) {
-            Log.d(TAG, "setConnection: device=" + device + " and isA2dpDevice=" + isA2dpDevice);
+            Log.d(TAG, "setConnection: device=xx:xx:xx:xx:xx:xx and isA2dpDevice=" + isA2dpDevice);
             if (device == null) {
                 Log.e(TAG, "setConnection: device is null");
                 return;
@@ -555,7 +554,7 @@ public class DatabaseManager {
                 metadata.is_active_a2dp_device = true;
             }
 
-            Log.d(TAG, "Updating last connected time for device: " + device + " to "
+            Log.d(TAG, "Updating last connected time for device: xx:xx:xx:xx:xx:xx to "
                     + metadata.last_active_time);
             updateDatabase(metadata);
         }
@@ -666,7 +665,7 @@ public class DatabaseManager {
             Metadata metadata = metadataList.get(index);
             if (metadata.last_active_time != MetadataDatabase.sCurrentConnectionNumber) {
                 Log.d(TAG, "compactLastConnectionTime: Setting last_active_item for device: "
-                        + metadata.getAddress() + " from " + metadata.last_active_time + " to "
+                        + "xx:xx:xx:xx:xx:xx from " + metadata.last_active_time + " to "
                         + MetadataDatabase.sCurrentConnectionNumber);
                 metadata.last_active_time = MetadataDatabase.sCurrentConnectionNumber;
                 updateDatabase(metadata);
@@ -789,7 +788,7 @@ public class DatabaseManager {
             mMigratedFromSettingsGlobal = true;
             for (Metadata data : list) {
                 String address = data.getAddress();
-                Log.v(TAG, "cacheMetadata: found device " + address);
+                Log.v(TAG, "cacheMetadata: found device xx:xx:xx:xx:xx:xx");
                 mMetadataCache.put(address, data);
             }
             Log.i(TAG, "cacheMetadata: Database is ready");
@@ -996,7 +995,7 @@ public class DatabaseManager {
             Log.e(TAG, "updateDatabase: address is null");
             return;
         }
-        Log.d(TAG, "updateDatabase " + data.getAddress());
+        Log.d(TAG, "updateDatabase xx:xx:xx:xx:xx:xx");
         Message message = mHandler.obtainMessage(MSG_UPDATE_DATABASE);
         message.obj = data;
         mHandler.sendMessage(message);

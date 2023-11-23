@@ -115,7 +115,7 @@ class PostingListFree {
   // bytes which will store the next posting list index, the rest are unused and
   // can be anything.
   uint8_t *posting_list_buffer_;
-  uint32_t size_in_bytes_;
+  [[maybe_unused]] uint32_t size_in_bytes_;
 
   static_assert(sizeof(PostingListIndex) <=
                     posting_list_utils::min_posting_list_size(),

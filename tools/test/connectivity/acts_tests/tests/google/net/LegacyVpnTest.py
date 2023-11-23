@@ -43,7 +43,8 @@ class LegacyVpnTest(WifiBaseTest):
         req_params = [
             x for x in req_params if not x.startswith("__")
         ]
-        opt_params = ["wifi_network", "vpn_cert_country", "vpn_cert_org"]
+        opt_params = ["wifi_network", "vpn_cert_country",
+                      "vpn_cert_org", "configure_OpenWrt"]
         self.unpack_userparams(req_param_names=req_params,
                                opt_param_names=opt_params)
 
@@ -51,8 +52,12 @@ class LegacyVpnTest(WifiBaseTest):
         wutils.wifi_toggle_state(self.dut, True)
         if OPENWRT in self.user_params:
             self.openwrt = self.access_points[0]
-            self.configure_openwrt_ap_and_start(wpa_network=True)
-            self.wifi_network = self.openwrt.get_wifi_network()
+            if hasattr(self, "configure_OpenWrt") and self.configure_OpenWrt == "skip":
+                self.dut.log.info("Skip configure Wifi interface due to config setup.")
+            else:
+                self.configure_openwrt_ap_and_start(wpa_network=True)
+                self.wifi_network = self.openwrt.get_wifi_network()
+
             # Wait for OpenWrt statement update
             time.sleep(10)
             self.openwrt.network_setting.setup_vpn_pptp_server(

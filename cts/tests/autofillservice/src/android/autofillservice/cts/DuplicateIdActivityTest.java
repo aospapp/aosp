@@ -19,6 +19,7 @@ package android.autofillservice.cts;
 import static android.autofillservice.cts.activities.DuplicateIdActivity.DUPLICATE_ID;
 import static android.autofillservice.cts.testcore.CannedFillResponse.NO_RESPONSE;
 import static android.autofillservice.cts.testcore.Helper.assertEqualsIgnoreSession;
+import static android.autofillservice.cts.testcore.Helper.getActivityTitle;
 
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
@@ -34,11 +35,14 @@ import android.autofillservice.cts.testcore.AutofillActivityTestRule;
 import android.autofillservice.cts.testcore.CannedFillResponse;
 import android.autofillservice.cts.testcore.Helper;
 import android.autofillservice.cts.testcore.InstrumentedAutoFillService;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.autofill.AutofillId;
 import android.widget.EditText;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.After;
 import org.junit.Before;
@@ -77,9 +81,17 @@ public class DuplicateIdActivityTest
      * @return An array containing the two tested views
      */
     private AssistStructure.ViewNode[] findViews(InstrumentedAutoFillService.FillRequest request,
-            int expectedCount) {
-        assertThat(request.structure.getWindowNodeCount()).isEqualTo(1);
-        AssistStructure.WindowNode windowNode = request.structure.getWindowNodeAt(0);
+            int expectedCount, String activityTitle) {
+        AssistStructure.WindowNode windowNode = null;
+        int count = 0;
+        final int nodes = request.structure.getWindowNodeCount();
+        for (int i = 0; i < nodes; ++i) {
+            if (TextUtils.equals(request.structure.getWindowNodeAt(i).getTitle(), activityTitle)) {
+                windowNode = request.structure.getWindowNodeAt(i);
+                count++;
+            }
+        }
+        assertThat(count).isEqualTo(1);
 
         AssistStructure.ViewNode rootNode = windowNode.getRootViewNode();
 
@@ -110,7 +122,9 @@ public class DuplicateIdActivityTest
         final InstrumentedAutoFillService.FillRequest request1 = sReplier.getNextFillRequest();
         Log.v(TAG, "request1: " + request1);
 
-        final AssistStructure.ViewNode[] views1 = findViews(request1, 2);
+        final String activityTitle = getActivity().getPackageName() + "/"
+                + getActivityTitle(InstrumentationRegistry.getInstrumentation(), getActivity());
+        final AssistStructure.ViewNode[] views1 = findViews(request1, 2, activityTitle);
         final AssistStructure.ViewNode view1 = views1[0];
         final AssistStructure.ViewNode view2 = views1[1];
         final AutofillId id1 = view1.getAutofillId();
@@ -148,7 +162,7 @@ public class DuplicateIdActivityTest
 
         final InstrumentedAutoFillService.FillRequest request3 = sReplier.getNextFillRequest();
         Log.v(TAG, "request3: " + request3);
-        final AssistStructure.ViewNode[] views2 = findViews(request3, 3);
+        final AssistStructure.ViewNode[] views2 = findViews(request3, 3, activityTitle);
         final AssistStructure.ViewNode recreatedView1 = views2[0];
         final AssistStructure.ViewNode recreatedView2 = views2[1];
         final AssistStructure.ViewNode newView1 = views2[2];

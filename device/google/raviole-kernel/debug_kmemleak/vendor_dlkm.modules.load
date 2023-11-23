@@ -1,0 +1,17 @@
+kernel/drivers/pinctrl/pinctrl-slg51000.ko
+kernel/drivers/regulator/slg51000-regulator.ko
+kernel/drivers/mfd/slg51000-core.ko
+kernel/drivers/input/misc/vl53l1/stmvl53l1.ko
+kernel/drivers/pps/clients/pps-gpio.ko
+kernel/drivers/pps/pps_core.ko
+kernel/net/core/pktgen.ko
+kernel/net/wireless/cfg80211.ko
+kernel/net/mac80211/mac80211.ko
+extra/bcmdhd43752.ko
+extra/bcmdhd4389.ko
+extra/drv2624.ko
+extra/ftm5.ko
+extra/haptics-cs40l2x.ko
+extra/lwis.ko
+extra/sec_touch.ko
+extra/snd_soc_cs40l2x.ko

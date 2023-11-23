@@ -31,6 +31,7 @@ import static org.mockito.Mockito.verify;
 
 import android.hardware.BatteryState;
 import android.hardware.input.InputManager;
+import android.hardware.input.cts.GlobalKeyMapping;
 import android.hardware.lights.Light;
 import android.hardware.lights.LightState;
 import android.hardware.lights.LightsManager;
@@ -72,6 +73,8 @@ public class InputHidTestCase extends InputTestCase {
     private static final long CALLBACK_TIMEOUT_MILLIS = 5000;
 
     private HidDevice mHidDevice;
+    private final GlobalKeyMapping mGlobalKeyMapping = new GlobalKeyMapping(
+            mInstrumentation.getTargetContext());
     private int mDeviceId;
     private final int mRegisterResourceId;
     private boolean mDelayAfterSetup = false;
@@ -214,17 +217,19 @@ public class InputHidTestCase extends InputTestCase {
     @Override
     protected void testInputDeviceEvents(int resourceId) {
         List<HidTestData> tests = mParser.getHidTestData(resourceId);
+        // Global keys are handled by the framework and do not reach apps.
+        // The set of global keys is vendor-specific.
+        // Remove tests which contain global keys because we can't test them
+        tests.removeIf(testData -> testData.events.removeIf(mGlobalKeyMapping::isGlobalKey));
 
         for (HidTestData testData: tests) {
             mCurrentTestCase = testData.name;
-
             // Send all of the HID reports
             for (int i = 0; i < testData.reports.size(); i++) {
                 final String report = testData.reports.get(i);
                 mHidDevice.sendHidReport(report);
             }
             verifyEvents(testData.events);
-
         }
     }
 

@@ -130,11 +130,16 @@ public class TmaPrefs {
     private TmaPrefs(Context context) {
         mSharedPrefs = PreferenceManager.getDefaultSharedPreferences(context);
 
+        // Note: Android Auto emulator tests depend on a default account type which permits access
+        // to the browse tree (e.g. FREE), and the default root node type NODE_CHILDREN.
+        // Also, they assert on the titles of each root child of NODE_CHILDREN as well as the first
+        // track under the first root child ("Basic Songs"), i.e. "A normal 1H song".
+
         mAccountType = new EnumPrefEntry<>(TmaPrefKey.ACCOUNT_TYPE_KEY,
-                TmaAccountType.values(), TmaAccountType.NONE);
+                TmaAccountType.values(), TmaAccountType.FREE);
 
         mRootNodeType = new EnumPrefEntry<>(TmaPrefKey.ROOT_NODE_TYPE_KEY,
-                TmaBrowseNodeType.values(), TmaBrowseNodeType.NULL);
+                TmaBrowseNodeType.values(), TmaBrowseNodeType.NODE_CHILDREN);
 
         mRootReplyDelay = new EnumPrefEntry<>(TmaPrefKey.ROOT_REPLY_DELAY_KEY,
                 TmaReplyDelay.values(), TmaReplyDelay.NONE);

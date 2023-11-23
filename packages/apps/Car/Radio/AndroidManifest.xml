@@ -58,6 +58,7 @@
         <!-- RadioAppService is set to be executed in a separate process to make sure the reference
              app supports it. It's less optimal though, so it might be desirable to turn it off in
              production app. -->
+        <!-- Keep in sync with RadioAppService#getMediaSourceComp. -->
         <service
             android:name=".service.RadioAppService"
             android:exported="true"

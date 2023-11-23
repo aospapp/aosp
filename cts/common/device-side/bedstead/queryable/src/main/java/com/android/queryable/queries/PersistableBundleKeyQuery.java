@@ -22,10 +22,8 @@ import androidx.annotation.CheckResult;
 
 import com.android.queryable.Queryable;
 
-import java.io.Serializable;
-
 /** Query for a single key in a {@link PersistableBundle}. */
-public interface PersistableBundleKeyQuery<E extends Queryable> {
+public interface PersistableBundleKeyQuery<E extends Queryable> extends Queryable {
     /** Require that the key exists. */
     E exists();
     /** Require that the key does not exist. */

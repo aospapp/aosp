@@ -22,6 +22,7 @@ import static android.net.DnsResolver.FLAG_NO_CACHE_LOOKUP;
 import static android.net.DnsResolver.TYPE_A;
 import static android.net.DnsResolver.TYPE_AAAA;
 import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
+import static android.net.cts.util.CtsNetUtils.TestNetworkCallback;
 import static android.system.OsConstants.ETIMEDOUT;
 
 import android.annotation.NonNull;
@@ -100,6 +101,7 @@ public class DnsResolverTest extends AndroidTestCase {
 
     private String mOldMode;
     private String mOldDnsSpecifier;
+    private TestNetworkCallback mWifiRequestCallback = null;
 
     @Override
     protected void setUp() throws Exception {
@@ -117,6 +119,9 @@ public class DnsResolverTest extends AndroidTestCase {
     @Override
     protected void tearDown() throws Exception {
         mCtsNetUtils.restorePrivateDnsSetting();
+        if (mWifiRequestCallback != null) {
+            mCM.unregisterNetworkCallback(mWifiRequestCallback);
+        }
         super.tearDown();
     }
 
@@ -132,6 +137,14 @@ public class DnsResolverTest extends AndroidTestCase {
 
     private Network[] getTestableNetworks() {
         if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_WIFI)) {
+            // File a NetworkRequest for Wi-Fi, so it connects even if a higher-scoring
+            // network, such as Ethernet, is already connected.
+            final NetworkRequest request = new NetworkRequest.Builder()
+                    .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build();
+            mWifiRequestCallback = new TestNetworkCallback();
+            mCM.requestNetwork(request, mWifiRequestCallback);
             mCtsNetUtils.ensureWifiConnected();
         }
         final ArrayList<Network> testableNetworks = new ArrayList<Network>();

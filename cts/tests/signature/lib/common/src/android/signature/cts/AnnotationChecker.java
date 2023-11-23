@@ -85,14 +85,14 @@ public class AnnotationChecker extends ApiPresenceChecker {
     public void checkDeferred() {
         for (Class<?> clazz : annotatedClassesMap.values()) {
             if (filter != null && filter.skip(clazz)) continue;
-            resultObserver.notifyFailure(FailureType.EXTRA_CLASS, clazz.getName(),
+            resultObserver.notifyFailure(FailureType.extra(clazz), clazz.getName(),
                     "Class annotated with " + annotationSpec
                             + " does not exist in the documented API");
         }
         for (Set<Constructor<?>> set : annotatedConstructorsMap.values()) {
             for (Constructor<?> c : set) {
                 if (filter != null && filter.skip(c)) continue;
-                resultObserver.notifyFailure(FailureType.EXTRA_METHOD, c.toString(),
+                resultObserver.notifyFailure(FailureType.EXTRA_CONSTRUCTOR, c.toString(),
                         "Constructor annotated with " + annotationSpec
                                 + " does not exist in the API");
             }

@@ -359,7 +359,9 @@ CertificateChain generate_self_signed_cert(const AsymmetricKey& key, const Autho
     *error = get_certificate_params(params, &cert_params, KmVersion::KEYMINT_1);
     if (*error != KM_ERROR_OK) return {};
 
-    cert_params.is_signing_key = key.authorizations().Contains(TAG_PURPOSE, KM_PURPOSE_SIGN);
+    cert_params.is_signing_key =
+        (key.authorizations().Contains(TAG_PURPOSE, KM_PURPOSE_SIGN) ||
+         key.authorizations().Contains(TAG_PURPOSE, KM_PURPOSE_ATTEST_KEY));
     cert_params.is_encryption_key = key.authorizations().Contains(TAG_PURPOSE, KM_PURPOSE_DECRYPT);
     cert_params.is_agreement_key = key.authorizations().Contains(TAG_PURPOSE, KM_PURPOSE_AGREE_KEY);
 

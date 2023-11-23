@@ -17,10 +17,12 @@ package com.android.car.ui;
 
 import static android.view.WindowInsets.Type.ime;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.ADD_DESC_TITLE_TO_CONTENT_AREA;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.ADD_DESC_TO_CONTENT_AREA;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.WIDE_SCREEN_ACTION;
 
+import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
@@ -28,6 +30,8 @@ import android.content.DialogInterface;
 import android.database.Cursor;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputFilter;
@@ -58,7 +62,11 @@ import com.android.car.ui.utils.CarUiUtils;
 
 /**
  * Wrapper for AlertDialog.Builder
+ * <p>
+ * Rendered views will comply with
+ * <a href="https://source.android.com/devices/automotive/hmi/car_ui/appendix_b">customization guardrails</a>
  */
+@TargetApi(MIN_TARGET_API)
 public class AlertDialogBuilder {
 
     private AlertDialog.Builder mBuilder;
@@ -86,12 +94,15 @@ public class AlertDialogBuilder {
 
         @Override
         public void onTextChanged(CharSequence s, int start, int before, int count) {
-            Bundle bundle = new Bundle();
-            String titleString = mWideScreenTitle != null ? mWideScreenTitle : mTitle.toString();
-            bundle.putString(ADD_DESC_TITLE_TO_CONTENT_AREA, titleString);
-            bundle.putString(ADD_DESC_TO_CONTENT_AREA, s.toString());
-            mInputMethodManager.sendAppPrivateCommand(mCarUiEditText, WIDE_SCREEN_ACTION,
+            if (VERSION.SDK_INT >= VERSION_CODES.R) {
+                Bundle bundle = new Bundle();
+                String titleString = mWideScreenTitle != null ? mWideScreenTitle
+                        : mTitle.toString();
+                bundle.putString(ADD_DESC_TITLE_TO_CONTENT_AREA, titleString);
+                bundle.putString(ADD_DESC_TO_CONTENT_AREA, s.toString());
+                mInputMethodManager.sendAppPrivateCommand(mCarUiEditText, WIDE_SCREEN_ACTION,
                     bundle);
+            }
         }
 
         @Override
@@ -122,7 +133,7 @@ public class AlertDialogBuilder {
         return v.onApplyWindowInsets(insets);
     };
 
-    private final AlertDialog.OnDismissListener mOnDismissListener = dialog -> {
+    private final DialogInterface.OnDismissListener mOnDismissListener = dialog -> {
         if (mRoot != null) {
             mRoot.setOnApplyWindowInsetsListener(null);
         }
@@ -442,9 +453,10 @@ public class AlertDialogBuilder {
     private void setCustomList(@NonNull CarUiListItemAdapter adapter) {
         View customList = LayoutInflater.from(mContext).inflate(
                 R.layout.car_ui_alert_dialog_list, null);
-        RecyclerView mList = CarUiUtils.requireViewByRefId(customList, R.id.list);
-        mList.setLayoutManager(new LinearLayoutManager(mContext));
-        mList.setAdapter(adapter);
+        RecyclerView list = CarUiUtils.requireViewByRefId(customList, R.id.list);
+        list.setLayoutManager(new LinearLayoutManager(mContext));
+        list.setAdapter(adapter);
+        list.setFocusable(false);
         mBuilder.setView(customList);
     }
 
@@ -689,8 +701,8 @@ public class AlertDialogBuilder {
      *
      * @param prompt              the string that will be set on the edit text view
      * @param textChangedListener textWatcher whose methods are called whenever this TextView's text
-     *                            changes {@link null} otherwise.
-     * @param inputFilters        list of input filters, {@link null} if no filter is needed
+     *                            changes {@code null} otherwise.
+     * @param inputFilters        list of input filters, {@code null} if no filter is needed
      * @param inputType           See {@link EditText#setInputType(int)}, except
      *                            {@link android.text.InputType#TYPE_NULL} will not be set.
      * @return this Builder object to allow for chaining of calls to set methods
@@ -724,8 +736,8 @@ public class AlertDialogBuilder {
      *
      * @param prompt              the string that will be set on the edit text view
      * @param textChangedListener textWatcher whose methods are called whenever this TextView's text
-     *                            changes {@link null} otherwise.
-     * @param inputFilters        list of input filters, {@link null} if no filter is needed
+     *                            changes {@code null} otherwise.
+     * @param inputFilters        list of input filters, {@code null} if no filter is needed
      * @return this Builder object to allow for chaining of calls to set methods
      */
     public AlertDialogBuilder setEditBox(String prompt, TextWatcher textChangedListener,
@@ -800,7 +812,11 @@ public class AlertDialogBuilder {
             mIconView.setImageTintList(
                     mContext.getColorStateList(R.color.car_ui_dialog_icon_color));
         }
-        mBuilder.setCustomTitle(customTitle);
+        // Do not set custom title if not required to maintain extra padding for messages with no
+        // title logic
+        if (!TextUtils.isEmpty(mTitle) || !TextUtils.isEmpty(mSubtitle) || mIcon != null) {
+            mBuilder.setCustomTitle(customTitle);
+        }
 
         if (!mAllowDismissButton && !mHasSingleChoiceBodyButton
                 && !mNeutralButtonSet && !mNegativeButtonSet && !mPositiveButtonSet) {

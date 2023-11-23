@@ -38,4 +38,9 @@ public interface IAutoHomeHelper extends IAppHelper {
      * <p>Checks if exists a assistant widget.
      */
     boolean hasAssistantWidget();
+
+    /**
+     * Opens Media Widget from home screen.
+     */
+    void openMediaWidget();
 }

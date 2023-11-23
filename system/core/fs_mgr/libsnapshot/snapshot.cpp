@@ -87,6 +87,8 @@ static constexpr char kBootIndicatorPath[] = "/metadata/ota/snapshot-boot";
 static constexpr char kRollbackIndicatorPath[] = "/metadata/ota/rollback-indicator";
 static constexpr auto kUpdateStateCheckInterval = 2s;
 
+MergeFailureCode CheckMergeConsistency(const std::string& name, const SnapshotStatus& status);
+
 // Note: IImageManager is an incomplete type in the header, so the default
 // destructor doesn't work.
 SnapshotManager::~SnapshotManager() {}
@@ -116,6 +118,7 @@ std::unique_ptr<SnapshotManager> SnapshotManager::NewForFirstStageMount(IDeviceI
 
 SnapshotManager::SnapshotManager(IDeviceInfo* device) : device_(device) {
     metadata_dir_ = device_->GetMetadataDir();
+    merge_consistency_checker_ = android::snapshot::CheckMergeConsistency;
 }
 
 static std::string GetCowName(const std::string& snapshot_name) {
@@ -518,6 +521,13 @@ bool SnapshotManager::MapSnapshot(LockedFile* lock, const std::string& name,
             break;
     }
 
+    if (mode == SnapshotStorageMode::Persistent && status.state() == SnapshotState::MERGING) {
+        LOG(ERROR) << "Snapshot: " << name
+                   << " has snapshot status Merging but mode set to Persistent."
+                   << " Changing mode to Snapshot-Merge.";
+        mode = SnapshotStorageMode::Merge;
+    }
+
     DmTable table;
     table.Emplace<DmTargetSnapshot>(0, snapshot_sectors, base_device, cow_device, mode,
                                     kSnapshotChunkSize);
@@ -886,6 +896,10 @@ bool SnapshotManager::QuerySnapshotStatus(const std::string& dm_name, std::strin
     if (target_type) {
         *target_type = DeviceMapper::GetTargetType(target.spec);
     }
+    if (!status->error.empty()) {
+        LOG(ERROR) << "Snapshot: " << dm_name << " returned error code: " << status->error;
+        return false;
+    }
     return true;
 }
 
@@ -1164,6 +1178,10 @@ MergeFailureCode SnapshotManager::CheckMergeConsistency(LockedFile* lock, const 
                                                         const SnapshotStatus& status) {
     CHECK(lock);
 
+    return merge_consistency_checker_(name, status);
+}
+
+MergeFailureCode CheckMergeConsistency(const std::string& name, const SnapshotStatus& status) {
     if (!status.compression_enabled()) {
         // Do not try to verify old-style COWs yet.
         return MergeFailureCode::Ok;
@@ -1241,9 +1259,11 @@ MergeFailureCode SnapshotManager::MergeSecondPhaseSnapshots(LockedFile* lock) {
     }
 
     SnapshotUpdateStatus update_status = ReadSnapshotUpdateStatus(lock);
-    CHECK(update_status.state() == UpdateState::Merging);
+    CHECK(update_status.state() == UpdateState::Merging ||
+          update_status.state() == UpdateState::MergeFailed);
     CHECK(update_status.merge_phase() == MergePhase::FIRST_PHASE);
 
+    update_status.set_state(UpdateState::Merging);
     update_status.set_merge_phase(MergePhase::SECOND_PHASE);
     if (!WriteSnapshotUpdateStatus(lock, update_status)) {
         return MergeFailureCode::WriteStatus;
@@ -1456,7 +1476,7 @@ bool SnapshotManager::PerformInitTransition(InitTransition transition,
                                             std::vector<std::string>* snapuserd_argv) {
     LOG(INFO) << "Performing transition for snapuserd.";
 
-    // Don't use EnsuerSnapuserdConnected() because this is called from init,
+    // Don't use EnsureSnapuserdConnected() because this is called from init,
     // and attempting to do so will deadlock.
     if (!snapuserd_client_ && transition != InitTransition::SELINUX_DETACH) {
         snapuserd_client_ = SnapuserdClient::Connect(kSnapuserdSocket, 10s);
@@ -1513,8 +1533,15 @@ bool SnapshotManager::PerformInitTransition(InitTransition transition,
             continue;
         }
 
+        std::string source_device_name;
+        if (snapshot_status.old_partition_size() > 0) {
+            source_device_name = GetSourceDeviceName(snapshot);
+        } else {
+            source_device_name = GetBaseDeviceName(snapshot);
+        }
+
         std::string source_device;
-        if (!dm.GetDmDevicePathByName(GetSourceDeviceName(snapshot), &source_device)) {
+        if (!dm.GetDmDevicePathByName(source_device_name, &source_device)) {
             LOG(ERROR) << "Could not get device path for " << GetSourceDeviceName(snapshot);
             continue;
         }
@@ -2091,14 +2118,18 @@ bool SnapshotManager::MapPartitionWithSnapshot(LockedFile* lock,
     if (live_snapshot_status->compression_enabled()) {
         // Get the source device (eg the view of the partition from before it was resized).
         std::string source_device_path;
-        if (!MapSourceDevice(lock, params.GetPartitionName(), remaining_time,
-                             &source_device_path)) {
-            LOG(ERROR) << "Could not map source device for: " << cow_name;
-            return false;
-        }
+        if (live_snapshot_status->old_partition_size() > 0) {
+            if (!MapSourceDevice(lock, params.GetPartitionName(), remaining_time,
+                                 &source_device_path)) {
+                LOG(ERROR) << "Could not map source device for: " << cow_name;
+                return false;
+            }
 
-        auto source_device = GetSourceDeviceName(params.GetPartitionName());
-        created_devices.EmplaceBack<AutoUnmapDevice>(&dm, source_device);
+            auto source_device = GetSourceDeviceName(params.GetPartitionName());
+            created_devices.EmplaceBack<AutoUnmapDevice>(&dm, source_device);
+        } else {
+            source_device_path = base_path;
+        }
 
         if (!WaitForDevice(source_device_path, remaining_time)) {
             return false;
@@ -2534,6 +2565,7 @@ bool SnapshotManager::WriteUpdateState(LockedFile* lock, UpdateState state,
         SnapshotUpdateStatus old_status = ReadSnapshotUpdateStatus(lock);
         status.set_compression_enabled(old_status.compression_enabled());
         status.set_source_build_fingerprint(old_status.source_build_fingerprint());
+        status.set_merge_phase(old_status.merge_phase());
     }
     return WriteSnapshotUpdateStatus(lock, status);
 }

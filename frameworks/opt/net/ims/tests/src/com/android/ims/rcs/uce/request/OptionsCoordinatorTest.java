@@ -38,11 +38,13 @@ import androidx.test.filters.SmallTest;
 import com.android.ims.ImsTestBase;
 import com.android.ims.rcs.uce.request.UceRequestCoordinator.RequestResult;
 import com.android.ims.rcs.uce.request.UceRequestManager.RequestManagerCallback;
+import com.android.ims.rcs.uce.UceStatsWriter;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.After;
 import org.junit.Before;
@@ -57,6 +59,7 @@ public class OptionsCoordinatorTest extends ImsTestBase {
     @Mock CapabilityRequestResponse mResponse;
     @Mock RequestManagerCallback mRequestMgrCallback;
     @Mock IRcsUceControllerCallback mUceCallback;
+    @Mock UceStatsWriter mUceStatsWriter;
 
     private int mSubId = 1;
     private long mTaskId = 1L;
@@ -93,11 +96,14 @@ public class OptionsCoordinatorTest extends ImsTestBase {
     @Test
     @SmallTest
     public void testRequestCommandError() throws Exception {
+        doReturn(Optional.of(3)).when(mResponse).getCommandError();
         OptionsRequestCoordinator coordinator = getOptionsCoordinator();
 
         coordinator.onRequestUpdated(mTaskId, REQUEST_UPDATE_COMMAND_ERROR);
 
         verify(mRequest).onFinish();
+        verify(mUceStatsWriter).setUceEvent(eq(mSubId), eq(UceStatsWriter.OUTGOING_OPTION_EVENT),
+            eq(false), eq(3), eq(0));
 
         Collection<UceRequest> requestList = coordinator.getActivatedRequest();
         Collection<RequestResult> resultList = coordinator.getFinishedRequest();
@@ -111,6 +117,7 @@ public class OptionsCoordinatorTest extends ImsTestBase {
     public void testRequestNetworkResponse() throws Exception {
         OptionsRequestCoordinator coordinator = getOptionsCoordinator();
         doReturn(true).when(mResponse).isNetworkResponseOK();
+        doReturn(Optional.of(200)).when(mResponse).getNetworkRespSipCode();
 
         final List<RcsContactUceCapability> updatedCapList = new ArrayList<>();
         RcsContactUceCapability updatedCapability = getContactUceCapability();
@@ -124,6 +131,8 @@ public class OptionsCoordinatorTest extends ImsTestBase {
         verify(mResponse).removeUpdatedCapabilities(updatedCapList);
 
         verify(mRequest).onFinish();
+        verify(mUceStatsWriter).setUceEvent(eq(mSubId), eq(UceStatsWriter.OUTGOING_OPTION_EVENT),
+            eq(true), eq(0), eq(200));
 
         Collection<UceRequest> requestList = coordinator.getActivatedRequest();
         Collection<RequestResult> resultList = coordinator.getFinishedRequest();
@@ -134,9 +143,10 @@ public class OptionsCoordinatorTest extends ImsTestBase {
 
     private OptionsRequestCoordinator getOptionsCoordinator() {
         OptionsRequestCoordinator.Builder builder = new OptionsRequestCoordinator.Builder(
-                mSubId, Collections.singletonList(mRequest), mRequestMgrCallback);
+                mSubId, Collections.singletonList(mRequest), mRequestMgrCallback, mUceStatsWriter);
         builder.setCapabilitiesCallback(mUceCallback);
-        return builder.build();
+        OptionsRequestCoordinator coordinator = builder.build();
+        return coordinator;
     }
 
     private RcsContactUceCapability getContactUceCapability() {

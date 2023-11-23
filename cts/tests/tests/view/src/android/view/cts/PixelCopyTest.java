@@ -73,6 +73,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
@@ -894,31 +895,29 @@ public class PixelCopyTest {
 
     private void assertBitmapQuadColor(Bitmap bitmap, int topLeft, int topRight,
             int bottomLeft, int bottomRight, int threshold) {
-        try {
-            // Just quickly sample 4 pixels in the various regions.
-            assertTrue("Top left", pixelsAreSame(topLeft,
-                    getPixelFloatPos(bitmap, .25f, .25f), threshold));
-            assertTrue("Top right", pixelsAreSame(topRight,
-                    getPixelFloatPos(bitmap, .75f, .25f), threshold));
-            assertTrue("Bottom left", pixelsAreSame(bottomLeft,
-                    getPixelFloatPos(bitmap, .25f, .75f), threshold));
-            assertTrue("Bottom right", pixelsAreSame(bottomRight,
-                    getPixelFloatPos(bitmap, .75f, .75f), threshold));
+        Function<Float, Integer> getX = (Float x) -> (int) (bitmap.getWidth() * x);
+        Function<Float, Integer> getY = (Float y) -> (int) (bitmap.getHeight() * y);
 
-            float below = .45f;
-            float above = .55f;
-            assertTrue("Top left II", pixelsAreSame(topLeft,
-                    getPixelFloatPos(bitmap, below, below), threshold));
-            assertTrue("Top right II", pixelsAreSame(topRight,
-                    getPixelFloatPos(bitmap, above, below), threshold));
-            assertTrue("Bottom left II", pixelsAreSame(bottomLeft,
-                    getPixelFloatPos(bitmap, below, above), threshold));
-            assertTrue("Bottom right II", pixelsAreSame(bottomRight,
-                    getPixelFloatPos(bitmap, above, above), threshold));
-        } catch (AssertionError err) {
-            BitmapDumper.dumpBitmap(bitmap, mTestName.getMethodName(), "PixelCopyTest");
-            throw err;
-        }
+        // Just quickly sample 4 pixels in the various regions.
+        assertBitmapColor("Top left", bitmap, topLeft,
+                getX.apply(.25f), getY.apply(.25f), threshold);
+        assertBitmapColor("Top right", bitmap, topRight,
+                getX.apply(.75f), getY.apply(.25f), threshold);
+        assertBitmapColor("Bottom left", bitmap, bottomLeft,
+                getX.apply(.25f), getY.apply(.75f), threshold);
+        assertBitmapColor("Bottom right", bitmap, bottomRight,
+                getX.apply(.75f), getY.apply(.75f), threshold);
+
+        float below = .4f;
+        float above = .6f;
+        assertBitmapColor("Top left II", bitmap, topLeft,
+                getX.apply(below), getY.apply(below), threshold);
+        assertBitmapColor("Top right II", bitmap, topRight,
+                getX.apply(above), getY.apply(below), threshold);
+        assertBitmapColor("Bottom left II", bitmap, bottomLeft,
+                getX.apply(below), getY.apply(above), threshold);
+        assertBitmapColor("Bottom right II", bitmap, bottomRight,
+                getX.apply(above), getY.apply(above), threshold);
     }
 
     private void assertBitmapEdgeColor(Bitmap bitmap, int edgeColor) {
@@ -941,7 +940,7 @@ public class PixelCopyTest {
                 bitmap.getWidth() - 3, bitmap.getHeight() / 2);
     }
 
-    private boolean pixelsAreSame(int ideal, int given, int threshold) {
+    private static boolean pixelsAreSame(int ideal, int given, int threshold) {
         int error = Math.abs(Color.red(ideal) - Color.red(given));
         error += Math.abs(Color.green(ideal) - Color.green(given));
         error += Math.abs(Color.blue(ideal) - Color.blue(given));
@@ -954,8 +953,13 @@ public class PixelCopyTest {
     }
 
     private void assertBitmapColor(String debug, Bitmap bitmap, int color, int x, int y) {
+        assertBitmapColor(debug, bitmap, color,  x, y, 10);
+    }
+
+    private void assertBitmapColor(String debug, Bitmap bitmap, int color, int x, int y,
+            int threshold) {
         int pixel = bitmap.getPixel(x, y);
-        if (!pixelsAreSame(color, pixel, 10)) {
+        if (!pixelsAreSame(color, pixel, threshold)) {
             fail(bitmap, debug + "; expected=" + Integer.toHexString(color) + ", actual="
                     + Integer.toHexString(pixel));
         }

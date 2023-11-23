@@ -128,6 +128,9 @@ public class NetworkProviderSimListController extends AbstractPreferenceControll
                 } else {
                     final Intent intent = new Intent(mContext, MobileNetworkActivity.class);
                     intent.putExtra(Settings.EXTRA_SUB_ID, info.getSubscriptionId());
+                    // MobileNetworkActivity is singleTask, set SplitPairRule to show in 2-pane.
+                    MobileNetworkTwoPaneUtils.registerTwoPaneForMobileNetwork(mContext, intent,
+                            null);
                     mContext.startActivity(intent);
                 }
                 return true;
@@ -172,7 +175,6 @@ public class NetworkProviderSimListController extends AbstractPreferenceControll
         for (SubscriptionInfo info : SubscriptionUtil.getAvailableSubscriptions(mContext)) {
             if (!info.isEmbedded()) {
                 subList.add(info);
-                break;
             }
         }
         return subList;

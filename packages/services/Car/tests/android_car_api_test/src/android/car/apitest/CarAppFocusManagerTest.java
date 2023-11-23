@@ -36,6 +36,8 @@ import androidx.test.filters.RequiresDevice;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -244,6 +246,24 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
         APP_FOCUS_TYPE_NAVIGATION, false)).isTrue();
         assertThat(listener2.waitForFocusChangeAndAssert(DEFAULT_WAIT_TIMEOUT_MS,
         APP_FOCUS_TYPE_NAVIGATION, false)).isTrue();
+    }
+
+    @Test
+    public void testGetAppTypeOwner() throws Exception {
+        CarAppFocusManager manager = createManager(getContext(), mEventThread);
+
+        assertThat(manager.getAppTypeOwner(APP_FOCUS_TYPE_NAVIGATION)).isNull();
+
+        FocusOwnershipCallback owner = new FocusOwnershipCallback();
+        assertThat(manager.requestAppFocus(APP_FOCUS_TYPE_NAVIGATION, owner))
+                .isEqualTo(APP_FOCUS_REQUEST_SUCCEEDED);
+
+        assertThat(manager.getAppTypeOwner(APP_FOCUS_TYPE_NAVIGATION))
+                .containsExactly("android.car.apitest", "com.google.android.car.kitchensink");
+
+        manager.abandonAppFocus(owner, APP_FOCUS_TYPE_NAVIGATION);
+
+        assertThat(manager.getAppTypeOwner(APP_FOCUS_TYPE_NAVIGATION)).isNull();
     }
 
     private CarAppFocusManager createManager() throws InterruptedException {

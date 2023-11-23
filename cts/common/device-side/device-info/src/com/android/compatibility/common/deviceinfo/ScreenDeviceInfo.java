@@ -19,20 +19,15 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.os.Bundle;
-import android.os.IBinder;
-import android.server.wm.jetpack.utils.ExtensionUtils;
-import android.server.wm.jetpack.utils.wrapper.TestDisplayFeature;
-import android.server.wm.jetpack.utils.wrapper.TestInterfaceCompat;
-import android.server.wm.jetpack.utils.wrapper.TestWindowLayoutInfo;
-import android.text.TextUtils;
+import android.server.wm.jetpack.utils.SidecarUtil;
+import android.server.wm.jetpack.utils.ExtensionUtil;
+import android.server.wm.jetpack.utils.Version;
 import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.WindowManager;
 
 import com.android.compatibility.common.util.DeviceInfoStore;
 import com.android.compatibility.common.util.DummyActivity;
-
-import java.util.List;
 
 /**
  * Screen device info collector.
@@ -58,37 +53,36 @@ public final class ScreenDeviceInfo extends DeviceInfo {
         store.addResult("screen_size", getScreenSize(configuration));
         store.addResult("smallest_screen_width_dp", configuration.smallestScreenWidthDp);
 
-        // WindowManager Jetpack Library version and available display features.
-        String wmJetpackVersion = ExtensionUtils.getVersion();
-        if (!TextUtils.isEmpty(wmJetpackVersion)) {
-            int[] displayFeatures = getDisplayFeatures();
-            store.addResult("wm_jetpack_version", wmJetpackVersion);
-            store.addArrayResult("display_features", displayFeatures);
-        }
+        // Add WindowManager Jetpack Library version and available display features.
+        addDisplayFeaturesIfPresent(store);
     }
 
-    private int[] getDisplayFeatures() {
-        final Activity activity = ScreenDeviceInfo.this.launchActivity(
-                "com.android.compatibility.common.deviceinfo",
-                DummyActivity.class,
-                new Bundle());
-        final IBinder windowToken = activity.getWindow().getAttributes().token;
-        final TestInterfaceCompat extension = ExtensionUtils.getInterfaceCompat(activity);
-        if (extension == null) {
-            return new int[0];
+    private void addDisplayFeaturesIfPresent(DeviceInfoStore store) throws Exception {
+        // Try to get display features from extensions. If extensions is not present, try sidecar.
+        // If neither is available, do nothing.
+        // TODO (b/202855636) store info from both extensions and sidecar if both are present
+        if (ExtensionUtil.isExtensionVersionValid()) {
+            // Extensions is available on device.
+            final Version extensionVersion = ExtensionUtil.getExtensionVersion();
+            store.addResult("wm_jetpack_version",
+                    "[Extensions]" + extensionVersion.toString());
+            final Activity activity = ScreenDeviceInfo.this.launchActivity(
+                    "com.android.compatibility.common.deviceinfo",
+                    DummyActivity.class,
+                    new Bundle());
+            int[] displayFeatureTypes = ExtensionUtil.getExtensionDisplayFeatureTypes(activity);
+            store.addArrayResult("display_features", displayFeatureTypes);
+        } else if (SidecarUtil.isSidecarVersionValid()) {
+            // Sidecar is available on device.
+            final Version sidecarVersion = SidecarUtil.getSidecarVersion();
+            store.addResult("wm_jetpack_version", "[Sidecar]" + sidecarVersion.toString());
+            final Activity activity = ScreenDeviceInfo.this.launchActivity(
+                    "com.android.compatibility.common.deviceinfo",
+                    DummyActivity.class,
+                    new Bundle());
+            int[] displayFeatureTypes = SidecarUtil.getSidecarDisplayFeatureTypes(activity);
+            store.addArrayResult("display_features", displayFeatureTypes);
         }
-
-        final TestWindowLayoutInfo windowLayoutInfo = extension.getWindowLayoutInfo(windowToken);
-        if (windowLayoutInfo == null) {
-            return new int[0];
-        }
-
-        List<TestDisplayFeature> displayFeatureList = windowLayoutInfo.getDisplayFeatures();
-        final int[] displayFeatures = new int[displayFeatureList.size()];
-        for (int i = 0; i < displayFeatureList.size(); i++) {
-            displayFeatures[i] = displayFeatureList.get(i).getType();
-        }
-        return displayFeatures;
     }
 
     private static String getScreenSize(Configuration configuration) {

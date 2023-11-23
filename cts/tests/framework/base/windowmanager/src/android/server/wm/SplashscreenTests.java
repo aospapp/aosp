@@ -20,6 +20,8 @@ import static android.app.UiModeManager.MODE_NIGHT_AUTO;
 import static android.app.UiModeManager.MODE_NIGHT_CUSTOM;
 import static android.app.UiModeManager.MODE_NIGHT_NO;
 import static android.app.UiModeManager.MODE_NIGHT_YES;
+import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.content.Intent.ACTION_MAIN;
 import static android.content.Intent.CATEGORY_HOME;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
@@ -110,6 +112,7 @@ public class SplashscreenTests extends ActivityManagerTestBase {
     public void setUp() throws Exception {
         super.setUp();
         mWmState.setSanityCheckWithFocusedWindow(false);
+        mWmState.waitForDisplayUnfrozen();
     }
 
     @After
@@ -144,7 +147,19 @@ public class SplashscreenTests extends ActivityManagerTestBase {
         // applied insets by system bars in AAOS.
         assumeFalse(isCar());
 
-        launchActivityNoWait(SPLASHSCREEN_ACTIVITY);
+        launchActivityNoWait(SPLASHSCREEN_ACTIVITY, WINDOWING_MODE_FULLSCREEN);
+        // The windowSplashScreenContent attribute is set to RED. We check that it is ignored.
+        testSplashScreenColor(SPLASHSCREEN_ACTIVITY, Color.BLUE, Color.WHITE);
+    }
+
+    @Test
+    public void testSplashscreenContent_FreeformWindow() {
+        // TODO(b/192431448): Allow Automotive to skip this test until Splash Screen is properly
+        // applied insets by system bars in AAOS.
+        assumeFalse(isCar());
+        assumeTrue(supportsFreeform());
+
+        launchActivityNoWait(SPLASHSCREEN_ACTIVITY, WINDOWING_MODE_FREEFORM);
         // The windowSplashScreenContent attribute is set to RED. We check that it is ignored.
         testSplashScreenColor(SPLASHSCREEN_ACTIVITY, Color.BLUE, Color.WHITE);
     }
@@ -153,6 +168,9 @@ public class SplashscreenTests extends ActivityManagerTestBase {
         // Activity may not be launched yet even if app transition is in idle state.
         mWmState.waitForActivityState(name, STATE_RESUMED);
         mWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
+        boolean isFullscreen = mWmState.getTaskByActivity(name).isWindowingModeCompatible(
+                WINDOWING_MODE_FULLSCREEN);
+
         final Bitmap image = takeScreenshot();
         final WindowMetrics windowMetrics = mWm.getMaximumWindowMetrics();
         final Rect stableBounds = new Rect(windowMetrics.getBounds());
@@ -173,12 +191,9 @@ public class SplashscreenTests extends ActivityManagerTestBase {
         Rect topInsetsBounds = new Rect(insets.left, 0, appBounds.right - insets.right, insets.top);
         Rect bottomInsetsBounds = new Rect(insets.left, appBounds.bottom - insets.bottom,
                 appBounds.right - insets.right, appBounds.bottom);
-        assertFalse("Top insets bounds rect is empty", topInsetsBounds.isEmpty());
-        assertFalse("Bottom insets bounds rect is empty", bottomInsetsBounds.isEmpty());
 
-        if (appBounds.isEmpty()) {
-            fail("Couldn't find splash screen bounds. Impossible to assert the colors");
-        }
+        assertFalse("Couldn't find splash screen bounds. Impossible to assert the colors",
+                appBounds.isEmpty());
 
         // Use ratios to flexibly accommodate circular or not quite rectangular displays
         // Note: Color.BLACK is the pixel color outside of the display region
@@ -191,8 +206,13 @@ public class SplashscreenTests extends ActivityManagerTestBase {
 
         appBounds.intersect(stableBounds);
         assertColors(image, appBounds, primaryColor, 0.99f, secondaryColor, 0.02f, ignoreRect);
-        assertColors(image, topInsetsBounds, primaryColor, 0.80f, secondaryColor, 0.10f, null);
-        assertColors(image, bottomInsetsBounds, primaryColor, 0.80f, secondaryColor, 0.10f, null);
+        if (isFullscreen && !topInsetsBounds.isEmpty()) {
+            assertColors(image, topInsetsBounds, primaryColor, 0.80f, secondaryColor, 0.10f, null);
+        }
+        if (isFullscreen && !bottomInsetsBounds.isEmpty()) {
+            assertColors(image, bottomInsetsBounds, primaryColor, 0.80f, secondaryColor, 0.10f,
+                    null);
+        }
     }
 
     // For real devices, gamma correction might be applied on hardware driver, so the colors may
@@ -385,7 +405,20 @@ public class SplashscreenTests extends ActivityManagerTestBase {
         // applied insets by system bars in AAOS.
         assumeFalse(isCar());
 
-        launchActivityNoWait(SPLASH_SCREEN_REPLACE_ICON_ACTIVITY, extraBool(DELAY_RESUME, true));
+        launchActivityNoWait(SPLASH_SCREEN_REPLACE_ICON_ACTIVITY, WINDOWING_MODE_FULLSCREEN,
+                extraBool(DELAY_RESUME, true));
+        testSplashScreenColor(SPLASH_SCREEN_REPLACE_ICON_ACTIVITY, Color.BLUE, Color.WHITE);
+    }
+
+    @Test
+    public void testSetBackgroundColorActivity_FreeformWindow() {
+        // TODO(b/192431448): Allow Automotive to skip this test until Splash Screen is properly
+        // applied insets by system bars in AAOS.
+        assumeFalse(isCar());
+        assumeTrue(supportsFreeform());
+
+        launchActivityNoWait(SPLASH_SCREEN_REPLACE_ICON_ACTIVITY, WINDOWING_MODE_FREEFORM,
+                extraBool(DELAY_RESUME, true));
         testSplashScreenColor(SPLASH_SCREEN_REPLACE_ICON_ACTIVITY, Color.BLUE, Color.WHITE);
     }
 

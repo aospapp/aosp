@@ -453,8 +453,13 @@ public class PhotoCaptureActivity extends Activity
         if (mPreviewSizes != null) {
             selectedPreviewSize = mPreviewSizes[mSelectedResolution.cameraId];
         } else if (mSurfaceSize != null) {
-            selectedPreviewSize = getBestPreviewSize(
-                    mSurfaceSize.width, mSurfaceSize.height, params);
+            if (mPreviewOrientation == 0 || mPreviewOrientation == 180) {
+                selectedPreviewSize = getBestPreviewSize(
+                        mSurfaceSize.width, mSurfaceSize.height, params);
+            } else {
+                selectedPreviewSize = getBestPreviewSize(
+                        mSurfaceSize.height, mSurfaceSize.width, params);
+            }
         }
 
         if (selectedPreviewSize != null) {

@@ -58,6 +58,7 @@
 //! See the docs for `IoSourceExt` if support for kernels <5.4 is required. Focus on `UringSource` if
 //! all systems have support for io_uring.
 
+mod blocking;
 mod complete;
 mod event;
 mod executor;
@@ -73,20 +74,24 @@ mod uring_executor;
 mod uring_source;
 mod waker;
 
+pub use blocking::{block_on, BlockingPool};
 pub use event::EventAsync;
 pub use executor::Executor;
 pub use fd_executor::FdExecutor;
 pub use io_ext::{
-    Error as AsyncError, IntoAsync, IoSourceExt, ReadAsync, Result as AsyncResult, WriteAsync,
+    AsyncWrapper, Error as AsyncError, IntoAsync, IoSourceExt, ReadAsync, Result as AsyncResult,
+    WriteAsync,
 };
 pub use mem::{BackingMemory, MemRegion};
 pub use poll_source::PollSource;
 pub use select::SelectResult;
+pub use sys_util;
 pub use timer::TimerAsync;
 pub use uring_executor::URingExecutor;
 pub use uring_source::UringSource;
 
 use std::future::Future;
+use std::io;
 use std::marker::PhantomData;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -101,8 +106,26 @@ pub enum Error {
     /// Error from the uring executor.
     #[error("Failure in the uring executor: {0}")]
     URingExecutor(uring_executor::Error),
+    /// Error from TimerFd.
+    #[error("Failure in TimerFd: {0}")]
+    TimerFd(sys_util::Error),
+    /// Error from TimerFd.
+    #[error("Failure in TimerAsync: {0}")]
+    TimerAsync(AsyncError),
 }
 pub type Result<T> = std::result::Result<T, Error>;
+
+impl From<Error> for io::Error {
+    fn from(e: Error) -> Self {
+        use Error::*;
+        match e {
+            FdExecutor(e) => e.into(),
+            URingExecutor(e) => e.into(),
+            TimerFd(e) => e.into(),
+            TimerAsync(e) => e.into(),
+        }
+    }
+}
 
 // A Future that never completes.
 pub struct Empty<T> {

@@ -1,1 +1,1 @@
-type dpm_block_device, dev_type;
+type dpm_block_device, dev_type, bdev_type;

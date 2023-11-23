@@ -26,7 +26,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.GET_ACCOUNTS_PRIVILEGED"/>
 
-    <application android:debuggable="true">
+    <application android:debuggable="true"
+                 android:theme="@style/Theme.App">
         <uses-library android:name="android.test.runner" />
         <activity android:name="com.android.car.rotary.NavigatorTestActivity" />
         <activity android:name="com.android.car.rotary.TreeTraverserTestActivity" />

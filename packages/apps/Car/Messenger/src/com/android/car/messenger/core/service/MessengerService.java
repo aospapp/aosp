@@ -92,7 +92,7 @@ public class MessengerService extends Service {
 
     private void subscribeToNotificationUpdates() {
         DataModel dataModel = AppFactory.get().getDataModel();
-        dataModel.getUnreadMessages().observeForever(NotificationHandler::postOrRemoveNotification);
+        dataModel.getUnreadMessages().observeForever(NotificationHandler::postNotification);
         dataModel.onConversationRemoved().observeForever(NotificationHandler::removeNotification);
     }
 

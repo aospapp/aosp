@@ -23,7 +23,7 @@
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V6_0 {
+namespace V7_0 {
 namespace implementation {
 
 using ::android::hardware::Void;
@@ -36,7 +36,7 @@ using ::android::hardware::Void;
 
 DevicesFactory::DevicesFactory() {
     mLegacyLib.reset(dlopen(
-        LIB_PATH_PREFIX "android.hardware.audio.legacy@6.0-impl.ranchu.so", RTLD_NOW));
+        LIB_PATH_PREFIX "android.hardware.audio.legacy@7.0-impl.ranchu.so", RTLD_NOW));
     LOG_ALWAYS_FATAL_IF(!mLegacyLib);
 
     typedef IDevicesFactory *(*Func)(const char *);
@@ -65,7 +65,7 @@ Return<void> DevicesFactory::openPrimaryDevice(openPrimaryDevice_cb _hidl_cb) {
 }
 
 }  // namespace implementation
-}  // namespace V6_0
+}  // namespace V7_0
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

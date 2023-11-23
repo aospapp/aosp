@@ -27,11 +27,11 @@ import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.AlarmManagerWrapper;
 import com.android.wallpaper.module.BitmapCropper;
 import com.android.wallpaper.module.CurrentWallpaperInfoFactory;
+import com.android.wallpaper.module.CustomizationSections;
 import com.android.wallpaper.module.DefaultLiveWallpaperInfoFactory;
 import com.android.wallpaper.module.DrawableLayerResolver;
 import com.android.wallpaper.module.ExploreIntentChecker;
 import com.android.wallpaper.module.FormFactorChecker;
-import com.android.wallpaper.module.CustomizationSections;
 import com.android.wallpaper.module.Injector;
 import com.android.wallpaper.module.LiveWallpaperInfoFactory;
 import com.android.wallpaper.module.LoggingOptInStatusProvider;
@@ -44,10 +44,12 @@ import com.android.wallpaper.module.WallpaperPersister;
 import com.android.wallpaper.module.WallpaperPreferences;
 import com.android.wallpaper.module.WallpaperRefresher;
 import com.android.wallpaper.module.WallpaperRotationRefresher;
+import com.android.wallpaper.module.WallpaperStatusChecker;
 import com.android.wallpaper.monitor.PerformanceMonitor;
 import com.android.wallpaper.network.Requester;
 import com.android.wallpaper.picker.ImagePreviewFragment;
 import com.android.wallpaper.picker.individual.IndividualPickerFragment;
+import com.android.wallpaper.util.DisplayUtils;
 
 /**
  * Test implementation of the dependency injector.
@@ -136,6 +138,11 @@ public class TestInjector implements Injector {
     }
 
     @Override
+    public WallpaperStatusChecker getWallpaperStatusChecker() {
+        return null;
+    }
+
+    @Override
     public CurrentWallpaperInfoFactory getCurrentWallpaperFactory(Context context) {
         if (mCurrentWallpaperInfoFactory == null) {
             mCurrentWallpaperInfoFactory =
@@ -213,9 +220,9 @@ public class TestInjector implements Injector {
 
     @Override
     public Fragment getPreviewFragment(Context context, WallpaperInfo wallpaperInfo, int mode,
-            boolean viewAsHome, boolean testingModeEnabled) {
+            boolean viewAsHome, boolean viewFullScreen, boolean testingModeEnabled) {
         return ImagePreviewFragment.newInstance(wallpaperInfo, mode, viewAsHome,
-                testingModeEnabled);
+                viewFullScreen, testingModeEnabled);
     }
 
     @Override
@@ -258,6 +265,11 @@ public class TestInjector implements Injector {
 
     @Override
     public CustomizationSections getCustomizationSections() {
+        return null;
+    }
+
+    @Override
+    public DisplayUtils getDisplayUtils(Context context) {
         return null;
     }
 }

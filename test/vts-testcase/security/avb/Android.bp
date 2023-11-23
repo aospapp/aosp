@@ -49,6 +49,7 @@ cc_test {
         ":q-gsi_avbpubkey",
         ":r-gsi_avbpubkey",
         ":s-gsi_avbpubkey",
+        ":t-gsi_avbpubkey",
         ":qcar-gsi_avbpubkey",
     ],
 }

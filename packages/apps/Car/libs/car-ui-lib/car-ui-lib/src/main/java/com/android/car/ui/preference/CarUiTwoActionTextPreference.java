@@ -26,12 +26,10 @@ import android.widget.Button;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
-import androidx.preference.Preference;
 import androidx.preference.PreferenceViewHolder;
 
 import com.android.car.ui.R;
-
-import java.util.function.Consumer;
+import com.android.car.ui.utils.CarUiUtils;
 
 /**
  * A preference that has a text button that can be pressed independently of pressing the main
@@ -86,15 +84,8 @@ public class CarUiTwoActionTextPreference extends CarUiTwoActionBasePreference {
 
     @Override
     protected void performSecondaryActionClickInternal() {
-        if (isSecondaryActionEnabled()) {
-            if (isUxRestricted()) {
-                Consumer<Preference> restrictedListener = getOnClickWhileRestrictedListener();
-                if (restrictedListener != null) {
-                    restrictedListener.accept(this);
-                }
-            } else if (mSecondaryActionOnClickListener != null) {
-                mSecondaryActionOnClickListener.run();
-            }
+        if (mSecondaryActionOnClickListener != null) {
+            mSecondaryActionOnClickListener.run();
         }
     }
 
@@ -112,14 +103,17 @@ public class CarUiTwoActionTextPreference extends CarUiTwoActionBasePreference {
         holder.itemView.setFocusable(false);
         holder.itemView.setClickable(false);
         firstActionContainer.setOnClickListener(this::performClickUnrestricted);
-        firstActionContainer.setEnabled(isEnabled());
-        firstActionContainer.setFocusable(isEnabled());
+        firstActionContainer.setEnabled(isEnabled() || isClickableWhileDisabled());
+        firstActionContainer.setFocusable(isEnabled() || isClickableWhileDisabled());
 
         secondActionContainer.setVisibility(mSecondaryActionVisible ? View.VISIBLE : View.GONE);
         secondaryButton.setText(mSecondaryActionText);
-        secondaryButton.setOnClickListener(v -> performSecondaryActionClickInternal());
-        secondaryButton.setEnabled(isSecondaryActionEnabled());
-        secondaryButton.setFocusable(isSecondaryActionEnabled());
+        secondaryButton.setOnClickListener(v -> performSecondaryActionClick());
+        secondaryButton.setEnabled(isSecondaryActionEnabled() || isClickableWhileDisabled());
+        secondaryButton.setFocusable(isSecondaryActionEnabled() || isClickableWhileDisabled());
+
+        CarUiUtils.makeAllViewsEnabledAndUxRestricted(secondaryButton, isSecondaryActionEnabled(),
+                isUxRestricted());
     }
 
     @Nullable

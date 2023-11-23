@@ -19,36 +19,57 @@
     android:layout_width="match_parent"
     android:layout_height="@dimen/contact_details_item_height">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/address_button"
         android:background="?android:attr/selectableItemBackground"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:paddingStart="@dimen/contact_details_number_padding_start"
-        android:paddingEnd="@dimen/contact_details_number_padding_end"
-        android:gravity="center_vertical"
-        android:orientation="vertical"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/divider"
+        app:layout_constraintEnd_toStartOf="@+id/divider"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
+
+        <androidx.constraintlayout.widget.Guideline
+            android:id="@+id/guideline_begin"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintGuide_begin="@dimen/contact_details_list_item_guideline_start" />
 
         <TextView
             android:id="@+id/title"
             android:theme="@style/Theme.Dialer.BidiText"
             android:textAppearance="@style/TextAppearance.ContactDetailsListTitle"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:singleLine="true"/>
+            android:singleLine="true"
+            app:layout_constraintStart_toStartOf="@id/guideline_begin"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@+id/text"/>
 
         <TextView
             android:id="@id/text"
             android:textAppearance="@style/TextAppearance.ContactDetailsListSubtitle"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:singleLine="true"/>
+            android:singleLine="true"
+            app:layout_constraintStart_toStartOf="@id/guideline_begin"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/title"
+            app:layout_constraintBottom_toBottomOf="parent"/>
 
-    </LinearLayout>
+        <ImageView
+            android:id="@+id/icon"
+            android:layout_width="@dimen/primary_icon_size"
+            android:layout_height="@dimen/primary_icon_size"
+            android:layout_marginStart="@dimen/contact_details_list_item_padding"
+            android:src="@drawable/ic_place"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- Divider line separating the text and the text icon -->
     <View

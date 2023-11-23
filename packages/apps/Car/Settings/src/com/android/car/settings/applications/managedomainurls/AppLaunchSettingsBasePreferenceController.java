@@ -48,13 +48,21 @@ public abstract class AppLaunchSettingsBasePreferenceController<V extends Prefer
             .addCategory(Intent.CATEGORY_BROWSABLE)
             .setData(Uri.parse("http:"));
 
-    private final PackageManager mPm;
+    protected final PackageManager mPm;
     private ApplicationsState.AppEntry mAppEntry;
 
     public AppLaunchSettingsBasePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                context.getPackageManager());
+    }
+
+    @VisibleForTesting
+    AppLaunchSettingsBasePreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            PackageManager packageManager) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mPm = context.getPackageManager();
+        mPm = packageManager;
     }
 
     /** Sets the app entry associated with this settings screen. */

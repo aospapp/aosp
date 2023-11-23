@@ -50,7 +50,7 @@ public class RoleSecurityTest extends BaseHostJUnit4Test {
 
         final int initialUserId = getDevice().getCurrentUser();
         final int secondaryUserId = userIds[1];
-        getDevice().switchUser(secondaryUserId);
+        assumeTrue("Unable to switch user", getDevice().switchUser(secondaryUserId));
         try {
             uninstallApp(ROLE_SECURITY_TEST_APP_PACKAGE);
             try {

@@ -24,11 +24,13 @@ import java.util.List;
 
 public final class EnterpriseMetricInfo {
     private final String mAdminPackageName;
+    private final int mType;
     private final boolean mBoolean;
     private final List<String> mStrings;
 
     EnterpriseMetricInfo(AtomsProto.DevicePolicyEvent event) {
         mAdminPackageName = event.adminPackageName;
+        mType = event.eventId;
         mBoolean = event.booleanValue;
         mStrings = (event.stringListValue == null) ? new ArrayList<>() : Arrays.asList(
                 event.stringListValue.stringValue);
@@ -36,6 +38,10 @@ public final class EnterpriseMetricInfo {
 
     public String adminPackageName() {
         return mAdminPackageName;
+    }
+
+    public int type() {
+        return mType;
     }
 
     public boolean Boolean() {
@@ -50,6 +56,7 @@ public final class EnterpriseMetricInfo {
     public String toString() {
         return "EnterpriseMetricInfo{"
                 + "adminPackageName=" + mAdminPackageName
+                + ", type=" + mType
                 + ", boolean=" + mBoolean
                 + ", strings=" + mStrings
                 + "}";

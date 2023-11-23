@@ -45,4 +45,23 @@ open class DisplayArea(
     override fun toString(): String {
         return "${this::class.simpleName} {$token $title} isTaskArea=$isTaskDisplayArea"
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is DisplayArea) return false
+
+        if (isTaskDisplayArea != other.isTaskDisplayArea) return false
+        if (isVisible != other.isVisible) return false
+        if (orientation != other.orientation) return false
+        if (title != other.title) return false
+        if (token != other.token) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + isTaskDisplayArea.hashCode()
+        return result
+    }
 }

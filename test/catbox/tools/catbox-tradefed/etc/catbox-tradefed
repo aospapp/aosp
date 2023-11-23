@@ -76,7 +76,8 @@ JARS="tradefed
   loganalysis
   compatibility-host-util
   catbox-tradefed
-  catbox-tradefed-tests"
+  catbox-tradefed-tests
+  catbox-report-lib"
 
 for JAR in $JARS; do
     checkFile ${JAR_DIR}/${JAR}.jar

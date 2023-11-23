@@ -84,11 +84,13 @@
     <string name="family_name_first_title" msgid="7721976826282427987">"Priimek"</string>
     <!-- no translation found for sort_order_default_value (5876201942256731358) -->
     <skip />
-    <string name="audio_route_dialog_title" msgid="2904553846970171054">"Izberite izhod za zvok klica:"</string>
+    <string name="audio_route_dialog_title" msgid="2262715267187794363"></string>
     <string name="audio_route_dialog_subtitle" msgid="8780526104805330121"></string>
     <string name="ongoing_conf_title" msgid="4161590966144000887">"Konferenca"</string>
     <string name="ongoing_conf_title_format" msgid="7667048745156395220">"%1$s (%2$d) – "</string>
     <string name="dialing_disabled_warning" msgid="8094136040809498594">"Klicanje je onemogočeno."</string>
     <string name="restricted_dialing_mode_label" msgid="2439439835180117206">"Uporaba tipkovnice med vožnjo je prepovedana."</string>
     <string name="comma_delimiter" msgid="7949695553572428165">", "</string>
+    <string name="sms_notification_title" msgid="5980540487139970307">"Klicalnik za SMS"</string>
+    <string name="sms_notification_text" msgid="9193883830187173056">"Pošiljanje SMS-ja"</string>
 </resources>

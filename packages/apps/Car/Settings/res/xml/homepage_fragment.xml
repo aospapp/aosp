@@ -81,6 +81,12 @@
         android:title="@string/privacy_settings_title"
         settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
     <com.android.car.settings.common.TopLevelPreference
+        android:fragment="com.android.car.settings.accessibility.AccessibilitySettingsFragment"
+        android:icon="@drawable/ic_top_level_accessibility"
+        android:key="@string/pk_accessibility_settings_entry"
+        android:title="@string/accessibility_settings_title"
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
+    <com.android.car.settings.common.TopLevelPreference
         android:fragment="com.android.car.settings.security.SecuritySettingsFragment"
         android:icon="@drawable/ic_top_level_security"
         android:key="@string/pk_security_settings_entry"

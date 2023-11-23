@@ -20,8 +20,10 @@ import android.content.Context
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.server.wm.flicker.traces.FlickerSubjectException
 import com.android.server.wm.traces.common.layers.LayersTrace
+import com.android.server.wm.traces.common.tags.TagTrace
 import com.android.server.wm.traces.common.windowmanager.WindowManagerTrace
 import com.android.server.wm.traces.parser.layers.LayersTraceParser
+import com.android.server.wm.traces.parser.tags.TagTraceParserUtil
 import com.android.server.wm.traces.parser.windowmanager.WindowManagerTraceParser
 import com.google.common.io.ByteStreams
 import com.google.common.truth.ExpectFailure
@@ -52,6 +54,15 @@ internal fun readLayerTraceFromFile(
     return try {
         LayersTraceParser.parseFromTrace(readTestFile(relativePath),
             source = Paths.get(relativePath)) { ignoreOrphanLayers }
+    } catch (e: Exception) {
+        throw RuntimeException(e)
+    }
+}
+
+internal fun readTagTraceFromFile(relativePath: String): TagTrace {
+    return try {
+        TagTraceParserUtil.parseFromTrace(readTestFile(relativePath),
+            source = Paths.get(relativePath))
     } catch (e: Exception) {
         throw RuntimeException(e)
     }

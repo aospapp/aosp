@@ -26,7 +26,7 @@
     </target_preparer>
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.MediaPreparer">
         <option name="push-all" value="true" />
-        <option name="media-folder-name" value="CtsMediaV2TestCases-1.13" />
+        <option name="media-folder-name" value="CtsMediaV2TestCases-1.14" />
         <option name="dynamic-config-module" value="CtsMediaV2TestCases" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">

@@ -23,23 +23,25 @@ LOCAL_AUDIO_PRODUCT_COPY_FILES ?= \
 
 LOCAL_AUDIO_PROPERTIES ?=
 else
-# Trout Audio HAL
+# Car Emulator Audio HAL
 LOCAL_AUDIO_PRODUCT_PACKAGE ?= \
-    audio.primary.trout \
+    audio.primary.caremu \
     audio.r_submix.default \
     android.hardware.audio@6.0-impl:32 \
-    android.hardware.audio.effect@6.0-impl:32 \
+    android.hardware.audio.effect@7.0-impl:32 \
     android.hardware.audio.service \
     android.hardware.soundtrigger@2.3-impl
 
-LOCAL_AUDIO_DEVICE_PACKAGE_OVERLAYS ?= device/google/trout/hal/audio/6.0/overlay
+LOCAL_AUDIO_DEVICE_PACKAGE_OVERLAYS ?= device/generic/car/emulator/audio/overlay
 
 LOCAL_AUDIO_PROPERTIES ?= \
-    ro.hardware.audio.primary=trout \
+    ro.hardware.audio.primary=caremu \
+    ro.vendor.caremu.audiohal.out_period_ms=40 \
+    ro.vendor.caremu.audiohal.in_period_ms=40 \
 
 LOCAL_AUDIO_PRODUCT_COPY_FILES ?= \
-    device/google/trout/hal/audio/6.0/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml \
-    device/google/trout/hal/audio/6.0/car_audio_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/car_audio_configuration.xml \
+    device/generic/car/emulator/audio/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml \
+    device/generic/car/emulator/audio/car_audio_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/car_audio_configuration.xml \
     frameworks/native/data/etc/android.hardware.broadcastradio.xml:system/etc/permissions/android.hardware.broadcastradio.xml \
     frameworks/av/services/audiopolicy/config/a2dp_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/a2dp_audio_policy_configuration.xml \
     frameworks/av/services/audiopolicy/config/usb_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/usb_audio_policy_configuration.xml
@@ -63,9 +65,11 @@ LOCAL_EVS_PRODUCT_COPY_FILES ?= \
     device/google/trout/product_files/etc/automotive/evs/config_override.json:${TARGET_COPY_OUT_SYSTEM}/etc/automotive/evs/config_override.json \
     device/google/trout/product_files/vendor/etc/automotive/evs/evs_configuration_override.xml:$(TARGET_COPY_OUT_VENDOR)/etc/automotive/evs/evs_configuration_override.xml \
 
+LOCAL_EVS_PROPERTIES ?= persist.automotive.evs.mode=1
 ENABLE_EVS_SAMPLE := true
 
-BOARD_SEPOLICY_DIRS += device/google/trout/sepolicy/vendor/google
+PRODUCT_COPY_FILES += \
+    ${LOCAL_EVS_PRODUCT_COPY_FILES} \
 
 # Disable Vulkan feature flag as it is not supported on trout
 TARGET_VULKAN_SUPPORT := false
@@ -88,19 +92,15 @@ LOCAL_GATEKEEPER_PRODUCT_PACKAGE ?= android.hardware.gatekeeper@1.0-service.soft
 
 PRODUCT_PACKAGES += tinyplay
 
-PRODUCT_COPY_FILES += \
-    ${LOCAL_EVS_PRODUCT_COPY_FILES} \
-
-PRODUCT_COPY_FILES += \
-    ${LOCAL_EVS_PRODUCT_COPY_FILES} \
-
 include packages/services/Car/cpp/computepipe/products/computepipe.mk
 
 # Trout fstab (workaround b/182190949)
 PRODUCT_COPY_FILES += \
     device/google/trout/product_files/fstab.trout:$(TARGET_COPY_OUT_RAMDISK)/fstab.trout \
+    device/google/trout/product_files/fstab.trout:$(TARGET_COPY_OUT_RAMDISK)/first_stage_ramdisk/fstab.trout \
     device/google/trout/product_files/fstab.trout:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.trout \
-    device/google/trout/product_files/fstab.trout:$(TARGET_COPY_OUT_RECOVERY)/root/first_stage_ramdisk/fstab.trout
+    device/google/trout/product_files/fstab.trout:$(TARGET_COPY_OUT_RECOVERY)/root/first_stage_ramdisk/fstab.trout \
+    device/google/trout/product_files/fstab.trout:$(TARGET_COPY_OUT_RAMDISK)/first_stage_ramdisk/fstab.trout
 
 # User HAL support
 TARGET_SUPPORTS_USER_HAL ?= true
@@ -108,3 +108,5 @@ TARGET_SUPPORTS_USER_HAL ?= true
 ifeq ($(TARGET_SUPPORTS_USER_HAL),true)
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += android.car.user_hal_enabled=true
 endif
+
+BOARD_SEPOLICY_DIRS += device/google/trout/sepolicy/vendor/google

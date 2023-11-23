@@ -21,12 +21,8 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <!-- Not testing features backed by native code, so only need to run against one ABI -->
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
-    <!-- Uses SwitchUserTargetPreparer to switch to system so running secondary is not relevant -->
     <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
-
-    <target_preparer class="com.android.tradefed.targetprep.SwitchUserTargetPreparer">
-        <option name="user-type" value="system" />
-    </target_preparer>
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />

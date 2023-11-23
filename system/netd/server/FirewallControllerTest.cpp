@@ -227,19 +227,18 @@ TEST_F(FirewallControllerTest, TestEnableChildChains) {
 
 TEST_F(FirewallControllerTest, TestFirewall) {
     std::vector<std::string> enableCommands = {
-        "*filter\n"
-        "-A fw_INPUT -j DROP\n"
-        "-A fw_OUTPUT -j REJECT\n"
-        "-A fw_FORWARD -j REJECT\n"
-        "COMMIT\n"
-    };
+            "*filter\n"
+            "-A fw_INPUT -j DROP\n"
+            "-A fw_OUTPUT -j REJECT\n"
+            "-A fw_FORWARD -j REJECT\n"
+            "COMMIT\n"};
     std::vector<std::string> disableCommands = {
-        "*filter\n"
-        ":fw_INPUT -\n"
-        ":fw_OUTPUT -\n"
-        ":fw_FORWARD -\n"
-        "COMMIT\n"
-    };
+            "*filter\n"
+            ":fw_INPUT -\n"
+            ":fw_OUTPUT -\n"
+            ":fw_FORWARD -\n"
+            "-6 -A fw_OUTPUT ! -o lo -s ::1 -j DROP\n"
+            "COMMIT\n"};
     std::vector<std::string> noCommands = {};
 
     EXPECT_EQ(0, mFw.resetFirewall());

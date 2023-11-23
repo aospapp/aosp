@@ -18,12 +18,11 @@ package com.android.textclassifier.common;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.provider.DeviceConfig;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
+import com.android.textclassifier.testing.TestingDeviceConfig;
 import com.google.common.collect.ImmutableMap;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.junit.After;
@@ -157,26 +156,11 @@ public class TextClassifierSettingsTest {
 
   private static void assertSettings(
       Map<String, String> keyValueMap, Consumer<TextClassifierSettings> settingsConsumer) {
-    HashMap<String, String> keyOriginalValueMap = new HashMap<>();
+    TestingDeviceConfig deviceConfig = new TestingDeviceConfig();
+    TextClassifierSettings settings = new TextClassifierSettings(deviceConfig);
     for (String key : keyValueMap.keySet()) {
-      keyOriginalValueMap.put(
-          key, DeviceConfig.getProperty(DeviceConfig.NAMESPACE_TEXTCLASSIFIER, key));
+      deviceConfig.setConfig(key, keyValueMap.get(key));
     }
-    TextClassifierSettings settings = new TextClassifierSettings();
-    try {
-      for (String key : keyValueMap.keySet()) {
-        setDeviceConfig(key, keyValueMap.get(key));
-      }
-      settingsConsumer.accept(settings);
-    } finally {
-      for (String key : keyValueMap.keySet()) {
-        setDeviceConfig(key, keyOriginalValueMap.get(key));
-      }
-    }
-  }
-
-  private static void setDeviceConfig(String key, String value) {
-    DeviceConfig.setProperty(
-        DeviceConfig.NAMESPACE_TEXTCLASSIFIER, key, value, /* makeDefault */ false);
+    settingsConsumer.accept(settings);
   }
 }

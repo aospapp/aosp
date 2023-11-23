@@ -17,8 +17,10 @@
 package com.android.bedstead.harrier.annotations.meta;
 
 import static com.android.bedstead.harrier.DeviceState.UserType.CURRENT_USER;
+import static com.android.bedstead.harrier.OptionalBoolean.ANY;
 
 import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.harrier.OptionalBoolean;
 
 import java.lang.annotation.Target;
 
@@ -41,4 +43,9 @@ public @interface EnsureHasProfile {
      */
     // NOTE: This field is only required if hasProfileOwner=true
     boolean dpcIsPrimary() default false;
+
+    /**
+     * Should we ensure that we are switched to the parent of the profile.
+     */
+    OptionalBoolean switchedToParentUser() default ANY;
 }

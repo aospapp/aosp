@@ -60,9 +60,6 @@
                         android:defaultValue="@string/alert_reminder_interval_in_min_default"
                         android:dialogTitle="@string/alert_reminder_interval_title" />
 
-        <SwitchPreference android:key="watch_alert_reminder"
-                          android:title="@string/alert_reminder_interval_title" />
-
         <SwitchPreference android:defaultValue="true"
                           android:key="enable_alert_vibrate"
                           android:title="@string/enable_alert_vibrate_title" />

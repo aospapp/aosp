@@ -1,0 +1,2 @@
+# b/176868217
+dontaudit hal_dumpstate adbd_prop:file *;

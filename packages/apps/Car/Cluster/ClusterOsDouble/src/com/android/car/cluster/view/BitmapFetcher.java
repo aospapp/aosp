@@ -18,12 +18,15 @@ package com.android.car.cluster.view;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.UserIdInt;
 import android.app.ActivityManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
+import android.os.UserHandle;
 import android.util.Log;
 import android.util.LruCache;
 
@@ -80,18 +83,11 @@ public class BitmapFetcher {
         }
 
         try {
-            String host = uri.getHost();
-
             uri = uri.buildUpon()
                     .appendQueryParameter(BITMAP_QUERY_WIDTH, String.valueOf(width))
                     .appendQueryParameter(BITMAP_QUERY_HEIGHT, String.valueOf(height))
                     .appendQueryParameter(BITMAP_QUERY_OFFLANESALPHA, String.valueOf(offLanesAlpha))
                     .build();
-
-            // Add user to URI to make the request to the right instance of content provider
-            // (see ContentProvider#getUserIdFromAuthority()).
-            int userId = ActivityManager.getCurrentUser();
-            Uri filteredUid = uri.buildUpon().encodedAuthority(userId + "@" + host).build();
 
             Bitmap bitmap = mCache.get(uri.toString());
             if (bitmap == null) {
@@ -99,8 +95,9 @@ public class BitmapFetcher {
                 if (Log.isLoggable(TAG, Log.DEBUG)) {
                     Log.d(TAG, "Requesting bitmap: " + uri);
                 }
-                try (ParcelFileDescriptor fileDesc = mContext.getContentResolver()
-                        .openFileDescriptor(filteredUid, "r")) {
+                try (ParcelFileDescriptor fileDesc =
+                             getContentResolverForUser(mContext, ActivityManager.getCurrentUser())
+                                     .openFileDescriptor(uri, "r")) {
                     if (fileDesc != null) {
                         bitmap = BitmapFactory.decodeFileDescriptor(fileDesc.getFileDescriptor());
                         return bitmap;
@@ -118,5 +115,13 @@ public class BitmapFetcher {
             Log.e(TAG, "Unable to fetch uri: " + uri, e);
         }
         return null;
+    }
+
+    private static ContentResolver getContentResolverForUser(Context context,
+            @UserIdInt int userId) {
+        Log.d(TAG, "Create context as user for user = " + userId);
+        return context
+                .createContextAsUser(UserHandle.of(userId), /* flags= */ 0)
+                .getContentResolver();
     }
 }

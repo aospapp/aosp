@@ -26,7 +26,7 @@ public class MockService extends Service {
     private final IBinder mBinder = new MockBinder();
 
     public class MockBinder extends Binder {
-        MockService getService() {
+        public MockService getService() {
             return MockService.this;
         }
     }

@@ -31,9 +31,11 @@ import com.android.os.AtomsProto.AppBreadcrumbReported;
 import com.android.os.AtomsProto.Atom;
 import com.android.os.StatsLog.ConfigMetricsReport;
 import com.android.os.StatsLog.ConfigMetricsReportList;
+import com.android.os.StatsLog.EventMetricData;
 import com.android.os.StatsLog.StatsLogReport;
 import com.android.tradefed.log.LogUtil;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -557,9 +559,13 @@ public class MetricActivationTests extends DeviceAtomTestCase {
         assertThat(metricReport.hasEventMetrics()).isEqualTo(dataCount > 0);
 
         StatsLogReport.EventMetricDataWrapper eventData = metricReport.getEventMetrics();
-        assertThat(eventData.getDataCount()).isEqualTo(dataCount);
-        for (int i = 0; i < eventData.getDataCount(); i++) {
-            AppBreadcrumbReported atom = eventData.getData(i).getAtom().getAppBreadcrumbReported();
+        List<EventMetricData> eventMetricDataList = new ArrayList<>();
+        for (EventMetricData eventMetricData : eventData.getDataList()) {
+            eventMetricDataList.addAll(backfillAggregatedAtomsInEventMetric(eventMetricData));
+        }
+        assertThat(eventMetricDataList).hasSize(dataCount);
+        for (EventMetricData eventMetricData : eventMetricDataList) {
+            AppBreadcrumbReported atom = eventMetricData.getAtom().getAppBreadcrumbReported();
             assertThat(atom.getLabel()).isEqualTo(metricMatcherLabel);
         }
     }

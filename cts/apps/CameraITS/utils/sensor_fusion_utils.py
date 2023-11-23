@@ -234,12 +234,15 @@ def rotation_rig(rotate_cntl, rotate_ch, num_rotations):
   elif rotate_cntl.lower() == 'canakit':
     canakit_serial_port = serial_port_def('Canakit')
 
+  else:
+    logging.info('No rotation rig defined. Manual test: rotate phone by hand.')
+
   # rotate phone
   logging.debug('Rotating phone %dx', num_rotations)
   for _ in range(num_rotations):
     if rotate_cntl == 'arduino':
       arduino_rotate_servo(rotate_ch, arduino_serial_port)
-    else:
+    elif rotate_cntl == 'canakit':
       canakit_set_relay_channel_state(canakit_serial_port, rotate_ch, 'ON')
       canakit_set_relay_channel_state(canakit_serial_port, rotate_ch, 'OFF')
   logging.debug('Finished rotations')

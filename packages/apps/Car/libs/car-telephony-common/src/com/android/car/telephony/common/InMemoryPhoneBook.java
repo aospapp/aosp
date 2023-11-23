@@ -40,7 +40,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
 
 /**
  * A singleton statically accessible helper class which pre-loads contacts list into memory so that
@@ -123,7 +122,7 @@ public class InMemoryPhoneBook implements Observer<List<Contact>> {
                 .toQueryParam();
 
         mContactListAsyncQueryLiveData = new AsyncQueryLiveData<List<Contact>>(mContext,
-                QueryParam.of(contactListQueryParam), Executors.newSingleThreadExecutor()) {
+                QueryParam.of(contactListQueryParam)) {
             @Override
             protected List<Contact> convertToEntity(Cursor cursor) {
                 return onCursorLoaded(cursor);

@@ -31,6 +31,7 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.PointerIcon;
 import android.view.SurfaceHolder;
@@ -46,9 +47,12 @@ import java.util.concurrent.TimeUnit;
 
 public class ASurfaceControlTestActivity extends Activity {
     private static final String TAG = "ASurfaceControlTestActivity";
+    private static final boolean DEBUG = true;
 
     private static final int DEFAULT_LAYOUT_WIDTH = 100;
     private static final int DEFAULT_LAYOUT_HEIGHT = 100;
+    private static final int OFFSET_X = 100;
+    private static final int OFFSET_Y = 100;
     private static final long WAIT_TIMEOUT_S = 5;
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
@@ -61,6 +65,13 @@ public class ASurfaceControlTestActivity extends Activity {
     private Bitmap mScreenshot;
 
     private Instrumentation mInstrumentation;
+
+    private final CountDownLatch mReadyToStart = new CountDownLatch(1);
+
+    @Override
+    public void onEnterAnimationComplete() {
+        mReadyToStart.countDown();
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -82,6 +93,8 @@ public class ASurfaceControlTestActivity extends Activity {
         mLayoutParams = new FrameLayout.LayoutParams(DEFAULT_LAYOUT_WIDTH, DEFAULT_LAYOUT_HEIGHT,
                 Gravity.LEFT | Gravity.TOP);
 
+        mLayoutParams.topMargin = OFFSET_Y;
+        mLayoutParams.leftMargin = OFFSET_X;
         mSurfaceView = new SurfaceView(this);
         mSurfaceView.getHolder().setFixedSize(DEFAULT_LAYOUT_WIDTH, DEFAULT_LAYOUT_HEIGHT);
 
@@ -91,7 +104,12 @@ public class ASurfaceControlTestActivity extends Activity {
     }
 
     public void verifyTest(SurfaceHolder.Callback surfaceHolderCallback,
-            PixelChecker pixelChecker, long delayInMs) {
+            PixelChecker pixelChecker) {
+        try {
+            mReadyToStart.await(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+        }
+
         if (mOnWatch) {
             /**
              * Watch devices not supported, since they may not support:
@@ -113,11 +131,11 @@ public class ASurfaceControlTestActivity extends Activity {
 
         final CountDownLatch countDownLatch = new CountDownLatch(1);
         UiAutomation uiAutomation = mInstrumentation.getUiAutomation();
-        mHandler.postDelayed(() -> {
+        mHandler.post(() -> {
             mScreenshot = uiAutomation.takeScreenshot(getWindow());
             mParent.removeAllViews();
             countDownLatch.countDown();
-        }, delayInMs);
+        });
 
         try {
             countDownLatch.await(WAIT_TIMEOUT_S, TimeUnit.SECONDS);
@@ -130,12 +148,13 @@ public class ASurfaceControlTestActivity extends Activity {
         mScreenshot.recycle();
 
         int numMatchingPixels = pixelChecker.getNumMatchingPixels(swBitmap);
+        Rect bounds = pixelChecker.getBoundsToCheck(swBitmap);
         boolean success = pixelChecker.checkPixels(numMatchingPixels, swBitmap.getWidth(),
                 swBitmap.getHeight());
         swBitmap.recycle();
 
         assertTrue("Actual matched pixels:" + numMatchingPixels
-                + " Bitmap size:" + swBitmap.getWidth() + "x" + swBitmap.getHeight(), success);
+                + " Bitmap size:" + bounds.width() + "x" + bounds.height(), success);
     }
 
     public SurfaceView getSurfaceView() {
@@ -178,23 +197,40 @@ public class ASurfaceControlTestActivity extends Activity {
 
     public abstract static class PixelChecker {
         private final PixelColor mPixelColor;
+        private final boolean mLogWhenNoMatch;
 
         public PixelChecker() {
-            mPixelColor = new PixelColor();
+            this(Color.BLACK, true);
         }
 
         public PixelChecker(int color) {
+            this(color, true);
+        }
+
+        public PixelChecker(int color, boolean logWhenNoMatch) {
             mPixelColor = new PixelColor(color);
+            mLogWhenNoMatch = logWhenNoMatch;
         }
 
         int getNumMatchingPixels(Bitmap bitmap) {
             int numMatchingPixels = 0;
+            int numErrorsLogged = 0;
             Rect boundsToCheck = getBoundsToCheck(bitmap);
             for (int x = boundsToCheck.left; x < boundsToCheck.right; x++) {
                 for (int y = boundsToCheck.top; y < boundsToCheck.bottom; y++) {
-                    int color = bitmap.getPixel(x, y);
+                    int color = bitmap.getPixel(x + OFFSET_X, y + OFFSET_Y);
                     if (matchesColor(getExpectedColor(x, y), color)) {
                         numMatchingPixels++;
+                    } else if (DEBUG && mLogWhenNoMatch && numErrorsLogged < 100) {
+                        // We don't want to spam the logcat with errors if something is really
+                        // broken. Only log the first 100 errors.
+                        PixelColor expected = getExpectedColor(x, y);
+                        int expectedColor = Color.argb(expected.mAlpha, expected.mRed,
+                                expected.mGreen, expected.mBlue);
+                        Log.e(TAG, String.format(
+                                "Failed to match (%d, %d) color=0x%08X expected=0x%08X", x, y,
+                                color, expectedColor));
+                        numErrorsLogged++;
                     }
                 }
             }
@@ -220,7 +256,7 @@ public class ASurfaceControlTestActivity extends Activity {
         public abstract boolean checkPixels(int matchingPixelCount, int width, int height);
 
         public Rect getBoundsToCheck(Bitmap bitmap) {
-            return new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight());
+            return new Rect(1, 1, DEFAULT_LAYOUT_WIDTH - 1, DEFAULT_LAYOUT_HEIGHT - 1);
         }
 
         public PixelColor getExpectedColor(int x, int y) {

@@ -1,0 +1,14 @@
+# for dmd
+persist.vendor.sys.dm.       u:object_r:vendor_diag_prop:s0
+persist.vendor.sys.diag.     u:object_r:vendor_diag_prop:s0
+vendor.sys.dmd.              u:object_r:vendor_diag_prop:s0
+vendor.sys.diag.             u:object_r:vendor_diag_prop:s0
+
+# for modem
+persist.vendor.modem.        u:object_r:vendor_modem_prop:s0
+vendor.modem.                u:object_r:vendor_modem_prop:s0
+vendor.sys.modem.            u:object_r:vendor_modem_prop:s0
+ro.vendor.sys.modem.         u:object_r:vendor_modem_prop:s0
+vendor.sys.exynos.modempath  u:object_r:vendor_modem_prop:s0
+persist.vendor.sys.modem.    u:object_r:vendor_modem_prop:s0
+

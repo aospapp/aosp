@@ -16,6 +16,8 @@
 
 package android.car.cts;
 
+import android.car.cts.app.PowerPolicyTestCommandStatus;
+import android.car.cts.app.PowerPolicyTestCommandType;
 import android.car.cts.powerpolicy.CpmsFrameworkLayerStateInfo;
 import android.car.cts.powerpolicy.CpmsSystemLayerStateInfo;
 import android.car.cts.powerpolicy.LocationInfo;
@@ -27,7 +29,6 @@ import android.car.cts.powerpolicy.PowerPolicyTestHelper;
 import android.car.cts.powerpolicy.PowerPolicyTestResult;
 import android.car.cts.powerpolicy.SilentModeInfo;
 import android.car.cts.powerpolicy.SystemInfoParser;
-import android.car.cts.powerpolicy.WifiInfo;
 
 import com.android.compatibility.common.util.CommonTestUtils;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -157,16 +158,19 @@ public final class PowerPolicyHostTest extends CarHostJUnit4TestCase {
         defineAndCheckPolicyListenerTest(testcase, stepNo++, ++expectedTotalPolicies);
         String clientTestcase = "PowerPolicyListenerTest";
         PowerPolicyTestResult testResult = new PowerPolicyTestResult(mTestAnalyzer);
-        String clientAction = "DUMP_LISTENER";
+        String clientAction = PowerPolicyTestCommandType.DUMP_LISTENER.name();
         String component = "AUDIO";
 
         setClientTestcase(clientTestcase);
         int currentNumberListeners = getNumberPolicyListeners();
         registerPowerPolicyListener(component);
-        resetPowerPolicyListeners();
         waitUntilNumberPolicyListenersEquals(++currentNumberListeners);
+        resetPowerPolicyListeners();
+        waitResetPowerPolicyListenersComplete(testResult, clientTestcase,
+                PowerPolicyTestCommandType.RESET_LISTENERS.name(), component);
         applyPowerPolicy(PowerPolicyDef.IdSet.LISTENER_TEST);
-        waitPowerPolicyListenersUpdated();
+        waitPowerPolicyListenersUpdated(testResult, clientTestcase,
+                PowerPolicyTestCommandType.CHECK_LISTENERS.name(), component);
 
         dumpPowerPolicyListener(component);
         testResult.checkLastTestResultEntry(clientTestcase, clientAction,
@@ -174,7 +178,8 @@ public final class PowerPolicyHostTest extends CarHostJUnit4TestCase {
 
         unregisterPowerPolicyListener(component);
         applyPowerPolicy(PowerPolicyDef.IdSet.DEFAULT_ALL_ON);
-        waitPowerPolicyListenersUpdated();
+        waitPowerPolicyListenersUpdated(testResult, clientTestcase,
+                PowerPolicyTestCommandType.CHECK_LISTENERS.name(), component);
 
         dumpPowerPolicyListener(component);
         testResult.checkLastTestResultEntry(clientTestcase, clientAction,
@@ -300,12 +305,35 @@ public final class PowerPolicyHostTest extends CarHostJUnit4TestCase {
         executeCommand("%s dumplistener,%s", TEST_COMMAND_HEADER, componentName);
     }
 
-    private void waitPowerPolicyListenersUpdated() throws Exception {
-        executeCommand("%s waitlisteners", TEST_COMMAND_HEADER);
+    private void waitPowerPolicyListenersUpdated(PowerPolicyTestResult testResult,
+            String clientTestcase, String clientAction, String component) throws Exception {
+        CommonTestUtils.waitUntil("timed out (" + DEFAULT_TIMEOUT_SEC
+                + "s) waiting  policy listeners updated", DEFAULT_TIMEOUT_SEC,
+                () -> {
+                    return checkPowerPolicyListenersUpdated(testResult, clientTestcase,
+                            clientAction, component);
+                });
+    }
+
+    private boolean checkPowerPolicyListenersUpdated(PowerPolicyTestResult testResult,
+            String clientTestcase, String clientAction, String component) throws Exception {
+        executeCommand("%s checklisteners", TEST_COMMAND_HEADER);
+        return testResult.checkLastTestResultEntryData(clientTestcase, clientAction,
+                component, PowerPolicyTestCommandStatus.PROPAGATED);
     }
 
     private void resetPowerPolicyListeners() throws Exception {
         executeCommand("%s resetlisteners", TEST_COMMAND_HEADER);
+    }
+
+    private void waitResetPowerPolicyListenersComplete(PowerPolicyTestResult testResult,
+            String clientTestcase, String clientAction, String component) throws Exception {
+        CommonTestUtils.waitUntil("timed out (" + DEFAULT_TIMEOUT_SEC
+                + "s) waiting resetPowerPolicyListenersComplete", DEFAULT_TIMEOUT_SEC,
+                () -> {
+                    return testResult.checkLastTestResultEntryData(clientTestcase, clientAction,
+                            component, PowerPolicyTestCommandStatus.SUCCEED);
+                });
     }
 
     private int getNumberPolicyListeners() throws Exception {
@@ -378,7 +406,6 @@ public final class PowerPolicyHostTest extends CarHostJUnit4TestCase {
 
     private void testPowerPolicyAndComponentUserSetting() throws Exception {
         ComponentTestHelper[] testHelpers = {
-            new ComponentTestHelper<WifiInfo>(this, "WIFI", WifiInfo.class),
             new ComponentTestHelper<LocationInfo>(this, "LOCATION", LocationInfo.class),
         };
 

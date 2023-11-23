@@ -1815,17 +1815,42 @@ bool GetSystemInfoVendorIDAndDeviceID(const FunctionsGL *functions,
                                       angle::VendorID *outVendor,
                                       angle::DeviceID *outDevice)
 {
+    // Get vendor from GL itself, so on multi-GPU systems the correct GPU is selected.
+    *outVendor = GetVendorID(functions);
+    *outDevice = 0;
+
+    // Gather additional information from the system to detect multi-GPU scenarios.
     bool isGetSystemInfoSuccess = angle::GetSystemInfo(outSystemInfo);
+
+    // Get the device id from system info, corresponding to the vendor of the active GPU.
     if (isGetSystemInfoSuccess && !outSystemInfo->gpus.empty())
     {
-        *outVendor = outSystemInfo->gpus[outSystemInfo->activeGPUIndex].vendorId;
-        *outDevice = outSystemInfo->gpus[outSystemInfo->activeGPUIndex].deviceId;
+        if (*outVendor == VENDOR_ID_UNKNOWN)
+        {
+            // If vendor ID is unknown, take the best estimate of the active GPU.  Chances are there
+            // is only one GPU anyway.
+            *outVendor = outSystemInfo->gpus[outSystemInfo->activeGPUIndex].vendorId;
+            *outDevice = outSystemInfo->gpus[outSystemInfo->activeGPUIndex].deviceId;
+        }
+        else
+        {
+            for (const angle::GPUDeviceInfo &gpu : outSystemInfo->gpus)
+            {
+                if (*outVendor == gpu.vendorId)
+                {
+                    // Note that deviceId may not necessarily have been possible to retrieve.
+                    *outDevice = gpu.deviceId;
+                    break;
+                }
+            }
+        }
     }
     else
     {
-        *outVendor = GetVendorID(functions);
+        // If system info is not available, attempt to deduce the device from GL itself.
         *outDevice = GetDeviceID(functions);
     }
+
     return isGetSystemInfoSuccess;
 }
 
@@ -1934,8 +1959,6 @@ void InitializeFeatures(const FunctionsGL *functions, angle::FeaturesGL *feature
 
     ANGLE_FEATURE_CONDITION(features, reapplyUBOBindingsAfterUsingBinaryProgram,
                             isAMD || IsAndroid());
-
-    ANGLE_FEATURE_CONDITION(features, rewriteVectorScalarArithmetic, isNvidia);
 
     // TODO(oetuaho): Make this specific to the affected driver versions. Versions at least up to
     // 390 are known to be affected. Versions after that are expected not to be affected.
@@ -2110,8 +2133,10 @@ void InitializeFeatures(const FunctionsGL *functions, angle::FeaturesGL *feature
     // http://crbug.com/1137851
     // Speculative fix for above issue, users can enable it via flags.
     // http://crbug.com/1187475
-    // Disable on Intel due to crashes in Mesa
-    ANGLE_FEATURE_CONDITION(features, disableSyncControlSupport, IsLinux() && isIntel);
+    // Disable on Intel due to crashes in Mesa.
+    // http://anglebug.com/6174
+    // Disabled everywhere due to a bug in detecting Intel platforms on dual-GPU systems.
+    ANGLE_FEATURE_CONDITION(features, disableSyncControlSupport, IsLinux());
 
     ANGLE_FEATURE_CONDITION(features, keepBufferShadowCopy, !CanMapBufferForRead(functions));
 
@@ -2166,13 +2191,17 @@ void InitializeFeatures(const FunctionsGL *functions, angle::FeaturesGL *feature
     // http://crbug.com/594016
     bool isLinuxVivante = IsLinux() && IsVivante(device);
 
+    // Temporarily disable on all of Android. http://crbug.com/1238327
     ANGLE_FEATURE_CONDITION(features, disableMultisampledRenderToTexture,
-                            isAdreno4xxOnAndroidLessThan51 || isAdreno4xxOnAndroid70 ||
-                                isAdreno5xxOnAndroidLessThan70 || isAdreno5xxOnAndroid71 ||
-                                isLinuxVivante);
+                            IsAndroid() || isAdreno4xxOnAndroidLessThan51 ||
+                                isAdreno4xxOnAndroid70 || isAdreno5xxOnAndroidLessThan70 ||
+                                isAdreno5xxOnAndroid71 || isLinuxVivante);
 
     // http://crbug.com/1181068
     ANGLE_FEATURE_CONDITION(features, uploadTextureDataInChunks, IsApple());
+
+    // https://crbug.com/1060012
+    ANGLE_FEATURE_CONDITION(features, emulateImmutableCompressedTexture3D, isQualcomm);
 }
 
 void InitializeFrontendFeatures(const FunctionsGL *functions, angle::FrontendFeatures *features)

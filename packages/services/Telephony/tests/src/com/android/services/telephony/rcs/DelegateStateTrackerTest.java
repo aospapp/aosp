@@ -37,6 +37,7 @@ import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.TelephonyTestBase;
+import com.android.internal.telephony.metrics.RcsStats;
 
 import org.junit.After;
 import org.junit.Before;
@@ -56,6 +57,7 @@ public class DelegateStateTrackerTest extends TelephonyTestBase {
 
     @Mock private ISipDelegate mSipDelegate;
     @Mock private ISipDelegateConnectionStateCallback mAppCallback;
+    @Mock private RcsStats mRcsStats;
 
     @Before
     public void setUp() throws Exception {
@@ -76,12 +78,14 @@ public class DelegateStateTrackerTest extends TelephonyTestBase {
     @Test
     public void testDelegateCreated() throws Exception {
         DelegateStateTracker stateTracker = new DelegateStateTracker(TEST_SUB_ID, mAppCallback,
-                mSipDelegate);
+                mSipDelegate, mRcsStats);
         Set<FeatureTagState> deniedTags = getMmTelDeniedTag();
-        stateTracker.sipDelegateConnected(deniedTags);
+        Set<String> supportedTags = getSupportedTags();
+        stateTracker.sipDelegateConnected(supportedTags, deniedTags);
         // Calling connected multiple times should not generate multiple onCreated events.
-        stateTracker.sipDelegateConnected(deniedTags);
+        stateTracker.sipDelegateConnected(supportedTags, deniedTags);
         verify(mAppCallback).onCreated(mSipDelegate);
+        verify(mRcsStats).createSipDelegateStats(TEST_SUB_ID, supportedTags);
 
         // Ensure status updates are sent to app as expected.
         DelegateRegistrationState regState = new DelegateRegistrationState.Builder()
@@ -97,8 +101,10 @@ public class DelegateStateTrackerTest extends TelephonyTestBase {
         stateTracker.onConfigurationChanged(c);
         verify(mAppCallback).onFeatureTagStatusChanged(eq(regState),
                 eq(new ArrayList<>(deniedTags)));
+        verify(mRcsStats).onSipTransportFeatureTagStats(TEST_SUB_ID, deniedTags,
+                regState.getDeregisteredFeatureTags(),
+                regState.getRegisteredFeatureTags());
         verify(mAppCallback).onConfigurationChanged(c);
-
         verify(mAppCallback, never()).onDestroyed(anyInt());
     }
 
@@ -109,14 +115,18 @@ public class DelegateStateTrackerTest extends TelephonyTestBase {
     @Test
     public void testDelegateDestroyed() throws Exception {
         DelegateStateTracker stateTracker = new DelegateStateTracker(TEST_SUB_ID, mAppCallback,
-                mSipDelegate);
+                mSipDelegate, mRcsStats);
         Set<FeatureTagState> deniedTags = getMmTelDeniedTag();
-        stateTracker.sipDelegateConnected(deniedTags);
+        Set<String> supportedTags = getSupportedTags();
+        stateTracker.sipDelegateConnected(supportedTags, deniedTags);
+        verify(mRcsStats).createSipDelegateStats(eq(TEST_SUB_ID), eq(supportedTags));
 
         stateTracker.sipDelegateDestroyed(
                 SipDelegateManager.SIP_DELEGATE_DESTROY_REASON_REQUESTED_BY_APP);
         verify(mAppCallback).onDestroyed(
                 SipDelegateManager.SIP_DELEGATE_DESTROY_REASON_REQUESTED_BY_APP);
+        verify(mRcsStats).onSipDelegateStats(eq(TEST_SUB_ID), eq(supportedTags),
+                eq(SipDelegateManager.SIP_DELEGATE_DESTROY_REASON_REQUESTED_BY_APP));
     }
 
     /**
@@ -130,9 +140,10 @@ public class DelegateStateTrackerTest extends TelephonyTestBase {
     @Test
     public void testDelegateChangingRegisteredTagsOverride() throws Exception {
         DelegateStateTracker stateTracker = new DelegateStateTracker(TEST_SUB_ID, mAppCallback,
-                mSipDelegate);
+                mSipDelegate, mRcsStats);
         Set<FeatureTagState> deniedTags = getMmTelDeniedTag();
-        stateTracker.sipDelegateConnected(deniedTags);
+        Set<String> supportedTags = getSupportedTags();
+        stateTracker.sipDelegateConnected(supportedTags, deniedTags);
         // SipDelegate created
         verify(mAppCallback).onCreated(mSipDelegate);
         DelegateRegistrationState regState = new DelegateRegistrationState.Builder()
@@ -158,7 +169,7 @@ public class DelegateStateTrackerTest extends TelephonyTestBase {
                         DelegateRegistrationState.DEREGISTERED_REASON_NOT_PROVISIONED)
                 .build();
         // new underlying SipDelegate created
-        stateTracker.sipDelegateConnected(deniedTags);
+        stateTracker.sipDelegateConnected(supportedTags, deniedTags);
         stateTracker.onRegistrationStateChanged(regState);
 
         // Verify registration state through the process:
@@ -187,9 +198,10 @@ public class DelegateStateTrackerTest extends TelephonyTestBase {
     @Test
     public void testDelegateChangingDeniedTagsChanged() throws Exception {
         DelegateStateTracker stateTracker = new DelegateStateTracker(TEST_SUB_ID, mAppCallback,
-                mSipDelegate);
+                mSipDelegate, mRcsStats);
         Set<FeatureTagState> deniedTags = getMmTelDeniedTag();
-        stateTracker.sipDelegateConnected(deniedTags);
+        Set<String> supportedTags = getSupportedTags();
+        stateTracker.sipDelegateConnected(supportedTags, deniedTags);
         // SipDelegate created
         verify(mAppCallback).onCreated(mSipDelegate);
         DelegateRegistrationState regState = new DelegateRegistrationState.Builder()
@@ -220,7 +232,7 @@ public class DelegateStateTrackerTest extends TelephonyTestBase {
         // new underlying SipDelegate created, but SipDelegate denied one to one chat
         deniedTags.add(new FeatureTagState(ImsSignallingUtils.ONE_TO_ONE_CHAT_TAG,
                 SipDelegateManager.DENIED_REASON_NOT_ALLOWED));
-        stateTracker.sipDelegateConnected(deniedTags);
+        stateTracker.sipDelegateConnected(supportedTags, deniedTags);
         DelegateRegistrationState fullyDeniedRegState = new DelegateRegistrationState.Builder()
                 .build();
         // In this special case, it will be the SipDelegateConnectionBase that will trigger
@@ -244,9 +256,10 @@ public class DelegateStateTrackerTest extends TelephonyTestBase {
     @Test
     public void testDelegateChangingDeniedTagsChangingToDestroy() throws Exception {
         DelegateStateTracker stateTracker = new DelegateStateTracker(TEST_SUB_ID, mAppCallback,
-                mSipDelegate);
+                mSipDelegate, mRcsStats);
         Set<FeatureTagState> deniedTags = getMmTelDeniedTag();
-        stateTracker.sipDelegateConnected(deniedTags);
+        Set<String> supportedTags = getSupportedTags();
+        stateTracker.sipDelegateConnected(supportedTags, deniedTags);
         // SipDelegate created
         verify(mAppCallback).onCreated(mSipDelegate);
         DelegateRegistrationState regState = new DelegateRegistrationState.Builder()
@@ -295,5 +308,12 @@ public class DelegateStateTrackerTest extends TelephonyTestBase {
         deniedTags.add(new FeatureTagState(ImsSignallingUtils.MMTEL_TAG,
                 SipDelegateManager.DENIED_REASON_NOT_ALLOWED));
         return deniedTags;
+    }
+
+    private Set<String> getSupportedTags() {
+        Set<String> supportedTags = new ArraySet<>();
+        supportedTags.add(ImsSignallingUtils.ONE_TO_ONE_CHAT_TAG);
+        supportedTags.add(ImsSignallingUtils.GROUP_CHAT_TAG);
+        return supportedTags;
     }
 }

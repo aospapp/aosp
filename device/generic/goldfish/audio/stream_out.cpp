@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <android_audio_policy_configuration_V7_0-enums.h>
 #include <log/log.h>
 #include <fmq/EventFlag.h>
 #include <fmq/MessageQueue.h>
@@ -29,15 +30,19 @@
 #include "util.h"
 #include "debug.h"
 
+namespace xsd {
+using namespace ::android::audio::policy::configuration::V7_0;
+}
+
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V6_0 {
+namespace V7_0 {
 namespace implementation {
 
 using ::android::hardware::Void;
-using namespace ::android::hardware::audio::common::V6_0;
-using namespace ::android::hardware::audio::V6_0;
+using namespace ::android::hardware::audio::common::V7_0;
+using namespace ::android::hardware::audio::V7_0;
 
 namespace {
 
@@ -228,10 +233,10 @@ StreamOut::StreamOut(sp<PrimaryDevice> dev,
                      int32_t ioHandle,
                      const DeviceAddress& device,
                      const AudioConfig& config,
-                     hidl_bitfield<AudioOutputFlag> flags,
+                     hidl_vec<AudioInOutFlag> flags,
                      const SourceMetadata& sourceMetadata)
         : mDev(std::move(dev))
-        , mCommon(ioHandle, device, config, flags)
+        , mCommon(ioHandle, device, config, std::move(flags))
         , mSourceMetadata(sourceMetadata) {}
 
 StreamOut::~StreamOut() {
@@ -250,50 +255,19 @@ Return<uint64_t> StreamOut::getBufferSize() {
     return mCommon.getBufferSize();
 }
 
-Return<uint32_t> StreamOut::getSampleRate() {
-    return mCommon.getSampleRate();
-}
-
-Return<void> StreamOut::getSupportedSampleRates(AudioFormat format,
-                                                getSupportedSampleRates_cb _hidl_cb) {
-    mCommon.getSupportedSampleRates(format, _hidl_cb);
+Return<void> StreamOut::getSupportedProfiles(getSupportedProfiles_cb _hidl_cb) {
+    mCommon.getSupportedProfiles(_hidl_cb);
     return Void();
-}
-
-Return<Result> StreamOut::setSampleRate(uint32_t sampleRateHz) {
-    return mCommon.setSampleRate(sampleRateHz);
-}
-
-Return<hidl_bitfield<AudioChannelMask>> StreamOut::getChannelMask() {
-    return mCommon.getChannelMask();
-}
-
-Return<void> StreamOut::getSupportedChannelMasks(AudioFormat format,
-                                                 IStream::getSupportedChannelMasks_cb _hidl_cb) {
-    mCommon.getSupportedChannelMasks(format, _hidl_cb);
-    return Void();
-}
-
-Return<Result> StreamOut::setChannelMask(hidl_bitfield<AudioChannelMask> mask) {
-    return mCommon.setChannelMask(mask);
-}
-
-Return<AudioFormat> StreamOut::getFormat() {
-    return mCommon.getFormat();
-}
-
-Return<void> StreamOut::getSupportedFormats(getSupportedFormats_cb _hidl_cb) {
-    mCommon.getSupportedFormats(_hidl_cb);
-    return Void();
-}
-
-Return<Result> StreamOut::setFormat(AudioFormat format) {
-    return mCommon.setFormat(format);
 }
 
 Return<void> StreamOut::getAudioProperties(getAudioProperties_cb _hidl_cb) {
     mCommon.getAudioProperties(_hidl_cb);
     return Void();
+}
+
+Return<Result> StreamOut::setAudioProperties(const AudioConfigBaseOptional& config) {
+    (void)config;
+    return FAILURE(Result::NOT_SUPPORTED);
 }
 
 Return<Result> StreamOut::addEffect(uint64_t effectId) {
@@ -398,21 +372,21 @@ Return<Result> StreamOut::setVolume(float left, float right) {
     return Result::OK;
 }
 
-Return<void> StreamOut::updateSourceMetadata(const SourceMetadata& sourceMetadata) {
+Return<Result> StreamOut::updateSourceMetadata(const SourceMetadata& sourceMetadata) {
     (void)sourceMetadata;
-    return Void();
+    return FAILURE(Result::NOT_SUPPORTED);
 }
 
 Return<void> StreamOut::prepareForWriting(uint32_t frameSize,
                                           uint32_t framesCount,
                                           prepareForWriting_cb _hidl_cb) {
     if (!frameSize || !framesCount || frameSize > 256 || framesCount > (1u << 20)) {
-        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {}, {}, {});
+        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {}, {}, -1);
         return Void();
     }
 
     if (mWriteThread) {  // INVALID_STATE if the method was already called.
-        _hidl_cb(FAILURE(Result::INVALID_STATE), {}, {}, {}, {});
+        _hidl_cb(FAILURE(Result::INVALID_STATE), {}, {}, {}, -1);
         return Void();
     }
 
@@ -423,11 +397,11 @@ Return<void> StreamOut::prepareForWriting(uint32_t frameSize,
                  *(t->mCommandMQ.getDesc()),
                  *(t->mDataMQ.getDesc()),
                  *(t->mStatusMQ.getDesc()),
-                 {.pid = getpid(), .tid = t->getTid().get()});
+                 t->getTid().get());
 
         mWriteThread = std::move(t);
     } else {
-        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {}, {}, {});
+        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {}, {}, -1);
     }
 
     return Void();
@@ -484,7 +458,22 @@ Return<Result> StreamOut::flush() {
 }
 
 Return<void> StreamOut::getPresentationPosition(getPresentationPosition_cb _hidl_cb) {
-    _hidl_cb(FAILURE(Result::NOT_SUPPORTED), {}, {});    // see WriteThread::doGetPresentationPosition
+    const auto w = static_cast<WriteThread*>(mWriteThread.get());
+    if (!w) {
+        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {});
+        return Void();
+    }
+
+    const auto s = w->mSink.get();
+    if (!s) {
+        _hidl_cb(Result::OK, mFrames, util::nsecs2TimeSpec(systemTime(SYSTEM_TIME_MONOTONIC)));
+    } else {
+        uint64_t frames;
+        TimeSpec ts;
+        const Result r = s->getPresentationPosition(frames, ts);
+        _hidl_cb(r, frames, ts);
+    }
+
     return Void();
 }
 
@@ -535,8 +524,23 @@ void StreamOut::updateEffectiveVolumeLocked() {
     mEffectiveVolume = mMasterVolume * mStreamVolume;
 }
 
+bool StreamOut::validateDeviceAddress(const DeviceAddress& device) {
+    return DevicePortSink::validateDeviceAddress(device);
+}
+
+bool StreamOut::validateFlags(const hidl_vec<AudioInOutFlag>& flags) {
+    return std::all_of(flags.begin(), flags.end(), [](const AudioInOutFlag& flag){
+        return xsd::stringToAudioInOutFlag(flag) != xsd::AudioInOutFlag::UNKNOWN;
+    });
+}
+
+bool StreamOut::validateSourceMetadata(const SourceMetadata& sourceMetadata) {
+    (void)sourceMetadata;
+    return true;
+}
+
 }  // namespace implementation
-}  // namespace V6_0
+}  // namespace V7_0
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

@@ -43,11 +43,13 @@
         android:id="@+id/action_tabs"
         android:layout_width="match_parent"
         android:layout_height="@dimen/bottom_actions_height"
-        android:paddingTop="@dimen/bottom_actions_top_padding"
-        android:paddingBottom="@dimen/bottom_actions_bottom_padding"
-        android:theme="@style/BottomActionItemStyle"
         android:layout_alignParentBottom="true"
-        android:layoutDirection="locale">
+        android:layout_marginHorizontal="@dimen/bottom_actions_horizontal_margin"
+        android:layoutDirection="locale"
+        android:clipToPadding="false"
+        android:paddingBottom="@dimen/bottom_actions_bottom_padding"
+        android:paddingTop="@dimen/bottom_actions_top_padding"
+        android:theme="@style/BottomActionItemStyle">
 
         <ImageView
             android:id="@+id/action_back"
@@ -161,12 +163,17 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
+            android:background="@drawable/bottom_apply_button_background"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:padding="0dp"
             android:text="@string/bottom_action_bar_apply"
+            android:textColor="?android:textColorPrimaryInverse"
             android:visibility="gone"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@id/action_apply"/>
+            app:layout_constraintStart_toEndOf="@id/action_apply"
+            app:layout_constraintTop_toTopOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </RelativeLayout>

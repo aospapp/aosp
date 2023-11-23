@@ -23,11 +23,9 @@ using android::hardware::graphics::mapper::V4_0::Error;
 using BufferDescriptorInfo =
         android::hardware::graphics::mapper::V4_0::IMapper::BufferDescriptorInfo;
 
-CrosGralloc4Allocator::CrosGralloc4Allocator() : mDriver(std::make_unique<cros_gralloc_driver>()) {
-    if (mDriver->init()) {
-        drv_log("Failed to initialize driver.\n");
-        mDriver = nullptr;
-    }
+Error CrosGralloc4Allocator::init() {
+    mDriver = cros_gralloc_driver::get_instance();
+    return mDriver ? Error::NONE : Error::NO_RESOURCES;
 }
 
 Error CrosGralloc4Allocator::allocate(const BufferDescriptorInfo& descriptor, uint32_t* outStride,
@@ -46,13 +44,7 @@ Error CrosGralloc4Allocator::allocate(const BufferDescriptorInfo& descriptor, ui
         return Error::UNSUPPORTED;
     }
 
-    bool supported = mDriver->is_supported(&crosDescriptor);
-    if (!supported && (descriptor.usage & BufferUsage::COMPOSER_OVERLAY)) {
-        crosDescriptor.use_flags &= ~BO_USE_SCANOUT;
-        supported = mDriver->is_supported(&crosDescriptor);
-    }
-
-    if (!supported) {
+    if (!mDriver->is_supported(&crosDescriptor)) {
         std::string drmFormatString = get_drm_format_string(crosDescriptor.drm_format);
         std::string pixelFormatString = getPixelFormatString(descriptor.format);
         std::string usageString = getUsageString(descriptor.usage);

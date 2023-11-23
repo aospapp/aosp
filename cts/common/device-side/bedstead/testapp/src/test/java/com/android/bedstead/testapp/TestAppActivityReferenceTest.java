@@ -21,8 +21,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnPrimaryUser;
+import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnProfileOwnerProfileWithNoDeviceOwner;
 import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnSecondaryUser;
-import com.android.bedstead.harrier.annotations.parameterized.IncludeRunOnProfileOwnerProfile;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.activities.Activity;
 import com.android.bedstead.nene.users.UserReference;
@@ -36,8 +36,7 @@ import org.junit.runner.RunWith;
 @RunWith(BedsteadJUnit4.class)
 public class TestAppActivityReferenceTest {
 
-    private static final TestApis sTestApis = new TestApis();
-    private static final UserReference sUser = sTestApis.users().instrumented();
+    private static final UserReference sUser = TestApis.users().instrumented();
 
     @ClassRule @Rule
     public static final DeviceState sDeviceState = new DeviceState();
@@ -52,21 +51,21 @@ public class TestAppActivityReferenceTest {
     @Test
     @IncludeRunOnPrimaryUser
     @IncludeRunOnSecondaryUser
-    @IncludeRunOnProfileOwnerProfile
+    @IncludeRunOnProfileOwnerProfileWithNoDeviceOwner
     public void start_activityIsStarted() {
-        TestApp testApp = mTestAppProvider.any(); // TODO(scottjonathan): specify must have activity
-        try (TestAppInstanceReference testAppInstance = testApp.install(sUser)) {
+        TestApp testApp = mTestAppProvider.query().whereActivities().isNotEmpty().get();
+        try (TestAppInstance testAppInstance = testApp.install(sUser)) {
             Activity<TestAppActivity> activity = testAppInstance.activities().any().start();
 
-            assertThat(sTestApis.activities().foregroundActivity()).isEqualTo(
+            assertThat(TestApis.activities().foregroundActivity()).isEqualTo(
                     activity.activity().component());
         }
     }
 
     @Test
     public void remote_executes() {
-        TestApp testApp = mTestAppProvider.any(); // TODO(scottjonathan): specify must have activity
-        try (TestAppInstanceReference testAppInstance = testApp.install(sUser)) {
+        TestApp testApp = mTestAppProvider.query().whereActivities().isNotEmpty().get();
+        try (TestAppInstance testAppInstance = testApp.install(sUser)) {
             Activity<TestAppActivity> activity = testAppInstance.activities().any().start();
 
             assertThat(activity.activity().isFinishing()).isFalse();

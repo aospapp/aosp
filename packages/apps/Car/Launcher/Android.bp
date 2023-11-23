@@ -18,22 +18,22 @@ package {
 }
 
 android_library {
-  name: "CarLauncher-core",
-  platform_apis: true,
+    name: "CarLauncher-core",
+    platform_apis: true,
 
-  srcs: ["src/**/*.java"],
+    srcs: ["src/**/*.java"],
 
-  resource_dirs: ["res"],
+    resource_dirs: ["res"],
 
-  static_libs: [
-      "androidx-constraintlayout_constraintlayout-solver",
-      "androidx-constraintlayout_constraintlayout",
-      "androidx.lifecycle_lifecycle-extensions",
-      "car-media-common",
-      "car-telephony-common",
-      "car-ui-lib",
-      "WindowManager-Shell",
-      ],
+    static_libs: [
+        "androidx-constraintlayout_constraintlayout-solver",
+        "androidx-constraintlayout_constraintlayout",
+        "androidx.lifecycle_lifecycle-extensions",
+        "car-media-common",
+        "car-telephony-common",
+        "car-ui-lib",
+        "WindowManager-Shell",
+    ],
 
     libs: ["android.car"],
 

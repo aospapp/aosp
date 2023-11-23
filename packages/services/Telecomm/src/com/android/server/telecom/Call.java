@@ -85,6 +85,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  *  Encapsulates all aspects of a given phone call throughout its lifecycle, starting
@@ -3160,6 +3161,13 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
     void setConferenceableCalls(List<Call> conferenceableCalls) {
         mConferenceableCalls.clear();
         mConferenceableCalls.addAll(conferenceableCalls);
+        String confCallIds = "";
+        if (!conferenceableCalls.isEmpty()) {
+            confCallIds = conferenceableCalls.stream()
+                    .map(c -> c.getId())
+                    .collect(Collectors.joining(","));
+        }
+        Log.addEvent(this, LogUtils.Events.CONF_CALLS_CHANGED, confCallIds);
 
         for (Listener l : mListeners) {
             l.onConferenceableCallsChanged(this);

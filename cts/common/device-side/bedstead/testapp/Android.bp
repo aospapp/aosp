@@ -2,21 +2,30 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+java_library_static {
+    name: "TestApp_JavaProtos",
+    host_supported: true,
+    proto: {
+        type: "lite",
+    },
+    srcs: ["src/library/main/proto/testapp_protos.proto"]
+}
+
 android_library {
     name: "TestApp_TestApps",
     sdk_version: "test_current",
     srcs: [
-        "src/main/testapps/java/**/*.java"
+        "src/testapps/main/java/**/*.java"
     ],
     static_libs: [
-        "Nene",
         "EventLib",
         "TestApp_Annotations",
         "ConnectedAppsSDK",
         "ConnectedAppsSDK_Annotations",
         "androidx.annotation_annotation",
+        "RemoteFrameworkClasses"
     ],
-    manifest: "src/main/testapps/AndroidManifest.xml",
+    manifest: "src/testapps/main/AndroidManifest.xml",
     min_sdk_version: "28",
     plugins: ["ConnectedAppsSDK_Processor", "TestApp_Processor"],
 }
@@ -25,7 +34,7 @@ android_library {
     name: "TestApp",
     sdk_version: "test_current",
     srcs: [
-        "src/main/library/java/**/*.java"
+        "src/library/main/java/**/*.java"
     ],
     static_libs: [
         "Nene",
@@ -35,9 +44,10 @@ android_library {
         "ConnectedAppsSDK",
         "ConnectedAppsSDK_Annotations",
         "androidx.annotation_annotation",
-        "TestApp_TestApps"
+        "TestApp_TestApps",
+        "TestApp_JavaProtos"
     ],
-    manifest: "src/main/library/AndroidManifest.xml",
+    manifest: "src/library/main/AndroidManifest.xml",
     min_sdk_version: "28",
     resource_zips: [":TestApp_Apps"],
     plugins: ["ConnectedAppsSDK_Processor", "TestApp_Processor"],
@@ -80,20 +90,28 @@ python_binary_host {
     main: "tools/index/index_testapps.py",
     srcs: [
         "tools/index/index_testapps.py",
-    ]
+        "src/library/main/proto/testapp_protos.proto"
+    ],
+    proto: {
+        canonical_path_from_root: false,
+    }
 }
 
 java_genrule {
     name: "TestApp_Apps",
-    srcs: [":EmptyTestApp", ":EmptyTestApp2", ":DeviceAdminTestApp", ":LockTaskApp"],
+    srcs: [":EmptyTestApp", ":EmptyTestApp2", ":DeviceAdminTestApp", ":LockTaskApp", ":DelegateTestApp", ":RemoteDPCTestApp", ":SmsApp", ":AccountManagementApp"],
     out: ["TestApp_Apps.res.zip"],
-    tools: ["soong_zip", "index_testapps"],
+    tools: ["soong_zip", "index_testapps", "aapt2"],
     cmd: "mkdir -p $(genDir)/res/raw"
          + " && cp $(location :EmptyTestApp) $(genDir)/res/raw"
          + " && cp $(location :EmptyTestApp2) $(genDir)/res/raw"
          + " && cp $(location :DeviceAdminTestApp) $(genDir)/res/raw"
          + " && cp $(location :LockTaskApp) $(genDir)/res/raw"
-         + " && $(location index_testapps) --directory $(genDir)/res/raw"
+         + " && cp $(location :DelegateTestApp) $(genDir)/res/raw"
+         + " && cp $(location :RemoteDPCTestApp) $(genDir)/res/raw"
+         + " && cp $(location :SmsApp) $(genDir)/res/raw"
+         + " && cp $(location :AccountManagementApp) $(genDir)/res/raw"
+         + " && $(location index_testapps) --directory $(genDir)/res/raw --aapt2 $(location aapt2)"
          + " && $(location soong_zip) -o $(out) -C $(genDir)/res -D $(genDir)/res/raw"
 }
 
@@ -128,10 +146,47 @@ android_test_helper_app {
 android_test_helper_app {
     name: "LockTaskApp",
     static_libs: [
+        "TestApp_TestApps"
+    ],
+    manifest: "manifests/LockTaskAppManifest.xml",
+    min_sdk_version: "28"
+}
+
+android_test_helper_app {
+    name: "DelegateTestApp",
+    static_libs: [
+        "TestApp_TestApps"
+    ],
+    manifest: "manifests/DelegateManifest.xml",
+    min_sdk_version: "28"
+}
+
+android_test_helper_app {
+    name: "RemoteDPCTestApp",
+    static_libs: [
         "TestApp_TestApps",
         "DeviceAdminApp"
     ],
-    manifest: "manifests/LockTaskAppManifest.xml",
+    manifest: "manifests/RemoteDPCManifest.xml",
+    min_sdk_version: "28"
+}
+
+android_test_helper_app {
+    name: "SmsApp",
+    static_libs: [
+        "TestApp_TestApps"
+    ],
+    manifest: "manifests/SmsAppManifest.xml",
+    min_sdk_version: "28"
+}
+
+android_test_helper_app {
+    name: "AccountManagementApp",
+    static_libs: [
+        "TestApp_TestApps"
+    ],
+    resource_dirs: ["src/testapps/main/res/accountmanagement"],
+    manifest: "manifests/AccountManagementManifest.xml",
     min_sdk_version: "28"
 }
 

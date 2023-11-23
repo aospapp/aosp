@@ -24,6 +24,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
 import com.android.car.settings.R;
@@ -44,14 +45,20 @@ public class ClearDefaultsPreferenceController extends
     private static final Logger LOG = new Logger(ClearDefaultsPreferenceController.class);
 
     private final IUsbManager mUsbManager;
-    private final PackageManager mPm;
 
     public ClearDefaultsPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
         IBinder b = ServiceManager.getService(Context.USB_SERVICE);
         mUsbManager = IUsbManager.Stub.asInterface(b);
-        mPm = context.getPackageManager();
+    }
+
+    @VisibleForTesting
+    ClearDefaultsPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            PackageManager packageManager, IUsbManager iUsbManager) {
+        super(context, preferenceKey, fragmentController, uxRestrictions, packageManager);
+        mUsbManager = iUsbManager;
     }
 
     @Override

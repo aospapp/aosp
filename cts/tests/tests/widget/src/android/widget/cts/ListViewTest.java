@@ -20,6 +20,7 @@ import static android.widget.cts.util.StretchEdgeUtil.fling;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
@@ -41,6 +42,7 @@ import android.animation.ValueAnimator;
 import android.app.ActionBar.LayoutParams;
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.app.UiAutomation;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -48,6 +50,7 @@ import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Parcelable;
+import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.util.Pair;
 import android.util.SparseArray;
@@ -1329,6 +1332,144 @@ public class ListViewTest {
         assertTrue(firstVisiblePositionAfterScroll > firstVisiblePositionBeforeScroll);
     }
 
+    @Test
+    public void testEdgeEffectAddToBottom() throws Throwable {
+        // Make sure that the view we care about is on screen and at the top:
+        showOnlyStretch();
+
+        scrollToBottomOfStretch();
+
+        NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mListViewStretch.getContext());
+        mListViewStretch.mEdgeGlowBottom = edgeEffect;
+        edgeEffect.setPauseRelease(true);
+
+        executeWhileDragging(
+                -300,
+                () -> {
+                    assertFalse(edgeEffect.getOnReleaseCalled());
+                    try {
+                        mActivityRule.runOnUiThread(() -> {
+                            for (int color : mColorList) {
+                                mAdapterColors.addColor(Color.BLACK);
+                                mAdapterColors.addColor(color);
+                            }
+                        });
+                    } catch (Throwable e) {
+                    }
+                },
+                () -> {
+                    assertTrue(edgeEffect.getOnReleaseCalled());
+                    assertTrue(edgeEffect.getDistance() > 0);
+                }
+        );
+
+        edgeEffect.finish();
+        int firstVisible = mListViewStretch.getFirstVisiblePosition();
+
+        // We've turned off the release, so the distance won't change unless onPull() is called
+        executeWhileDragging(-300, () -> {}, () -> {});
+        assertTrue(edgeEffect.isFinished());
+        assertEquals(0f, edgeEffect.getDistance(), 0.01f);
+        assertNotEquals(firstVisible, mListViewStretch.getFirstVisiblePosition());
+    }
+
+    @Test
+    public void testEdgeEffectAddToTop() throws Throwable {
+        // Make sure that the view we care about is on screen and at the top:
+        showOnlyStretch();
+
+        NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mListViewStretch.getContext());
+        mListViewStretch.mEdgeGlowTop = edgeEffect;
+        edgeEffect.setPauseRelease(true);
+
+        executeWhileDragging(
+                300,
+                () -> {
+                    assertFalse(edgeEffect.getOnReleaseCalled());
+                    try {
+                        mActivityRule.runOnUiThread(() -> {
+                            for (int color : mColorList) {
+                                mAdapterColors.addColorAtStart(Color.BLACK);
+                                mAdapterColors.addColorAtStart(color);
+                            }
+                            mListViewStretch.setSelection(mColorList.length * 2);
+                        });
+                    } catch (Throwable e) {
+                    }
+                },
+                () -> {
+                    assertTrue(edgeEffect.getOnReleaseCalled());
+                    assertTrue(edgeEffect.getDistance() > 0);
+                }
+        );
+
+        edgeEffect.finish();
+        int firstVisible = mListViewStretch.getFirstVisiblePosition();
+
+        // We've turned off the release, so the distance won't change unless onPull() is called
+        executeWhileDragging(300, () -> {}, () -> {});
+        assertTrue(edgeEffect.isFinished());
+        assertEquals(0f, edgeEffect.getDistance(), 0.01f);
+        assertNotEquals(firstVisible, mListViewStretch.getFirstVisiblePosition());
+    }
+
+    private void executeWhileDragging(
+            int dragY,
+            Runnable duringDrag,
+            Runnable beforeUp
+    ) throws Throwable {
+        int[] locationOnScreen = new int[2];
+        mActivityRule.runOnUiThread(() -> {
+            mListViewStretch.getLocationOnScreen(locationOnScreen);
+        });
+
+        int screenX = locationOnScreen[0] + mListViewStretch.getWidth() / 2;
+        int screenY = locationOnScreen[1] + mListViewStretch.getHeight() / 2;
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        UiAutomation uiAutomation = instrumentation.getUiAutomation();
+        long downTime = SystemClock.uptimeMillis();
+        StretchEdgeUtil.injectDownEvent(uiAutomation, downTime, screenX, screenY);
+
+        int middleY = screenY + (dragY / 2);
+        StretchEdgeUtil.injectMoveEventsForDrag(
+                uiAutomation,
+                downTime,
+                downTime,
+                screenX,
+                screenY,
+                screenX,
+                middleY,
+                5,
+                20
+        );
+
+        duringDrag.run();
+
+        int endY = screenY + dragY;
+
+        StretchEdgeUtil.injectMoveEventsForDrag(
+                uiAutomation,
+                downTime,
+                downTime + 25,
+                screenX,
+                middleY,
+                screenX,
+                endY,
+                5,
+                20
+        );
+
+        beforeUp.run();
+
+        StretchEdgeUtil.injectUpEvent(
+                uiAutomation,
+                downTime,
+                downTime + 50,
+                screenX,
+                endY
+        );
+    }
+
     private void showOnlyStretch() throws Throwable {
         mActivityRule.runOnUiThread(() -> {
             ViewGroup parent = (ViewGroup) mListViewStretch.getParent();
@@ -1498,6 +1639,7 @@ public class ListViewTest {
     private static class ColorAdapter extends BaseAdapter {
         private int[] mColors;
         private Context mContext;
+        private int mPositionOffset;
 
         ColorAdapter(Context context, int[] colors) {
             mContext = context;
@@ -1516,7 +1658,12 @@ public class ListViewTest {
 
         @Override
         public long getItemId(int position) {
-            return position;
+            return position - mPositionOffset;
+        }
+
+        @Override
+        public boolean hasStableIds() {
+            return true;
         }
 
         @NonNull
@@ -1531,6 +1678,23 @@ public class ListViewTest {
             view.setBackgroundColor(color);
             view.setLayoutParams(new ViewGroup.LayoutParams(90, 50));
             return view;
+        }
+
+        public void addColor(int color) {
+            int[] colors = new int[mColors.length + 1];
+            System.arraycopy(mColors, 0, colors, 0, mColors.length);
+            colors[mColors.length] = color;
+            mColors = colors;
+            notifyDataSetChanged();
+        }
+
+        public void addColorAtStart(int color) {
+            int[] colors = new int[mColors.length + 1];
+            System.arraycopy(mColors, 0, colors, 1, mColors.length);
+            colors[0] = color;
+            mColors = colors;
+            mPositionOffset++;
+            notifyDataSetChanged();
         }
     }
 

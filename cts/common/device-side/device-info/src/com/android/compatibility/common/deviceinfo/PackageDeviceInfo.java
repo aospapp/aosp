@@ -71,6 +71,8 @@ public class PackageDeviceInfo extends DeviceInfo {
 
     private static final String SHA256_CERT = "sha256_cert";
 
+    private static final String SHA256_FILE = "sha256_file";
+
     private static final String CONFIG_NOTIFICATION_ACCESS = "config_defaultListenerAccessPackages";
     private static final String HAS_DEFAULT_NOTIFICATION_ACCESS = "has_default_notification_access";
 
@@ -125,6 +127,9 @@ public class PackageDeviceInfo extends DeviceInfo {
 
             String sha256_cert = PackageUtil.computePackageSignatureDigest(pkg.packageName);
             store.addResult(SHA256_CERT, sha256_cert);
+
+            String sha256_file = PackageUtil.computePackageFileDigest(pkg);
+            store.addResult(SHA256_FILE, sha256_file);
 
             store.endGroup();
         }

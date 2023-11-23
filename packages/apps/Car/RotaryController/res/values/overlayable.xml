@@ -16,7 +16,6 @@ REGENERATE USING packages/apps/Car/tests/tools/rro/generate-overlayable.py
 <resources>
   <overlayable name="CarRotaryController">
     <policy type="system|product|signature">
-      <item type="array" name="excluded_application_overlay_window_titles"/>
       <item type="array" name="off_screen_nudge_global_actions"/>
       <item type="array" name="off_screen_nudge_intents"/>
       <item type="array" name="off_screen_nudge_key_codes"/>

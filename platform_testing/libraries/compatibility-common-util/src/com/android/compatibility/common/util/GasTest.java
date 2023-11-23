@@ -30,8 +30,9 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})
 public @interface GasTest {
-    // The GAS requirement ID the GasTest applies to.
+    // The GAS requirement ID('s) the GasTest applies to.
     // Example: @GasTest(requirement = "G-0-000")
+    // Example: @GasTest(requirement = "G-0-000, G-0-001, G-0-002")
     String requirement();
 
     // The minimum GAS software requirement version the GasTest applies to.

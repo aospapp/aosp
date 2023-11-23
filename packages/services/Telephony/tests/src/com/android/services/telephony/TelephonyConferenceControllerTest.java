@@ -23,9 +23,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.net.Uri;
 import android.os.Looper;
 import android.telecom.Conference;
 import android.telecom.Connection;
+import android.telecom.PhoneAccount;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import org.junit.Before;
@@ -35,7 +37,9 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Tests the functionality in TelephonyConferenceController.java
@@ -108,6 +112,46 @@ public class TelephonyConferenceControllerTest {
         mControllerTest.remove(mTestTelephonyConnectionA);
         assertFalse(mTestTelephonyConnectionB.getConferenceables()
                 .contains(mTestTelephonyConnectionA));
+    }
+
+    /**
+     * Verify the connection with "Conference Call" with PROPERTY_IS_DOWNGRADED_CONFERENCE
+     * during SRVCC
+     */
+    @Test
+    @SmallTest
+    public void testSrvccConferenceConnection() {
+        when(mTestTelephonyConnectionA.mMockRadioConnection.getCall()
+                .isMultiparty()).thenReturn(true);
+        when(mTestTelephonyConnectionB.mMockRadioConnection.getCall()
+                .isMultiparty()).thenReturn(true);
+
+        List<Connection> listConnections = Arrays.asList(
+                mTestTelephonyConnectionA, mTestTelephonyConnectionB);
+        when(mMockTelephonyConnectionServiceProxy.getAllConnections()).thenReturn(listConnections);
+
+        mTestTelephonyConnectionA.setAddress(
+                Uri.fromParts(PhoneAccount.SCHEME_TEL, "Conference Call", null), 0);
+        mTestTelephonyConnectionA.setTelephonyConnectionProperties(
+                Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE);
+        mTestTelephonyConnectionB.setAddress(
+                Uri.fromParts(PhoneAccount.SCHEME_TEL, "5551213", null), 0);
+        mTestTelephonyConnectionB.setTelephonyConnectionProperties(
+                Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE);
+
+        // add telephony connection B
+        mControllerTest.add(mTestTelephonyConnectionB);
+
+        // add telephony connection A
+        mControllerTest.add(mTestTelephonyConnectionA);
+
+        // verify the connection with "Conference Call" has PROPERTY_IS_DOWNGRADED_CONFERENCE
+        assertTrue((mTestTelephonyConnectionA.getConnectionProperties()
+                & Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE) != 0);
+
+        // verify the connection with "5551213" hasn't PROPERTY_IS_DOWNGRADED_CONFERENCE
+        assertFalse((mTestTelephonyConnectionB.getConnectionProperties()
+                & Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE) != 0);
     }
 
     /**

@@ -1,0 +1,3 @@
+vendor_internal_prop(vendor_diag_prop)
+vendor_internal_prop(vendor_slog_prop)
+vendor_internal_prop(vendor_modem_prop)

@@ -175,13 +175,23 @@ public class CarNotificationDiffTest {
     @Test
     public void sameGroupUniqueIdentifiers_shouldReturnTrue() {
         assertThat(CarNotificationDiff.sameGroupUniqueIdentifiers(mNotificationGroup1,
-                mNotificationGroup1)).isTrue();
+                mNotificationGroup1, /* showRecentsAndOlderHeaders= */ false)).isTrue();
     }
 
     @Test
-    public void sameGroupUniqueIdentifiers_differenKeys_shouldReturnFalse() {
+    public void sameGroupUniqueIdentifiers_differentIsSeen_shouldReturnFalse() {
+        NotificationGroup notificationGroup = new NotificationGroup();
+        notificationGroup.addNotification(mNotification1);
+        notificationGroup.setSeen(true);
+
+        assertThat(CarNotificationDiff.sameGroupUniqueIdentifiers(notificationGroup,
+                mNotificationGroup1, /* showRecentsAndOlderHeaders= */ true)).isFalse();
+    }
+
+    @Test
+    public void sameGroupUniqueIdentifiers_differentKeys_shouldReturnFalse() {
         assertThat(CarNotificationDiff.sameGroupUniqueIdentifiers(mNotificationGroup1,
-                mNotificationGroup3)).isFalse();
+                mNotificationGroup3, /* showRecentsAndOlderHeaders= */ false)).isFalse();
     }
 
     @Test
@@ -198,7 +208,7 @@ public class CarNotificationDiffTest {
         assertThat(mNotificationGroup1.getChildCount()).isEqualTo(
                 mNotificationGroup4.getChildCount());
         assertThat(CarNotificationDiff.sameGroupUniqueIdentifiers(mNotificationGroup1,
-                mNotificationGroup4)).isFalse();
+                mNotificationGroup4, /* showRecentsAndOlderHeaders= */ false)).isFalse();
     }
 
     @Test
@@ -214,7 +224,7 @@ public class CarNotificationDiffTest {
         assertThat(mNotificationGroup1.getChildCount()).isEqualTo(
                 mNotificationGroup4.getChildCount());
         assertThat(CarNotificationDiff.sameGroupUniqueIdentifiers(mNotificationGroup1,
-                mNotificationGroup4)).isTrue();
+                mNotificationGroup4, /* showRecentsAndOlderHeaders= */ false)).isTrue();
     }
 
     /**
@@ -223,7 +233,7 @@ public class CarNotificationDiffTest {
     @Test
     public void differentGroupUniqueIdentifiers_shouldReturnFalse() {
         assertThat(CarNotificationDiff.sameGroupUniqueIdentifiers(mNotificationGroup1,
-                mNotificationGroup3)).isFalse();
+                mNotificationGroup3, /* showRecentsAndOlderHeaders= */ false)).isFalse();
     }
 
     /**

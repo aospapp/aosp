@@ -43,6 +43,7 @@ import com.google.protobuf.Parser;
 
 import java.io.FileNotFoundException;
 import java.util.Map;
+import java.util.StringTokenizer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -243,7 +244,15 @@ public final class DeviceUtils {
      */
     public static boolean hasFeature(ITestDevice device, String feature) throws Exception {
         final String features = device.executeShellCommand("pm list features");
-        return features.contains(feature);
+        StringTokenizer featureToken = new StringTokenizer(features, "\n");
+
+        while(featureToken.hasMoreTokens()) {
+            if (("feature:" + feature).equals(featureToken.nextToken())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

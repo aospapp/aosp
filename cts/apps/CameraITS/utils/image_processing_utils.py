@@ -23,13 +23,12 @@ import random
 import sys
 import unittest
 
+import capture_request_utils
+import cv2
+import error_util
 import numpy
 from PIL import Image
 
-
-import cv2
-import capture_request_utils
-import error_util
 
 # The matrix is from JFIF spec
 DEFAULT_YUV_TO_RGB_CCM = numpy.matrix([[1.000, 0.000, 1.402],
@@ -50,7 +49,8 @@ TEST_IMG_DIR = os.path.join(os.environ['CAMERA_ITS_TOP'], 'test_images')
 def convert_capture_to_rgb_image(cap,
                                  ccm_yuv_to_rgb=DEFAULT_YUV_TO_RGB_CCM,
                                  yuv_off=DEFAULT_YUV_OFFSETS,
-                                 props=None):
+                                 props=None,
+                                 apply_ccm_raw_to_rgb=True):
   """Convert a captured image object to a RGB image.
 
   Args:
@@ -59,6 +59,7 @@ def convert_capture_to_rgb_image(cap,
      yuv_off: (Optional) offsets to subtract from each of Y,U,V values.
      props: (Optional) camera properties object (of static values);
             required for processing raw images.
+     apply_ccm_raw_to_rgb: (Optional) boolean to apply color correction matrix.
 
   Returns:
         RGB float-3 image array, with pixel values in [0.0, 1.0].
@@ -83,7 +84,8 @@ def convert_capture_to_rgb_image(cap,
   elif cap['format'] == 'raw' or cap['format'] == 'rawStats':
     assert props is not None
     r, gr, gb, b = convert_capture_to_planes(cap, props)
-    return convert_raw_to_rgb_image(r, gr, gb, b, props, cap['metadata'])
+    return convert_raw_to_rgb_image(
+        r, gr, gb, b, props, cap['metadata'], apply_ccm_raw_to_rgb)
   elif cap['format'] == 'y8':
     y = cap['data'][0: w * h]
     return convert_y8_to_rgb_image(y, w, h)
@@ -347,8 +349,42 @@ def convert_capture_to_planes(cap, props=None):
     raise error_util.CameraItsError('Invalid format %s' % (cap['format']))
 
 
+def downscale_image(img, f):
+  """Shrink an image by a given integer factor.
+
+  This function computes output pixel values by averaging over rectangular
+  regions of the input image; it doesn't skip or sample pixels, and all input
+  image pixels are evenly weighted.
+
+  If the downscaling factor doesn't cleanly divide the width and/or height,
+  then the remaining pixels on the right or bottom edge are discarded prior
+  to the downscaling.
+
+  Args:
+    img: The input image as an ndarray.
+    f: The downscaling factor, which should be an integer.
+
+  Returns:
+    The new (downscaled) image, as an ndarray.
+  """
+  h, w, chans = img.shape
+  f = int(f)
+  assert f >= 1
+  h = (h//f)*f
+  w = (w//f)*f
+  img = img[0:h:, 0:w:, ::]
+  chs = []
+  for i in range(chans):
+    ch = img.reshape(h*w*chans)[i::chans].reshape(h, w)
+    ch = ch.reshape(h, w//f, f).mean(2).reshape(h, w//f)
+    ch = ch.T.reshape(w//f, h//f, f).mean(2).T.reshape(h//f, w//f)
+    chs.append(ch.reshape(h*w//(f*f)))
+  img = numpy.vstack(chs).T.reshape(h//f, w//f, chans)
+  return img
+
+
 def convert_raw_to_rgb_image(r_plane, gr_plane, gb_plane, b_plane, props,
-                             cap_res):
+                             cap_res, apply_ccm_raw_to_rgb=True):
   """Convert a Bayer raw-16 image to an RGB image.
 
   Includes some extremely rudimentary demosaicking and color processing
@@ -363,9 +399,10 @@ def convert_raw_to_rgb_image(r_plane, gr_plane, gb_plane, b_plane, props,
             in the Bayer image, with pixels in the [0.0, 1.0] range.
    props: Camera properties object.
    cap_res: Capture result (metadata) object.
+   apply_ccm_raw_to_rgb: (Optional) boolean to apply color correction matrix.
 
   Returns:
-    RGB float-3 image array, with pixel values in [0.0, 1.0]
+   RGB float-3 image array, with pixel values in [0.0, 1.0]
   """
     # Values required for the RAW to RGB conversion.
   assert props is not None
@@ -396,7 +433,9 @@ def convert_raw_to_rgb_image(r_plane, gr_plane, gb_plane, b_plane, props,
   h, w = r_plane.shape[:2]
   img = numpy.dstack([r_plane, (gr_plane + gb_plane) / 2.0, b_plane])
   img = (((img.reshape(h, w, 3) - black_levels) * scale) * gains).clip(0.0, 1.0)
-  img = numpy.dot(img.reshape(w * h, 3), ccm.T).reshape(h, w, 3).clip(0.0, 1.0)
+  if apply_ccm_raw_to_rgb:
+    img = numpy.dot(
+        img.reshape(w * h, 3), ccm.T).reshape(h, w, 3).clip(0.0, 1.0)
   return img
 
 

@@ -22,6 +22,8 @@ PRODUCT_PACKAGES += audio.primary.caremu
 PRODUCT_PACKAGES += \
     android.hardware.audio@6.0-impl:32
 
+DEVICE_MANIFEST_FILE += device/generic/car/emulator/audio/android.hardware.audio.effects@6.0.xml
+
 PRODUCT_PROPERTY_OVERRIDES += ro.hardware.audio.primary=caremu
 
 PRODUCT_COPY_FILES += \

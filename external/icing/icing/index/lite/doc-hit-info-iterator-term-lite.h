@@ -82,6 +82,11 @@ class DocHitInfoIteratorTermLite : public DocHitInfoIterator {
 
  protected:
   // Add DocHitInfos corresponding to term_ to cached_hits_.
+  //
+  // Returns:
+  //   - OK, on success
+  //   - NOT_FOUND if no term matching term_ was found in the lexicon.
+  //   - INVALID_ARGUMENT if unable to properly encode the termid
   virtual libtextclassifier3::Status RetrieveMoreHits() = 0;
 
   const std::string term_;

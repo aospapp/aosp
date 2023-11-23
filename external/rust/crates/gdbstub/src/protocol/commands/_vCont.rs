@@ -1,9 +1,13 @@
 use super::prelude::*;
 
-// TODO: instead of parsing lazily when invoked, parse the strings into a
+// TODO?: instead of parsing lazily when invoked, parse the strings into a
 // compressed binary representations that can be stuffed back into the packet
 // buffer, and return an iterator over the binary data that's _guaranteed_ to be
 // valid. This would clean up some of the code in the vCont handler.
+//
+// The interesting part would be to see whether or not the simplified error
+// handing code will compensate for all the new code required to pre-validate
+// the data...
 #[derive(Debug)]
 pub enum vCont<'a> {
     Query,
@@ -15,22 +19,56 @@ impl<'a> ParseCommand<'a> for vCont<'a> {
         let body = buf.into_body();
         match body as &[u8] {
             b"?" => Some(vCont::Query),
-            _ => Some(vCont::Actions(Actions(body))),
+            _ => Some(vCont::Actions(Actions::new_from_buf(body))),
         }
     }
 }
 
-/// A lazily evaluated iterator over the actions specified in a vCont packet.
 #[derive(Debug)]
-pub struct Actions<'a>(&'a mut [u8]);
+pub enum Actions<'a> {
+    Buf(ActionsBuf<'a>),
+    FixedStep(SpecificThreadId),
+    FixedCont(SpecificThreadId),
+}
 
 impl<'a> Actions<'a> {
-    pub fn into_iter(self) -> impl Iterator<Item = Option<VContAction<'a>>> + 'a {
-        self.0.split_mut(|b| *b == b';').skip(1).map(|act| {
-            let mut s = act.split_mut(|b| *b == b':');
+    fn new_from_buf(buf: &'a [u8]) -> Actions<'a> {
+        Actions::Buf(ActionsBuf(buf))
+    }
+
+    pub fn new_step(tid: SpecificThreadId) -> Actions<'a> {
+        Actions::FixedStep(tid)
+    }
+
+    pub fn new_continue(tid: SpecificThreadId) -> Actions<'a> {
+        Actions::FixedCont(tid)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = Option<VContAction<'a>>> + '_ {
+        match self {
+            Actions::Buf(x) => EitherIter::A(x.iter()),
+            Actions::FixedStep(x) => EitherIter::B(core::iter::once(Some(VContAction {
+                kind: VContKind::Step,
+                thread: Some(*x),
+            }))),
+            Actions::FixedCont(x) => EitherIter::B(core::iter::once(Some(VContAction {
+                kind: VContKind::Continue,
+                thread: Some(*x),
+            }))),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ActionsBuf<'a>(&'a [u8]);
+
+impl<'a> ActionsBuf<'a> {
+    fn iter(&self) -> impl Iterator<Item = Option<VContAction<'a>>> + '_ {
+        self.0.split(|b| *b == b';').skip(1).map(|act| {
+            let mut s = act.split(|b| *b == b':');
             let kind = s.next()?;
             let thread = match s.next() {
-                Some(s) => Some(s.try_into().ok()?),
+                Some(s) => Some(SpecificThreadId::try_from(ThreadId::try_from(s).ok()?).ok()?),
                 None => None,
             };
 
@@ -42,24 +80,24 @@ impl<'a> Actions<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct VContAction<'a> {
     pub kind: VContKind<'a>,
-    pub thread: Option<ThreadId>,
+    pub thread: Option<SpecificThreadId>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum VContKind<'a> {
     Continue,
     ContinueWithSig(u8),
-    RangeStep(&'a [u8], &'a [u8]),
+    RangeStep(HexString<'a>, HexString<'a>),
     Step,
     StepWithSig(u8),
     Stop,
 }
 
 impl<'a> VContKind<'a> {
-    fn from_bytes(s: &mut [u8]) -> Option<VContKind> {
+    fn from_bytes(s: &[u8]) -> Option<VContKind> {
         use self::VContKind::*;
 
         let res = match s {
@@ -69,14 +107,33 @@ impl<'a> VContKind<'a> {
             [b'C', sig @ ..] => ContinueWithSig(decode_hex(sig).ok()?),
             [b'S', sig @ ..] => StepWithSig(decode_hex(sig).ok()?),
             [b'r', range @ ..] => {
-                let mut range = range.split_mut(|b| *b == b',');
-                let start = decode_hex_buf(range.next()?).ok()?;
-                let end = decode_hex_buf(range.next()?).ok()?;
-                RangeStep(start, end)
+                let mut range = range.split(|b| *b == b',');
+                RangeStep(HexString(range.next()?), HexString(range.next()?))
             }
             _ => return None,
         };
 
         Some(res)
+    }
+}
+
+/// Helper type to unify iterators that output the same type. Returned as an
+/// opaque type from `Actions::iter()`.
+enum EitherIter<A, B> {
+    A(A),
+    B(B),
+}
+
+impl<A, B, T> Iterator for EitherIter<A, B>
+where
+    A: Iterator<Item = T>,
+    B: Iterator<Item = T>,
+{
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        match self {
+            EitherIter::A(a) => a.next(),
+            EitherIter::B(b) => b.next(),
+        }
     }
 }

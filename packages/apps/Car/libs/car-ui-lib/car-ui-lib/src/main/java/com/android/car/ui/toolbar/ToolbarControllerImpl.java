@@ -20,21 +20,21 @@ import static android.view.View.GONE;
 import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 
+import static com.android.car.ui.core.CarUi.TARGET_API_R;
 import static com.android.car.ui.utils.CarUiUtils.findViewByRefId;
 import static com.android.car.ui.utils.CarUiUtils.requireViewByRefId;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import android.text.PrecomputedText;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.TextView;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
@@ -44,14 +44,15 @@ import androidx.annotation.XmlRes;
 import androidx.core.content.ContextCompat;
 
 import com.android.car.ui.AlertDialogBuilder;
+import com.android.car.ui.CarUiText;
 import com.android.car.ui.R;
 import com.android.car.ui.imewidescreen.CarUiImeSearchListItem;
 import com.android.car.ui.recyclerview.CarUiContentListItem;
 import com.android.car.ui.recyclerview.CarUiListItem;
 import com.android.car.ui.recyclerview.CarUiListItemAdapter;
 import com.android.car.ui.utils.CarUiUtils;
+import com.android.car.ui.widget.CarUiTextView;
 
-import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -64,10 +65,11 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * The implementation of {@link ToolbarController}. This class takes a ViewGroup, and looks
- * in the ViewGroup to find all the toolbar-related views to control.
+ * The implementation of {@link ToolbarController}. This class takes a ViewGroup, and looks in the
+ * ViewGroup to find all the toolbar-related views to control.
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(TARGET_API_R)
 public final class ToolbarControllerImpl implements ToolbarController {
     private static final String TAG = "CarUiToolbarController";
 
@@ -77,12 +79,12 @@ public final class ToolbarControllerImpl implements ToolbarController {
     private ImageView mLogoInNavIconSpace;
     private ViewGroup mNavIconContainer;
     private ViewGroup mTitleContainer;
-    private TextView mTitle;
+    private CarUiTextView mTitle;
     @NonNull
-    private CharSequence mTitleText = "";
-    private TextView mSubtitle;
+    private CarUiText mTitleText = new CarUiText.Builder("").build();
+    private CarUiTextView mSubtitle;
     @NonNull
-    private CharSequence mSubtitleText = "";
+    private CarUiText mSubtitleText = new CarUiText.Builder("").build();
     private ImageView mTitleLogo;
     private ViewGroup mTitleLogoContainer;
     private TabLayout mTabLayout;
@@ -181,6 +183,7 @@ public final class ToolbarControllerImpl implements ToolbarController {
         setBackgroundShown(true);
 
         mOverflowAdapter = new CarUiListItemAdapter(mUiOverflowItems);
+        update();
     }
 
     private Context getContext() {
@@ -212,39 +215,22 @@ public final class ToolbarControllerImpl implements ToolbarController {
      */
     @Override
     public void setTitle(CharSequence title) {
-        mTitleText = title == null ? "" : title;
-        asyncSetText(mTitle, mTitleText, Runnable::run);
+        mTitleText = title == null ? new CarUiText.Builder("").build() : new CarUiText.Builder(
+                title).build();
+        mTitle.setText(mTitleText);
         update();
     }
 
-    private void asyncSetText(TextView textView, @NonNull CharSequence title, Executor bgExecutor) {
-        // construct precompute related parameters using the TextView that we will set the text on.
-        PrecomputedText.Params params = textView.getTextMetricsParams();
-        WeakReference<TextView> textViewRef = new WeakReference<>(textView);
-        bgExecutor.execute(() -> {
-            // background thread
-            TextView tv = textViewRef.get();
-            if (tv == null) {
-                return;
-            }
-            PrecomputedText precomputedText = PrecomputedText.create(title, params);
-            tv.post(() -> {
-                // UI thread
-                TextView tvUi = textViewRef.get();
-                if (tvUi == null) return;
-                try {
-                    tvUi.setTextMetricsParams(precomputedText.getParams());
-                    tvUi.setText(precomputedText);
-                } catch (IllegalArgumentException e) {
-                    tvUi.setText(title);
-                }
-            });
-        });
+    @Override
+    public void setTitle(CarUiText title) {
+        mTitleText = title;
+        mTitle.setText(mTitleText);
+        update();
     }
 
     @Override
     public CharSequence getTitle() {
-        return mTitleText;
+        return mTitleText.getPreferredText();
     }
 
     /**
@@ -264,14 +250,22 @@ public final class ToolbarControllerImpl implements ToolbarController {
      */
     @Override
     public void setSubtitle(CharSequence subTitle) {
-        mSubtitleText = subTitle == null ? "" : subTitle;
-        asyncSetText(mSubtitle, mSubtitleText, Runnable::run);
+        mSubtitleText = subTitle == null ? new CarUiText.Builder("").build()
+                : new CarUiText.Builder(subTitle).build();
+        mSubtitle.setText(mSubtitleText);
+        update();
+    }
+
+    @Override
+    public void setSubtitle(CarUiText text) {
+        mSubtitleText = text;
+        mSubtitle.setText(mSubtitleText);
         update();
     }
 
     @Override
     public CharSequence getSubtitle() {
-        return mSubtitleText;
+        return mSubtitleText.getPreferredText();
     }
 
     @Override
@@ -352,8 +346,7 @@ public final class ToolbarControllerImpl implements ToolbarController {
     }
 
     /**
-     * Selects a tab added to this toolbar. See
-     * {@link #addTab(TabLayout.Tab)}.
+     * Selects a tab added to this toolbar. See {@link #addTab(TabLayout.Tab)}.
      */
     @Override
     public void selectTab(int position) {
@@ -526,22 +519,8 @@ public final class ToolbarControllerImpl implements ToolbarController {
      * Gets the {@link Toolbar.NavButtonMode}
      */
     @Override
-    public Toolbar.NavButtonMode getNavButtonMode() {
-        if (mStateSet && mNavButtonMode == NavButtonMode.DISABLED
-                && mState != Toolbar.State.HOME) {
-            return Toolbar.NavButtonMode.BACK;
-        }
-        switch (mNavButtonMode) {
-            case BACK:
-                return Toolbar.NavButtonMode.BACK;
-            case DOWN:
-                return Toolbar.NavButtonMode.DOWN;
-            case CLOSE:
-                return Toolbar.NavButtonMode.CLOSE;
-            case DISABLED:
-            default:
-                return Toolbar.NavButtonMode.DISABLED;
-        }
+    public NavButtonMode getNavButtonMode() {
+        return mNavButtonMode;
     }
 
     /**
@@ -651,7 +630,8 @@ public final class ToolbarControllerImpl implements ToolbarController {
      * wasn't called), nothing will happen the second time, even if the MenuItems were changed.
      *
      * <p>The XML file must have one <MenuItems> tag, with a variable number of <MenuItem>
-     * child tags. See CarUiToolbarMenuItem in CarUi's attrs.xml for a list of available attributes.
+     * child tags. See CarUiToolbarMenuItem in CarUi's attrs.xml for a list of available
+     * attributes.
      * <p>
      * Example:
      * <pre>
@@ -836,6 +816,11 @@ public final class ToolbarControllerImpl implements ToolbarController {
         }
     }
 
+    @Override
+    public SearchMode getSearchMode() {
+        return mSearchMode;
+    }
+
     private void update() {
         // Start by removing mState/mStateSet from the equation by incorporating them into other
         // variables.
@@ -992,8 +977,7 @@ public final class ToolbarControllerImpl implements ToolbarController {
      *
      * <p>Note: Apps can only call this method if the package name is allowed via OEM to render
      * their view.  To check if the application have the permission to do so or not first call
-     * {@link SearchCapabilities#canShowSearchResultsView()}. If the app is not allowed this
-     * method
+     * {@link SearchCapabilities#canShowSearchResultsView()}. If the app is not allowed this method
      * will throw an {@link IllegalStateException}
      *
      * @param view to be added in the container.
@@ -1015,10 +999,10 @@ public final class ToolbarControllerImpl implements ToolbarController {
     }
 
     /**
-     * Sets list of search item {@link CarUiListItem} to be displayed in the IMS
-     * template. This method should be called when system is running in a wide screen mode. Apps
-     * can check that by using {@link SearchCapabilities#canShowSearchResultItems()}
-     * Else, this method will throw an {@link IllegalStateException}
+     * Sets list of search item {@link CarUiListItem} to be displayed in the IMS template. This
+     * method should be called when system is running in a wide screen mode. Apps can check that by
+     * using {@link SearchCapabilities#canShowSearchResultItems()} Else, this method will throw an
+     * {@link IllegalStateException}
      */
     @Override
     public void setSearchResultItems(List<? extends CarUiImeSearchListItem> searchItems) {

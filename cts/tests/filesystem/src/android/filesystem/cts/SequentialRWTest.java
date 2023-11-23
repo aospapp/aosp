@@ -78,6 +78,7 @@ public class SequentialRWTest {
         if (fileSize == 0) { // not enough space, give up
             return;
         }
+        FileActivity.startFileActivity(getContext());
         final int numberOfFiles =(int)(fileSize / BUFFER_SIZE);
         String streamName = "test_single_sequential_write";
         DeviceReportLog report = new DeviceReportLog(REPORT_LOG_NAME, streamName);
@@ -115,6 +116,7 @@ public class SequentialRWTest {
         if (fileSize == 0) { // not enough space, give up
             return;
         }
+        FileActivity.startFileActivity(getContext());
         final int NUMBER_REPETITION = 3;
         String streamName = "test_single_sequential_update";
         FileUtil.doSequentialUpdateTest(getContext(), DIR_SEQ_UPDATE, fileSize, BUFFER_SIZE,
@@ -128,6 +130,7 @@ public class SequentialRWTest {
         if (fileSize == 0) { // not enough space, give up
             return;
         }
+        FileActivity.startFileActivity(getContext());
         long start = System.currentTimeMillis();
         final File file = FileUtil.createNewFilledFile(getContext(),
                 DIR_SEQ_RD, fileSize);

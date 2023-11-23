@@ -19,7 +19,6 @@ package com.android.bedstead.nene.devicepolicy;
 import android.annotation.TargetApi;
 import android.os.Build;
 
-import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.AdbParseException;
 import com.android.bedstead.nene.users.UserReference;
 
@@ -32,8 +31,8 @@ public interface AdbDevicePolicyParser {
     /**
      * Get the {@link AdbDevicePolicyParser} for the given version.
      */
-    static AdbDevicePolicyParser get(TestApis testApis, int sdkVersion) {
-        return new AdbDevicePolicyParser27(testApis);
+    static AdbDevicePolicyParser get(int sdkVersion) {
+        return new AdbDevicePolicyParser27();
     }
 
     /**

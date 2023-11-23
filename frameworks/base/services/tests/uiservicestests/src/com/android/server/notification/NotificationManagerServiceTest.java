@@ -61,10 +61,6 @@ import static android.service.notification.NotificationListenerService.FLAG_FILT
 import static android.service.notification.NotificationListenerService.Ranking.USER_SENTIMENT_NEGATIVE;
 import static android.service.notification.NotificationListenerService.Ranking.USER_SENTIMENT_NEUTRAL;
 
-import static com.android.server.notification.NotificationManagerService.ACTION_DISABLE_NAS;
-import static com.android.server.notification.NotificationManagerService.ACTION_ENABLE_NAS;
-import static com.android.server.notification.NotificationManagerService.ACTION_LEARNMORE_NAS;
-
 import static com.google.common.truth.Truth.assertThat;
 
 import static junit.framework.Assert.assertEquals;
@@ -97,6 +93,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.ActivityManagerInternal;
 import android.app.AlarmManager;
@@ -225,12 +222,15 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 
 
 @SmallTest
 @RunWith(AndroidTestingRunner.class)
 @RunWithLooper
+@SuppressLint("GuardedBy") // It's ok for this test to access guarded methods from the service.
 public class NotificationManagerServiceTest extends UiServiceTestCase {
     private static final String TEST_CHANNEL_ID = "NotificationManagerServiceTestChannelId";
     private static final int UID_HEADLESS = 1000000;
@@ -325,7 +325,6 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
     @Mock
     MultiRateLimiter mToastRateLimiter;
     BroadcastReceiver mPackageIntentReceiver;
-    BroadcastReceiver mNASIntentReceiver;
     NotificationRecordLoggerFake mNotificationRecordLogger = new NotificationRecordLoggerFake();
     private InstanceIdSequence mNotificationInstanceIdSequence = new InstanceIdSequenceFake(
             1 << 30);
@@ -516,7 +515,7 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
 
         when(mAssistants.isAdjustmentAllowed(anyString())).thenReturn(true);
 
-        mWorkerHandler = mService.new WorkerHandler(mTestableLooper.getLooper());
+        mWorkerHandler = spy(mService.new WorkerHandler(mTestableLooper.getLooper()));
         mService.init(mWorkerHandler, mRankingHandler, mPackageManager, mPackageManagerClient,
                 mockLightsManager, mListeners, mAssistants, mConditionProviders, mCompanionMgr,
                 mSnoozeHelper, mUsageStats, mPolicyFile, mActivityManager, mGroupHelper, mAm, mAtm,
@@ -553,14 +552,9 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
                     && filter.hasAction(Intent.ACTION_PACKAGES_UNSUSPENDED)
                     && filter.hasAction(Intent.ACTION_PACKAGES_SUSPENDED)) {
                 mPackageIntentReceiver = broadcastReceivers.get(i);
-            } else if (filter.hasAction(ACTION_ENABLE_NAS)
-                    && filter.hasAction(ACTION_DISABLE_NAS)
-                    && filter.hasAction(ACTION_LEARNMORE_NAS)) {
-                mNASIntentReceiver = broadcastReceivers.get(i);
             }
         }
         assertNotNull("package intent receiver should exist", mPackageIntentReceiver);
-        assertNotNull("nas intent receiver should exist", mNASIntentReceiver);
 
         // Pretend the shortcut exists
         List<ShortcutInfo> shortcutInfos = new ArrayList<>();
@@ -653,16 +647,6 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
         intent.putExtras(extras);
 
         mPackageIntentReceiver.onReceive(getContext(), intent);
-    }
-
-    private void simulateNASUpgradeBroadcast(String action, int uid) {
-        final Bundle extras = new Bundle();
-        extras.putInt(Intent.EXTRA_USER_ID, uid);
-
-        final Intent intent = new Intent(action);
-        intent.putExtras(extras);
-
-        mNASIntentReceiver.onReceive(getContext(), intent);
     }
 
     private ArrayMap<Boolean, ArrayList<ComponentName>> generateResetComponentValues() {
@@ -2460,13 +2444,64 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
                 .thenReturn(associations);
         NotificationChannelGroup ncg = new NotificationChannelGroup("a", "b/c");
         mService.setPreferencesHelper(mPreferencesHelper);
-        when(mPreferencesHelper.getNotificationChannelGroup(eq(ncg.getId()), eq(PKG), anyInt()))
+        when(mPreferencesHelper.getNotificationChannelGroupWithChannels(
+                eq(PKG), anyInt(), eq(ncg.getId()), anyBoolean()))
                 .thenReturn(ncg);
         reset(mListeners);
         mBinderService.deleteNotificationChannelGroup(PKG, ncg.getId());
         verify(mListeners, times(1)).notifyNotificationChannelGroupChanged(eq(PKG),
                 eq(Process.myUserHandle()), eq(ncg),
                 eq(NotificationListenerService.NOTIFICATION_CHANNEL_OR_GROUP_DELETED));
+    }
+
+    @Test
+    public void testDeleteChannelGroupChecksForFgses() throws Exception {
+        List<String> associations = new ArrayList<>();
+        associations.add("a");
+        when(mCompanionMgr.getAssociations(PKG, UserHandle.getUserId(mUid)))
+                .thenReturn(associations);
+        CountDownLatch latch = new CountDownLatch(2);
+        mService.createNotificationChannelGroup(
+                PKG, mUid, new NotificationChannelGroup("group", "group"), true, false);
+        new Thread(() -> {
+            NotificationChannel notificationChannel = new NotificationChannel("id", "id",
+                    NotificationManager.IMPORTANCE_HIGH);
+            notificationChannel.setGroup("group");
+            ParceledListSlice<NotificationChannel> pls =
+                    new ParceledListSlice(ImmutableList.of(notificationChannel));
+            try {
+                mBinderService.createNotificationChannelsForPackage(PKG, mUid, pls);
+            } catch (RemoteException e) {
+                throw new RuntimeException(e);
+            }
+            latch.countDown();
+        }).start();
+        new Thread(() -> {
+            try {
+                synchronized (this) {
+                    wait(5000);
+                }
+                mService.createNotificationChannelGroup(PKG, mUid,
+                        new NotificationChannelGroup("new", "new group"), true, false);
+                NotificationChannel notificationChannel =
+                        new NotificationChannel("id", "id", NotificationManager.IMPORTANCE_HIGH);
+                notificationChannel.setGroup("new");
+                ParceledListSlice<NotificationChannel> pls =
+                        new ParceledListSlice(ImmutableList.of(notificationChannel));
+                try {
+                mBinderService.createNotificationChannelsForPackage(PKG, mUid, pls);
+                mBinderService.deleteNotificationChannelGroup(PKG, "group");
+                } catch (RemoteException e) {
+                    throw new RuntimeException(e);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            latch.countDown();
+        }).start();
+
+        latch.await();
+        verify(mAmi).hasForegroundServiceNotification(anyString(), anyInt(), anyString());
     }
 
     @Test
@@ -2700,6 +2735,42 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
                 mNotificationInstanceIdSequence);
 
         assertFalse(noManService.hasCompanionDevice(mListener));
+    }
+
+    @Test
+    public void testCrossUserSnooze() {
+        NotificationRecord r = generateNotificationRecord(mTestNotificationChannel, 10);
+        mService.addNotification(r);
+        NotificationRecord r2 = generateNotificationRecord(mTestNotificationChannel, 0);
+        mService.addNotification(r2);
+
+        mListener = mock(ManagedServices.ManagedServiceInfo.class);
+        mListener.component = new ComponentName(PKG, PKG);
+        when(mListener.enabledAndUserMatches(anyInt())).thenReturn(false);
+        when(mListeners.checkServiceTokenLocked(any())).thenReturn(mListener);
+
+        mService.snoozeNotificationInt(r.getKey(), 1000, null, mListener);
+
+        verify(mWorkerHandler, never()).post(
+                any(NotificationManagerService.SnoozeNotificationRunnable.class));
+    }
+
+    @Test
+    public void testSameUserSnooze() {
+        NotificationRecord r = generateNotificationRecord(mTestNotificationChannel, 10);
+        mService.addNotification(r);
+        NotificationRecord r2 = generateNotificationRecord(mTestNotificationChannel, 0);
+        mService.addNotification(r2);
+
+        mListener = mock(ManagedServices.ManagedServiceInfo.class);
+        mListener.component = new ComponentName(PKG, PKG);
+        when(mListener.enabledAndUserMatches(anyInt())).thenReturn(true);
+        when(mListeners.checkServiceTokenLocked(any())).thenReturn(mListener);
+
+        mService.snoozeNotificationInt(r2.getKey(), 1000, null, mListener);
+
+        verify(mWorkerHandler).post(
+                any(NotificationManagerService.SnoozeNotificationRunnable.class));
     }
 
     @Test
@@ -3836,6 +3907,40 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
     }
 
     @Test
+    public void testTextChangedSet_forNewNotifs() throws Exception {
+        NotificationRecord original = generateNotificationRecord(mTestNotificationChannel);
+        mService.addEnqueuedNotification(original);
+
+        NotificationManagerService.PostNotificationRunnable runnable =
+                mService.new PostNotificationRunnable(original.getKey());
+        runnable.run();
+        waitForIdle();
+
+        assertTrue(original.isTextChanged());
+    }
+
+    @Test
+    public void testVisuallyInterruptive_notSeen() throws Exception {
+        NotificationRecord original = generateNotificationRecord(mTestNotificationChannel);
+        mService.addNotification(original);
+
+        StatusBarNotification sbn = new StatusBarNotification(PKG, PKG, original.getSbn().getId(),
+                original.getSbn().getTag(), mUid, 0,
+                new Notification.Builder(mContext, mTestNotificationChannel.getId())
+                        .setContentTitle("new title").build(),
+                UserHandle.getUserHandleForUid(mUid), null, 0);
+        NotificationRecord update = new NotificationRecord(mContext, sbn, mTestNotificationChannel);
+        mService.addEnqueuedNotification(update);
+
+        NotificationManagerService.PostNotificationRunnable runnable =
+                mService.new PostNotificationRunnable(update.getKey());
+        runnable.run();
+        waitForIdle();
+
+        assertFalse(update.isInterruptive());
+    }
+
+    @Test
     public void testApplyAdjustmentMultiUser() throws Exception {
         final NotificationRecord r = generateNotificationRecord(mTestNotificationChannel);
         mService.addNotification(r);
@@ -3972,6 +4077,80 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
         waitForIdle();
 
         verify(mRankingHandler, times(1)).requestSort();
+    }
+
+    @Test
+    public void testApplyAdjustmentsLogged() throws Exception {
+        NotificationManagerService.WorkerHandler handler = mock(
+                NotificationManagerService.WorkerHandler.class);
+        mService.setHandler(handler);
+        when(mAssistants.isSameUser(eq(null), anyInt())).thenReturn(true);
+
+        // Set up notifications that will be adjusted
+        final NotificationRecord r1 = generateNotificationRecord(
+                mTestNotificationChannel, 1, null, true);
+        r1.getSbn().setInstanceId(mNotificationInstanceIdSequence.newInstanceId());
+        mService.addNotification(r1);
+        final NotificationRecord r2 = generateNotificationRecord(
+                mTestNotificationChannel, 2, null, true);
+        r2.getSbn().setInstanceId(mNotificationInstanceIdSequence.newInstanceId());
+        mService.addNotification(r2);
+
+        // Third notification that's NOT adjusted, just to make sure that doesn't get spuriously
+        // logged.
+        final NotificationRecord r3 = generateNotificationRecord(
+                mTestNotificationChannel, 3, null, true);
+        r3.getSbn().setInstanceId(mNotificationInstanceIdSequence.newInstanceId());
+        mService.addNotification(r3);
+
+        List<Adjustment> adjustments = new ArrayList<>();
+
+        // Test an adjustment that's associated with a ranking change and one that's not
+        Bundle signals1 = new Bundle();
+        signals1.putInt(Adjustment.KEY_IMPORTANCE, IMPORTANCE_HIGH);
+        Adjustment adjustment1 = new Adjustment(
+                r1.getSbn().getPackageName(), r1.getKey(), signals1, "",
+                r1.getUser().getIdentifier());
+        adjustments.add(adjustment1);
+
+        // This one wouldn't trigger a ranking change, but should still trigger a log.
+        Bundle signals2 = new Bundle();
+        signals2.putFloat(Adjustment.KEY_RANKING_SCORE, -0.5f);
+        Adjustment adjustment2 = new Adjustment(
+                r2.getSbn().getPackageName(), r2.getKey(), signals2, "",
+                r2.getUser().getIdentifier());
+        adjustments.add(adjustment2);
+
+        mBinderService.applyAdjustmentsFromAssistant(null, adjustments);
+        verify(mRankingHandler, times(1)).requestSort();
+
+        // Actually apply the adjustments & recalculate importance when run
+        doAnswer(invocationOnMock -> {
+            ((NotificationRecord) invocationOnMock.getArguments()[0])
+                    .applyAdjustments();
+            ((NotificationRecord) invocationOnMock.getArguments()[0])
+                    .calculateImportance();
+            return null;
+        }).when(mRankingHelper).extractSignals(any(NotificationRecord.class));
+
+        // Now make sure that when the sort happens, we actually log the changes.
+        mService.handleRankingSort();
+
+        // Even though the ranking score change is not meant to trigger a ranking update,
+        // during this process the package visibility & canShowBadge values are changing
+        // in all notifications, so all 3 seem to trigger a ranking change. Here we check instead
+        // that scheduleSendRankingUpdate is sent and that the relevant fields have been changed
+        // accordingly to confirm the adjustments happened to the 2 relevant notifications.
+        verify(handler, times(3)).scheduleSendRankingUpdate();
+        assertEquals(IMPORTANCE_HIGH, r1.getImportance());
+        assertTrue(r2.rankingScoreMatches(-0.5f));
+        assertEquals(2, mNotificationRecordLogger.numCalls());
+        assertEquals(NotificationRecordLogger.NotificationReportedEvent.NOTIFICATION_ADJUSTED,
+                mNotificationRecordLogger.event(0));
+        assertEquals(NotificationRecordLogger.NotificationReportedEvent.NOTIFICATION_ADJUSTED,
+                mNotificationRecordLogger.event(1));
+        assertEquals(1, mNotificationRecordLogger.get(0).getInstanceId());
+        assertEquals(2, mNotificationRecordLogger.get(1).getInstanceId());
     }
 
     @Test
@@ -4790,6 +4969,52 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
         mBinderService.setNotificationsShownFromListener(null, new String[] {r.getKey()});
 
         verify(mAppUsageStats).reportInterruptiveNotification(anyString(), anyString(), anyInt());
+    }
+
+    @Test
+    public void testSetNotificationsShownFromListener_protectsCrossUserInformation()
+            throws RemoteException {
+        Notification.Builder nb = new Notification.Builder(
+                mContext, mTestNotificationChannel.getId())
+                .setContentTitle("foo")
+                .setSmallIcon(android.R.drawable.sym_def_app_icon);
+        StatusBarNotification sbn = new StatusBarNotification(PKG, PKG, 1,
+                "tag" + System.currentTimeMillis(),  UserHandle.PER_USER_RANGE, 0,
+                nb.build(), UserHandle.getUserHandleForUid(mUid + UserHandle.PER_USER_RANGE),
+                null, 0);
+        final NotificationRecord r =
+                new NotificationRecord(mContext, sbn, mTestNotificationChannel);
+        r.setTextChanged(true);
+        mService.addNotification(r);
+
+        // no security exception!
+        mBinderService.setNotificationsShownFromListener(null, new String[] {r.getKey()});
+
+        verify(mAppUsageStats, never()).reportInterruptiveNotification(
+                anyString(), anyString(), anyInt());
+    }
+
+    @Test
+    public void testCancelNotificationsFromListener_protectsCrossUserInformation()
+            throws RemoteException {
+        Notification.Builder nb = new Notification.Builder(
+                mContext, mTestNotificationChannel.getId())
+                .setContentTitle("foo")
+                .setSmallIcon(android.R.drawable.sym_def_app_icon);
+        StatusBarNotification sbn = new StatusBarNotification(PKG, PKG, 1,
+                "tag" + System.currentTimeMillis(),  UserHandle.PER_USER_RANGE, 0,
+                nb.build(), UserHandle.getUserHandleForUid(mUid + UserHandle.PER_USER_RANGE),
+                null, 0);
+        final NotificationRecord r =
+                new NotificationRecord(mContext, sbn, mTestNotificationChannel);
+        r.setTextChanged(true);
+        mService.addNotification(r);
+
+        // no security exception!
+        mBinderService.cancelNotificationsFromListener(null, new String[] {r.getKey()});
+
+        waitForIdle();
+        assertEquals(1, mService.getNotificationRecordCount());
     }
 
     @Test
@@ -5852,7 +6077,7 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
     }
 
     @Test
-    public void testNASSettingUpgrade_userSetNull_noOnBoarding() throws RemoteException {
+    public void testNASSettingUpgrade_userSetNull() throws RemoteException {
         ComponentName newDefaultComponent = ComponentName.unflattenFromString("package/Component1");
         TestableNotificationManagerService service = spy(mService);
         int userId = 11;
@@ -5865,14 +6090,13 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
                 .thenReturn(new ArrayList<>());
         when(mAssistants.hasUserSet(userId)).thenReturn(true);
 
-        service.migrateDefaultNASShowNotificationIfNecessary();
+        service.migrateDefaultNAS();
         assertTrue(service.isNASMigrationDone(userId));
-        verify(service, times(0)).createNASUpgradeNotification(eq(userId));
         verify(mAssistants, times(1)).clearDefaults();
     }
 
     @Test
-    public void testNASSettingUpgrade_userSetSameDefault_noOnBoarding() throws RemoteException {
+    public void testNASSettingUpgrade_userSet() throws RemoteException {
         ComponentName defaultComponent = ComponentName.unflattenFromString("package/Component1");
         TestableNotificationManagerService service = spy(mService);
         int userId = 11;
@@ -5885,55 +6109,10 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
                 .thenReturn(new ArrayList(Arrays.asList(defaultComponent)));
         when(mAssistants.hasUserSet(userId)).thenReturn(true);
 
-        service.migrateDefaultNASShowNotificationIfNecessary();
-        assertTrue(service.isNASMigrationDone(userId));
-        verify(service, times(0)).createNASUpgradeNotification(eq(userId));
-        verify(mAssistants, times(1)).resetDefaultFromConfig();
-    }
-
-    @Test
-    public void testNASSettingUpgrade_userSetDifferentDefault_showOnboarding()
-            throws RemoteException {
-        ComponentName oldDefaultComponent = ComponentName.unflattenFromString("package/Component1");
-        ComponentName newDefaultComponent = ComponentName.unflattenFromString("package/Component2");
-        TestableNotificationManagerService service = spy(mService);
-        int userId = 11;
-        setUsers(new int[]{userId});
-        setNASMigrationDone(false, userId);
-        when(mAssistants.getDefaultComponents())
-                .thenReturn(new ArraySet<>(Arrays.asList(oldDefaultComponent)));
-        when(mAssistants.getDefaultFromConfig())
-                .thenReturn(newDefaultComponent);
-        when(mAssistants.getAllowedComponents(anyInt()))
-                .thenReturn(Arrays.asList(oldDefaultComponent));
-        when(mAssistants.hasUserSet(userId)).thenReturn(true);
-
-        service.migrateDefaultNASShowNotificationIfNecessary();
-        assertFalse(service.isNASMigrationDone(userId));
-        //TODO(b/192450820)
-        //verify(service, times(1)).createNASUpgradeNotification(eq(userId));
-        verify(mAssistants, times(0)).resetDefaultFromConfig();
-
-        //Test user clear data before enable/disable from onboarding notification
-        ArrayMap<Boolean, ArrayList<ComponentName>> changedListeners =
-                generateResetComponentValues();
-        when(mListeners.resetComponents(anyString(), anyInt())).thenReturn(changedListeners);
-        ArrayMap<Boolean, ArrayList<ComponentName>> changes = new ArrayMap<>();
-        changes.put(true, new ArrayList(Arrays.asList(newDefaultComponent)));
-        changes.put(false, new ArrayList());
-        when(mAssistants.resetComponents(anyString(), anyInt())).thenReturn(changes);
-
-        //Clear data
-        service.getBinderService().clearData("package", userId, false);
-        //Test migrate flow again
-        service.migrateDefaultNASShowNotificationIfNecessary();
-
-        //The notification should be still there
-        assertFalse(service.isNASMigrationDone(userId));
-        //TODO(b/192450820)
-        //verify(service, times(2)).createNASUpgradeNotification(eq(userId));
-        verify(mAssistants, times(0)).resetDefaultFromConfig();
-        assertEquals(oldDefaultComponent, service.getApprovedAssistant(userId));
+        service.migrateDefaultNAS();
+        verify(mAssistants, times(1)).setUserSet(userId, false);
+        //resetDefaultAssistantsIfNecessary should invoke from readPolicyXml() and migration
+        verify(mAssistants, times(2)).resetDefaultAssistantsIfNecessary();
     }
 
     @Test
@@ -5953,24 +6132,22 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
                 .thenReturn(new ArraySet<>(Arrays.asList(oldDefaultComponent)));
         when(mAssistants.getDefaultFromConfig())
                 .thenReturn(newDefaultComponent);
-        //User1: need onboarding
+        //User1: set different NAS
         when(mAssistants.getAllowedComponents(userId1))
                 .thenReturn(Arrays.asList(oldDefaultComponent));
-        //User2: no onboarding
+        //User2: set to none
         when(mAssistants.getAllowedComponents(userId2))
-                .thenReturn(Arrays.asList(newDefaultComponent));
+                .thenReturn(new ArrayList<>());
 
         when(mAssistants.hasUserSet(userId1)).thenReturn(true);
         when(mAssistants.hasUserSet(userId2)).thenReturn(true);
 
-        service.migrateDefaultNASShowNotificationIfNecessary();
-        assertFalse(service.isNASMigrationDone(userId1));
+        service.migrateDefaultNAS();
+        // user1's setting get reset
+        verify(mAssistants, times(1)).setUserSet(userId1, false);
+        verify(mAssistants, times(0)).setUserSet(eq(userId2), anyBoolean());
         assertTrue(service.isNASMigrationDone(userId2));
 
-        //TODO(b/192450820)
-        //verify(service, times(1)).createNASUpgradeNotification(any(Integer.class));
-        // only user2's default get updated
-        verify(mAssistants, times(1)).resetDefaultFromConfig();
     }
 
     @Test
@@ -5990,7 +6167,7 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
                 .thenReturn(new ArraySet<>(Arrays.asList(oldDefaultComponent)));
         when(mAssistants.getDefaultFromConfig())
                 .thenReturn(newDefaultComponent);
-        //Both profiles: need onboarding
+        //Both profiles: set different NAS
         when(mAssistants.getAllowedComponents(userId1))
                 .thenReturn(Arrays.asList(oldDefaultComponent));
         when(mAssistants.getAllowedComponents(userId2))
@@ -5999,13 +6176,9 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
         when(mAssistants.hasUserSet(userId1)).thenReturn(true);
         when(mAssistants.hasUserSet(userId2)).thenReturn(true);
 
-        service.migrateDefaultNASShowNotificationIfNecessary();
+        service.migrateDefaultNAS();
         assertFalse(service.isNASMigrationDone(userId1));
         assertFalse(service.isNASMigrationDone(userId2));
-
-        // TODO(b/192450820): only user1 get notification
-        //verify(service, times(1)).createNASUpgradeNotification(eq(userId1));
-        //verify(service, times(0)).createNASUpgradeNotification(eq(userId2));
     }
 
 
@@ -6033,78 +6206,15 @@ public class NotificationManagerServiceTest extends UiServiceTestCase {
         //Clear data
         service.getBinderService().clearData("package", userId, false);
         //Test migrate flow again
-        service.migrateDefaultNASShowNotificationIfNecessary();
+        service.migrateDefaultNAS();
 
-        //TODO(b/192450820): The notification should not appear again
-        //verify(service, times(0)).createNASUpgradeNotification(eq(userId));
-        verify(mAssistants, times(0)).resetDefaultFromConfig();
+        //Migration should not happen again
+        verify(mAssistants, times(0)).setUserSet(userId, false);
+        verify(mAssistants, times(0)).clearDefaults();
+        //resetDefaultAssistantsIfNecessary should only invoke once from readPolicyXml()
+        verify(mAssistants, times(1)).resetDefaultAssistantsIfNecessary();
+
     }
-
-    @Test
-    public void testNASUpgradeNotificationDisableBroadcast_multiProfile() {
-        int userId1 = 11;
-        int userId2 = 12;
-        setUsers(new int[]{userId1, userId2});
-        when(mUm.isManagedProfile(userId2)).thenReturn(true);
-        when(mUm.getProfileIds(userId1, false)).thenReturn(new int[]{userId1, userId2});
-
-        TestableNotificationManagerService service = spy(mService);
-        setNASMigrationDone(false, userId1);
-        setNASMigrationDone(false, userId2);
-
-        simulateNASUpgradeBroadcast(ACTION_DISABLE_NAS, userId1);
-
-        assertTrue(service.isNASMigrationDone(userId1));
-        assertTrue(service.isNASMigrationDone(userId2));
-        // User disabled the NAS from notification, the default stored in xml should be null
-        // rather than the new default
-        verify(mAssistants, times(1)).clearDefaults();
-        verify(mAssistants, times(0)).resetDefaultFromConfig();
-
-        //TODO(b/192450820):No more notification after disabled
-        //service.migrateDefaultNASShowNotificationIfNecessary();
-        //verify(service, times(0)).createNASUpgradeNotification(anyInt());
-    }
-
-    @Test
-    public void testNASUpgradeNotificationEnableBroadcast_multiUser() {
-        int userId1 = 11;
-        int userId2 = 12;
-        setUsers(new int[]{userId1, userId2});
-        when(mUm.getProfileIds(userId1, false)).thenReturn(new int[]{userId1});
-
-        TestableNotificationManagerService service = spy(mService);
-        setNASMigrationDone(false, userId1);
-        setNASMigrationDone(false, userId2);
-
-        simulateNASUpgradeBroadcast(ACTION_ENABLE_NAS, userId1);
-
-        assertTrue(service.isNASMigrationDone(userId1));
-        assertFalse(service.isNASMigrationDone(userId2));
-        verify(mAssistants, times(1)).resetDefaultFromConfig();
-
-        //TODO(b/192450820)
-        //service.migrateDefaultNASShowNotificationIfNecessary();
-        //verify(service, times(0)).createNASUpgradeNotification(eq(userId1));
-    }
-
-    @Test
-    public void testNASUpgradeNotificationLearnMoreBroadcast() {
-        int userId = 11;
-        setUsers(new int[]{userId});
-        TestableNotificationManagerService service = spy(mService);
-        setNASMigrationDone(false, userId);
-        doNothing().when(mContext).startActivity(any());
-
-        simulateNASUpgradeBroadcast(ACTION_LEARNMORE_NAS, userId);
-
-        verify(mContext, times(1)).startActivity(any(Intent.class));
-        assertFalse(service.isNASMigrationDone(userId));
-        //TODO(b/192450820)
-        //verify(service, times(0)).createNASUpgradeNotification(eq(userId));
-        verify(mAssistants, times(0)).resetDefaultFromConfig();
-    }
-
 
     private void setNASMigrationDone(boolean done, int userId) {
         Settings.Secure.putIntForUser(mContext.getContentResolver(),

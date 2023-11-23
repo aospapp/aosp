@@ -35,12 +35,16 @@ PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
     system/app/SampleRearViewCamera/SampleRearViewCamera.apk \
     system/app/SampleRearViewCamera/oat/arm64/SampleRearViewCamera.odex \
     system/app/SampleRearViewCamera/oat/arm64/SampleRearViewCamera.vdex \
+    system/app/ScriptExecutor/ScriptExecutor.apk \
+    system/app/ScriptExecutor/lib/arm64/libscriptexecutorjni.so \
+    system/app/ScriptExecutor/lib/x86_64/libscriptexecutorjni.so \
     system/app/SystemUpdater/SystemUpdater.apk \
     system/bin/android.automotive.evs.manager@1.1 \
     system/bin/carbugreportd \
     system/bin/carpowerpolicyd \
     system/bin/carwatchdogd \
     system/bin/com.android.car.procfsinspector \
+    system/bin/vehicle_binding_util \
     system/etc/apns-conf.xml \
     system/etc/init/android.automotive.evs.manager@1.1.rc \
     system/etc/init/carbugreportd.rc \
@@ -49,6 +53,7 @@ PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
     system/etc/init/com.android.car.procfsinspector.rc \
     system/etc/init/init.bootstat.car.rc \
     system/etc/init/init.car.rc \
+    system/etc/init/vehicle_binding_util.rc \
     system/etc/old-apns-conf.xml \
     system/etc/permissions/android.car.cluster.xml \
     system/etc/permissions/android.car.usb.handler.xml \
@@ -67,6 +72,7 @@ PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
     system/etc/permissions/com.android.car.settings.xml \
     system/etc/permissions/com.android.car.shell.xml \
     system/etc/permissions/com.android.car.xml \
+    system/etc/permissions/com.google.android.car.adaslocation.xml \
     system/etc/permissions/com.google.android.car.defaultstoragemonitoringcompanionapp.xml \
     system/etc/permissions/com.google.android.car.garagemode.testapp.xml \
     system/etc/permissions/com.google.android.car.kitchensink.xml \
@@ -105,6 +111,7 @@ PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
     system/priv-app/CarDialerApp/CarDialerApp.apk \
     system/priv-app/CarHvacApp/CarHvacApp.apk \
     system/priv-app/CarLauncher/CarLauncher.apk \
+    system/priv-app/CarManagedProvisioning/CarManagedProvisioning.apk \
     system/priv-app/CarMediaApp/CarMediaApp.apk \
     system/priv-app/CarMessengerApp/CarMessengerApp.apk \
     system/priv-app/CarRadioApp/CarRadioApp.apk \
@@ -132,6 +139,7 @@ PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
     system/priv-app/ExperimentalCarService/ExperimentalCarService.apk \
     system/priv-app/ExperimentalCarService/oat/arm64/ExperimentalCarService.odex \
     system/priv-app/ExperimentalCarService/oat/arm64/ExperimentalCarService.vdex \
+    system/priv-app/AdasLocationTestApp/AdasLocationTestApp.apk \
     system/priv-app/GarageModeTestApp/GarageModeTestApp.apk \
     system/priv-app/LocalMediaPlayer/LocalMediaPlayer.apk \
     system/priv-app/NetworkPreferenceApp/NetworkPreferenceApp.apk \
@@ -156,5 +164,6 @@ PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += %.odex %.vdex %.art
 PRODUCT_PACKAGE_OVERLAYS := device/generic/car/common/overlay
 EMULATOR_VENDOR_NO_SENSORS := true
 PRODUCT_USE_DYNAMIC_PARTITION_SIZE := true
+DO_NOT_INCLUDE_BT_SEPOLICY := true
 $(call inherit-product, device/generic/car/emulator/aosp_car_emulator.mk)
 EMULATOR_VENDOR_NO_SOUND := true

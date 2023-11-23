@@ -26,7 +26,7 @@
             <size
                 android:height="@dimen/sud_switch_thumb_size"
                 android:width="@dimen/sud_switch_thumb_size" />
-            <solid android:color="?android:attr/colorAccent" tools:ignore="NewApi" />
+            <solid android:color="@color/sud_switch_thumb_on" />
         </shape>
     </item>
 </layer-list>

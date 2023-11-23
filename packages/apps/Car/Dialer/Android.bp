@@ -21,8 +21,9 @@ common_libs = ["android.car-system-stubs"]
 
 common_static_libs = [
     "car-apps-common",
-    "car-arch-common",
+    "car-assist-lib",
     "car-telephony-common",
+    "car-messenger-common",
     "car-ui-lib",
     "car-uxr-client-lib",
     "guava",
@@ -48,19 +49,24 @@ android_app {
 
     resource_dirs: ["res"],
 
+    min_sdk_version: "29",
+
+    target_sdk_version: "31",
+
     sdk_version: "system_current",
 
     required: ["allowed_privapp_com.android.car.dialer"],
 
     certificate: "platform",
+    // certificate: ":com-android-car-apps-test",
 
     overrides: ["Dialer"],
 
     libs: common_libs,
 
-    static_libs: [
+    static_libs: common_static_libs + [
         "car-dialer-framework-dep",
-    ] + common_static_libs,
+    ],
 
     plugins: [
         "androidx.room_room-compiler-plugin",
@@ -84,35 +90,37 @@ android_app {
 }
 
 //##################################################################################
-// Duplicate of CarDialerApp which includes testing only resources for Robolectric #
+// Duplicate of CarDialerApp using fake components used for debugging and testings #
 //##################################################################################
 
-android_app {
+android_test_helper_app {
     name: "CarDialerAppForTesting",
 
     srcs: ["src/**/*.java"],
 
     exclude_srcs: ["src/com/android/car/dialer/inject/BluetoothSingleHfpModule.java"],
 
-    resource_dirs: [
-        "res",
-        "tests/robotests/res",
-    ],
+    resource_dirs: ["res"],
 
     sdk_version: "system_current",
+
+    min_sdk_version: "29",
+
+    target_sdk_version: "31",
 
     required: ["allowed_privapp_com.android.car.dialer"],
 
     certificate: "platform",
+    // certificate: ":com-android-car-apps-test",
 
     overrides: ["Dialer"],
 
     libs: common_libs,
 
-    static_libs: [
+    static_libs: common_static_libs + [
         "car-dialer-fake-framework-dep",
         "car-dialer-testing",
-    ] + common_static_libs,
+    ],
 
     plugins: [
         "androidx.room_room-compiler-plugin",
@@ -161,17 +169,22 @@ android_app {
 
     sdk_version: "system_current",
 
+    min_sdk_version: "29",
+
+    target_sdk_version: "31",
+
     required: ["allowed_privapp_com.android.car.dialer"],
 
     certificate: "platform",
+    // certificate: ":com-android-car-apps-test",
 
     overrides: ["Dialer"],
 
     libs: common_libs,
 
-    static_libs: [
+    static_libs: common_static_libs + [
         "car-dialer-framework-dep",
-    ] + common_static_libs,
+    ],
 
     plugins: [
         "androidx.room_room-compiler-plugin",

@@ -17,6 +17,8 @@
 package android.cts.install.host;
 
 import com.android.tradefed.invoker.TestInformation;
+import com.android.tradefed.testtype.IAbiReceiver;
+import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.ITestInformationReceiver;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
@@ -34,9 +36,10 @@ import java.util.List;
  * Custom JUnit4 parameterized test runner that also accommodate {@link ITestInformationReceiver}
  * to support {@link BaseHostJUnit4Test#getDevice()} properly.
  */
-public final class DeviceParameterized extends Parameterized implements ITestInformationReceiver {
+public final class DeviceParameterized extends Parameterized implements IAbiReceiver, ITestInformationReceiver {
     private TestInformation mTestInformation;
     private List<Runner> mRunners;
+    private IAbi mAbi;
 
     public DeviceParameterized(Class<?> klass) throws Throwable {
         super(klass);
@@ -66,9 +69,25 @@ public final class DeviceParameterized extends Parameterized implements ITestInf
         }
     }
 
+    @Override
+    public void setAbi(IAbi abi) {
+        mAbi = abi;
+        for (Runner runner: mRunners) {
+            if (runner instanceof  IAbiReceiver) {
+                ((IAbiReceiver)runner).setAbi(mAbi);
+            }
+        }
+    }
+
+    @Override
+    public IAbi getAbi() {
+      return mAbi;
+    }
+
     public static class DeviceParameterizedRunner
-            extends BlockJUnit4ClassRunnerWithParameters implements ITestInformationReceiver {
+            extends BlockJUnit4ClassRunnerWithParameters implements IAbiReceiver, ITestInformationReceiver {
         private TestInformation mTestInformation;
+        private IAbi mAbi;
 
         public DeviceParameterizedRunner(TestWithParameters test) throws InitializationError {
             super(test);
@@ -84,6 +103,9 @@ public final class DeviceParameterized extends Parameterized implements ITestInf
                 }
                 ((ITestInformationReceiver) testObj).setTestInformation(mTestInformation);
             }
+            if (testObj instanceof IAbiReceiver) {
+                ((IAbiReceiver) testObj).setAbi(mAbi);
+            }
             return testObj;
         }
 
@@ -95,6 +117,16 @@ public final class DeviceParameterized extends Parameterized implements ITestInf
         @Override
         public TestInformation getTestInformation() {
             return mTestInformation;
+        }
+
+        @Override
+        public void setAbi(IAbi abi) {
+          mAbi = abi;
+        }
+
+        @Override
+        public IAbi getAbi() {
+          return mAbi;
         }
 
         @Override

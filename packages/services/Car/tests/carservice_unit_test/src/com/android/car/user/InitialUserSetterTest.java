@@ -593,6 +593,40 @@ public final class InitialUserSetterTest extends AbstractExtendedMockitoTestCase
     }
 
     @Test
+    public void testDefaultBehavior_firstBoot_ok_setEmptyLocale() throws Exception {
+        // no need to mock hasInitialUser(), it will return false by default
+        UserInfo newUser = expectCreateFullUser(USER_ID, OWNER_NAME, UserInfo.FLAG_ADMIN);
+        expectSwitchUser(USER_ID);
+
+        mSetter.set(new Builder(InitialUserSetter.TYPE_DEFAULT_BEHAVIOR)
+                .setUserLocales("")
+                .build());
+
+        verifyUserSwitched(USER_ID);
+        verifyFallbackDefaultBehaviorNeverCalled();
+        verifySystemUserUnlocked();
+        assertInitialUserSet(newUser);
+        assertSystemLocalesToBeNull();
+    }
+
+    @Test
+    public void testDefaultBehavior_firstBoot_ok_setBlankLocale() throws Exception {
+        // no need to mock hasInitialUser(), it will return false by default
+        UserInfo newUser = expectCreateFullUser(USER_ID, OWNER_NAME, UserInfo.FLAG_ADMIN);
+        expectSwitchUser(USER_ID);
+
+        mSetter.set(new Builder(InitialUserSetter.TYPE_DEFAULT_BEHAVIOR)
+                .setUserLocales(" ")
+                .build());
+
+        verifyUserSwitched(USER_ID);
+        verifyFallbackDefaultBehaviorNeverCalled();
+        verifySystemUserUnlocked();
+        assertInitialUserSet(newUser);
+        assertSystemLocalesToBeNull();
+    }
+
+    @Test
     public void testDefaultBehavior_firstBoot_fail_createUserFailed() throws Exception {
         // no need to mock hasInitialUser(), it will return false by default
         // no need to mock createUser(), it will return null by default
@@ -1180,6 +1214,10 @@ public final class InitialUserSetterTest extends AbstractExtendedMockitoTestCase
     private void assertSystemLocales(@NonNull String expected) {
         // TODO(b/156033195): should test specific userId
         assertThat(getSettingsString(Settings.System.SYSTEM_LOCALES)).isEqualTo(expected);
+    }
+
+    private void assertSystemLocalesToBeNull() {
+        assertThat(getSettingsString(Settings.System.SYSTEM_LOCALES)).isNull();
     }
 
     private final class MyListener implements Consumer<UserInfo> {

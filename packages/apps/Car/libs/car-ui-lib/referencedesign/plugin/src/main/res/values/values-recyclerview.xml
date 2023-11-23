@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Whether to display the Scroll Bar or not. Defaults to true. If this is set to false -->
+    <bool name="scrollbar_enable">true</bool>
+
+    <dimen name="scrollbar_margin">112dp</dimen>
+    <dimen name="scrollbar_container_width">112dp</dimen>
+    <dimen name="scrollbar_button_size">76dp</dimen>
+    <dimen name="scrollbar_thumb_width">7dp</dimen>
+    <dimen name="scrollbar_separator_margin">16dp</dimen>
+    <dimen name="scrollbar_min_thumb_height">56dp</dimen>
+
+    <integer name="scrollbar_longpress_initial_delay">1000</integer>
+    <integer name="scrollbar_longpress_repeat_interval">100</integer>
+
+    <item name="button_disabled_alpha" format="float" type="dimen">0.2</item>
+    <item name="scrollbar_milliseconds_per_inch" format="float" type="dimen">150.0</item>
+    <item name="scrollbar_deceleration_times_divisor" format="float" type="dimen">0.45</item>
+    <item name="scrollbar_decelerate_interpolator_factor" format="float" type="dimen">1.8</item>
+
+</resources>

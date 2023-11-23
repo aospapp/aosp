@@ -17,11 +17,11 @@ use std::sync::Arc;
 
 use acpi_tables::aml::Aml;
 use acpi_tables::sdt::SDT;
-use base::{syslog, AsRawDescriptor, Event, Tube};
+use base::{syslog, AsRawDescriptor, AsRawDescriptors, Event, Tube};
 use devices::virtio::VirtioDevice;
 use devices::{
-    Bus, BusDevice, BusError, IrqChip, PciAddress, PciDevice, PciDeviceError, PciInterruptPin,
-    PciRoot, ProtectionType, ProxyDevice,
+    Bus, BusDevice, BusError, BusResumeDevice, IrqChip, PciAddress, PciDevice, PciDeviceError,
+    PciInterruptPin, PciRoot, ProtectionType, ProxyDevice,
 };
 use hypervisor::{IoEventAddress, Vm};
 use minijail::Minijail;
@@ -31,7 +31,7 @@ use vm_control::{BatControl, BatteryType};
 use vm_memory::{GuestAddress, GuestMemory, GuestMemoryError};
 
 #[cfg(all(target_arch = "x86_64", feature = "gdb"))]
-use gdbstub::arch::x86::reg::X86_64CoreRegs as GdbStubRegs;
+use gdbstub_arch::x86::reg::X86_64CoreRegs as GdbStubRegs;
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 use {
@@ -76,8 +76,11 @@ pub enum VcpuAffinity {
 /// create a `RunnableLinuxVm`.
 pub struct VmComponents {
     pub memory_size: u64,
+    pub swiotlb: Option<u64>,
     pub vcpu_count: usize,
     pub vcpu_affinity: Option<VcpuAffinity>,
+    pub cpu_clusters: Vec<Vec<usize>>,
+    pub cpu_capacity: BTreeMap<usize, u32>,
     pub no_smt: bool,
     pub hugepages: bool,
     pub vm_image: VmImage,
@@ -85,36 +88,38 @@ pub struct VmComponents {
     pub pstore: Option<Pstore>,
     pub initrd_image: Option<File>,
     pub extra_kernel_params: Vec<String>,
-    pub wayland_dmabuf: bool,
     pub acpi_sdts: Vec<SDT>,
     pub rt_cpus: Vec<usize>,
+    pub delay_rt: bool,
     pub protected_vm: ProtectionType,
     #[cfg(all(target_arch = "x86_64", feature = "gdb"))]
     pub gdb: Option<(u32, Tube)>, // port and control tube.
     pub dmi_path: Option<PathBuf>,
+    pub no_legacy: bool,
 }
 
 /// Holds the elements needed to run a Linux VM. Created by `build_vm`.
-pub struct RunnableLinuxVm<V: VmArch, Vcpu: VcpuArch, I: IrqChipArch> {
+pub struct RunnableLinuxVm<V: VmArch, Vcpu: VcpuArch> {
     pub vm: V,
-    pub resources: SystemAllocator,
-    pub exit_evt: Event,
     pub vcpu_count: usize,
     /// If vcpus is None, then it's the responsibility of the vcpu thread to create vcpus.
     /// If it's Some, then `build_vm` already created the vcpus.
     pub vcpus: Option<Vec<Vcpu>>,
     pub vcpu_affinity: Option<VcpuAffinity>,
     pub no_smt: bool,
-    pub irq_chip: I,
+    pub irq_chip: Box<dyn IrqChipArch>,
     pub has_bios: bool,
     pub io_bus: Bus,
     pub mmio_bus: Bus,
     pub pid_debug_label_map: BTreeMap<u32, String>,
     pub suspend_evt: Event,
     pub rt_cpus: Vec<usize>,
+    pub delay_rt: bool,
     pub bat_control: Option<BatControl>,
     #[cfg(all(target_arch = "x86_64", feature = "gdb"))]
     pub gdb: Option<(u32, Tube)>,
+    /// Devices to be notified before the system resumes from the S3 suspended state.
+    pub resume_notify_devices: Vec<Arc<Mutex<dyn BusResumeDevice>>>,
 }
 
 /// The device and optional jail.
@@ -138,37 +143,43 @@ pub trait LinuxArch {
         components: &VmComponents,
     ) -> std::result::Result<Vec<(GuestAddress, u64)>, Self::Error>;
 
+    /// Creates a new `SystemAllocator` that fits the given `GuestMemory`'s layout.
+    ///
+    /// # Arguments
+    ///
+    /// * `guest_mem` - The memory to be used as a template for the `SystemAllocator`.
+    fn create_system_allocator(guest_mem: &GuestMemory) -> SystemAllocator;
+
+    fn get_phys_max_addr() -> u64;
+
     /// Takes `VmComponents` and generates a `RunnableLinuxVm`.
     ///
     /// # Arguments
     ///
     /// * `components` - Parts to use to build the VM.
-    /// * `serial_parameters` - definitions for how the serial devices should be configured.
-    /// * `battery` - defines what battery device will be created.
-    /// * `create_devices` - Function to generate a list of devices.
-    /// * `create_irq_chip` - Function to generate an IRQ chip.
-    fn build_vm<V, Vcpu, I, FD, FI, E1, E2>(
+    /// * `exit_evt` - Event used by sub-devices to request that crosvm exit.
+    /// * `system_allocator` - Allocator created by this trait's implementation of
+    ///   `create_system_allocator`.
+    /// * `serial_parameters` - Definitions for how the serial devices should be configured.
+    /// * `serial_jail` - Jail used for serial devices created here.
+    /// * `battery` - Defines what battery device will be created.
+    /// * `vm` - A VM implementation to build upon.
+    /// * `pci_devices` - The PCI devices to be built into the VM.
+    /// * `irq_chip` - The IRQ chip implemention for the VM.
+    fn build_vm<V, Vcpu>(
         components: VmComponents,
+        exit_evt: &Event,
+        system_allocator: &mut SystemAllocator,
         serial_parameters: &BTreeMap<(SerialHardware, u8), SerialParameters>,
         serial_jail: Option<Minijail>,
         battery: (&Option<BatteryType>, Option<Minijail>),
         vm: V,
-        create_devices: FD,
-        create_irq_chip: FI,
-    ) -> std::result::Result<RunnableLinuxVm<V, Vcpu, I>, Self::Error>
+        pci_devices: Vec<(Box<dyn PciDevice>, Option<Minijail>)>,
+        irq_chip: &mut dyn IrqChipArch,
+    ) -> std::result::Result<RunnableLinuxVm<V, Vcpu>, Self::Error>
     where
         V: VmArch,
-        Vcpu: VcpuArch,
-        I: IrqChipArch,
-        FD: FnOnce(
-            &GuestMemory,
-            &mut V,
-            &mut SystemAllocator,
-            &Event,
-        ) -> std::result::Result<Vec<(Box<dyn PciDevice>, Option<Minijail>)>, E1>,
-        FI: FnOnce(&V, /* vcpu_count: */ usize) -> std::result::Result<I, E2>,
-        E1: StdError + 'static,
-        E2: StdError + 'static;
+        Vcpu: VcpuArch;
 
     /// Configures the vcpu and should be called once per vcpu from the vcpu's thread.
     ///
@@ -241,6 +252,8 @@ pub enum DeviceRegistrationError {
     AllocateDeviceAddrs(PciDeviceError),
     /// Could not allocate an IRQ number.
     AllocateIrq,
+    /// Unable to clone a jail for the device.
+    CloneJail(minijail::Error),
     // Unable to create a pipe.
     CreatePipe(base::Error),
     // Unable to create serial device from serial parameters
@@ -282,6 +295,7 @@ impl Display for DeviceRegistrationError {
             AllocateIoResource(e) => write!(f, "Allocating IO resource: {}", e),
             AllocateDeviceAddrs(e) => write!(f, "Allocating device addresses: {}", e),
             AllocateIrq => write!(f, "Allocating IRQ number"),
+            CloneJail(e) => write!(f, "failed to clone jail: {}", e),
             CreatePipe(e) => write!(f, "failed to create pipe: {}", e),
             CreateSerialDevice(e) => write!(f, "failed to create serial device: {}", e),
             CreateTube(e) => write!(f, "failed to create tube: {}", e),
@@ -306,8 +320,9 @@ impl Display for DeviceRegistrationError {
 /// Creates a root PCI device for use by this Vm.
 pub fn generate_pci_root(
     mut devices: Vec<(Box<dyn PciDevice>, Option<Minijail>)>,
-    irq_chip: &mut impl IrqChip,
+    irq_chip: &mut dyn IrqChip,
     mmio_bus: &mut Bus,
+    io_bus: &mut Bus,
     resources: &mut SystemAllocator,
     vm: &mut impl Vm,
     max_irqs: usize,
@@ -319,7 +334,7 @@ pub fn generate_pci_root(
     ),
     DeviceRegistrationError,
 > {
-    let mut root = PciRoot::new();
+    let mut root = PciRoot::new(mmio_bus.clone(), io_bus.clone());
     let mut pci_irqs = Vec::new();
     let mut pid_labels = BTreeMap::new();
 
@@ -356,6 +371,7 @@ pub fn generate_pci_root(
         let address = device_addrs[dev_idx];
         let mut keep_rds = device.keep_rds();
         syslog::push_descriptors(&mut keep_rds);
+        keep_rds.append(&mut vm.get_memory().as_raw_descriptors());
 
         let irqfd = Event::new().map_err(DeviceRegistrationError::EventCreate)?;
         let irq_resample_fd = Event::new().map_err(DeviceRegistrationError::EventCreate)?;
@@ -436,7 +452,7 @@ pub fn add_goldfish_battery(
     amls: &mut Vec<u8>,
     battery_jail: Option<Minijail>,
     mmio_bus: &mut Bus,
-    irq_chip: &mut impl IrqChip,
+    irq_chip: &mut dyn IrqChip,
     irq_num: u32,
     resources: &mut SystemAllocator,
 ) -> Result<Tube, DeviceRegistrationError> {

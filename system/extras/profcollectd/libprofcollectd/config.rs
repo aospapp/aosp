@@ -22,6 +22,7 @@ use macaddr::MacAddr6;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
+use std::fs::{read_dir, remove_file};
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
@@ -31,6 +32,7 @@ const PROFCOLLECT_NODE_ID_PROPERTY: &str = "persist.profcollectd.node_id";
 
 pub const REPORT_RETENTION_SECS: u64 = 14 * 24 * 60 * 60; // 14 days.
 
+// Static configs that cannot be changed.
 lazy_static! {
     pub static ref TRACE_OUTPUT_DIR: &'static Path = Path::new("/data/misc/profcollectd/trace/");
     pub static ref PROFILE_OUTPUT_DIR: &'static Path = Path::new("/data/misc/profcollectd/output/");
@@ -42,6 +44,7 @@ lazy_static! {
         Path::new("/data/misc/profcollectd/output/config.json");
 }
 
+/// Dynamic configs, stored in config.json.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub struct Config {
     /// Version of config file scheme, always equals to 1.
@@ -56,6 +59,8 @@ pub struct Config {
     pub sampling_period: Duration,
     /// An optional filter to limit which binaries to or not to profile.
     pub binary_filter: String,
+    /// Maximum size of the trace directory.
+    pub max_trace_limit: u64,
 }
 
 impl Config {
@@ -70,6 +75,10 @@ impl Config {
             )?),
             sampling_period: Duration::from_millis(get_device_config("sampling_period", 500)?),
             binary_filter: get_device_config("binary_filter", "".to_string())?,
+            max_trace_limit: get_device_config(
+                "max_trace_limit",
+                /* 512MB */ 512 * 1024 * 1024,
+            )?,
         })
     }
 }
@@ -137,4 +146,20 @@ fn generate_random_node_id() -> MacAddr6 {
     let mut node_id = rand::thread_rng().gen::<[u8; 6]>();
     node_id[0] |= 0x1;
     MacAddr6::from(node_id)
+}
+
+pub fn clear_data() -> Result<()> {
+    fn remove_files(path: &Path) -> Result<()> {
+        read_dir(path)?
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|e| e.is_file())
+            .try_for_each(remove_file)?;
+        Ok(())
+    }
+
+    remove_files(&TRACE_OUTPUT_DIR)?;
+    remove_files(&PROFILE_OUTPUT_DIR)?;
+    remove_files(&REPORT_OUTPUT_DIR)?;
+    Ok(())
 }

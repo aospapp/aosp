@@ -23,6 +23,7 @@ import android.os.Looper;
 import android.os.Message;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.settingslib.applications.ApplicationsState;
 
@@ -72,7 +73,8 @@ public class AppEntryListManager {
         void loadExtraInfo(List<ApplicationsState.AppEntry> entries);
     }
 
-    private final ApplicationsState.Callbacks mSessionCallbacks =
+    @VisibleForTesting
+    final ApplicationsState.Callbacks mSessionCallbacks =
             new ApplicationsState.Callbacks() {
                 @Override
                 public void onRunningStateChanged(boolean running) {
@@ -131,8 +133,12 @@ public class AppEntryListManager {
     private boolean mHasReceivedExtraInfo;
 
     public AppEntryListManager(Context context) {
-        mApplicationsState = ApplicationsState.getInstance(
-                (Application) context.getApplicationContext());
+        this(context, ApplicationsState.getInstance((Application) context.getApplicationContext()));
+    }
+
+    @VisibleForTesting
+    AppEntryListManager(Context context, ApplicationsState applicationsState) {
+        mApplicationsState = applicationsState;
         // Run on the same background thread as the ApplicationsState to make sure updates don't
         // conflict.
         mBackgroundHandler = new BackgroundHandler(new WeakReference<>(this),

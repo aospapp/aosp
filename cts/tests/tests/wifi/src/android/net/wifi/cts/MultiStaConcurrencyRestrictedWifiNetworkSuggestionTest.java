@@ -76,6 +76,7 @@ public class MultiStaConcurrencyRestrictedWifiNetworkSuggestionTest extends Wifi
     private static boolean sWasVerboseLoggingEnabled;
     private static boolean sWasScanThrottleEnabled;
     private static boolean sWasWifiEnabled;
+    private static boolean sShouldRunTest = false;
 
     private Context mContext;
     private WifiManager mWifiManager;
@@ -96,6 +97,7 @@ public class MultiStaConcurrencyRestrictedWifiNetworkSuggestionTest extends Wifi
         // skip the test if WiFi is not supported or not automotive platform.
         // Don't use assumeTrue in @BeforeClass
         if (!WifiFeature.isWifiSupported(context)) return;
+        sShouldRunTest = true;
 
         WifiManager wifiManager = context.getSystemService(WifiManager.class);
         assertThat(wifiManager).isNotNull();
@@ -122,9 +124,9 @@ public class MultiStaConcurrencyRestrictedWifiNetworkSuggestionTest extends Wifi
 
     @AfterClass
     public static void tearDownClass() throws Exception {
-        Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        if (!WifiFeature.isWifiSupported(context)) return;
+        if (!sShouldRunTest) return;
 
+        Context context = InstrumentationRegistry.getInstrumentation().getContext();
         WifiManager wifiManager = context.getSystemService(WifiManager.class);
         assertThat(wifiManager).isNotNull();
 
@@ -138,6 +140,7 @@ public class MultiStaConcurrencyRestrictedWifiNetworkSuggestionTest extends Wifi
 
     @Before
     public void setUp() throws Exception {
+        assumeTrue(sShouldRunTest);
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
         mWifiManager = mContext.getSystemService(WifiManager.class);
         mConnectivityManager = mContext.getSystemService(ConnectivityManager.class);
@@ -199,6 +202,7 @@ public class MultiStaConcurrencyRestrictedWifiNetworkSuggestionTest extends Wifi
 
     @After
     public void tearDown() throws Exception {
+        if (!sShouldRunTest) return;
         // Re-enable networks.
         ShellIdentityUtils.invokeWithShellPermissions(
                 () -> {

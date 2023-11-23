@@ -35,14 +35,14 @@ public class AlertWindowsAppOpsTestsActivity extends Activity {
     }
 
     public void hideSystemAlertWindow() {
-        getWindowManager().removeView(mContent);
+        if (mContent != null && mContent.isAttachedToWindow()) {
+            getWindowManager().removeView(mContent);
+        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (mContent != null) {
-            hideSystemAlertWindow();
-        }
+        hideSystemAlertWindow();
     }
 }

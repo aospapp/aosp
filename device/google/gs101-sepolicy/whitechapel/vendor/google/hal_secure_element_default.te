@@ -1,0 +1,10 @@
+allow hal_secure_element_default secure_element_device:chr_file rw_file_perms;
+allow hal_secure_element_default nfc_device:chr_file rw_file_perms;
+set_prop(hal_secure_element_default, vendor_secure_element_prop)
+set_prop(hal_secure_element_default, vendor_nfc_prop)
+set_prop(hal_secure_element_default, vendor_modem_prop)
+
+# Allow hal_secure_element_default to access rild
+binder_call(hal_secure_element_default, rild);
+allow hal_secure_element_default hal_exynos_rild_hwservice:hwservice_manager find;
+

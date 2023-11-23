@@ -13,36 +13,23 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<LinearLayout
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_height="match_parent"
-    android:layout_width="match_parent"
-    android:orientation="vertical">
-
-    <com.android.car.ui.toolbar.Toolbar
-        android:id="@+id/toolbar"
+    android:layout_width="match_parent">
+    <com.android.car.ui.recyclerview.CarUiRecyclerView
+        android:id="@+id/events"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:title="@string/app_name"
+        android:layout_height="match_parent"
         />
 
-    <FrameLayout android:layout_width="match_parent" android:layout_height="match_parent">
-        <com.android.car.ui.recyclerview.CarUiRecyclerView
-            android:id="@+id/events"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            />
+    <TextView
+        android:id="@+id/no_events_text"
+        android:maxWidth="200dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="@dimen/car_ui_list_item_start_inset"
+        android:gravity="center"
+        android:textAppearance="@style/NoEventsText"/>
 
-        <TextView
-            android:id="@+id/no_events_text"
-            android:maxWidth="200dp"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_margin="@dimen/car_ui_list_item_start_inset"
-            android:gravity="center"
-            android:textAppearance="@style/NoEventsText"/>
-
-    </FrameLayout>
-
-</LinearLayout>
+</FrameLayout>

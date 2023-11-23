@@ -34,7 +34,7 @@
     <string name="metadata_camera_format" msgid="1494489751904311612">"<xliff:g id="MAKE">%1$s</xliff:g> <xliff:g id="MODEL">%2$s</xliff:g>"</string>
     <string name="metadata_aperture" msgid="6538741952698935357">"Bländare"</string>
     <string name="metadata_shutter_speed" msgid="8204739885103326131">"Slutarhastighet"</string>
-    <string name="metadata_duration" msgid="3115494422055472715">"Varaktighet"</string>
+    <string name="metadata_duration" msgid="3115494422055472715">"Längd"</string>
     <string name="metadata_date_time" msgid="1090351199248114406">"Taget den"</string>
     <string name="metadata_focal_length" msgid="3440735161407699893">"Brännvidd"</string>
     <string name="metadata_focal_format" msgid="8542211707962355623">"<xliff:g id="LENGTH">%1$.2f </xliff:g> mm"</string>

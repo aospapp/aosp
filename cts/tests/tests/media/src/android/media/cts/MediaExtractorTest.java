@@ -949,23 +949,38 @@ public class MediaExtractorTest extends AndroidTestCase {
             // ignore
         }
 
+        final int RETRY_LIMIT = 100;
+        final long INPUTBUFFER_TIMEOUT_US = 10000;
+        int num_retry = 0;
         ByteBuffer buf = ByteBuffer.allocate(2*1024*1024);
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-        while(true) {
+        while(num_retry < RETRY_LIMIT) {
             for (MediaCodec codec : codecs) {
-                if (codec != null) {
-                    int idx = codec.dequeueOutputBuffer(info, 5);
-                    if (idx >= 0) {
-                        codec.releaseOutputBuffer(idx, false);
+                if (codec == null) {
+                    continue;
+                }
+                while (true) {
+                    int idx = codec.dequeueOutputBuffer(info, 0);
+                    if (idx < 0) {
+                        break;
                     }
+                    codec.releaseOutputBuffer(idx, false);
                 }
             }
+
             int trackIdx = extractor.getSampleTrackIndex();
             MediaCodec codec = codecs[trackIdx];
             ByteBuffer b = buf;
             int bufIdx = -1;
             if (codec != null) {
-                bufIdx = codec.dequeueInputBuffer(-1);
+                bufIdx = codec.dequeueInputBuffer(INPUTBUFFER_TIMEOUT_US);
+                // No available input buffer now, retry again.
+                if (bufIdx < 0) {
+                    num_retry += 1;
+                    continue;
+                }
+
+                num_retry = 0;
                 b = codec.getInputBuffer(bufIdx);
             }
             int n = extractor.readSampleData(b, 0);
@@ -981,9 +996,11 @@ public class MediaExtractorTest extends AndroidTestCase {
                 break;
             }
         }
+        extractor.release();
+
+        assertTrue("dequeueing input buffer exceeded timeout", num_retry < RETRY_LIMIT);
         assertTrue("did not read from track 0", bytesRead[0] > 0);
         assertTrue("did not read from track 1", bytesRead[1] > 0);
-        extractor.release();
     }
 
     private void doTestAdvance(final String res) throws Exception {

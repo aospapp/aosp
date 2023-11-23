@@ -23,6 +23,6 @@
         <uses-library android:name="android.test.runner" />
     </application>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.EmptyTestApp"
+                     android:targetPackage="com.android.bedstead.testapp.EmptyTestApp"
                      android:label="Activity Context Tests" />
 </manifest>

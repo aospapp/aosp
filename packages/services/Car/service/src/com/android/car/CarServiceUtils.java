@@ -154,8 +154,17 @@ public final class CarServiceUtils {
     }
 
     public static float[] toFloatArray(List<Float> list) {
-        final int size = list.size();
-        final float[] array = new float[size];
+        int size = list.size();
+        float[] array = new float[size];
+        for (int i = 0; i < size; ++i) {
+            array[i] = list.get(i);
+        }
+        return array;
+    }
+
+    public static long[] toLongArray(List<Long> list) {
+        int size = list.size();
+        long[] array = new long[size];
         for (int i = 0; i < size; ++i) {
             array[i] = list.get(i);
         }
@@ -163,8 +172,8 @@ public final class CarServiceUtils {
     }
 
     public static int[] toIntArray(List<Integer> list) {
-        final int size = list.size();
-        final int[] array = new int[size];
+        int size = list.size();
+        int[] array = new int[size];
         for (int i = 0; i < size; ++i) {
             array[i] = list.get(i);
         }
@@ -172,8 +181,8 @@ public final class CarServiceUtils {
     }
 
     public static byte[] toByteArray(List<Byte> list) {
-        final int size = list.size();
-        final byte[] array = new byte[size];
+        int size = list.size();
+        byte[] array = new byte[size];
         for (int i = 0; i < size; ++i) {
             array[i] = list.get(i);
         }

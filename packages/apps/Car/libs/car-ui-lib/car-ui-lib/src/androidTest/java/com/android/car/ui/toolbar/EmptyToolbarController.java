@@ -21,6 +21,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.car.ui.CarUiText;
 import com.android.car.ui.imewidescreen.CarUiImeSearchListItem;
 
 import java.util.List;
@@ -43,6 +44,11 @@ public class EmptyToolbarController implements ToolbarController {
     }
 
     @Override
+    public void setTitle(CarUiText title) {
+
+    }
+
+    @Override
     public CharSequence getTitle() {
         return null;
     }
@@ -54,6 +60,11 @@ public class EmptyToolbarController implements ToolbarController {
 
     @Override
     public void setSubtitle(CharSequence title) {
+
+    }
+
+    @Override
+    public void setSubtitle(CarUiText text) {
 
     }
 
@@ -164,6 +175,11 @@ public class EmptyToolbarController implements ToolbarController {
     }
 
     @Override
+    public SearchMode getSearchMode() {
+        return null;
+    }
+
+    @Override
     public void setNavButtonMode(Toolbar.NavButtonMode style) {
 
     }
@@ -174,7 +190,7 @@ public class EmptyToolbarController implements ToolbarController {
     }
 
     @Override
-    public Toolbar.NavButtonMode getNavButtonMode() {
+    public NavButtonMode getNavButtonMode() {
         return null;
     }
 

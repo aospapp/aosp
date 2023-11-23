@@ -48,6 +48,8 @@ enum class SensorType : int8_t {
   kBarometerHpa = 5,        // 1-axis sensor (units = hecto-Pascal).
   kWifiM = 6,               // 3-axis sensor (units = meter).
   kProximity = 7,           // 1-axis sensor (units = ?).
+  kHallEffect = 8,          // 1-axis sensor (units = ?).
+  kHingeAngle = 9,          // 1-axis sensor (units = degrees).
 };
 
 // Helper function for determining if a sensor type is 3-axis, otherwise it's

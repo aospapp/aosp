@@ -31,6 +31,7 @@ import android.service.usb.UsbSettingsDevicePreferenceProto;
 import android.service.usb.UsbSettingsManagerProto;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 
 /**
  * Tests for the UsbService proto dump.
@@ -51,7 +52,10 @@ public class UsbIncidentTest extends ProtoDumpTestCase {
 
     public void testUsbServiceDump() throws Exception {
         // Devices that don't support USB functionality won't dump a USB service proto.
-        assumeTrue("Device doesn't support USB functionality.", hasUsbFunctionality(getDevice()));
+        if (!hasUsbFunctionality(getDevice())) {
+            CLog.i("Device doesn't support USB functionality.");
+            return;
+        }
 
         final UsbServiceDumpProto dump = getDump(UsbServiceDumpProto.parser(),
                 "dumpsys usb --proto");

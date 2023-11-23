@@ -3,6 +3,6 @@ vendor				/vendor		ext4	noatime,ro,errors=panic						wait,slotselect,avb,logical
 /dev/block/by-name/userdata	/data		f2fs	noatime,nosuid,nodev						latemount,wait,check,quota,fileencryption=software,quota
 /dev/block//by-name/userdata	/data		ext4	noatime,nosuid,nodev,nodelalloc,nomblk_io_submit,errors=panic	latemount,wait,check,quota,formattable,reservedsize=32M
 /dev/block/by-name/misc		/misc		emmc	defaults							defaults
-*/block/mmcblk*			auto		auto	defaults							voldmanaged=sdcard1:auto,encryptable=userdata
+*/block/mmcblk[0-1]		auto		auto	defaults							voldmanaged=sdcard1:auto,encryptable=userdata
 */block/sd*			auto		auto	defaults							voldmanaged=usb:auto,noemulatedsd
 /dev/block/zram0		none		swap	defaults							zramsize=268435456

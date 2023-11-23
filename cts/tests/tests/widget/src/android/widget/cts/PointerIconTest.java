@@ -19,6 +19,7 @@ package android.widget.cts;
 import static org.junit.Assert.assertEquals;
 
 import android.app.Activity;
+import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.PointerIcon;
 import android.view.View;
@@ -68,6 +69,7 @@ public class PointerIconTest {
         final int x = targetPos[0] + target.getWidth() / 2 - topPos[0];
         final int y = targetPos[1] + target.getHeight() / 2 - topPos[1];
         final MotionEvent event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_HOVER_MOVE, x, y, 0);
+        event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
         assertEquals(message, expectedIcon, mTopView.onResolvePointerIcon(event, 0));
     }
 

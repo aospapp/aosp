@@ -33,7 +33,9 @@ import java.util.Map;
 
 import static android.mediapc.cts.CodecTestBase.selectCodecs;
 import static android.mediapc.cts.CodecTestBase.selectHardwareCodecs;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 public class FrameDropTestBase {
@@ -68,11 +70,6 @@ public class FrameDropTestBase {
     static String AAC_DECODER_NAME;
     static Map<String, String> m540pTestFiles = new HashMap<>();
     static Map<String, String> m1080pTestFiles = new HashMap<>();
-    static {
-        AVC_DECODER_NAME = selectHardwareCodecs(AVC, null, null, false).get(0);
-        AVC_ENCODER_NAME = selectHardwareCodecs(AVC, null, null, true).get(0);
-        AAC_DECODER_NAME = selectCodecs(AAC, null, null, false).get(0);
-    }
     static {
         if (Utils.isSPerfClass()) {
             // Two frame drops per 10 seconds at 60 fps is 6 drops per 30 seconds
@@ -111,6 +108,19 @@ public class FrameDropTestBase {
     @Before
     public void setUp() throws Exception {
         assumeTrue("Test requires performance class.", Utils.isPerfClass());
+
+        ArrayList<String> listOfAvcHwDecoders = selectHardwareCodecs(AVC, null, null, false);
+        assumeFalse("Test requires h/w avc decoder", listOfAvcHwDecoders.isEmpty());
+        AVC_DECODER_NAME = listOfAvcHwDecoders.get(0);
+
+        ArrayList<String> listOfAvcHwEncoders = selectHardwareCodecs(AVC, null, null, true);
+        assumeFalse("Test requires h/w avc encoder", listOfAvcHwEncoders.isEmpty());
+        AVC_ENCODER_NAME = listOfAvcHwEncoders.get(0);
+
+        ArrayList<String> listOfAacDecoders = selectCodecs(AAC, null, null, false);
+        assertFalse("Test requires aac decoder", listOfAacDecoders.isEmpty());
+        AAC_DECODER_NAME = listOfAacDecoders.get(0);
+
         createSurface();
         startLoad();
     }

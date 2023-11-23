@@ -16,6 +16,7 @@
 
 package android.server.wm;
 
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.app.WindowConfiguration.WINDOWING_MODE_UNDEFINED;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.view.Display.DEFAULT_DISPLAY;
@@ -54,6 +55,11 @@ public class WindowManagerTestBase extends MultiDisplayTestBase {
     static <T extends FocusableActivity> T startActivityInWindowingMode(
             Class<T> cls, int windowingMode) {
         return startActivity(cls, DEFAULT_DISPLAY, true /* hasFocus */, windowingMode);
+    }
+
+    static <T extends FocusableActivity> T startActivityInWindowingModeFullScreen(
+            Class<T> cls) {
+        return startActivity(cls, DEFAULT_DISPLAY, true /* hasFocus */, WINDOWING_MODE_FULLSCREEN);
     }
 
     static <T extends FocusableActivity> T startActivity(Class<T> cls, int displayId,

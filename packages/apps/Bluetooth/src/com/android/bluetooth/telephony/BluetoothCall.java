@@ -48,6 +48,10 @@ public class BluetoothCall {
         return mCall;
     }
 
+    public boolean isCallNull() {
+        return mCall == null;
+    }
+
     public void setCall(Call call) {
         mCall = call;
     }
@@ -314,5 +318,9 @@ public class BluetoothCall {
             }
         }
         return result;
+    }
+
+    public boolean hasProperty(int property) {
+        return getDetails().hasProperty(property);
     }
 }

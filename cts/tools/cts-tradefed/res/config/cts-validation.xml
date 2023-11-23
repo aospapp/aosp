@@ -14,8 +14,8 @@
      limitations under the License.
 -->
 <configuration description="Runs a subset of CTS tests using a general kernel image (GKI)">
-    <option name="plan" value="cts-validation" />
     <option name="result-attribute" key="GKI" value="1" />
     <include name="cts-on-gsi" />
     <include name="cts-validation-exclude" />
+    <option name="plan" value="cts-validation" />
 </configuration>

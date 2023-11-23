@@ -113,6 +113,15 @@ public class FakeTelecomManager {
         }
     }
 
+    /** Answers an incoming call. */
+    public void answerCall(String id) {
+        if (mInCallService != null) {
+            mInCallService.answerCall(id);
+        } else {
+            Log.d(TAG, "null service");
+        }
+    }
+
     /**
      * Ends a call.
      */

@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Contrôlez la règle d\'activation pour la voiture."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"afficher les modèles"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Afficher les modèles."</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"contrôler le lancement d\'applications."</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Contrôler le lancement d\'applications."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Mon appareil"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Invité"</string>
     <string name="importance_default" msgid="8587741629268312938">"Importance par défaut"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"Réinitialiser plus tard"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"Le système d\'infoloisirs se réinitialisera au prochain démarrage de la voiture."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"Garez-vous pour lancer la réinitialisation."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> affecte les performances du système"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Désactivez l\'appli pour améliorer les performances du système. Vous pourrez la réactiver dans les paramètres."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Donnez priorité à l\'appli pour continuer à l\'utiliser."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Désinstallez l\'appli pour améliorer les performances du système."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Désactiver l\'appli"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Donner priorité à l\'appli"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Désinstaller l\'appli"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> a été désactivée. Vous pouvez la réactiver dans les paramètres."</string>
 </resources>

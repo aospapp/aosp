@@ -18,12 +18,14 @@ package com.android.car.carlauncher.homescreen.audio;
 
 import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_PLAYBACK;
 
+import android.app.ActivityOptions;
 import android.app.Application;
 import android.car.Car;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.util.Size;
+import android.view.Display;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -31,6 +33,7 @@ import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.Observer;
 
 import com.android.car.apps.common.imaging.ImageBinder;
+import com.android.car.carlauncher.AppLauncherUtils;
 import com.android.car.carlauncher.homescreen.HomeCardInterface;
 import com.android.car.carlauncher.homescreen.ui.CardContent;
 import com.android.car.carlauncher.homescreen.ui.CardHeader;
@@ -112,7 +115,13 @@ public class MediaViewModel extends AndroidViewModel implements HomeCardInterfac
 
     @Override
     public void onClick(View v) {
-        v.getContext().startActivity(new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE));
+        // Launch activity in the default app task container: the display area where
+        // applications are launched by default.
+        // If not set, activity launches in the calling TDA.
+        ActivityOptions options = ActivityOptions.makeBasic();
+        options.setLaunchDisplayId(Display.DEFAULT_DISPLAY);
+        v.getContext().startActivity(new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE),
+                options.toBundle());
     }
 
     /**
@@ -147,16 +156,22 @@ public class MediaViewModel extends AndroidViewModel implements HomeCardInterfac
     private void updateModel() {
         MediaSource mediaSource = mSourceViewModel.getPrimaryMediaSource().getValue();
         if (mediaSourceChanged()) {
-            if (mediaSource == null) {
-                mAppName = null;
-                mAppIcon = null;
-                mCardHeader = null;
-                clearMetadata();
-            } else {
+            // Video apps are not surfaced here, even if they happen to offer MediaBrowse.
+            // Rationale is that very few apps do this and users might be confused why some
+            // apps can be controlled via widget while others can't. For Video apps, the card
+            // will switch to showing "no media playing" case.
+            if (mediaSource != null
+                    && !AppLauncherUtils.isVideoApp(mContext.getPackageManager(),
+                        mediaSource.getPackageName())) {
                 mAppName = mediaSource.getDisplayName();
                 mAppIcon = mediaSource.getIcon();
                 mCardHeader = new CardHeader(mAppName, mAppIcon);
                 updateMetadata();
+            } else {
+                mAppName = null;
+                mAppIcon = null;
+                mCardHeader = null;
+                clearMetadata();
             }
             mAudioPresenter.onModelUpdated(this);
         }
@@ -211,7 +226,7 @@ public class MediaViewModel extends AndroidViewModel implements HomeCardInterfac
      */
     private boolean mediaSourceChanged() {
         MediaSource mediaSource = mSourceViewModel.getPrimaryMediaSource().getValue();
-        if (mediaSource == null && (mAppName != null | mAppIcon != null)) {
+        if (mediaSource == null && (mAppName != null || mAppIcon != null)) {
             return true;
         }
         if (mediaSource != null && (mAppName != mediaSource.getDisplayName()

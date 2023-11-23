@@ -34,7 +34,7 @@ public:
 
     virtual ~VideoDecoder();
 
-    virtual void decode(std::unique_ptr<BitstreamBuffer> buffer, DecodeCB decodeCb) = 0;
+    virtual void decode(std::unique_ptr<ConstBitstreamBuffer> buffer, DecodeCB decodeCb) = 0;
     virtual void drain(DecodeCB drainCb) = 0;
     virtual void flush() = 0;
 };

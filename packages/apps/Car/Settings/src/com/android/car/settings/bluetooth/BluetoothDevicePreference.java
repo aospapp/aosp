@@ -27,7 +27,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.preference.Preference;
 
-import com.android.car.apps.common.util.Themes;
 import com.android.car.settings.R;
 import com.android.car.settings.common.MultiActionPreference;
 import com.android.car.settings.common.ToggleButtonActionItem;
@@ -117,7 +116,7 @@ public class BluetoothDevicePreference extends MultiActionPreference {
                 .getBtClassDrawableWithDescription(getContext(), mCachedDevice);
         if (pair.first != null) {
             setIcon(pair.first);
-            getIcon().setTintList(Themes.getAttrColorStateList(getContext(), R.attr.iconColor));
+            getIcon().setTintList(getContext().getColorStateList(R.color.icon_color_default));
         }
 
         setEnabled(!mCachedDevice.isBusy());

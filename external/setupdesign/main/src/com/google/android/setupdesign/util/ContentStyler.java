@@ -41,6 +41,7 @@ import java.util.Locale;
  */
 public final class ContentStyler {
   public static void applyBodyPartnerCustomizationStyle(TextView contentText) {
+    // TODO: Remove the check of applying the heavy theme.
     if (!PartnerStyleHelper.shouldApplyPartnerHeavyThemeResource(contentText)) {
       return;
     }
@@ -52,6 +53,7 @@ public final class ContentStyler {
             PartnerConfig.CONFIG_CONTENT_LINK_TEXT_COLOR,
             PartnerConfig.CONFIG_CONTENT_TEXT_SIZE,
             PartnerConfig.CONFIG_CONTENT_FONT_FAMILY,
+            PartnerConfig.CONFIG_DESCRIPTION_LINK_FONT_FAMILY,
             null,
             null,
             ContentStyler.getPartnerContentTextGravity(contentText.getContext())));
@@ -68,6 +70,7 @@ public final class ContentStyler {
    */
   public static void applyInfoPartnerCustomizationStyle(
       @Nullable View infoContainer, @Nullable ImageView infoIcon, TextView infoText) {
+    // TODO: Remove the check of applying the heavy theme.
     if (!PartnerStyleHelper.shouldApplyPartnerHeavyThemeResource(infoText)) {
       return;
     }
@@ -80,6 +83,9 @@ public final class ContentStyler {
     boolean fontFamilyConfigAvailable =
         PartnerConfigHelper.get(context)
             .isPartnerConfigAvailable(PartnerConfig.CONFIG_CONTENT_INFO_FONT_FAMILY);
+    boolean linkFontFamilyConfigAvailable =
+        PartnerConfigHelper.get(context)
+            .isPartnerConfigAvailable(PartnerConfig.CONFIG_DESCRIPTION_LINK_FONT_FAMILY);
 
     TextViewPartnerStyler.applyPartnerCustomizationStyle(
         infoText,
@@ -88,6 +94,9 @@ public final class ContentStyler {
             null,
             textSizeConfigAvailable ? PartnerConfig.CONFIG_CONTENT_INFO_TEXT_SIZE : null,
             fontFamilyConfigAvailable ? PartnerConfig.CONFIG_CONTENT_INFO_FONT_FAMILY : null,
+            linkFontFamilyConfigAvailable
+                ? PartnerConfig.CONFIG_DESCRIPTION_LINK_FONT_FAMILY
+                : null,
             null,
             null,
             0));
@@ -183,13 +192,11 @@ public final class ContentStyler {
     // default value is GlifTheme layout margin start.
     // That is the attr sudMarginStart, and the value is sud_layout_margin_sides.
     float result = context.getResources().getDimension(R.dimen.sud_layout_margin_sides);
-    if (PartnerStyleHelper.shouldApplyPartnerHeavyThemeResource(context)) {
-      if (PartnerConfigHelper.get(context)
-          .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_START)) {
-        result =
-            PartnerConfigHelper.get(context)
-                .getDimension(context, PartnerConfig.CONFIG_LAYOUT_MARGIN_START, result);
-      }
+    if (PartnerConfigHelper.get(context)
+        .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_START)) {
+      result =
+          PartnerConfigHelper.get(context)
+              .getDimension(context, PartnerConfig.CONFIG_LAYOUT_MARGIN_START, result);
     }
     return result;
   }

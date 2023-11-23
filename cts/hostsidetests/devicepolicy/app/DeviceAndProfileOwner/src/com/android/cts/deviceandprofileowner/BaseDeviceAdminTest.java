@@ -42,6 +42,7 @@ import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
 import com.android.compatibility.common.util.SystemUtil;
 import com.android.cts.deviceandprofileowner.BaseDeviceAdminTest.BasicAdminReceiver;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -144,13 +145,8 @@ public abstract class BaseDeviceAdminTest extends InstrumentationTestCase {
         boolean isDeviceOwnerTest = "DeviceOwner"
                 .equals(InstrumentationRegistry.getArguments().getString("admin_type"));
 
-        if (isDeviceOwnerTest) {
-            mDevicePolicyManager = TestAppSystemServiceFactory.getDevicePolicyManager(mContext,
-                    BasicAdminReceiver.class);
-            Log.d(mTag, "mDevicePolicyManager after DPMWrapper call: " + mDevicePolicyManager);
-        } else {
-            mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
-        }
+        mDevicePolicyManager = TestAppSystemServiceFactory.getDevicePolicyManager(mContext,
+                BasicAdminReceiver.class, isDeviceOwnerTest);
 
         Log.v(TAG, "setup(): dpm for " + getClass() + " and user " + mContext.getUserId() + ": "
                 + mDevicePolicyManager);
@@ -215,6 +211,12 @@ public abstract class BaseDeviceAdminTest extends InstrumentationTestCase {
 
     protected boolean isDeviceOwner() {
         return mDevicePolicyManager.isDeviceOwnerApp(PACKAGE_NAME);
+    }
+
+    protected void setDelegatedScopes(String delegatePackage, List<String> scopes) {
+        Log.v(TAG, "Calling setDelegatedScopes(" + ADMIN_RECEIVER_COMPONENT.flattenToShortString()
+                + ", " + delegatePackage + ", " + scopes + ") using " + mDevicePolicyManager);
+        mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT, delegatePackage, scopes);
     }
 
     void sleep(int timeMs) {

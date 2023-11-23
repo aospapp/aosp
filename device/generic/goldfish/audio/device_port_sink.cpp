@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <android_audio_policy_configuration_V7_0-enums.h>
+#include <android-base/properties.h>
 #include <chrono>
 #include <thread>
 #include <log/log.h>
@@ -26,10 +28,16 @@
 #include "util.h"
 #include "debug.h"
 
+using ::android::base::GetBoolProperty;
+
+namespace xsd {
+using namespace ::android::audio::policy::configuration::V7_0;
+}
+
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V6_0 {
+namespace V7_0 {
 namespace implementation {
 
 namespace {
@@ -41,15 +49,15 @@ struct TinyalsaSink : public DevicePortSink {
                  const AudioConfig &cfg,
                  uint64_t &frames)
             : mStartNs(systemTime(SYSTEM_TIME_MONOTONIC))
-            , mSampleRateHz(cfg.sampleRateHz)
-            , mFrameSize(util::countChannels(cfg.channelMask) * sizeof(int16_t))
+            , mSampleRateHz(cfg.base.sampleRateHz)
+            , mFrameSize(util::countChannels(cfg.base.channelMask) * sizeof(int16_t))
             , mWriteSizeFrames(cfg.frameCount)
             , mFrames(frames)
             , mRingBuffer(mFrameSize * cfg.frameCount * 3)
             , mMixer(pcmCard)
             , mPcm(talsa::pcmOpen(pcmCard, pcmDevice,
-                                  util::countChannels(cfg.channelMask),
-                                  cfg.sampleRateHz,
+                                  util::countChannels(cfg.base.channelMask),
+                                  cfg.base.sampleRateHz,
                                   cfg.frameCount,
                                   true /* isOut */)) {
         mConsumeThread = std::thread(&TinyalsaSink::consumeThread, this);
@@ -212,8 +220,8 @@ private:
 struct NullSink : public DevicePortSink {
     NullSink(const AudioConfig &cfg, uint64_t &frames)
             : mFrames(frames)
-            , mSampleRateHz(cfg.sampleRateHz)
-            , mNChannels(util::countChannels(cfg.channelMask))
+            , mSampleRateHz(cfg.base.sampleRateHz)
+            , mNChannels(util::countChannels(cfg.base.channelMask))
             , mTimestamp(systemTime(SYSTEM_TIME_MONOTONIC)) {}
 
     Result getPresentationPosition(uint64_t &frames, TimeSpec &ts) override {
@@ -276,38 +284,66 @@ std::unique_ptr<DevicePortSink>
 DevicePortSink::create(size_t readerBufferSizeHint,
                        const DeviceAddress &address,
                        const AudioConfig &cfg,
-                       const hidl_bitfield<AudioOutputFlag> &flags,
+                       const hidl_vec<AudioInOutFlag> &flags,
                        uint64_t &frames) {
     (void)flags;
 
-    if (cfg.format != AudioFormat::PCM_16_BIT) {
-        ALOGE("%s:%d Only PCM_16_BIT is supported", __func__, __LINE__);
+    if (xsd::stringToAudioFormat(cfg.base.format) != xsd::AudioFormat::AUDIO_FORMAT_PCM_16_BIT) {
+        ALOGE("%s:%d, unexpected format: '%s'", __func__, __LINE__, cfg.base.format.c_str());
         return FAILURE(nullptr);
     }
 
-    switch (address.device) {
-    case AudioDevice::OUT_SPEAKER:
+    if (GetBoolProperty("ro.boot.audio.tinyalsa.ignore_output", false)) {
+        goto nullsink;
+    }
+
+    switch (xsd::stringToAudioDevice(address.deviceType)) {
+    case xsd::AudioDevice::AUDIO_DEVICE_OUT_DEFAULT:
+    case xsd::AudioDevice::AUDIO_DEVICE_OUT_SPEAKER:
         {
-            auto sinkptr = TinyalsaSink::create(talsa::kPcmCard, talsa::kPcmDevice, cfg, readerBufferSizeHint, frames);
-            if (sinkptr == nullptr) {
-                ALOGW("%s:%d failed to create alsa sink; created nullsink instead.", __func__, __LINE__);
-                return NullSink::create(cfg, readerBufferSizeHint, frames);
-            } else {
+            auto sinkptr = TinyalsaSink::create(talsa::kPcmCard, talsa::kPcmDevice,
+                                                cfg, readerBufferSizeHint, frames);
+            if (sinkptr != nullptr) {
                 return sinkptr;
+            } else {
+                ALOGW("%s:%d failed to create alsa sink for '%s'; creating NullSink instead.",
+                      __func__, __LINE__, address.deviceType.c_str());
             }
         }
+        break;
 
-    case AudioDevice::OUT_TELEPHONY_TX:
-        return NullSink::create(cfg, readerBufferSizeHint, frames);
+    case xsd::AudioDevice::AUDIO_DEVICE_OUT_TELEPHONY_TX:
+    case xsd::AudioDevice::AUDIO_DEVICE_OUT_BUS:
+        ALOGW("%s:%d creating NullSink for '%s'.", __func__, __LINE__, address.deviceType.c_str());
+        break;
 
     default:
-        ALOGW("%s:%d unsupported device: %x created nullsink", __func__, __LINE__, address.device);
-        return NullSink::create(cfg, readerBufferSizeHint, frames);
+        ALOGW("%s:%d unsupported device: '%s', creating NullSink", __func__, __LINE__, address.deviceType.c_str());
+        break;
     }
+
+nullsink:
+    return NullSink::create(cfg, readerBufferSizeHint, frames);
+}
+
+bool DevicePortSink::validateDeviceAddress(const DeviceAddress& address) {
+    switch (xsd::stringToAudioDevice(address.deviceType)) {
+    default:
+        ALOGW("%s:%d unsupported device: '%s'", __func__, __LINE__, address.deviceType.c_str());
+        return FAILURE(false);
+
+    case xsd::AudioDevice::AUDIO_DEVICE_OUT_DEFAULT:
+    case xsd::AudioDevice::AUDIO_DEVICE_OUT_SPEAKER:
+    case xsd::AudioDevice::AUDIO_DEVICE_OUT_TELEPHONY_TX:
+    case xsd::AudioDevice::AUDIO_DEVICE_OUT_BUS:
+        break;
+    }
+
+    return true;
 }
 
 }  // namespace implementation
-}  // namespace V6_0
+}  // namespace V7_0
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

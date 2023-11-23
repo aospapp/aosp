@@ -29,6 +29,9 @@ android_test {
     test_suites: ["device-tests"],
     srcs: ["src/**/*.kt"],
     libs: ["android.test.runner"],
+    optimize: {
+        enabled: false
+    },
     static_libs: [
         "flickerlib",
         "launcher-aosp-tapl"

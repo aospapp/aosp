@@ -619,7 +619,7 @@
     <string name="ota_skip_activation_dialog_title" msgid="7666611236789203797">"ಸಕ್ರಿಯಗೊಳಿಸುವುದನ್ನು ಸ್ಕಿಪ್‌ ಮಾಡುವುದೇ?"</string>
     <string name="ota_skip_activation_dialog_message" msgid="6691722887019708713">"ನೀವು ಸಕ್ರಿಯಗೊಳಿಸುವುದನ್ನು ಸ್ಕಿಪ್‌ ಮಾಡಿದರೆ, ನೀವು ಕರೆಗಳನ್ನು ಮಾಡಲು ಅಥವಾ ಮೊಬೈಲ್‌ ಡೇಟಾ ನೆಟ್‌ವರ್ಕ್‌ಗಳಿಗೆ ಸಂಪರ್ಕಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ (ಆದರೂ ನೀವು ವೈ-ಫೈ ನೆಟ್‌ವರ್ಕ್‌ಗಳಿಗೆ ಸಂಪರ್ಕಗೊಳಿಸಬಹುದು). ನಿಮ್ಮ ಫೋನ್ ಅನ್ನು ನೀವು ಸಕ್ರಿಯಗೊಳಿಸುವವರೆಗೂ, ನೀವು ಅದನ್ನು ಪ್ರತಿಬಾರಿ ಆನ್‌ ಮಾಡಿದಾಗಲೆಲ್ಲಾ ಅದನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಲು ನಿಮಗೆ ತಿಳಿಸಲಾಗುತ್ತದೆ."</string>
     <string name="ota_skip_activation_dialog_skip_label" msgid="5908029466817825633">"ಸ್ಕಿಪ್"</string>
-    <string name="ota_activate" msgid="7939695753665438357">"ಸಕ್ರಿಯಗೊಳಿಸು"</string>
+    <string name="ota_activate" msgid="7939695753665438357">"ಸಕ್ರಿಯಗೊಳಿಸಿ"</string>
     <string name="ota_title_activate_success" msgid="1272135024761004889">"ಫೋನ್‌ ಸಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ."</string>
     <string name="ota_title_problem_with_activation" msgid="7019745985413368726">"ಸಕ್ರಿಯಗೊಳಿಸುವಲ್ಲಿ ಸಮಸ್ಯೆ"</string>
     <string name="ota_listen" msgid="2772252405488894280">"ಸಕ್ರಿಯಗೊಳಿಸುವಿಕೆ ಪೂರ್ಣಗೊಂಡಿದೆ ಎಂಬುದು ನಿಮ್ಮ ಕಿವಿಗೆ ಬೀಳುವ ತನಕ ಧ್ವನಿ ಸೂಚನೆಗಳನ್ನು ಅನುಸರಿಸಿ."</string>

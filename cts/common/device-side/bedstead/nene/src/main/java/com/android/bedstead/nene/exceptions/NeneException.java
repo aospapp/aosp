@@ -23,6 +23,10 @@ package com.android.bedstead.nene.exceptions;
  * expected that exceptional behaviour should just result in a failed test.
  */
 public class NeneException extends RuntimeException {
+    public NeneException(Throwable cause) {
+        super(cause);
+    }
+
     public NeneException(String message) {
         super(message);
     }

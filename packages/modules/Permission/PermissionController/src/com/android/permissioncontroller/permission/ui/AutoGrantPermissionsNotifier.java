@@ -16,6 +16,7 @@
 
 package com.android.permissioncontroller.permission.ui;
 
+import static android.app.PendingIntent.FLAG_IMMUTABLE;
 import static android.app.PendingIntent.FLAG_UPDATE_CURRENT;
 import static android.app.PendingIntent.getActivity;
 import static android.content.Intent.ACTION_MANAGE_APP_PERMISSION;
@@ -166,7 +167,7 @@ public class AutoGrantPermissionsNotifier {
                 .setLargeIcon(pkgIconBmp)
                 .setColor(mContext.getColor(android.R.color.system_notification_accent_color))
                 .setContentIntent(getActivity(mContext, packageBasedRequestCode,
-                            manageAppPermission, FLAG_UPDATE_CURRENT));
+                            manageAppPermission, FLAG_UPDATE_CURRENT | FLAG_IMMUTABLE));
 
         // Add the Settings app name since we masquerade it.
         CharSequence appName = getSettingsAppName();

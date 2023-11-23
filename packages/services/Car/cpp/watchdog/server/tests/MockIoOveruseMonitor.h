@@ -35,8 +35,8 @@ public:
         ON_CALL(*this, name()).WillByDefault(::testing::Return("MockIoOveruseMonitor"));
     }
     ~MockIoOveruseMonitor() {}
-    MOCK_METHOD(bool, isInitialized, (), (override));
-    MOCK_METHOD(bool, dumpHelpText, (int), (override));
+    MOCK_METHOD(bool, isInitialized, (), (const, override));
+    MOCK_METHOD(bool, dumpHelpText, (int), (const, override));
     MOCK_METHOD(android::base::Result<void>, updateResourceOveruseConfigurations,
                 (const std::vector<
                         android::automotive::watchdog::internal::ResourceOveruseConfiguration>&),
@@ -44,19 +44,16 @@ public:
     MOCK_METHOD(
             android::base::Result<void>, getResourceOveruseConfigurations,
             (std::vector<android::automotive::watchdog::internal::ResourceOveruseConfiguration>*),
-            (override));
-    MOCK_METHOD(android::base::Result<void>, actionTakenOnIoOveruse,
-                (const std::vector<
-                        android::automotive::watchdog::internal::PackageResourceOveruseAction>&
-                         actions),
-                (override));
+            (const, override));
     MOCK_METHOD(android::base::Result<void>, addIoOveruseListener,
                 (const sp<IResourceOveruseListener>&), (override));
     MOCK_METHOD(android::base::Result<void>, removeIoOveruseListener,
                 (const sp<IResourceOveruseListener>&), (override));
-    MOCK_METHOD(android::base::Result<void>, getIoOveruseStats, (IoOveruseStats*), (override));
+    MOCK_METHOD(android::base::Result<void>, getIoOveruseStats, (IoOveruseStats*),
+                (const, override));
     MOCK_METHOD(android::base::Result<void>, resetIoOveruseStats, (const std::vector<std::string>&),
                 (override));
+    MOCK_METHOD(void, removeStatsForUser, (userid_t), (override));
 };
 
 }  // namespace watchdog

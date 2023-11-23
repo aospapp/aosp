@@ -24,6 +24,7 @@ import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.View;
 
+import com.android.internal.util.Preconditions;
 import com.android.settingslib.drawable.UserIconDrawable;
 
 // TODO(b/176262528): copied from com.android.systemui, ideally it should be provided by a common
@@ -121,19 +122,24 @@ public class UserAvatarView extends View {
     }
 
     public void setDrawable(Drawable d) {
-        if (d instanceof UserIconDrawable) {
-            throw new RuntimeException("Recursively adding UserIconDrawable");
-        }
+        Preconditions.checkArgument(!(d instanceof UserIconDrawable),
+                "Recursively adding UserIconDrawable: %s", d);
         mDrawable.setIconDrawable(d);
         mDrawable.setBadge(null);
     }
 
     public void setDrawableWithBadge(Drawable d, int userId) {
-        if (d instanceof UserIconDrawable) {
-            throw new RuntimeException("Recursively adding UserIconDrawable");
-        }
+        Preconditions.checkArgument(!(d instanceof UserIconDrawable),
+                "Recursively adding UserIconDrawable: %s", d);
         mDrawable.setIconDrawable(d);
         mDrawable.setBadgeIfManagedUser(getContext(), userId);
+    }
+
+    public void setDrawableWithBadge(Drawable d) {
+        Preconditions.checkArgument(!(d instanceof UserIconDrawable),
+                "Recursively adding UserIconDrawable: %s", d);
+        mDrawable.setIconDrawable(d);
+        mDrawable.setBadgeIfManagedDevice(getContext());
     }
 
     public UserIconDrawable getUserIconDrawable() {

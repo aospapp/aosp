@@ -23,7 +23,6 @@ import android.annotation.Nullable;
 import android.automotive.watchdog.internal.ICarWatchdog;
 import android.automotive.watchdog.internal.ICarWatchdogMonitor;
 import android.automotive.watchdog.internal.ICarWatchdogServiceForSystem;
-import android.automotive.watchdog.internal.PackageResourceOveruseAction;
 import android.automotive.watchdog.internal.ResourceOveruseConfiguration;
 import android.os.Handler;
 import android.os.IBinder;
@@ -280,15 +279,13 @@ public final class CarWatchdogDaemonHelper {
     }
 
     /**
-     * Notifies car watchdog daemon with the actions taken on resource overuse.
+     * Enable/disable the internal client health check process.
+     * Disabling would stop the ANR killing process.
      *
-     * @param actions List of actions taken on resource overuse. One action taken per resource
-     *                overusing user package.
-     * @throws RemoteException
+     * @param disable True to disable watchdog's health check process.
      */
-    public void actionTakenOnResourceOveruse(List<PackageResourceOveruseAction> actions)
-            throws RemoteException {
-        invokeDaemonMethod((daemon) -> daemon.actionTakenOnResourceOveruse(actions));
+    public void controlProcessHealthCheck(boolean disable) throws RemoteException {
+        invokeDaemonMethod((daemon) -> daemon.controlProcessHealthCheck(disable));
     }
 
     private void invokeDaemonMethod(Invokable r) throws RemoteException {

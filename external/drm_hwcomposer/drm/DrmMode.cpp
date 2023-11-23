@@ -16,13 +16,14 @@
 
 #include "DrmMode.h"
 
+#include <cstring>
+
 #include "DrmDevice.h"
 
 namespace android {
 
 DrmMode::DrmMode(drmModeModeInfoPtr m)
-    : id_(0),
-      clock_(m->clock),
+    : clock_(m->clock),
       h_display_(m->hdisplay),
       h_sync_start_(m->hsync_start),
       h_sync_end_(m->hsync_end),
@@ -120,7 +121,7 @@ uint32_t DrmMode::v_scan() const {
 
 float DrmMode::v_refresh() const {
   // Always recalculate refresh to report correct float rate
-  return clock_ / (float)(v_total_ * h_total_) * 1000.0f;
+  return clock_ / (float)(v_total_ * h_total_) * 1000.0F;
 }
 
 uint32_t DrmMode::flags() const {

@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Көлік қуаты туралы саясатты басқару."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"рендеринг үлгілері"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Рендеринг үлгілері"</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"қолданбалардың іске қосылуын басқару"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Қолданбалардың іске қосылуын басқара аласыз."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Құрылғым"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Қонақ"</string>
     <string name="importance_default" msgid="8587741629268312938">"Әдепкі маңыздылық"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"Кейінірек қайтару"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"Ақпараттық ойын-сауық жүйесі келесіде көлік оталған кезде бастапқы күйге қайтарылады."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"Бастапқы күйге қайтару үшін көлікті тұраққа қою керек."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> қолданбасы жүйе өнімділігіне әсер етуде"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Жүйе өнімділігін жақсарту үшін қолданбаны өшіріңіз. Оны параметрлерден қайта қосуыңызға болады."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Қолданбаны әрі қарай пайдалану үшін оған басымдық беріңіз."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Жүйе өнімділігін жақсарту үшін қолданбаны жойыңыз."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Қолданбаны өшіру"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Қолданбаға басымдық беру"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Қолданбаны жою"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> қолданбасы өшірілді. Оны параметрлерден қайта қосуыңызға болады."</string>
 </resources>

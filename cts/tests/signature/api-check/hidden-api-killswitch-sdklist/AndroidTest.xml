@@ -19,6 +19,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <!-- Mark all APIs as sdk before running the test, then reset this afterwards. The test
              is intended to verify the behaviour when all APIs are in the SDK. -->

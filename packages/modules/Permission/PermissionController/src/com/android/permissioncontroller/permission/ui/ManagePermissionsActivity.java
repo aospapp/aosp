@@ -256,10 +256,10 @@ public final class ManagePermissionsActivity extends SettingsActivity {
                 if (DeviceUtils.isAuto(this)) {
                     if (allPermissions) {
                         androidXFragment = AutoAllAppPermissionsFragment.newInstance(packageName,
-                                userHandle);
+                                userHandle, sessionId);
                     } else {
                         androidXFragment = AutoAppPermissionsFragment.newInstance(packageName,
-                                userHandle);
+                                userHandle, sessionId, /* isSystemPermsScreen= */ true);
                     }
                 } else if (DeviceUtils.isWear(this)) {
                     androidXFragment = AppPermissionsFragmentWear.newInstance(packageName);
@@ -268,7 +268,7 @@ public final class ManagePermissionsActivity extends SettingsActivity {
                             .AppPermissionsFragment.newInstance(packageName, userHandle);
                 } else {
                     Bundle args = AppPermissionGroupsFragment.createArgs(packageName, userHandle,
-                            sessionId, true);
+                            sessionId, /* isSystemPermsScreen= */  true);
                     setNavGraph(args, R.id.app_permission_groups);
                     return;
                 }
@@ -296,7 +296,8 @@ public final class ManagePermissionsActivity extends SettingsActivity {
                     return;
                 }
                 if (DeviceUtils.isAuto(this)) {
-                    androidXFragment = AutoPermissionAppsFragment.newInstance(permissionName);
+                    androidXFragment =
+                            AutoPermissionAppsFragment.newInstance(permissionName, sessionId);
                 } else if (DeviceUtils.isTelevision(this)) {
                     androidXFragment = com.android.permissioncontroller.permission.ui.television
                             .PermissionAppsFragment.newInstance(permissionName);

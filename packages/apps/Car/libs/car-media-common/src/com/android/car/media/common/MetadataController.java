@@ -16,8 +16,8 @@
 
 package com.android.car.media.common;
 
-import static com.android.car.arch.common.LiveDataFunctions.combine;
-import static com.android.car.arch.common.LiveDataFunctions.pair;
+import static com.android.car.apps.common.util.LiveDataFunctions.combine;
+import static com.android.car.apps.common.util.LiveDataFunctions.pair;
 
 import android.content.Context;
 import android.text.TextUtils;

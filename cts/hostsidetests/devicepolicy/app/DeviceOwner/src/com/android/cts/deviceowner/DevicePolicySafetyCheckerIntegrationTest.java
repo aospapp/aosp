@@ -84,7 +84,7 @@ public final class DevicePolicySafetyCheckerIntegrationTest extends BaseDeviceOw
             + "VcUyQ1/e7WQgOaBHi9TefUJi+4PSVSluOXon\n"
             + "-----END CERTIFICATE-----";
     private final DevicePolicySafetyCheckerIntegrationTester mTester =
-            new DevicePolicySafetyCheckerIntegrationTester() {
+            new DevicePolicySafetyCheckerIntegrationTester(/* forDeviceOwner= */ true) {
 
         @Override
         protected int[] getSafetyAwareOperations() {
@@ -99,7 +99,6 @@ public final class DevicePolicySafetyCheckerIntegrationTest extends BaseDeviceOw
                     OPERATION_SET_APPLICATION_HIDDEN,
                     OPERATION_SET_APPLICATION_RESTRICTIONS,
                     OPERATION_SET_CAMERA_DISABLED,
-                    OPERATION_SET_FACTORY_RESET_PROTECTION_POLICY,
                     OPERATION_SET_GLOBAL_PRIVATE_DNS,
                     OPERATION_SET_KEEP_UNINSTALLED_PACKAGES,
                     OPERATION_SET_KEYGUARD_DISABLED,
@@ -124,6 +123,10 @@ public final class DevicePolicySafetyCheckerIntegrationTest extends BaseDeviceOw
             if (mHasSecureLockScreen) {
                 operations = ArrayUtils.appendInt(operations,
                         OPERATION_SET_TRUST_AGENT_CONFIGURATION);
+            }
+            if (mDevicePolicyManager.isFactoryResetProtectionPolicySupported()) {
+                operations = ArrayUtils.appendInt(operations,
+                        OPERATION_SET_FACTORY_RESET_PROTECTION_POLICY);
             }
 
             return operations;

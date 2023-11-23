@@ -24,6 +24,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import android.bluetooth.BluetoothDevice;
 import android.net.Uri;
 import android.provider.CallLog;
 import android.telecom.Call;
@@ -31,6 +32,8 @@ import android.telecom.DisconnectCause;
 import android.telecom.GatewayInfo;
 import android.telecom.InCallService;
 import android.util.Log;
+
+import androidx.lifecycle.LiveData;
 
 import com.android.car.dialer.framework.testdata.CallLogDataHandler;
 import com.android.car.dialer.framework.testdata.CallLogRawData;
@@ -51,6 +54,7 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.inject.Inject;
+import javax.inject.Named;
 import javax.inject.Singleton;
 
 /**
@@ -62,6 +66,7 @@ public class MockCallManager {
 
     private InCallService mInCallService;
     private final CallLogDataHandler mCallLogDataHandler;
+    private final LiveData<BluetoothDevice> mCurrentHfpDevice;
 
     private List<Call> mCallList = new ArrayList<>();
     private List<Call> mConferenceList = new ArrayList<>();
@@ -73,8 +78,10 @@ public class MockCallManager {
     private Map<Call, List<Call.Callback>> mCallbacks = new HashMap<>();
 
     @Inject
-    public MockCallManager(CallLogDataHandler callLogDataHandler) {
+    public MockCallManager(CallLogDataHandler callLogDataHandler,
+            @Named("Hfp") LiveData<BluetoothDevice> currentHfpDevice) {
         mCallLogDataHandler = callLogDataHandler;
+        mCurrentHfpDevice = currentHfpDevice;
     }
 
     /**
@@ -118,7 +125,9 @@ public class MockCallManager {
      */
     public void endCall(String id) {
         Call call = findCallById(id);
-        disconnect(call);
+        if (call != null) {
+            disconnect(call);
+        }
     }
 
     /**
@@ -134,7 +143,7 @@ public class MockCallManager {
         }
         updateList();
 
-        List<Call.Callback> callbacks = mCallbacks.get(call);
+        List<Call.Callback> callbacks = getCallbacks(call);
         for (Call.Callback callback : callbacks) {
             callback.onStateChanged(call, Call.STATE_HOLDING);
         }
@@ -148,7 +157,7 @@ public class MockCallManager {
         when(call.getState()).thenReturn(Call.STATE_ACTIVE);
         updateList();
 
-        List<Call.Callback> callbacks = mCallbacks.get(call);
+        List<Call.Callback> callbacks = getCallbacks(call);
         for (Call.Callback callback : callbacks) {
             callback.onStateChanged(call, Call.STATE_ACTIVE);
         }
@@ -173,7 +182,9 @@ public class MockCallManager {
         for (Call child : call.getChildren()) {
             mCallList.remove(child);
             mInCallService.onCallRemoved(child);
-            mCallbacks.remove(child);
+            List<Call.Callback> callbacks = mCallbacks.remove(child);
+            callbacks.stream().forEach(
+                    callback -> callback.onStateChanged(child, Call.STATE_DISCONNECTED));
         }
 
         // If the call is a conference, remove the reference
@@ -185,12 +196,14 @@ public class MockCallManager {
         mInCallService.onCallRemoved(call);
         updateList();
 
-        // If the call is child of a conference call, make sure to call callbacks and...
-        if (parent != null) {
-            List<Call.Callback> callbacks = mCallbacks.get(call);
-            for (Call.Callback callback : callbacks) {
+        List<Call.Callback> callbacks = getCallbacks(call);
+
+        for (Call.Callback callback : callbacks) {
+            // If the call is child of a conference call, make sure to call callbacks and...
+            if (parent != null) {
                 callback.onChildrenChanged(parent, mConferenceList);
             }
+            callback.onStateChanged(call, Call.STATE_DISCONNECTED);
         }
 
         mCallbacks.remove(call);
@@ -215,8 +228,13 @@ public class MockCallManager {
                             : call.getDetails().getCallDirection() + 1);
             data.setNumber(detail.getNumber());
             data.setInterval(callDuration);
-            mCallLogDataHandler.addOneCallLog(data);
+            mCallLogDataHandler.addOneCallLog(data, mCurrentHfpDevice.getValue().getAddress());
         }
+    }
+
+    private List<Call.Callback> getCallbacks(Call call) {
+        List<Call.Callback> callbacks = mCallbacks.get(call);
+        return callbacks == null ? Collections.emptyList() : callbacks;
     }
 
     /**
@@ -254,14 +272,14 @@ public class MockCallManager {
         // Merge single caller to existing conference call.
         if (mPrimaryCall != mConferenceCall) {
             when(mPrimaryCall.getParent()).thenReturn(mConferenceCall);
-            List<Call.Callback> callbacks = mCallbacks.get(mPrimaryCall);
+            List<Call.Callback> callbacks = getCallbacks(mPrimaryCall);
             for (Call.Callback callback : callbacks) {
                 callback.onParentChanged(mPrimaryCall, mConferenceCall);
             }
         }
         if (mSecondaryCall != mConferenceCall) {
             when(mSecondaryCall.getParent()).thenReturn(mConferenceCall);
-            List<Call.Callback> callbacks = mCallbacks.get(mSecondaryCall);
+            List<Call.Callback> callbacks = getCallbacks(mSecondaryCall);
             for (Call.Callback callback : callbacks) {
                 callback.onParentChanged(mSecondaryCall, mConferenceCall);
             }
@@ -275,6 +293,14 @@ public class MockCallManager {
         }
     }
 
+    /** Answers a received call. */
+    public void answerCall(String id) {
+        Call call = findCallById(id);
+        if (call != null) {
+            answerCall(call);
+        }
+    }
+
     /**
      * Answers a received call.
      */
@@ -284,7 +310,7 @@ public class MockCallManager {
         when(call.getState()).thenReturn(Call.STATE_ACTIVE);
         updateList();
 
-        List<Call.Callback> callbacks = mCallbacks.get(call);
+        List<Call.Callback> callbacks = getCallbacks(call);
         for (Call.Callback callback : callbacks) {
             callback.onStateChanged(call, Call.STATE_ACTIVE);
         }

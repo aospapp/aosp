@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"প্রয়োগ করুন"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"এডিট করতে ট্যাপ করুন"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"এখন যে ওয়ালপেপার আছে সেটি রাখুন"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"প্রয়োগ করুন"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"স্টাইল প্রিভিউ করুন"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"গ্রিড প্রিভিউ করুন"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"ফন্ট প্রিভিউ করুন"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, বর্তমানে প্রয়োগ করা হয়েছে"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"এখন <xliff:g id="ID_1">%1$s</xliff:g> থিম প্রয়োগ করে প্রিভিউ করা হচ্ছে"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"এখন <xliff:g id="ID_1">%1$s</xliff:g> থিম প্রিভিউ করছেন"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, বেছে নেওয়া ও প্রিভিউ করা বিকল্প পরিবর্তন করা"</string>
     <string name="theme_description" msgid="3697012391785254635">"ফন্ট: <xliff:g id="ID_1">%1$s</xliff:g>, আইকন: <xliff:g id="ID_2">%2$s</xliff:g>, আকার: <xliff:g id="ID_3">%3$s</xliff:g>, রঙ: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"ডিফল্ট"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"ফন্ট"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"কাস্টম স্টাইলের নাম"</string>
     <string name="mode_title" msgid="2394873501427436055">"ডার্ক থিম"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"ব্যাটারি সেভারের কারণে সাময়িকভাবে বন্ধ করা আছে"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"থিম পরিবর্তন করা হয়েছে"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"থিমযুক্ত আইকন"</string>
     <string name="beta_title" msgid="8703819523760746458">"বিটা"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"অ্যাপ গ্রিড পরিবর্তন করুন"</string>

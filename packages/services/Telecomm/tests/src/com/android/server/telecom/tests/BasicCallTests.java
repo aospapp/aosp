@@ -26,6 +26,7 @@ import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.isNull;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
@@ -35,10 +36,13 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.IContentProvider;
+import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.Process;
+import android.os.UserHandle;
 import android.provider.BlockedNumberContract;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
@@ -85,10 +89,15 @@ public class BasicCallTests extends TelecomSystemTest {
     private static final String TEST_BUNDLE_KEY = "android.telecom.extra.TEST";
     private static final String TEST_EVENT = "android.telecom.event.TEST";
 
+    private PackageManager mPackageManager;
+
     @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
+        doReturn(mContext).when(mContext).createContextAsUser(any(UserHandle.class), anyInt());
+        mPackageManager = mContext.getPackageManager();
+        when(mPackageManager.getPackageUid(anyString(), eq(0))).thenReturn(Binder.getCallingUid());
     }
 
     @Override

@@ -257,7 +257,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
 
                 @Override
                 public void onConnectionPropertiesChanged(Connection c, int connectionProperties) {
-                    Log.d(this, "onConnectionPropertiesChanged: Connection: %s,"
+                    Log.i(ImsConference.this, "onConnectionPropertiesChanged: Connection: %s,"
                             + " connectionProperties: %s", c, connectionProperties);
                     updateConnectionProperties(connectionProperties);
                 }
@@ -381,6 +381,11 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
     private FeatureFlagProxy mFeatureFlagProxy;
     private final CarrierConfiguration mCarrierConfig;
     private boolean mIsUsingSimCallManager = false;
+
+    /**
+     * See {@link #isRemotelyHosted()} for details.
+     */
+    private boolean mWasRemotelyHosted = false;
 
     /**
      * Where {@link #isMultiparty()} is {@code false}, contains the
@@ -522,11 +527,16 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
                 (properties & Connection.PROPERTY_IS_EXTERNAL_CALL) != 0);
 
         conferenceProperties = changeBitmask(conferenceProperties,
-                Connection.PROPERTY_REMOTELY_HOSTED, !isConferenceHost());
+                Connection.PROPERTY_REMOTELY_HOSTED, isRemotelyHosted());
 
         conferenceProperties = changeBitmask(conferenceProperties,
                 Connection.PROPERTY_IS_ADHOC_CONFERENCE,
                 (properties & Connection.PROPERTY_IS_ADHOC_CONFERENCE) != 0);
+        Log.i(this, "applyHostProperties: confProp=%s", conferenceProperties);
+
+        conferenceProperties = changeBitmask(conferenceProperties,
+                Connection.PROPERTY_CROSS_SIM,
+                (properties & Connection.PROPERTY_CROSS_SIM) != 0);
 
         return conferenceProperties;
     }
@@ -771,6 +781,26 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
         } else {
             return bitmask & ~bitfield;
         }
+    }
+
+    /**
+     * Returns whether the conference is remotely hosted or not.
+     * This method will cache the current remotely hosted state when the conference host or
+     * original connection becomes null.  This is important for scenarios where the conference host
+     * or original connection changes midway through a conference such as in an SRVCC scenario.
+     * @return {@code true} if the conference was remotely hosted based on the conference host and
+     * its original connection, or based on the last known remotely hosted state.  {@code false}
+     * otherwise.
+     */
+    public boolean isRemotelyHosted() {
+        if (mConferenceHost == null || mConferenceHost.getOriginalConnection() == null) {
+            return mWasRemotelyHosted;
+        }
+        com.android.internal.telephony.Connection originalConnection =
+                mConferenceHost.getOriginalConnection();
+        mWasRemotelyHosted = originalConnection.isMultiparty()
+                && !originalConnection.isConferenceHost();
+        return mWasRemotelyHosted;
     }
 
     /**
@@ -1209,6 +1239,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
         ConferenceParticipantConnection connection = new ConferenceParticipantConnection(
                 parent.getOriginalConnection(), participant,
                 !isConferenceHost() /* isRemotelyHosted */);
+
         if (participant.getConnectTime() == 0) {
             connection.setConnectTimeMillis(parent.getConnectTimeMillis());
             connection.setConnectionStartElapsedRealtimeMillis(

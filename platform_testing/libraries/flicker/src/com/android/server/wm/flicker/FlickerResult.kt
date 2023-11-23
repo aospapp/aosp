@@ -18,6 +18,7 @@ package com.android.server.wm.flicker
 
 import com.android.server.wm.flicker.assertions.AssertionData
 import com.android.server.wm.flicker.assertions.FlickerAssertionError
+import com.android.server.wm.flicker.assertions.FlickerAssertionErrorBuilder
 import com.google.common.truth.Truth
 
 /**
@@ -51,22 +52,23 @@ data class FlickerResult(
     }
 
     /**
-     * Run the assertions on the trace
+     * Run the assertion on the trace
      *
-     * @throws AssertionError If the assertions fail or the transition crashed
+     * @throws AssertionError If the assertion fail or the transition crashed
      */
-    internal fun checkAssertions(
-        assertions: List<AssertionData>
-    ): List<FlickerAssertionError> {
+    internal fun checkAssertion(assertion: AssertionData): List<FlickerAssertionError> {
         checkIsExecuted()
-        val currFailures: List<FlickerAssertionError> = runs.flatMap { run ->
-            assertions.filter { it.tag == run.assertionTag }.mapNotNull { assertion ->
-                try {
-                    assertion.checkAssertion(run)
-                    null
-                } catch (error: Throwable) {
-                    FlickerAssertionError(error, assertion, run)
-                }
+        val filteredRuns = runs.filter { it.assertionTag == assertion.tag }
+        val currFailures = filteredRuns.mapNotNull { run ->
+            try {
+                assertion.checkAssertion(run)
+                null
+            } catch (error: Throwable) {
+                FlickerAssertionErrorBuilder()
+                    .fromError(error)
+                    .atTag(assertion.tag)
+                    .withTrace(run.traceFiles)
+                    .build()
             }
         }
         failures.addAll(currFailures)

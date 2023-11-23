@@ -278,7 +278,7 @@
     <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2943982616649705147) -->
     <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (5262249464504131443) -->
     <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (6356974241850241718) -->
-    <string name="data_enabled" msgid="22525832097434368">"Włączone przesyłanie danych"</string>
+    <string name="data_enabled" msgid="22525832097434368">"Przesyłanie danych włączone"</string>
     <string name="data_enable_summary" msgid="696860063456536557">"Zezwalaj na użycie danych"</string>
     <string name="dialog_alert_title" msgid="5260471806940268478">"Uwaga"</string>
     <string name="roaming" msgid="1576180772877858949">"Roaming"</string>

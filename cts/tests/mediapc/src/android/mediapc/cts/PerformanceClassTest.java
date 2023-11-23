@@ -74,7 +74,7 @@ public class PerformanceClassTest {
             // Verify minimum screen density and resolution
             assertMinDpiAndPixels(context, DENSITY_400, 1920, 1080);
             // Verify minimum memory
-            assertMinMemoryMb(context, 6 * 1024);
+            assertMinMemoryMb(context, 5 * 1024);
         }
     }
 

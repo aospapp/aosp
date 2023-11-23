@@ -465,13 +465,21 @@
          android:label="@string/car_permission_car_display_in_cluster"
          android:description="@string/car_permission_desc_car_display_in_cluster"/>
 
-    <!-- Allows an application to lunch applications in the instrument cluster.
+    <!-- Allows an application to launch applications in the instrument cluster.
          <p>Protection level: signature|privileged
     -->
     <permission android:name="android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL"
          android:protectionLevel="signature|privileged"
          android:label="@string/car_permission_car_cluster_control"
          android:description="@string/car_permission_desc_car_cluster_control"/>
+
+    <!-- Allows an application to listen for navigation state changes in instrument cluster.
+     <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.CAR_MONITOR_CLUSTER_NAVIGATION_STATE"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_car_cluster_control"
+        android:description="@string/car_permission_desc_car_cluster_control"/>
 
     <!-- Allows an application to communicate with a device in AOAP mode.
          <p>Protection level: signature|privileged
@@ -892,9 +900,16 @@
                 android:label="@string/car_permission_label_template_renderer"
                 android:description="@string/car_permission_desc_template_renderer"/>
 
+    <!-- Allows an application to control launching applications in Car.
+         <p>Protection level: signature|privileged
+    -->
+    <permission android:name="android.car.permission.CONTROL_CAR_APP_LAUNCH"
+        android:description="@string/car_permission_desc_control_car_app_launch"
+        android:label="@string/car_permission_label_control_car_app_launch"
+        android:protectionLevel="signature|privileged" />
+
     <uses-permission android:name="android.permission.CALL_PHONE"/>
     <uses-permission android:name="android.permission.DEVICE_POWER"/>
-    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS"/>
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"/>
     <uses-permission android:name="android.permission.MANAGE_ACTIVITY_STACKS"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_ROUTING"/>
@@ -936,9 +951,18 @@
         </service>
         <service android:name=".PerUserCarService"
             android:exported="false"/>
-        <service android:name=".telemetry.ScriptExecutor"
-            android:exported="false"
-            android:isolatedProcess="true"/>
+        <service
+            android:name="com.android.car.pm.CarSafetyAccessibilityService"
+            android:singleUser="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/car_safety_accessibility_service_config" />
+        </service>
 
         <activity android:name="com.android.car.pm.ActivityBlockingActivity"
              android:documentLaunchMode="always"

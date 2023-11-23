@@ -1269,6 +1269,8 @@ public class ServiceTest extends ActivityTestsBase {
         mExpectedServiceState = STATE_START_1;
         startForegroundService(COMMAND_START_FOREGROUND_DEFER_NOTIFICATION);
         waitForResultOrThrow(DELAY, "service to start with deferred notification");
+        // Pause a moment and ensure that the notification has still not appeared
+        waitMillis(1000L);
         assertNoNotification(1);
 
         // Explicitly post a new Notification with the same id, still deferrable

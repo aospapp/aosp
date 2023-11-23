@@ -43,8 +43,10 @@ static const int kIncFsFileIdStringLength = sizeof(IncFsFileId) * 2;
 
 typedef enum {
     INCFS_FEATURE_NONE = 0,
-    INCFS_FEATURE_CORE = 1,
-    INCFS_FEATURE_V2 = 2,
+    INCFS_FEATURE_CORE = 1 << 0,
+    INCFS_FEATURE_V2 = 1 << 1,
+    INCFS_FEATURE_MAPPING_FILES_PROGRESS_FIXED = 1 << 2,
+
 } IncFsFeatures;
 
 typedef int IncFsErrorCode;

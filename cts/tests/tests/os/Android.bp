@@ -28,6 +28,7 @@ android_test {
         "androidx.test.core",
         "androidx.test.ext.junit",
         "androidx.test.rules",
+        "androidx.test.uiautomator",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "testng",
@@ -70,5 +71,5 @@ android_test {
     ],
     // Do not compress minijail policy files.
     aaptflags: ["-0 .policy"],
-    min_sdk_version : "29"
+    min_sdk_version: "29",
 }

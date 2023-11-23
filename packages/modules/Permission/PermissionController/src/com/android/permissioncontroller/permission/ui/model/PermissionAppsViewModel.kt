@@ -19,20 +19,29 @@ package com.android.permissioncontroller.permission.ui.model
 import android.Manifest
 import android.app.Application
 import android.content.Intent
+import android.content.res.Resources
 import android.os.Bundle
 import android.os.UserHandle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.AbstractSavedStateViewModelFactory
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.navigation.fragment.findNavController
+import androidx.preference.Preference
 import androidx.savedstate.SavedStateRegistryOwner
+import com.android.permissioncontroller.PermissionControllerStatsLog
+import com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__ALLOWED
+import com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__UNDEFINED
+import com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__ALLOWED_FOREGROUND
+import com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__DENIED
 import com.android.permissioncontroller.R
 import com.android.permissioncontroller.permission.data.AllPackageInfosLiveData
 import com.android.permissioncontroller.permission.data.FullStoragePermissionAppsLiveData
 import com.android.permissioncontroller.permission.data.FullStoragePermissionAppsLiveData.FullStoragePackageState
 import com.android.permissioncontroller.permission.data.SinglePermGroupPackagesUiInfoLiveData
+import com.android.permissioncontroller.permission.model.AppPermissionUsage
 import com.android.permissioncontroller.permission.model.livedatatypes.AppPermGroupUiInfo.PermGrantState
 import com.android.permissioncontroller.permission.ui.Category
 import com.android.permissioncontroller.permission.ui.LocationProviderInterceptDialog
@@ -40,8 +49,14 @@ import com.android.permissioncontroller.permission.ui.model.PermissionAppsViewMo
 import com.android.permissioncontroller.permission.ui.model.PermissionAppsViewModel.Companion.HAS_SYSTEM_APPS_KEY
 import com.android.permissioncontroller.permission.ui.model.PermissionAppsViewModel.Companion.SHOULD_SHOW_SYSTEM_KEY
 import com.android.permissioncontroller.permission.ui.model.PermissionAppsViewModel.Companion.SHOW_ALWAYS_ALLOWED
+import com.android.permissioncontroller.permission.utils.KotlinUtils.getPackageUid
 import com.android.permissioncontroller.permission.utils.LocationUtils
+import com.android.permissioncontroller.permission.utils.Utils
 import com.android.permissioncontroller.permission.utils.navigateSafe
+import java.text.Collator
+import java.time.Instant
+import java.util.concurrent.TimeUnit
+import kotlin.math.max
 
 /**
  * ViewModel for the PermissionAppsFragment. Has a liveData with all of the UI info for each
@@ -59,6 +74,7 @@ class PermissionAppsViewModel(
 ) : ViewModel() {
 
     companion object {
+        const val AGGREGATE_DATA_FILTER_BEGIN_DAYS = 1
         internal const val SHOULD_SHOW_SYSTEM_KEY = "showSystem"
         internal const val HAS_SYSTEM_APPS_KEY = "hasSystem"
         internal const val SHOW_ALWAYS_ALLOWED = "showAlways"
@@ -239,6 +255,110 @@ class PermissionAppsViewModel(
         }
 
         fragment.findNavController().navigateSafe(R.id.perm_apps_to_app, args)
+    }
+
+    fun getFilterTimeBeginMillis(): Long {
+        return max(System.currentTimeMillis() -
+                TimeUnit.DAYS.toMillis(AGGREGATE_DATA_FILTER_BEGIN_DAYS.toLong()),
+                Instant.EPOCH.toEpochMilli())
+    }
+
+    /**
+     * Return a mapping of user + packageName to their last access timestamps for the permission
+     * group.
+     */
+    fun extractGroupUsageLastAccessTime(appPermissionUsages: List<AppPermissionUsage>):
+            MutableMap<String, Long> {
+        val accessTime: MutableMap<String, Long> = HashMap()
+        val now = System.currentTimeMillis()
+        val filterTimeBeginMillis = max(
+                now - TimeUnit.DAYS.toMillis(AGGREGATE_DATA_FILTER_BEGIN_DAYS.toLong()),
+                Instant.EPOCH.toEpochMilli())
+        val numApps: Int = appPermissionUsages.size
+        for (appIndex in 0 until numApps) {
+            val appUsage: AppPermissionUsage = appPermissionUsages.get(appIndex)
+            val packageName = appUsage.packageName
+            val appGroups = appUsage.groupUsages
+            val numGroups = appGroups.size
+            for (groupIndex in 0 until numGroups) {
+                val groupUsage = appGroups[groupIndex]
+                val groupUsageGroupName = groupUsage.group.name
+                if (groupName != groupUsageGroupName) {
+                    continue
+                }
+                val lastAccessTime = groupUsage.lastAccessTime
+                if (lastAccessTime == 0L || lastAccessTime < filterTimeBeginMillis) {
+                    continue
+                }
+                val key = groupUsage.group.user.toString() + packageName
+                accessTime[key] = lastAccessTime
+            }
+        }
+        return accessTime
+    }
+
+    /**
+     * Return the String preference summary based on the last access time.
+     */
+    fun getPreferenceSummary(res: Resources, summaryTimestamp: Pair<String, Int>): String {
+        return when (summaryTimestamp.second) {
+            Utils.LAST_24H_CONTENT_PROVIDER -> res.getString(
+                    R.string.app_perms_content_provider)
+            Utils.LAST_24H_SENSOR_TODAY -> res.getString(R.string.app_perms_24h_access,
+                    summaryTimestamp.first)
+            Utils.LAST_24H_SENSOR_YESTERDAY -> res.getString(R.string.app_perms_24h_access_yest,
+                    summaryTimestamp.first)
+            else -> ""
+        }
+    }
+
+    /**
+     * Return two preferences to determine their ordering.
+     */
+    fun comparePreference(collator: Collator, lhs: Preference, rhs: Preference): Int {
+        var result: Int = collator.compare(lhs.title.toString(),
+                rhs.title.toString())
+        if (result == 0) {
+            result = lhs.key.compareTo(rhs.key)
+        }
+        return result
+    }
+
+    /**
+     * Log that the fragment was created.
+     */
+    fun logPermissionAppsFragmentCreated(
+        packageName: String,
+        user: UserHandle,
+        viewId: Long,
+        isAllowed: Boolean,
+        isAllowedForeground: Boolean,
+        isDenied: Boolean,
+        sessionId: Long,
+        application: Application,
+        permGroupName: String,
+        tag: String
+    ) {
+        var category = PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__UNDEFINED
+        when {
+            isAllowed -> {
+                category = PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__ALLOWED
+            }
+            isAllowedForeground -> {
+                category = PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__ALLOWED_FOREGROUND
+            }
+            isDenied -> {
+                category = PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__DENIED
+            }
+        }
+        val uid = getPackageUid(application,
+                packageName, user) ?: return
+        PermissionControllerStatsLog.write(
+                PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED, sessionId, viewId,
+                permGroupName, uid, packageName, category)
+        Log.v(tag, tag + " created with sessionId=" + sessionId +
+                " permissionGroupName=" + permGroupName + " appUid=" + uid +
+                " packageName=" + packageName + " category=" + category)
     }
 }
 

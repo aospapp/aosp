@@ -25,7 +25,7 @@
     android:minHeight="?android:attr/listPreferredItemHeightSmall"
     android:orientation="horizontal">
 
-    <ImageView
+    <com.android.car.ui.uxr.DrawableStateImageView
         android:id="@android:id/icon"
         android:layout_width="@dimen/car_ui_preference_icon_size"
         android:layout_height="@dimen/car_ui_preference_icon_size"
@@ -42,14 +42,14 @@
         android:layout_marginTop="@dimen/car_ui_preference_content_margin_top"
         android:layout_marginBottom="@dimen/car_ui_preference_content_margin_bottom">
 
-        <TextView
+        <com.android.car.ui.uxr.DrawableStateTextView
             android:id="@android:id/title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:singleLine="true"
             android:textAppearance="@style/TextAppearance.CarUi.PreferenceTitle"/>
 
-        <TextView
+        <com.android.car.ui.uxr.DrawableStateTextView
             android:id="@android:id/summary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

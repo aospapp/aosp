@@ -371,6 +371,7 @@ void ColorBuffer::readPixels(int x,
     }
     p_format = sGetUnsizedColorBufferFormat(p_format);
     touch();
+    waitSync();
 
     if (bindFbo(&m_fbo, m_tex)) {
         GLint prevAlignment = 0;
@@ -394,6 +395,7 @@ void ColorBuffer::readPixelsScaled(int width,
     }
     p_format = sGetUnsizedColorBufferFormat(p_format);
     touch();
+    waitSync();
     GLuint tex = m_resizer->update(m_tex, width, height, rotation);
     if (bindFbo(&m_scaleRotationFbo, tex)) {
         GLint prevAlignment = 0;
@@ -417,6 +419,7 @@ void ColorBuffer::readPixelsYUVCached(int x,
     }
 
     touch();
+    waitSync();
 
 #if DEBUG_CB_FBO
     fprintf(stderr, "%s %d request width %d height %d\n", __func__, __LINE__,

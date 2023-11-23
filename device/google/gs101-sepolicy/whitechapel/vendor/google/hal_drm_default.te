@@ -1,0 +1,6 @@
+# L3
+allow hal_drm_default mediadrm_vendor_data_file:file create_file_perms;
+allow hal_drm_default mediadrm_vendor_data_file:dir create_dir_perms;
+
+# L1
+allow hal_drm_default dmabuf_system_heap_device:chr_file r_file_perms;

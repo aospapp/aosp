@@ -1,0 +1,2 @@
+# b/189275648
+dontaudit rebalance_interrupts_vendor rebalance_interrupts_vendor:capability dac_override;

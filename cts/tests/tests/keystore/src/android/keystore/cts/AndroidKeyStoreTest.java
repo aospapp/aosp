@@ -18,12 +18,15 @@ package android.keystore.cts;
 
 import android.content.pm.PackageManager;
 import android.security.KeyPairGeneratorSpec;
+import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
+
+import org.junit.Assert;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -61,6 +64,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.security.auth.x500.X500Principal;
@@ -1773,6 +1777,43 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         // Replace with same
         Entry entry = mKeyStore.getEntry(TEST_ALIAS_1, null);
         mKeyStore.setEntry(TEST_ALIAS_1, entry, null);
+    }
+
+    /*
+     * Replacing an existing secret key with itself should be a no-op.
+     */
+    public void testKeyStore_SetKeyEntry_ReplacedWithSameGeneratedSecretKey()
+            throws Exception {
+        final String plaintext = "My awesome plaintext message!";
+        final String algorithm = "AES/GCM/NoPadding";
+
+        final KeyGenerator generator = KeyGenerator.getInstance("AES", "AndroidKeyStore");
+        final KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(TEST_ALIAS_1,
+                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                .setKeySize(256)
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .build();
+        generator.init(spec);
+        final SecretKey key = generator.generateKey();
+
+        Cipher cipher = Cipher.getInstance(algorithm);
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        AlgorithmParameters params = cipher.getParameters();
+        final byte[] ciphertext = cipher.doFinal(plaintext.getBytes());
+
+        mKeyStore.load(null, null);
+
+        // This should succeed.
+        mKeyStore.setKeyEntry(TEST_ALIAS_1, key, null, null);
+        // And it should not change the key under TEST_ALIAS_1. And what better way to test
+        // then to use it on some cipher text generated with that key.
+        final Key key2 = mKeyStore.getKey(TEST_ALIAS_1, null);
+        cipher = Cipher.getInstance(algorithm);
+        cipher.init(Cipher.DECRYPT_MODE, key2, params);
+        byte[] plaintext2 = cipher.doFinal(ciphertext);
+        Assert.assertArrayEquals("The plaintext2 should match the original plaintext.",
+                plaintext2, plaintext.getBytes());
     }
 
     public void testKeyStore_Size_Unencrypted_Success() throws Exception {

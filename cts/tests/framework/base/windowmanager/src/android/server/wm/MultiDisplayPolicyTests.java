@@ -52,7 +52,7 @@ import android.platform.test.annotations.Presubmit;
 import android.server.wm.CommandSession.ActivityCallback;
 import android.server.wm.CommandSession.ActivitySession;
 import android.server.wm.CommandSession.SizeInfo;
-import android.server.wm.WindowManagerState.ActivityTask;
+import android.server.wm.WindowManagerState.Task;
 import android.server.wm.WindowManagerState.DisplayContent;
 
 import org.junit.Before;
@@ -375,8 +375,8 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
         mWmState.assertVisibility(VIRTUAL_DISPLAY_ACTIVITY, true /* visible */);
         mWmState.assertFocusedActivity("Virtual display activity must be on top",
                 VIRTUAL_DISPLAY_ACTIVITY);
-        final int defaultDisplayStackId = mWmState.getFocusedStackId();
-        ActivityTask frontStack = mWmState.getRootTask(
+        final int defaultDisplayStackId = mWmState.getFocusedTaskId();
+        Task frontStack = mWmState.getRootTask(
                 defaultDisplayStackId);
         assertEquals("Top stack must remain on primary display",
                 DEFAULT_DISPLAY, frontStack.mDisplayId);
@@ -442,7 +442,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
     public void testStackFocusSwitchOnDisplayRemoved3() {
         // Start an activity on default display to determine default stack.
         launchActivity(BROADCAST_RECEIVER_ACTIVITY);
-        final int focusedStackWindowingMode = mWmState.getFrontStackWindowingMode(
+        final int focusedStackWindowingMode = mWmState.getFrontRootTaskWindowingMode(
                 DEFAULT_DISPLAY);
         // Finish probing activity.
         mBroadcastActionTrigger.finishBroadcastReceiverActivity();
@@ -469,7 +469,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
             }
 
             // Launch activity on new secondary display.
-            launchActivityOnDisplay(RESIZEABLE_ACTIVITY, newDisplay.mId);
+            launchActivityOnDisplay(RESIZEABLE_ACTIVITY, WINDOWING_MODE_FULLSCREEN, newDisplay.mId);
             waitAndAssertActivityStateOnDisplay(RESIZEABLE_ACTIVITY, STATE_RESUMED, newDisplay.mId,
                     "Test activity must be on secondary display");
 
@@ -487,7 +487,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
 
         // Check if the top activity is now back on primary display.
         mWmState.assertVisibility(RESIZEABLE_ACTIVITY, true /* visible */);
-        mWmState.assertFocusedStack(
+        mWmState.assertFocusedRootTask(
                 "Default stack on primary display must be focused after display removed",
                 windowingMode, ACTIVITY_TYPE_STANDARD);
         mWmState.assertFocusedActivity(
@@ -744,7 +744,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
     private void assertTopTaskSameSurfaceSizeWithDisplay(int displayId) {
         final DisplayContent display = mWmState.getDisplay(displayId);
         final int stackId = mWmState.getFrontRootTaskId(displayId);
-        final ActivityTask task = mWmState.getRootTask(stackId).getTopTask();
+        final Task task = mWmState.getRootTask(stackId).getTopTask();
 
         assertEquals("Task must have same surface width with its display",
                 display.getSurfaceSize(), task.getSurfaceWidth());
@@ -754,6 +754,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
 
     @Test
     public void testAppTransitionForActivityOnDifferentDisplay() {
+        assumeFalse(ENABLE_SHELL_TRANSITIONS);
         final TestActivitySession<StandardActivity> transitionActivitySession =
                 createManagedTestActivitySession();
         // Create new simulated display.
@@ -837,10 +838,12 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
                 mWmState.getResumedActivitiesCountInPackage(
                         SDK_27_LAUNCHING_ACTIVITY.getPackageName()));
 
+        // Start SeparateProcessActivity in the same task as LaunchingActivity by setting
+        // allowMultipleInstances to false, and the TestActivity should be resumed.
         getLaunchActivityBuilder().setUseInstrumentation()
                 .setTargetActivity(SDK_27_SEPARATE_PROCESS_ACTIVITY).setNewTask(true)
                 .setDisplayId(DEFAULT_DISPLAY).setWindowingMode(WINDOWING_MODE_FULLSCREEN)
-                .execute();
+                .allowMultipleInstances(false).execute();
         waitAndAssertTopResumedActivity(SDK_27_SEPARATE_PROCESS_ACTIVITY, DEFAULT_DISPLAY,
                 "Activity launched on default display must be resumed and focused");
         assertTrue("Activity that was on secondary display must be resumed",

@@ -920,6 +920,45 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
                         } else {
                             connectIdToCheck = callId;
                         }
+
+                        // Handle the case where an existing connection was added by Telephony via
+                        // a connection manager.  The remote connection service API does not include
+                        // the ability to specify a parent connection when adding an existing
+                        // connection, so we stash the desired parent in the connection extras.
+                        if (connectionExtras != null
+                                && connectionExtras.containsKey(
+                                        Connection.EXTRA_ADD_TO_CONFERENCE_ID)
+                                && connection.getParentCallId() == null) {
+                            String parentId = connectionExtras.getString(
+                                    Connection.EXTRA_ADD_TO_CONFERENCE_ID);
+                            Log.i(ConnectionServiceWrapper.this, "addExistingConnection: remote "
+                                    + "connection will auto-add to parent %s", parentId);
+                            // Replace parcelable connection instance, swapping the new desired
+                            // parent in.
+                            connection = new ParcelableConnection(
+                                    connection.getPhoneAccount(),
+                                    connection.getState(),
+                                    connection.getConnectionCapabilities(),
+                                    connection.getConnectionProperties(),
+                                    connection.getSupportedAudioRoutes(),
+                                    connection.getHandle(),
+                                    connection.getHandlePresentation(),
+                                    connection.getCallerDisplayName(),
+                                    connection.getCallerDisplayNamePresentation(),
+                                    connection.getVideoProvider(),
+                                    connection.getVideoState(),
+                                    connection.isRingbackRequested(),
+                                    connection.getIsVoipAudioMode(),
+                                    connection.getConnectTimeMillis(),
+                                    connection.getConnectElapsedTimeMillis(),
+                                    connection.getStatusHints(),
+                                    connection.getDisconnectCause(),
+                                    connection.getConferenceableConnectionIds(),
+                                    connection.getExtras(),
+                                    parentId,
+                                    connection.getCallDirection(),
+                                    connection.getCallerNumberVerificationStatus());
+                        }
                         // Check to see if this Connection has already been added.
                         Call alreadyAddedConnection = mCallsManager
                                 .getAlreadyAddedConnection(connectIdToCheck);

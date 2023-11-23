@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
@@ -30,7 +31,6 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.location.LocationManager;
 import android.net.wifi.WifiManager;
-import android.os.UserHandle;
 import android.provider.Settings;
 import android.widget.Toast;
 
@@ -40,12 +40,12 @@ import androidx.test.annotation.UiThreadTest;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.ColoredSwitchPreference;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.car.settings.location.LocationSettingsFragment;
-import com.android.car.settings.testutils.ResourceTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
@@ -59,17 +59,17 @@ import org.mockito.MockitoSession;
 
 @RunWith(AndroidJUnit4.class)
 public class WifiWakeupTogglePreferenceControllerTest {
-    private Context mContext = ApplicationProvider.getApplicationContext();
+    private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private LifecycleOwner mLifecycleOwner;
     private SwitchPreference mSwitchPreference;
     private WifiWakeupTogglePreferenceController mPreferenceController;
     private CarUxRestrictions mCarUxRestrictions;
-    private LocationManager mLocationManager;
-    private UserHandle mUserHandle;
     private MockitoSession mSession;
 
     @Mock
     private FragmentController mFragmentController;
+    @Mock
+    private LocationManager mLocationManager;
     @Mock
     private WifiManager mWifiManager;
     @Mock
@@ -83,8 +83,7 @@ public class WifiWakeupTogglePreferenceControllerTest {
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
 
-        mLocationManager = mContext.getSystemService(LocationManager.class);
-        mUserHandle = UserHandle.of(UserHandle.myUserId());
+        when(mContext.getSystemService(LocationManager.class)).thenReturn(mLocationManager);
 
         mSwitchPreference = new ColoredSwitchPreference(mContext);
         mPreferenceController = new WifiWakeupTogglePreferenceController(mContext,
@@ -106,7 +105,7 @@ public class WifiWakeupTogglePreferenceControllerTest {
     @Test
     @UiThreadTest
     public void handlePreferenceClicked_locationDisabled_launchFragment() {
-        setLocationEnabled(false);
+        when(mLocationManager.isLocationEnabled()).thenReturn(false);
         mPreferenceController.onCreate(mLifecycleOwner);
 
         mSwitchPreference.performClick();
@@ -116,7 +115,7 @@ public class WifiWakeupTogglePreferenceControllerTest {
 
     @Test
     public void handlePreferenceClicked_wifiWakeupEnabled_disablesWifiWakeup() {
-        setLocationEnabled(true);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.WIFI_WAKEUP_ENABLED,
                 1);
         mPreferenceController.onCreate(mLifecycleOwner);
@@ -130,7 +129,7 @@ public class WifiWakeupTogglePreferenceControllerTest {
 
     @Test
     public void handlePreferenceClicked_wifiScanningDisabled_showsDialog() {
-        setLocationEnabled(true);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
         when(mWifiManager.isScanAlwaysAvailable()).thenReturn(false);
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.WIFI_WAKEUP_ENABLED,
                 0);
@@ -144,7 +143,7 @@ public class WifiWakeupTogglePreferenceControllerTest {
 
     @Test
     public void handlePreferenceClicked_wifiScanningEnabled_wifiWakeupDisabled_enablesWifiWakeup() {
-        setLocationEnabled(true);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
         when(mWifiManager.isScanAlwaysAvailable()).thenReturn(true);
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.WIFI_WAKEUP_ENABLED,
                 0);
@@ -159,7 +158,7 @@ public class WifiWakeupTogglePreferenceControllerTest {
 
     @Test
     public void onCreate_wifiWakeupEnabled_wifiScanningEnabled_locationEnabled_isChecked() {
-        setLocationEnabled(true);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
         when(mWifiManager.isScanAlwaysAvailable()).thenReturn(true);
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.WIFI_WAKEUP_ENABLED,
                 1);
@@ -171,7 +170,7 @@ public class WifiWakeupTogglePreferenceControllerTest {
 
     @Test
     public void onCreate_wifiWakeupDisabled_wifiScanningEnabled_locationEnabled_isNotChecked() {
-        setLocationEnabled(true);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
         when(mWifiManager.isScanAlwaysAvailable()).thenReturn(true);
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.WIFI_WAKEUP_ENABLED,
                 0);
@@ -183,7 +182,7 @@ public class WifiWakeupTogglePreferenceControllerTest {
 
     @Test
     public void onCreate_wifiWakeupEnabled_wifiScanningDisabled_locationEnabled_isNotChecked() {
-        setLocationEnabled(true);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
         when(mWifiManager.isScanAlwaysAvailable()).thenReturn(false);
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.WIFI_WAKEUP_ENABLED,
                 1);
@@ -195,7 +194,7 @@ public class WifiWakeupTogglePreferenceControllerTest {
 
     @Test
     public void onCreate_wifiWakeupEnabled_wifiScanningEnabled_locationDisabled_isNotChecked() {
-        setLocationEnabled(false);
+        when(mLocationManager.isLocationEnabled()).thenReturn(false);
         when(mWifiManager.isScanAlwaysAvailable()).thenReturn(true);
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.WIFI_WAKEUP_ENABLED,
                 1);
@@ -209,7 +208,7 @@ public class WifiWakeupTogglePreferenceControllerTest {
     @Test
     @UiThreadTest
     public void onConfirmWifiScanning_setsWifiScanningOn() {
-        setLocationEnabled(true);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
         ExtendedMockito.when(Toast.makeText(any(), anyString(), anyInt())).thenReturn(mMockToast);
         when(mWifiManager.isScanAlwaysAvailable()).thenReturn(false);
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.WIFI_WAKEUP_ENABLED,
@@ -224,9 +223,10 @@ public class WifiWakeupTogglePreferenceControllerTest {
     @Test
     @UiThreadTest
     public void onConfirmWifiScanning_showsToast() {
-        setLocationEnabled(true);
-        ExtendedMockito.when(Toast.makeText(any(), eq(ResourceTestUtils.getString(mContext,
-                "wifi_settings_scanning_required_enabled")), anyInt())).thenReturn(mMockToast);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
+        String toastString = mContext.getString(R.string.wifi_settings_scanning_required_enabled);
+        ExtendedMockito.when(Toast.makeText(any(), eq(toastString), anyInt()))
+                .thenReturn(mMockToast);
         when(mWifiManager.isScanAlwaysAvailable()).thenReturn(false);
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.WIFI_WAKEUP_ENABLED,
                 0);
@@ -240,7 +240,7 @@ public class WifiWakeupTogglePreferenceControllerTest {
     @Test
     @UiThreadTest
     public void onConfirmWifiScanning_enablesWifiWakeup() {
-        setLocationEnabled(true);
+        when(mLocationManager.isLocationEnabled()).thenReturn(true);
         ExtendedMockito.when(Toast.makeText(any(), anyString(), anyInt())).thenReturn(mMockToast);
         when(mWifiManager.isScanAlwaysAvailable()).thenReturn(false);
         Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.WIFI_WAKEUP_ENABLED,
@@ -251,9 +251,5 @@ public class WifiWakeupTogglePreferenceControllerTest {
 
         assertThat(Settings.Global.getInt(mContext.getContentResolver(),
                 Settings.Global.WIFI_WAKEUP_ENABLED, 0)).isEqualTo(1);
-    }
-
-    private void setLocationEnabled(boolean enabled) {
-        mLocationManager.setLocationEnabledForUser(enabled, mUserHandle);
     }
 }

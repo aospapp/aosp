@@ -25,6 +25,7 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.ListPreference;
 
 import com.android.car.settings.R;
@@ -40,13 +41,18 @@ public class AppLinkStatePreferenceController extends
 
     private static final Logger LOG = new Logger(AppLinkStatePreferenceController.class);
 
-    private final PackageManager mPm;
     private boolean mHasDomainUrls;
 
     public AppLinkStatePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mPm = context.getPackageManager();
+    }
+
+    @VisibleForTesting
+    AppLinkStatePreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            PackageManager packageManager) {
+        super(context, preferenceKey, fragmentController, uxRestrictions, packageManager);
     }
 
     @Override

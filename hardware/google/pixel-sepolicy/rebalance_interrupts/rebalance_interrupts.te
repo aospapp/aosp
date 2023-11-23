@@ -7,4 +7,5 @@ init_daemon_domain(rebalance_interrupts_vendor)
 allow rebalance_interrupts_vendor sysfs_irq:dir r_dir_perms;
 allow rebalance_interrupts_vendor sysfs_irq:file r_file_perms;
 allow rebalance_interrupts_vendor proc_irq:dir r_dir_perms;
-allow rebalance_interrupts_vendor proc_irq:file rw_file_perms;
+allow rebalance_interrupts_vendor proc_irq:file { rw_file_perms setattr };
+allow rebalance_interrupts_vendor self:capability { chown setuid setgid };

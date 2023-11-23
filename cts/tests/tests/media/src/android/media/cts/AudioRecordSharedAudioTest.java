@@ -19,9 +19,9 @@ package android.media.cts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 import static org.testng.Assert.assertThrows;
 
-import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -34,12 +34,12 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.SystemUtil;
 
-import java.io.IOException;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.io.IOException;
 
 
 
@@ -52,9 +52,7 @@ public class AudioRecordSharedAudioTest {
 
     @Before
     public void setUp() throws Exception {
-        if (!hasMicrophone()) {
-            return;
-        }
+        assumeTrue(hasMicrophone());
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .adoptShellPermissionIdentity();
         clearAudioserverPermissionCache();

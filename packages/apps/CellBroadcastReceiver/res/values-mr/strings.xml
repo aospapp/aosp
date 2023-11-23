@@ -31,7 +31,7 @@
     <string name="menu_view_details" msgid="1040989019045280975">"तपशील पहा"</string>
     <string name="menu_delete" msgid="128380070910799366">"प्रसारण हटवा"</string>
     <string name="view_details_title" msgid="1780427629491781473">"सूचना तपशील"</string>
-    <string name="view_details_debugging_title" msgid="5699927030805114173">"डीबगिंगचे सूचना तपशील पाहा"</string>
+    <string name="view_details_debugging_title" msgid="5699927030805114173">"डीबगिंगचे सूचना तपशील पहा"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"हे प्रसारण हटवायचे?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"सर्व प्राप्त केलेले प्रसारण मेसेज हटवायचे?"</string>
     <string name="button_delete" msgid="4672451757925194350">"हटवा"</string>

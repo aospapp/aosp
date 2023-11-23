@@ -311,12 +311,13 @@ public class ConfirmationDialogFragment extends CarUiDialogFragment {
     @Override
     protected void onDialogClosed(boolean positiveResult) {
         if (mDismissListener != null) {
-            mDismissListener.onDismiss(getArguments().getBundle(ARGUMENTS_KEY));
+            mDismissListener.onDismiss(getArguments().getBundle(ARGUMENTS_KEY), positiveResult);
         }
     }
 
     @Override
     public void onClick(DialogInterface dialog, int which) {
+        super.onClick(dialog, which);
         if (which == DialogInterface.BUTTON_POSITIVE) {
             if (mConfirmListener != null) {
                 mConfirmListener.onConfirm(getArguments().getBundle(ARGUMENTS_KEY));
@@ -363,10 +364,12 @@ public class ConfirmationDialogFragment extends CarUiDialogFragment {
     /** Listens to the dismiss action. */
     public interface DismissListener {
         /**
-         * Defines the action to take when the dialog is closed. The bundle will contain the
-         * arguments added when constructing the dialog through with
-         * {@link Builder#addArgumentString(String, String)}.
+         * Defines the action to take when the dialog is closed.
+         * @param arguments - bundle containing the arguments added when constructing the dialog
+         * through with {@link Builder#addArgumentString(String, String)}.
+         * @param positiveResult - whether or not the dialog was dismissed because of a positive
+         * button press.
          */
-        void onDismiss(@Nullable Bundle arguments);
+        void onDismiss(@Nullable Bundle arguments, boolean positiveResult);
     }
 }

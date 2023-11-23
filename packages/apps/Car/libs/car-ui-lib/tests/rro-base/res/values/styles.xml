@@ -14,7 +14,8 @@
  limitations under the License.
 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
-    <style name="TextAppearance.CarUi.Widget.Toolbar.Title" parent="android:TextAppearance.DeviceDefault">
+    <style name="TextAppearance.CarUi.Widget.Toolbar.Title"
+        parent="android:TextAppearance.DeviceDefault">
         <item name="android:singleLine">true</item>
         <item name="android:textSize">40sp</item>
         <item name="android:textColor">#FF00F0</item>

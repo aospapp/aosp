@@ -122,6 +122,7 @@ public class GaugeMetricsTests extends DeviceAtomTestCase {
       assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.GAUGE_METRIC_ID);
       assertThat(metricReport.hasGaugeMetrics()).isTrue();
       StatsLogReport.GaugeMetricDataWrapper gaugeData = metricReport.getGaugeMetrics();
+      gaugeData = backfillGaugeMetricData(gaugeData);
       assertThat(gaugeData.getDataCount()).isEqualTo(1);
 
       int bucketCount = gaugeData.getData(0).getBucketInfoCount();
@@ -320,6 +321,7 @@ public class GaugeMetricsTests extends DeviceAtomTestCase {
         assertThat(metricReport.getIsActive()).isFalse();
 
         StatsLogReport.GaugeMetricDataWrapper gaugeData = metricReport.getGaugeMetrics();
+        gaugeData = backfillGaugeMetricData(gaugeData);
         assertThat(gaugeData.getDataCount()).isEqualTo(1);
         assertThat(gaugeData.getData(0).getBucketInfoCount()).isEqualTo(2);
 

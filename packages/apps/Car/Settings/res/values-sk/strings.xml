@@ -27,12 +27,7 @@
     <string name="night_mode_tile_label" msgid="6603597795502131664">"Nočný režim"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Sieť a internet"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Mobilná sieť"</string>
-    <plurals name="mobile_network_summary_count" formatted="false" msgid="6917348330386831454">
-      <item quantity="few"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM karty</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%1$d</xliff:g> SIMs</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM kariet</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> SIM karta</item>
-    </plurals>
+    <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM}few{# SIM karty}many{# SIMs}other{# SIM kariet}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Aktívne / SIM karta"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Neaktívne / SIM karta"</string>
     <string name="mobile_network_active_esim" msgid="5864100786496761032">"Aktívne / stiahnutá SIM karta"</string>
@@ -40,6 +35,8 @@
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"Pridať ďalšie"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"Mobilné dáta"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Prístup k dátam pomocou mobilnej siete"</string>
+    <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Mobilná sieť"</string>
+    <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Používať mobilné dáta"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Vypnúť mobilné dáta?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Vyžaduje sa výber"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Používať <xliff:g id="CARRIER">%1$s</xliff:g> na mobilné dáta?"</string>
@@ -55,12 +52,7 @@
     <string name="cell_data_warning" msgid="8997739664336571149">"Dátové upozornenie: <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_limit" msgid="6862164869877993009">"Dátový limit: <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_warning_and_limit" msgid="5003954080814312475">"Dátové upozornenie: <xliff:g id="ID_1">^1</xliff:g> / dátový limit: <xliff:g id="ID_2">^2</xliff:g>"</string>
-    <plurals name="billing_cycle_days_left" formatted="false" msgid="9163059632851951402">
-      <item quantity="few">Zostávajú %d dni</item>
-      <item quantity="many">Zostáva %d dňa</item>
-      <item quantity="other">Zostáva %d dní</item>
-      <item quantity="one">Zostáva %d deň</item>
-    </plurals>
+    <string name="billing_cycle_days_left" msgid="1810100330204239102">"{count,plural, =1{Zostáva # deň}few{Zostávajú # dni}many{Zostáva # dňa}other{Zostáva # dní}}"</string>
     <string name="billing_cycle_none_left" msgid="3499893148398931302">"Žiadny zostávajúci čas"</string>
     <string name="billing_cycle_less_than_one_day_left" msgid="8121013296375203759">"Zostáva menej ako 1 deň"</string>
     <string name="carrier_and_update_text" msgid="4351043160977741244">"Aktualizované pred <xliff:g id="ID_2">^2</xliff:g> – <xliff:g id="ID_1">^1</xliff:g>"</string>
@@ -75,6 +67,7 @@
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"Nastaviť"</string>
     <string name="data_warning_limit_title" msgid="4950868241810828601">"Upozornenie o dátach a limit"</string>
     <string name="app_usage_cycle" msgid="8445927080245880296">"Cyklus spotreby dát aplikáciami"</string>
+    <string name="mobile_data_usage" msgid="8171519864391091861">"Spotreba mobilných dát"</string>
     <string name="set_data_warning" msgid="6628236612886588097">"Nastaviť dátové upozornenie"</string>
     <string name="data_warning" msgid="116776633806885370">"Dátové upozornenie"</string>
     <string name="set_data_limit" msgid="7136539812414500084">"Nastaviť dátový limit"</string>
@@ -83,8 +76,14 @@
     <string name="data_usage_limit_dialog_mobile" msgid="3633960011913085089">"Autorádio vozidla vypne po dosiahnutí nastaveného limitu mobilné dátové pripojenie.\n\nKeďže spotrebu dát meria autorádio, ale váš operátor môže spotrebu vyčísliť inak, je vhodné nastaviť si nižší limit."</string>
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"Nastavenie upozornenia na spotrebu dát"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"Nastavenie limitu spotreby dát"</string>
+    <string name="data_usage_settings_footer" msgid="681881387909678237">"Spotrebu dát meria vaše zariadenie. Môže sa líšiť v závislosti od mobilných dát operátora."</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"Nastaviť"</string>
+    <string name="data_usage_warning_save_title" msgid="2900544287239037695">"Uložiť"</string>
     <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"Sieť OEM"</string>
+    <string name="network_and_internet_vehicle_internet_title" msgid="2518848595673002736">"Internet vo vozidle"</string>
+    <string name="network_and_internet_oem_network_dialog_description" msgid="4469178879867702066">"Ak vo vozidle vypnete internet, niektoré jeho funkcie či aplikácie môžu prestať fungovať.\n\nKľúčové údaje, ktoré vyžaduje prevádzka vozidla, sa budú ďalej zdieľať s výrobcom vozidla."</string>
+    <string name="network_and_internet_oem_network_dialog_confirm_label" msgid="2630033932472996255">"Aj tak vypnúť"</string>
+    <string name="network_and_internet_oem_network_disabled_footer" msgid="3529208167627034245">"Internet vo vozidle je vypnutý. Môže to spôsobiť, že niektoré funkcie alebo aplikácie vozidla prestanú fungovať. Kľúčové údaje, ktoré vyžaduje prevádzka vozidla, sa budú ďalej zdieľať s výrobcom vozidla."</string>
     <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"%1$s využité %2$s – %3$s"</string>
     <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"Pripojenie k inej sieti"</string>
     <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"Nastavenia siete"</string>
@@ -98,6 +97,7 @@
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"Pridať sieť"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"Pripojiť"</string>
     <string name="wifi_connecting" msgid="1930665730621677960">"Pripája sa…"</string>
+    <string name="wifi_disconnected" msgid="4485699234859368137">"Nepripojené"</string>
     <string name="wifi_not_in_range_message" msgid="2617126307140203787">"Sieť nie je v dosahu"</string>
     <string name="wifi_password" msgid="5565632142720292397">"Heslo"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"Zobraziť heslo"</string>
@@ -159,6 +159,7 @@
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Vyberte aspoň jedno pásmo hotspotu Wi‑Fi:"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"Hotspot a tethering"</string>
     <string name="hotspot_settings_title" msgid="8220814387592756713">"Hotspot"</string>
+    <string name="wifi_hotspot_state_off" msgid="6096709579204322798">"Vypnuté"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"Hotspot automaticky vypínať"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"Ak nebudú pripojené žiadne zariadenia, hotspot Wi‑Fi sa vypne"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> chce zapnúť Wi‑Fi"</string>
@@ -301,10 +302,10 @@
     <string name="force_stop" msgid="2153183697014720520">"Vynútiť zastavenie"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"Chcete vynútiť zastavenie?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Ak vynútite zastavenie aplikácie, môže sa správať zvláštne."</string>
-    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"Chcete vypnúť ochranu výkonu?"</string>
-    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"Ak to urobíte, váš softvér a hardvér tiež nemusia fungovať."</string>
-    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"Ponechať zapnuté"</string>
-    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"Vypnúť"</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"Zapnúť priorizáciu výkonu aplikácie?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"Zapnutie môže potenciálne spôsobiť nestabilitu systému alebo mať dlhodobý vplyv na hardvér. Chcete pokračovať?"</string>
+    <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"Áno"</string>
+    <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"Nie, ďakujem"</string>
     <string name="disable_text" msgid="4358165448648990820">"Zakázať"</string>
     <string name="enable_text" msgid="1794971777861881238">"Povoliť"</string>
     <string name="uninstall_text" msgid="277907956072833012">"Odinštalovať"</string>
@@ -314,29 +315,30 @@
     <string name="permissions_label" msgid="2701446753515612685">"Povolenia"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Upozornenia"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"Ukladací priestor a vyrovnávacia pamäť"</string>
-    <string name="peak_performance_label" msgid="1592816366516845648">"Použiť skvelý výkon"</string>
+    <string name="prioritize_app_performance_label" msgid="7264505023347026606">"Priorizovať výkon aplikácie"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Verzia: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Neboli udelené žiadne povolenia"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Neboli požadované žiadne povolenia"</string>
     <string name="unused_apps" msgid="648471933781010395">"Nepoužívané aplikácie"</string>
-    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> nepoužívané aplikácie</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> unused apps</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> nepoužívaných aplikácií</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> nepoužívaná aplikácia</item>
-    </plurals>
+    <string name="unused_apps_summary" msgid="8257304516038923072">"{count,plural, =1{# nepoužívaná aplikácia}few{# nepoužívané aplikácie}many{# unused apps}other{# nepoužívaných aplikácií}}"</string>
     <string name="unused_apps_switch" msgid="4433958286200341563">"Odstraňovať povol. a uvoľňovať priestor"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"%s v internom úložisku"</string>
-    <string name="peak_performance_summary" msgid="2450911487290019786">"Ak to bude potrebné, aplikácia sa zavrie"</string>
+    <string name="prioritize_app_performance_summary" msgid="1081874788185691418">"Priorizuje výkon aplikácie pomocou systémových zdrojov"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Spotreba dát"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Spotreba dát aplikácie"</string>
+    <string name="data_usage_usage_history_title" msgid="2386346082501471648">"História spotreby"</string>
+    <string name="data_usage_all_apps_title" msgid="5956991037518761599">"Všetky aplikácie"</string>
+    <string name="app_data_usage_title" msgid="6991057296054761322">"Spotreba dát a používanie siete Wi‑Fi"</string>
+    <string name="app_data_usage_usage_history_title" msgid="5861801915345874959">"História spotreby"</string>
+    <string name="app_data_usage_total_usage" msgid="6166480544992906281">"Celková spotreba"</string>
+    <string name="app_data_usage_foreground" msgid="76513424438149709">"Popredie"</string>
+    <string name="app_data_usage_background" msgid="6972054078770685280">"Pozadie"</string>
+    <string name="app_data_usage_allow_data_title" msgid="2713343973040466293">"Povoliť dáta"</string>
+    <string name="app_data_usage_allow_data_summary" msgid="7431118326573403774">"Povoliť tejto aplikácii používať mobilné dáta"</string>
+    <string name="app_data_usage_restrict_data_title" msgid="7080736007645963633">"Obmedziť dáta"</string>
+    <string name="app_data_usage_background_data_summary" msgid="4445472217737386826">"Používať mobilné dáta, iba keď je aplik. v popredí"</string>
     <string name="computing_size" msgid="5791407621793083965">"Prebieha výpočet…"</string>
-    <plurals name="runtime_permissions_additional_count" formatted="false" msgid="3513360187065317613">
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> ďalšie povolenia</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> additional permissions</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> ďalších povolení</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> ďalšie povolenie</item>
-    </plurals>
+    <string name="runtime_permissions_additional_count" msgid="3920383880473283764">"{count,plural, =1{# ďalšie povolenie}few{# ďalšie povolenia}many{# additional permissions}other{# ďalších povolení}}"</string>
     <string name="direct_boot_unaware_dialog_message_car" msgid="2857599310518724080">"Poznámka: Po reštartovaní sa táto aplikácia spustí až vtedy, keď odomknete vozidlo."</string>
     <string name="assist_and_voice_input_settings" msgid="8813195157136637132">"Pomoc a hlasový vstup"</string>
     <string name="assist_app_settings" msgid="9085261410166776497">"Asistenčná aplikácia"</string>
@@ -393,12 +395,35 @@
     <string name="wifi_control_description" msgid="6021926850423169261">"Ovládanie Wi‑Fi umožňuje aplikácii zapnúť alebo vypnúť pripojenie Wi‑Fi, vyhľadávať siete Wi‑Fi a pripájať sa k nim, pridávať ich alebo odstraňovať, prípadne spustiť výhradne miestny hotspot."</string>
     <string name="more_special_access_title" msgid="166115485446645971">"Viac"</string>
     <string name="location_settings_title" msgid="901334356682423679">"Poloha"</string>
+    <string name="location_toggle_title" msgid="836779750812064601">"Použiť polohu"</string>
+    <string name="location_toggle_summary" msgid="7977868708102299495">"Povoľte vybr. aplikác. prístup k polohe"</string>
+    <string name="location_toggle_off_warning" msgid="8396854289251143748">"Ak túto funkciu vypnete, odstráni prístup k polohe všetkým aplikáciám. Aplikáciám asistencie pre vodiča sa prístup zachová."</string>
+    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"Používať polohu pre asistenc. pre vodiča"</string>
+    <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"Poloha vozidla je vypnutá"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"Asistenčné aplikácie pre vodiča nemajú prístup k polohe"</string>
+    <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"Zmeniť"</string>
+    <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"Povoľte prístup k polohe aplikáciám, ktoré pomáhajú pri šoférovaní"</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"Ak túto možnosť vypnete, aplikácie asistencie pre vodiča, ktoré fungujú na základe údajov o polohe, sa deaktivujú."</string>
+    <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"Aj tak vypnúť"</string>
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Nedávne žiadosti o polohu"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Žiadne nedávne žiadosti o polohu"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Povolenia na úrovni aplikácie"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Služby určovania polohy"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"Používať polohu"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"Nastavenie Poloha pomáha odhadnúť polohu vášho zariadenia pomocou zdrojov, ako sú GPS, Wi-Fi, mobilné siete a senzory."</string>
+    <string name="driver_assistance_settings_title" msgid="4915804073177128915">"Asistencia pre vodiča"</string>
+    <string name="adas_settings_footer" msgid="5128483877858058534">"Informácie o polohe odoslané asistenčným aplikáciám pre vodiča neobsahujú údaje, ktoré umožňujú zistenie vašej totožnosti. Sú uchovávané maximálne dva dni a potom odstránené."</string>
+    <string name="microphone_settings_title" msgid="7125554350537136922">"Mikrofón"</string>
+    <string name="microphone_toggle_title" msgid="911586035332827275">"Použiť mikrofón"</string>
+    <string name="microphone_toggle_summary" msgid="2682653449849128626">"Povoliť všetkým aplikáciám prístup k mikrofónu"</string>
+    <string name="microphone_manage_permissions" msgid="7280905792151988183">"Spravovať povolenia mikrofónu"</string>
+    <string name="microphone_recently_accessed" msgid="2084292372486026607">"Nedávno použité"</string>
+    <string name="microphone_no_recent_access" msgid="6412908936060990649">"Žiadne nedávne aplikácie"</string>
+    <string name="microphone_app_permission_summary_microphone_off" msgid="6139321726246115550">"Prístup nemajú žiadne aplikácie"</string>
+    <string name="microphone_app_permission_summary_microphone_on" msgid="7870834777359783838">"{count,plural, =1{Prístup má # z {total_count} aplikácií}few{Prístup majú # z {total_count} aplikácií}many{# of {total_count} apps have access}other{Prístup má # z {total_count} aplikácií}}"</string>
+    <string name="microphone_settings_recent_requests_title" msgid="8154796551134761329">"Nedávno použité"</string>
+    <string name="microphone_settings_recent_requests_view_all_title" msgid="4339820818072842872">"Zobraziť všetko"</string>
+    <string name="microphone_settings_loading_app_permission_stats" msgid="4357161201098081615">"Načítava sa…"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Systém"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Aktualizácie systému"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"Rozšírené"</string>
@@ -437,12 +462,7 @@
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Licencie tretích strán"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Pri načítavaní licencií sa vyskytla chyba."</string>
     <string name="settings_license_activity_loading" msgid="6163263123009681841">"Načítava sa…"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="2968627665608969405">
-      <item quantity="few">Ešte <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> kroky a bude z vás vývojár.</item>
-      <item quantity="many">You are now <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> steps away from being a developer.</item>
-      <item quantity="other">Ešte <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> krokov a bude z vás vývojár.</item>
-      <item quantity="one">Ešte <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> krok a bude z vás vývojár.</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="7416958516942072383">"{count,plural, =1{Ešte # krok a bude z vás vývojár.}few{Ešte # kroky a bude z vás vývojár.}many{Ešte # kroku a bude z vás vývojár.}other{Ešte # krokov a bude z vás vývojár.}}"</string>
     <string name="show_dev_on" msgid="5339077400040834808">"Teraz ste vývojár!"</string>
     <string name="show_dev_already" msgid="1678087328973865736">"Nie je to potrebné, už ste vývojár."</string>
     <string name="developer_options_settings" msgid="1530739225109118480">"Pre vývojárov"</string>
@@ -511,16 +531,11 @@
     <string name="user_add_user_message_setup" msgid="812616230454605159">"Po vytvorení by si mala príslušná osoba nový profil prispôsobiť podľa seba."</string>
     <string name="user_add_user_message_update" msgid="3836353291078729240">"Aplikácie môžu byť aktualizované z ľubovoľného profilu a potom používané všetkými ostatnými."</string>
     <string name="user_limit_reached_title" msgid="5677729355746623293">"Dosiahnutý maximálny počet profilov"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
-      <item quantity="few">Môžete vytvoriť až <xliff:g id="COUNT">%d</xliff:g> profily.</item>
-      <item quantity="many">You can create up to <xliff:g id="COUNT">%d</xliff:g> profiles.</item>
-      <item quantity="other">Môžete vytvoriť až <xliff:g id="COUNT">%d</xliff:g> profilov.</item>
-      <item quantity="one">Dá sa vytvoriť iba jeden profil.</item>
-    </plurals>
+    <string name="user_limit_reached_message" msgid="2773441357248819721">"{count,plural, =1{Vytvoriť sa dá iba jeden profil.}few{Môžete vytvoriť až # profily.}many{You can create up to # profiles.}other{Môžete vytvoriť až # profilov.}}"</string>
     <string name="add_user_error_title" msgid="7589792057846396341">"Nový profil sa nepodarilo vytvoriť"</string>
     <string name="delete_user_dialog_title" msgid="575517556232943687">"Chcete odstrániť tento profil?"</string>
     <string name="delete_user_dialog_message" msgid="3916865958419051299">"Všetky aplikácie a údaje v tomto profile budú odstránené"</string>
-    <string name="delete_user_error_title" msgid="6422249596301690254">"Profil sa nepodarilo odstrániť."</string>
+    <string name="delete_user_error_title" msgid="287249031795906102">"Profil nebol odstránený. Reštartujte zariadenie a skúste to znova."</string>
     <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"Keď prepnete profily alebo reštartujete vozidlo, tento profil bude odstránený."</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"Zavrieť"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"Skúsiť znova"</string>
@@ -633,6 +648,7 @@
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"Ako kresliť bezpečnostný vzor obrazovky"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"Pri ukladaní vzoru sa vyskytla chyba"</string>
     <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"Príliš veľa chybných pokusov. Skúste to znova o <xliff:g id="NUMBER">%d</xliff:g> s."</string>
+    <string name="lockpattern_does_not_support_rotary" msgid="7356367113555659428">"Vzor nepodporuje otočné ovládanie, zadajte ho klepnutím"</string>
     <string name="okay" msgid="4589873324439764349">"OK"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"Odstrániť zámku obrazovky?"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"Ktokoľvek bude mať prístup do vášho účtu"</string>
@@ -664,42 +680,6 @@
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Bežné kódy PIN zablokoval váš správca IT. Skúste iný PIN."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"Musí obsahovať iba platné znaky."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"Heslo nie je platné, musí obsahovať najmenej 4 znaky."</string>
-    <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
-      <item quantity="few">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> písmená</item>
-      <item quantity="many">Must contain at least <xliff:g id="COUNT">%d</xliff:g> letters</item>
-      <item quantity="other">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> písmen</item>
-      <item quantity="one">Musí obsahovať aspoň 1 písmeno</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_lowercase" formatted="false" msgid="2267487180744744833">
-      <item quantity="few">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> malé písmená</item>
-      <item quantity="many">Must contain at least <xliff:g id="COUNT">%d</xliff:g> lowercase letters</item>
-      <item quantity="other">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> malých písmen</item>
-      <item quantity="one">Musí obsahovať aspoň 1 malé písmeno</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_uppercase" formatted="false" msgid="7999264563026517898">
-      <item quantity="few">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> veľké písmená</item>
-      <item quantity="many">Must contain at least <xliff:g id="COUNT">%d</xliff:g> uppercase letters</item>
-      <item quantity="other">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> veľkých písmen</item>
-      <item quantity="one">Musí obsahovať aspoň 1 veľké písmeno</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_numeric" formatted="false" msgid="7935079851855168646">
-      <item quantity="few">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> čísla</item>
-      <item quantity="many">Must contain at least <xliff:g id="COUNT">%d</xliff:g> numerical digits</item>
-      <item quantity="other">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> čísel</item>
-      <item quantity="one">Musí obsahovať aspoň 1 číslo</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_symbols" formatted="false" msgid="3994046435150094132">
-      <item quantity="few">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> špeciálne symboly</item>
-      <item quantity="many">Must contain at least <xliff:g id="COUNT">%d</xliff:g> special symbols</item>
-      <item quantity="other">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> špeciálnych symbolov</item>
-      <item quantity="one">Musí obsahovať aspoň 1 špeciálny symbol</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="6878486326748506524">
-      <item quantity="few">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> znaky, ktoré nie sú písmená</item>
-      <item quantity="many">Must contain at least <xliff:g id="COUNT">%d</xliff:g> non-letter characters</item>
-      <item quantity="other">Musí obsahovať aspoň <xliff:g id="COUNT">%d</xliff:g> znakov, ktoré nie sú písmená</item>
-      <item quantity="one">Musí obsahovať aspoň 1 znak, ktorý nie je písmeno</item>
-    </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Správca zariadenia neumožňuje používať nedávne heslo"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Pri ukladaní hesla sa vyskytla chyba"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Bežné heslá zablokoval správca IT. Skúste iné heslo."</string>
@@ -742,5 +722,66 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"Pridať profil"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"Odstrániť tento profil"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"Pridanie profilu"</string>
+    <string name="qc_display_brightness" msgid="2939655289816201170">"Jas displeja"</string>
+    <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"Ak chcete vidieť svoje zariadenia, zapnite Bluetooth"</string>
+    <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"Ak chcete spárovať zariadenie, otvorte nastavenia Bluetooth"</string>
+    <string name="device_admin_add_title" msgid="1294399588284546811">"správca palubného systému"</string>
+    <string name="device_admin_activated_apps" msgid="568075063362271751">"Aktivované aplikácie"</string>
+    <string name="device_admin_deactivated_apps" msgid="3797263682500122872">"Deaktivované aplikácie"</string>
+    <string name="device_admin_apps_description" msgid="1371935499168453457">"Aplikácie s týmto povolením majú prístup k údajom tohto vozidla"</string>
+    <string name="device_admin_apps_list_empty" msgid="7634804595645191123">"Žiadne aplikácie na správu vozidla"</string>
+    <string name="device_admin_status" msgid="4041772636856135168">"Táto aplikácia správcu palubného systému je aktívna a umožňuje aplikácii <xliff:g id="APP_NAME">%1$s</xliff:g> vykonávať nasledujúce operácie:"</string>
+    <string name="device_admin_warning" msgid="8997805999333600901">"Aktiváciou tejto aplikácie palubného systému umožníte aplikácii <xliff:g id="APP_NAME">%1$s</xliff:g> vykonávať nasledujúce operácie:"</string>
+    <string name="add_device_admin_msg" msgid="8188888666879499482">"Aktivovať túto aplik. palubného systému?"</string>
+    <string name="add_device_admin" msgid="7674707256074840333">"Aktivovať túto aplikáciu palubného systému"</string>
+    <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Deaktivovať a odinštalovať"</string>
+    <string name="remove_device_admin" msgid="3595343390502030723">"Deaktivovať túto aplikáciu palubného systému"</string>
+    <string name="admin_support_more_info" msgid="380785608579390750">"Ďalšie podrobnosti"</string>
+    <string name="admin_profile_owner_message" msgid="8361351256802954556">"Správca organizácie môže sledovať a spravovať aplikácie a údaje spojené s týmto profilom vrátane nastavení, povolení, podnikového prístupu, aktivity v sieti a informácií o polohe vozidla."</string>
+    <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Správca organizácie môže sledovať a spravovať aplikácie a údaje spojené s týmto profilom vrátane nastavení, povolení, podnikového prístupu, aktivity v sieti a informácií o polohe zariadenia."</string>
+    <string name="admin_device_owner_message" msgid="896530502350904835">"Správca organizácie môže sledovať a spravovať aplikácie a údaje spojené s týmto palubným systémom vrátane nastavení, povolení, podnikového prístupu, aktivity v sieti a informácií o polohe vozidla."</string>
+    <string name="admin_financed_message" msgid="7357397436233684082">"Správca organizácie môže získať prístup k údajom spojeným s týmto palubným systémom, spravovať aplikácie a zmeniť nastavenia tohto vozidla."</string>
+    <string name="disabled_by_policy_title" msgid="1121694702115232518">"Nie je k dispozícii"</string>
+    <string name="disabled_by_policy_title_adjust_volume" msgid="7002865820552702232">"V tomto spravovanom vozidle nemôžete meniť hlasitosť"</string>
+    <string name="disabled_by_policy_title_outgoing_calls" msgid="158752542663419500">"V tomto spravovanom vozidle nemôžete volať"</string>
+    <string name="disabled_by_policy_title_sms" msgid="3044491214572494290">"V tomto spravovanom vozidle nie sú povolené SMS"</string>
+    <string name="disabled_by_policy_title_camera" msgid="8929782627587059121">"V tomto spravovanom vozidle nie je k dispozícii kamera"</string>
+    <string name="disabled_by_policy_title_screen_capture" msgid="4059715943558852466">"V tomto spravovanom vozidle nemôžete vytvárať snímky obrazovky"</string>
+    <string name="disabled_by_policy_title_suspend_packages" msgid="7505332012990359725">"V tomto spravovanom vozidle sa táto aplikácia nedá otvoriť"</string>
+    <string name="disabled_by_policy_title_financed_device" msgid="6005343494788285981">"Blokované vaším poskytovateľom úveru"</string>
+    <string name="default_admin_support_msg" msgid="2986598061733013282">"Prístup k niektorým funkciám obmedzila organizácia.\n\nAk máte otázky, kontaktujte správcu organizácie."</string>
+    <string name="help_url_action_disabled_by_it_admin" msgid="1479392394986580260"></string>
+    <string name="manage_device_admin" msgid="7087659697154317316">"Aplikácie správcu vozidiel"</string>
+    <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# aktivovaná aplikácia}few{# aktivované aplikácie}many{# activated apps}other{# aktivovaných aplikácií}}"</string>
+    <string name="number_of_device_admins_none" msgid="5547493703413973954">"Žiadne aktivované aplikácie"</string>
+    <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Pravidlá pre vozidlá organizácie <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
+    <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Nastavenia ovláda správca organizácie"</string>
+    <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Ďalšie informácie o službe <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Chcete zdieľať hlásenie chyby?"</string>
+    <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Správca organizácie tohto vozidla požiadal o hlásenie chyby, ktoré pomôže riešiť problém s týmto vozidlom. Aplikácie a údaje môžu byť zdieľané."</string>
+    <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Správca organizácie tohto vozidla požiadal o hlásenie chyby, ktoré pomôže riešiť problém s týmto vozidlom. Aplikácie a údaje môžu byť zdieľané. Môže to dočasne spomaliť vaše zariadenie."</string>
+    <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Toto hlásenie chyby je zdieľané so správcom organizácie tohto vozidla. Ak potrebujete ďalšie podrobnosti, kontaktujte ho."</string>
+    <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Zdieľanie"</string>
+    <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Odmietnuť"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Toto nastavenie teraz nie je možné zmeniť."</string>
+    <string name="accessibility_settings_title" msgid="2615042088419230347">"Dostupnosť"</string>
+    <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Titulky"</string>
+    <string name="captions_settings_title" msgid="5738067618097295831">"Predvoľby titulkov"</string>
+    <string name="captions_settings_off" msgid="7568096968016015626">"Vypnuté"</string>
+    <string name="captions_settings_on" msgid="5374984113566914978">"Zapnuté"</string>
+    <string name="screen_reader_settings_title" msgid="4012734340987826872">"Čítačka obrazovky"</string>
+    <string name="show_captions_toggle_title" msgid="710582308974826311">"Zobrazovať titulky"</string>
+    <string name="captions_text_size_title" msgid="1960814652560877963">"Veľkosť textu"</string>
+    <string name="captions_settings_style_header" msgid="944591388386054372">"Veľkosť a štýl titulkov"</string>
+    <string name="captions_settings_text_size_very_small" msgid="7476485317028306502">"Veľmi malé"</string>
+    <string name="captions_settings_text_size_small" msgid="1481895299805450566">"Malé"</string>
+    <string name="captions_settings_text_size_default" msgid="2227802573224038267">"Predvolené"</string>
+    <string name="captions_settings_text_size_large" msgid="5198207220911360512">"Veľké"</string>
+    <string name="captions_settings_text_size_very_large" msgid="949511539689307969">"Veľmi veľké"</string>
+    <string name="captions_text_style_title" msgid="8547777957403577760">"Štýl titulkov"</string>
+    <string name="captions_settings_text_style_by_app" msgid="7014882290456996444">"Nastavené aplikáciou"</string>
+    <string name="captions_settings_text_style_white_on_black" msgid="5758084000323596070">"Biele na čiernom"</string>
+    <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Čierne na bielom"</string>
+    <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Žlté na čiernom"</string>
+    <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Žlté na modrom"</string>
 </resources>

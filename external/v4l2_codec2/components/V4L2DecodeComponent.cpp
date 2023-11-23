@@ -35,6 +35,28 @@
 namespace android {
 namespace {
 
+// CCBC pauses sending input buffers to the component when all the output slots are filled by
+// pending decoded buffers. If the available output buffers are exhausted before CCBC pauses sending
+// input buffers, CCodec may timeout due to waiting for a available output buffer.
+// This function returns the minimum number of output buffers to prevent the buffers from being
+// exhausted before CCBC pauses sending input buffers.
+size_t getMinNumOutputBuffers(VideoCodec codec) {
+    // The constant values copied from CCodecBufferChannel.cpp.
+    // (b/184020290): Check the value still sync when seeing error message from CCodec:
+    // "previous call to queue exceeded timeout".
+    constexpr size_t kSmoothnessFactor = 4;
+    constexpr size_t kRenderingDepth = 3;
+    // Extra number of needed output buffers for V4L2Decoder.
+    constexpr size_t kExtraNumOutputBuffersForDecoder = 2;
+
+    // The total needed number of output buffers at pipeline are:
+    // - MediaCodec output slots: output delay + kSmoothnessFactor
+    // - Surface: kRenderingDepth
+    // - Component: kExtraNumOutputBuffersForDecoder
+    return V4L2DecodeInterface::getOutputDelay(codec) + kSmoothnessFactor + kRenderingDepth +
+           kExtraNumOutputBuffersForDecoder;
+}
+
 // Mask against 30 bits to avoid (undefined) wraparound on signed integer.
 int32_t frameIndexToBitstreamId(c2_cntr64_t frameIndex) {
     return static_cast<int32_t>(frameIndex.peeku() & 0x3FFFFFFF);
@@ -124,7 +146,7 @@ std::shared_ptr<C2Component> V4L2DecodeComponent::create(
         const std::string& name, c2_node_id_t id, const std::shared_ptr<C2ReflectorHelper>& helper,
         C2ComponentFactory::ComponentDeleter deleter) {
     static const int32_t kMaxConcurrentInstances =
-            property_get_int32("debug.v4l2_codec2.decode.concurrent-instances", -1);
+            property_get_int32("ro.vendor.v4l2_codec2.decode_concurrent_instances", -1);
     static std::mutex mutex;
 
     std::lock_guard<std::mutex> lock(mutex);
@@ -180,7 +202,6 @@ c2_status_t V4L2DecodeComponent::start() {
     }
     mDecoderTaskRunner = mDecoderThread.task_runner();
     mWeakThis = mWeakThisFactory.GetWeakPtr();
-    mStdWeakThis = weak_from_this();
 
     c2_status_t status = C2_CORRUPTED;
     ::base::WaitableEvent done;
@@ -207,9 +228,11 @@ void V4L2DecodeComponent::startTask(c2_status_t* status, ::base::WaitableEvent* 
         return;
     }
     const size_t inputBufferSize = mIntfImpl->getInputBufferSize();
+    const size_t minNumOutputBuffers = getMinNumOutputBuffers(*codec);
+
     // ::base::Unretained(this) is safe here because |mDecoder| is always destroyed before
     // |mDecoderThread| is stopped, so |*this| is always valid during |mDecoder|'s lifetime.
-    mDecoder = V4L2Decoder::Create(*codec, inputBufferSize,
+    mDecoder = V4L2Decoder::Create(*codec, inputBufferSize, minNumOutputBuffers,
                                    ::base::BindRepeating(&V4L2DecodeComponent::getVideoFramePool,
                                                          ::base::Unretained(this)),
                                    ::base::BindRepeating(&V4L2DecodeComponent::onOutputFrameReady,
@@ -237,7 +260,7 @@ std::unique_ptr<VideoFramePool> V4L2DecodeComponent::getVideoFramePool(const ui:
     ALOGV("%s()", __func__);
     ALOG_ASSERT(mDecoderTaskRunner->RunsTasksInCurrentSequence());
 
-    auto sharedThis = mStdWeakThis.lock();
+    auto sharedThis = weak_from_this().lock();
     if (sharedThis == nullptr) {
         ALOGE("%s(): V4L2DecodeComponent instance is destroyed.", __func__);
         return nullptr;
@@ -324,7 +347,6 @@ void V4L2DecodeComponent::releaseTask() {
     ALOG_ASSERT(mDecoderTaskRunner->RunsTasksInCurrentSequence());
 
     mWeakThisFactory.InvalidateWeakPtrs();
-    mStdWeakThis.reset();
     mDecoder = nullptr;
 }
 
@@ -470,9 +492,8 @@ void V4L2DecodeComponent::pumpPendingWorks() {
                 }
             }
 
-            std::unique_ptr<BitstreamBuffer> buffer =
-                    std::make_unique<BitstreamBuffer>(bitstreamId, linearBlock.handle()->data[0],
-                                                      linearBlock.offset(), linearBlock.size());
+            std::unique_ptr<ConstBitstreamBuffer> buffer = std::make_unique<ConstBitstreamBuffer>(
+                    bitstreamId, linearBlock, linearBlock.offset(), linearBlock.size());
             if (!buffer) {
                 reportError(C2_CORRUPTED);
                 return;
@@ -675,12 +696,6 @@ bool V4L2DecodeComponent::reportWork(std::unique_ptr<C2Work> work) {
     ALOGV("%s(work=%llu)", __func__, work->input.ordinal.frameIndex.peekull());
     ALOG_ASSERT(mDecoderTaskRunner->RunsTasksInCurrentSequence());
 
-    auto sharedThis = mStdWeakThis.lock();
-    if (sharedThis == nullptr) {
-        ALOGE("%s(): V4L2DecodeComponent instance is destroyed.", __func__);
-        return false;
-    }
-
     if (!mListener) {
         ALOGE("mListener is nullptr, setListener_vb() not called?");
         return false;
@@ -688,7 +703,7 @@ bool V4L2DecodeComponent::reportWork(std::unique_ptr<C2Work> work) {
 
     std::list<std::unique_ptr<C2Work>> finishedWorks;
     finishedWorks.emplace_back(std::move(work));
-    mListener->onWorkDone_nb(std::move(sharedThis), std::move(finishedWorks));
+    mListener->onWorkDone_nb(weak_from_this(), std::move(finishedWorks));
     return true;
 }
 
@@ -725,12 +740,6 @@ void V4L2DecodeComponent::reportAbandonedWorks() {
     ALOGV("%s()", __func__);
     ALOG_ASSERT(mDecoderTaskRunner->RunsTasksInCurrentSequence());
 
-    auto sharedThis = mStdWeakThis.lock();
-    if (sharedThis == nullptr) {
-        ALOGE("%s(): V4L2DecodeComponent instance is destroyed.", __func__);
-        return;
-    }
-
     std::list<std::unique_ptr<C2Work>> abandonedWorks;
     while (!mPendingWorks.empty()) {
         abandonedWorks.emplace_back(std::move(mPendingWorks.front()));
@@ -754,7 +763,7 @@ void V4L2DecodeComponent::reportAbandonedWorks() {
             ALOGE("mListener is nullptr, setListener_vb() not called?");
             return;
         }
-        mListener->onWorkDone_nb(std::move(sharedThis), std::move(abandonedWorks));
+        mListener->onWorkDone_nb(weak_from_this(), std::move(abandonedWorks));
     }
 }
 
@@ -828,12 +837,6 @@ void V4L2DecodeComponent::reportError(c2_status_t error) {
     ALOGE("%s(error=%u)", __func__, static_cast<uint32_t>(error));
     ALOG_ASSERT(mDecoderTaskRunner->RunsTasksInCurrentSequence());
 
-    auto sharedThis = mStdWeakThis.lock();
-    if (sharedThis == nullptr) {
-        ALOGE("%s(): V4L2DecodeComponent instance is destroyed.", __func__);
-        return;
-    }
-
     if (mComponentState.load() == ComponentState::ERROR) return;
     mComponentState.store(ComponentState::ERROR);
 
@@ -841,7 +844,7 @@ void V4L2DecodeComponent::reportError(c2_status_t error) {
         ALOGE("mListener is nullptr, setListener_vb() not called?");
         return;
     }
-    mListener->onError_nb(std::move(sharedThis), static_cast<uint32_t>(error));
+    mListener->onError_nb(weak_from_this(), static_cast<uint32_t>(error));
 }
 
 c2_status_t V4L2DecodeComponent::announce_nb(const std::vector<C2WorkOutline>& /* items */) {

@@ -36,7 +36,7 @@
     <string name="header_category_general_settings" msgid="3897615781153506434">"સામાન્ય સેટિંગ"</string>
     <string name="dismiss_suggestion" msgid="6200814545590126814">"સૂચન છોડી દો"</string>
     <string name="hotwording_title" msgid="2606899304616599026">"\"ઓકે Google\" શોધ"</string>
-    <string name="hotwording_summary" msgid="2170375928302175449">"Google આસિસ્ટંટ સાથે ગમે ત્યારે વાત કરો"</string>
+    <string name="hotwording_summary" msgid="2170375928302175449">"Google Assistant સાથે ગમે ત્યારે વાત કરો"</string>
     <string name="header_category_device" msgid="3023893663454705969">"ઉપકરણ"</string>
     <string name="header_category_preferences" msgid="3738388885555798797">"પસંદગીઓ"</string>
     <string name="header_category_accessories" msgid="6479803330480847199">"રિમોટ અને ઍક્સેસરી"</string>
@@ -321,8 +321,8 @@
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
     <string name="learn_more" msgid="820336467414665686">"વધુ જાણો"</string>
     <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
-      <item quantity="one">કૅમેરા ઍપ</item>
-      <item quantity="other">કૅમેરા ઍપ</item>
+      <item quantity="one">Camera ઍપ</item>
+      <item quantity="other">Camera ઍપ</item>
     </plurals>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"કૅલેન્ડર ઍપ્લિકેશન"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"સંપર્ક ઍપ્લિકેશન"</string>
@@ -650,8 +650,8 @@
     <string name="third_party_location_services_title" msgid="2826218400381676508">"3જા પક્ષની સ્થાન સેવાઓ"</string>
     <string name="location_reporting" msgid="3552501333650895634">"સ્થાનની જાણ કરવી"</string>
     <string name="location_history" msgid="4055660203090513120">"સ્થાન ઇતિહાસ"</string>
-    <string name="location_reporting_desc" msgid="1580018652781674608">"Google, આ સુવિધાનો ઉપયોગ Google Now અને Google નકશા જેવા ઉત્પાદનોમાં કરે છે. સ્થાનની જાણ કરવીને ચાલુ કરવું, કોઈપણ Google ઉત્પાદન કે જે આ સુવિધાનો ઉપયોગ કરે છે તેને તમારા Google એકાઉન્ટના જોડાણમાં તમારા ઉપકરણના સૌથી તાજેતરના સ્થાન ડેટાને સ્ટોર કરવા અને ઉપયોગમાં લેવા દે છે."</string>
-    <string name="location_history_desc" msgid="926674012916014270">"જ્યારે આ એકાઉન્ટ માટે સ્થાન ઇતિહાસ ચાલુ કરેલ હોય, ત્યારે Google, તમારી ઍપ્લિકેશનો દ્વારા ઉપયોગ માટે તમારા ઉપકરણના સ્થાન ડેટાને સ્ટોર કરી શકે છે.\n\nઉદાહરણ તરીકે, Google નકશા તમને દિશા નિર્દેશો આપી શકે છે અને Google Now તમને સફરમાં રહેલ ટ્રાફિક વિશે માહિતગાત કરી શકે છે.\n\nતમે કોઈપણ સમયે સ્થાન ઇતિહાસને બંધ કરી શકો છો, પરંતુ આવું કરવું તેને કાઢી નાખશે નહીં. તમારા સ્થાન ઇતિહાસને જોવા અને સંચાલિત કરવા માટે, maps.google.com/locationhistory ની મુલાકાત લો."</string>
+    <string name="location_reporting_desc" msgid="1580018652781674608">"Google, આ સુવિધાનો ઉપયોગ Google Now અને Google Maps જેવી પ્રોડક્ટમાં કરે છે. સ્થાનની જાણ કરવાનું ચાલુ કરવાથી, કોઈપણ Google પ્રોડક્ટ કે જે આ સુવિધાનો ઉપયોગ કરે છે તેને તમારા Google એકાઉન્ટના જોડાણમાં તમારા ડિવાઇસના સૌથી તાજેતરના સ્થાન ડેટાને સ્ટોર કરવા અને ઉપયોગમાં લેવા દે છે."</string>
+    <string name="location_history_desc" msgid="926674012916014270">"જ્યારે આ એકાઉન્ટ માટે સ્થાન ઇતિહાસ ચાલુ કરેલ હોય, ત્યારે Google, તમારી ઍપ્લિકેશનો દ્વારા ઉપયોગ માટે તમારા ડિવાઇસના સ્થાન ડેટાને સ્ટોર કરી શકે છે.\n\nઉદાહરણ તરીકે, Google Maps તમને દિશાનિર્દેશો આપી શકે છે અને Google Now તમને સફરમાં રહેલ ટ્રાફિક વિશે માહિતગાત કરી શકે છે.\n\nતમે કોઈપણ સમયે સ્થાન ઇતિહાસને બંધ કરી શકો છો, પરંતુ આવું કરવું તેને કાઢી નાખશે નહીં. તમારા સ્થાન ઇતિહાસને જોવા અને મેનેજ કરવા માટે, maps.google.com/locationhistoryની મુલાકાત લો."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"સ્થાન ઇતિહાસ કાઢી નાખો"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"આ, આ Google એકાઉન્ટ માટે આ ઉપકરણમાંથી સ્ટોર કરેલ તમામ સ્થાન ઇતિહાસને કાઢી નાખશે. તમે આ કાઢી નાખવાની ક્રિયાને પૂર્વવત્ કરી શકતાં નથી. Google Now સહિત કેટલીક ઍપ્લિકેશનો કામ કરવાનું બંધ કરી દેશે."</string>
     <string name="system_services" msgid="5754310941186053151">"સેવાઓ"</string>
@@ -661,7 +661,7 @@
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"ઍક્સેસિબિલિટી શૉર્ટકટ સક્ષમ કરો"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"શૉર્ટકટ સેવા"</string>
     <string name="accessibility_shortcut_description" msgid="2050424178481510046">"જ્યારે શૉર્ટકટ ચાલુ હોય, ત્યારે ઍક્સેસિબિલિટી સુવિધા શરૂ કરવા પાછળ અને નીચેના બન્ને બટનને 3 સેકન્ડ સુધી દબાવી રાખી શકો છો."</string>
-    <string name="accessibility_captions" msgid="3411554568812306549">"ઉપશીર્ષકો"</string>
+    <string name="accessibility_captions" msgid="3411554568812306549">"કૅપ્શન"</string>
     <string name="accessibility_captions_description" msgid="3827820027578548160">"વીડિયો પર ઉપશીર્ષક ટેક્સ્ટ ઓવરલે માટે સેટિંગ"</string>
     <string name="captions_display" msgid="2598662495450633375">"પ્રદર્શન"</string>
     <string name="captions_display_on" msgid="480438033345455728">"ચાલુ"</string>
@@ -765,7 +765,7 @@
     <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"જ્યારે મુખ્ય થ્રેડ પર ઍપ્લિકેશનો લાંબી કામગીરીઓ કરે ત્યારે સ્ક્રીનને ફ્લેશ કરો"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="1594070211030991">"adb shell dumpsys gfxinfo માં રીડિંગ સમય માપો"</string>
     <string name="security_unknown_sources_title" msgid="2012801664240314305">"અજાણ્યા સ્રોતો"</string>
-    <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Play સ્ટોર સિવાયનાં અન્ય સ્રોતોથી ઍપ્લિકેશનોનાં ઇન્સ્ટૉલેશનની મંજૂરી આપો"</string>
+    <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Play Store સિવાયનાં અન્ય સ્રોતોથી ઍપ્લિકેશનોનાં ઇન્સ્ટૉલેશનની મંજૂરી આપો"</string>
     <string name="security_unknown_sources_confirm_title" msgid="4600896691987804985">"અજાણ્યા સ્રોતોને મંજૂરી આપો"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7883820068140189584">"તમારું ડિવાઇસ અને વ્યક્તિગત ડેટા અજાણ્યા સ્રોતોની ઍપ દ્વારા હુમલા માટે વધુ સંવેદનશીલ છે. તમે સંમત થાઓ છો કે આ ઍપનાં ઉપયોગ કરવાથી તમારા ડિવાઇસને થતી કોઈપણ ક્ષતિ કે ડેટાના નુકસાન માટે એકમાત્ર તમે જ જવાબદાર છો."</string>
     <string name="system_hdcp_checking_never" msgid="3251512398865365135">"ક્યારેય નહીં"</string>

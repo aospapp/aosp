@@ -1,0 +1,5 @@
+# EdgeTPU binder service type declaration.
+type edgetpu_app_service, service_manager_type;
+
+type edgetpu_vendor_service, service_manager_type, vendor_service;
+type edgetpu_nnapi_service, app_api_service, service_manager_type, vendor_service;

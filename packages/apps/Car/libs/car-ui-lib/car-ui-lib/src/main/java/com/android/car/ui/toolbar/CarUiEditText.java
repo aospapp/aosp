@@ -16,6 +16,10 @@
 
 package com.android.car.ui.toolbar;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.os.Bundle;
 import android.util.AttributeSet;
@@ -29,7 +33,9 @@ import java.util.function.BiConsumer;
  * Edit text supporting the callbacks from the IMS. This will be useful in widescreen IME mode to
  * allow car-ui-lib to receive responses (like onClick events) from the IMS
  */
+@SuppressLint("AppCompatCustomView")
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(MIN_TARGET_API)
 class CarUiEditText extends EditText {
 
     @Nullable

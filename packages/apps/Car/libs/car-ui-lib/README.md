@@ -35,11 +35,11 @@ To launch paintbooth, start a car emulator or connect a device, make sure the Pa
 
 If it launches a LeakCanary activity instead of PaintBooth, either exit LeakCanary and launch PaintBooth as normal through the car's launcher, or click on the PaintBooth module > Edit configurations > Change "Launch: Default Activity" to "Specified Activity", and enter `com.android.car.ui.paintbooth.MainActivity`.
 
-### Building and running the shared library
+### Building and running the CarUi Plugin
 
-Setting up the shared library is mostly the same as setting up paintbooth. However, when you attempt to install the shared library, Android Studio will complain it can't launch any activity (despite the installation succeeding), and your changes won't properly show up. To fix these issues, edit the shared library configuration, change the "Launch:" option to launch nothing, and check the "Always install with package manager (disables deployment optimizations on Android 11 and higher)" button. This checkbox shouldn't be required after b/188220380 is fixed.
+Setting up the plugin is mostly the same as setting up paintbooth. However, when you attempt to install the plugin, Android Studio will complain it can't launch any activity (despite the installation succeeding), and your changes won't properly show up. To fix these issues, edit the plugin configuration, change the "Launch:" option to launch nothing, and check the "Always install with package manager (disables deployment optimizations on Android 11 and higher)" button. This checkbox shouldn't be required after b/188220380 is fixed.
 
-![Shared library setup](documentation/images/shared_library_setup.png)
+![Plugin setup](documentation/images/plugin_setup.png)
 
 ### Running tests
 

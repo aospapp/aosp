@@ -85,7 +85,8 @@ public class UnreadMissedCallLiveData extends AsyncQueryLiveData<List<PhoneCallL
                 existingCallLog = missedCalls.get(index);
             }
 
-            if (existingCallLog == null || !existingCallLog.merge(phoneCallLog)) {
+            if (existingCallLog == null
+                    || !existingCallLog.merge(phoneCallLog, /*checkTimeRange=*/false)) {
                 missedCalls.add(phoneCallLog);
             }
         }

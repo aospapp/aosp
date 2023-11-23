@@ -23,26 +23,24 @@ import static com.android.car.settings.common.PreferenceController.AVAILABLE;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.apphibernation.AppHibernationManager;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
 import android.provider.DeviceConfig;
 
 import androidx.preference.Preference;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
+import com.android.car.ui.preference.CarUiPreference;
+import com.android.settingslib.utils.StringUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -77,6 +75,7 @@ public class HibernatedAppsPreferenceControllerTest {
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
         when(mContext.getSystemService(AppHibernationManager.class))
                 .thenReturn(mAppHibernationManager);
+        mPreference = new CarUiPreference(mContext);
         mController = new HibernatedAppsPreferenceController(mContext, KEY, mFragmentController,
                 mCarUxRestrictions);
     }
@@ -100,13 +99,12 @@ public class HibernatedAppsPreferenceControllerTest {
     @Test
     public void onHibernatedAppsCountCallback_setsSummary() {
         assignPreference();
-        when(mContext.getResources()).thenReturn(mock(Resources.class));
         int totalHibernated = 2;
 
         mController.onHibernatedAppsCountLoaded(totalHibernated);
 
-        verify(mContext.getResources()).getQuantityString(
-                anyInt(), eq(totalHibernated), eq(totalHibernated));
+        assertThat(mPreference.getSummary()).isEqualTo(StringUtil.getIcuPluralsString(mContext,
+                totalHibernated, R.string.unused_apps_summary));
     }
 
     private void assignPreference() {

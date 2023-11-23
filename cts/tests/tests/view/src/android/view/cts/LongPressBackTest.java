@@ -64,7 +64,7 @@ public class LongPressBackTest {
                 .getUiAutomation();
 
         // Inject key down event for back
-        long currentTime = System.currentTimeMillis();
+        long currentTime = SystemClock.uptimeMillis();
         automation.injectInputEvent(new KeyEvent(currentTime, currentTime, KeyEvent.ACTION_DOWN,
                 KeyEvent.KEYCODE_BACK, 0), true);
 
@@ -79,7 +79,7 @@ public class LongPressBackTest {
         assertTrue(mActivity.sawBackDown());
         assertFalse(mActivity.sawBackUp());
 
-        currentTime = System.currentTimeMillis();
+        currentTime = SystemClock.uptimeMillis();
         // Inject key up event for back
         automation.injectInputEvent(new KeyEvent(currentTime, currentTime, KeyEvent.ACTION_UP,
                 KeyEvent.KEYCODE_BACK, 0), true);

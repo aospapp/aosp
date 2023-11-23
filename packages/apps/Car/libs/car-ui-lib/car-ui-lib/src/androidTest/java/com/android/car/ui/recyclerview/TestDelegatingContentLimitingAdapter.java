@@ -15,6 +15,7 @@
  */
 package com.android.car.ui.recyclerview;
 
+import android.annotation.SuppressLint;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,6 +24,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 class TestDelegatingContentLimitingAdapter
@@ -70,15 +72,13 @@ class TestDelegatingContentLimitingAdapter
     }
 
     public void insertItemRange(int position, String... items) {
-        for (int i = 0; i < items.length; i++) {
-            mItems.add(position, items[i]);
-        }
+        mItems.addAll(position, Arrays.asList(items));
         notifyItemRangeInserted(position, items.length);
     }
 
     public void removeItemRange(int positionStart, int itemCount) {
         for (int i = 0; i < itemCount; i++) {
-            mItems.remove(positionStart + i);
+            mItems.remove(positionStart);
         }
         notifyItemRangeRemoved(positionStart, itemCount);
     }
@@ -95,6 +95,7 @@ class TestDelegatingContentLimitingAdapter
         notifyItemMoved(fromPosition, toPosition);
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     public void changeList(List<String> newItems) {
         mItems.clear();
         mItems.addAll(newItems);

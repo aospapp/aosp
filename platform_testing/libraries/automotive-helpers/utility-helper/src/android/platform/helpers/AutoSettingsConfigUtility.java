@@ -508,7 +508,10 @@ public class AutoSettingsConfigUtility implements IAutoConfigUtility {
                 new AutoConfigResource(AutoConfigConstants.TEXT, "Done"));
         accountSettingsConfiguration.addResource(
                 AutoConfigConstants.REMOVE_BUTTON,
-                new AutoConfigResource(AutoConfigConstants.TEXT, "Remove"));
+                new AutoConfigResource(
+                        AutoConfigConstants.RESOURCE_ID,
+                        "car_ui_secondary_action",
+                        SETTING_APP_PACKAGE));
         accountSettingsConfiguration.addResource(
                 AutoConfigConstants.REMOVE_ACCOUNT_BUTTON,
                 new AutoConfigResource(AutoConfigConstants.TEXT, "Remove Account"));

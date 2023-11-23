@@ -20,8 +20,9 @@ import com.android.server.wm.flicker.assertions.Assertion
 import com.android.server.wm.flicker.traces.FlickerFailureStrategy
 import com.android.server.wm.flicker.assertions.FlickerSubject
 import com.android.server.wm.flicker.traces.RegionSubject
-import com.android.server.wm.traces.common.Bounds
+import com.android.server.wm.traces.common.Size
 import com.android.server.wm.traces.common.layers.Layer
+import com.google.common.truth.Fact
 import com.google.common.truth.FailureMetadata
 import com.google.common.truth.FailureStrategy
 import com.google.common.truth.StandardSubjectBuilder
@@ -48,8 +49,9 @@ import com.google.common.truth.Subject.Factory
  */
 class LayerSubject private constructor(
     fm: FailureMetadata,
+    override val parent: FlickerSubject,
+    override val timestamp: Long,
     val layer: Layer?,
-    val entry: LayerTraceEntrySubject?,
     private val layerName: String? = null
 ) : FlickerSubject(fm, layer) {
     val isEmpty: Boolean get() = layer == null
@@ -62,16 +64,19 @@ class LayerSubject private constructor(
      * Visible region calculated by the Composition Engine
      */
     val visibleRegion: RegionSubject get() =
-        RegionSubject.assertThat(layer?.visibleRegion, listOf(this))
+        RegionSubject.assertThat(layer?.visibleRegion, this)
     /**
      * Visible region calculated by the Composition Engine (when available) or calculated
      * based on the layer bounds and transform
      */
     val screenBounds: RegionSubject get() =
-        RegionSubject.assertThat(layer?.screenBounds, listOf(this))
+        RegionSubject.assertThat(layer?.screenBounds, this)
 
-    override val defaultFacts: String =
-        "${entry?.defaultFacts ?: ""}\nFrame: ${layer?.currFrame}\nLayer: ${layer?.name}"
+    override val selfFacts = if (layer != null) {
+        listOf(Fact.fact("Frame", layer.currFrame), Fact.fact("Layer", layer.name))
+    } else {
+        listOf(Fact.fact("Layer name", layerName))
+    }
 
     /**
      * If the [layer] exists, executes a custom [assertion] on the current subject
@@ -83,7 +88,7 @@ class LayerSubject private constructor(
 
     /** {@inheritDoc} */
     override fun clone(): FlickerSubject {
-        return LayerSubject(fm, layer, entry, layerName)
+        return LayerSubject(fm, parent, timestamp, layer, layerName)
     }
 
     /**
@@ -102,7 +107,7 @@ class LayerSubject private constructor(
 
     @Deprecated("Prefer hasBufferSize(bounds)")
     fun hasBufferSize(size: Point): LayerSubject = apply {
-        val bounds = Bounds(size.x, size.y)
+        val bounds = Size(size.x, size.y)
         hasBufferSize(bounds)
     }
 
@@ -112,9 +117,9 @@ class LayerSubject private constructor(
      *
      * @param size expected buffer size
      */
-    fun hasBufferSize(size: Bounds): LayerSubject = apply {
+    fun hasBufferSize(size: Size): LayerSubject = apply {
         layer ?: return exists()
-        val bufferSize = layer.activeBuffer?.size ?: Bounds.EMPTY
+        val bufferSize = Size(layer.activeBuffer.width, layer.activeBuffer.height)
         check("Incorrect buffer size").that(bufferSize).isEqualTo(size)
     }
 
@@ -162,50 +167,43 @@ class LayerSubject private constructor(
          * Boiler-plate Subject.Factory for LayerSubject
          */
         @JvmStatic
-        @JvmOverloads
-        fun getFactory(entry: LayerTraceEntrySubject? = null) =
-            Factory { fm: FailureMetadata, subject: Layer? -> LayerSubject(fm, subject, entry) }
+        fun getFactory(parent: FlickerSubject, timestamp: Long, name: String?) =
+            Factory { fm: FailureMetadata, subject: Layer? ->
+                LayerSubject(fm, parent, timestamp, subject, name)
+            }
 
         /**
-         * User-defined entry point for existing layers
+         * User-defined parent point for existing layers
          */
         @JvmStatic
-        @JvmOverloads
         fun assertThat(
             layer: Layer?,
-            entry: LayerTraceEntrySubject? = null
+            parent: FlickerSubject,
+            timestamp: Long
         ): LayerSubject {
             val strategy = FlickerFailureStrategy()
             val subject = StandardSubjectBuilder.forCustomFailureStrategy(strategy)
-                .about(getFactory(entry))
+                .about(getFactory(parent, timestamp, name = null))
                 .that(layer) as LayerSubject
             strategy.init(subject)
             return subject
         }
 
         /**
-         * User-defined entry point for non existing layers
+         * User-defined parent point for non existing layers
          */
         @JvmStatic
         internal fun assertThat(
             name: String,
-            entry: LayerTraceEntrySubject?
+            parent: FlickerSubject,
+            timestamp: Long
         ): LayerSubject {
             val strategy = FlickerFailureStrategy()
             val subject = StandardSubjectBuilder.forCustomFailureStrategy(strategy)
-                .about(getFactory(entry, name))
+                .about(getFactory(parent, timestamp, name))
                 .that(null) as LayerSubject
             strategy.init(subject)
             return subject
         }
-
-        /**
-         * Boiler-plate Subject.Factory for LayerSubject
-         */
-        @JvmStatic
-        internal fun getFactory(entry: LayerTraceEntrySubject?, name: String) =
-            Factory { fm: FailureMetadata, subject: Layer? ->
-                LayerSubject(fm, subject, entry, name)
-            }
     }
 }

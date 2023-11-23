@@ -20,11 +20,20 @@
     xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/location_settings_title"
     android:key="@string/psk_location_settings">
-    <com.android.car.settings.common.ClickableWhileDisabledSwitchPreference
+    <com.android.car.settings.common.ColoredSwitchPreference
         android:key="@string/pk_location_state_switch"
+        android:title="@string/location_toggle_title"
+        android:summary="@string/location_toggle_summary"
         style="@style/ColoredSwitchPreferenceStyle"
         settings:controller="com.android.car.settings.location.LocationStateSwitchPreferenceController"
         settings:searchable="false"/>
+    <com.android.car.ui.preference.CarUiTwoActionSwitchPreference
+        android:fragment="com.android.car.settings.location.AdasLocationFragment"
+        android:key="@string/pk_location_driver_assistance_state_switch"
+        android:title="@string/location_driver_assistance_toggle_title"
+        android:summary="@string/location_driver_assistance_toggle_summary"
+        settings:controller="com.android.car.settings.location.AdasLocationSwitchPreferenceController"
+        settings:searchable="true"/>
     <com.android.car.settings.common.DividerPreference/>
     <Preference
         android:fragment="com.android.car.settings.location.RecentLocationRequestsFragment"

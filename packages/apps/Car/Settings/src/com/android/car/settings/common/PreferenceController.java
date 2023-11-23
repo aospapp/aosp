@@ -23,12 +23,14 @@ import android.widget.Toast;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
 import com.android.car.settings.R;
+import com.android.car.ui.preference.ClickableWhileDisabledPreference;
 import com.android.car.ui.preference.UxRestrictablePreference;
 
 import java.lang.annotation.Retention;
@@ -36,6 +38,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Controller which encapsulates the business logic associated with a {@link Preference}. All car
@@ -455,14 +458,27 @@ public abstract class PreferenceController<V extends Preference> implements
      * additional driving restrictions.
      */
     protected void onApplyUxRestrictions(CarUxRestrictions uxRestrictions) {
-        boolean restrict = false;
-        if (!isUxRestrictionsIgnored(mAlwaysIgnoreUxRestrictions,
+        boolean restrict = shouldApplyUxRestrictions(uxRestrictions);
+
+        restrictPreference(mPreference, restrict);
+    }
+
+    /**
+     * Decides whether or not this {@link PreferenceController} should apply {@code uxRestrictions}
+     * based on the type of restrictions currently present, and the value of the {@code
+     * config_always_ignore_ux_restrictions} and
+     * {@code config_ignore_ux_restrictions} config flags.
+     * <p>
+     * It is not expected that subclasses will override this functionality. If they do, it is
+     * important to respect the config flags being consulted here.
+     *
+     * @return true if {@code uxRestrictions} should be applied and false otherwise.
+     */
+    protected boolean shouldApplyUxRestrictions(CarUxRestrictions uxRestrictions) {
+        return !isUxRestrictionsIgnored(mAlwaysIgnoreUxRestrictions,
                 mPreferencesIgnoringUxRestrictions)
                 && CarUxRestrictionsHelper.isNoSetup(uxRestrictions)
-                && getAvailabilityStatus() != AVAILABLE_FOR_VIEWING) {
-            restrict = true;
-        }
-        restrictPreference(mPreference, restrict);
+                && getAvailabilityStatus() != AVAILABLE_FOR_VIEWING;
     }
 
     /**
@@ -484,6 +500,32 @@ public abstract class PreferenceController<V extends Preference> implements
             PreferenceGroup preferenceGroup = (PreferenceGroup) preference;
             for (int i = 0; i < preferenceGroup.getPreferenceCount(); i++) {
                 restrictPreference(preferenceGroup.getPreference(i), restrict);
+            }
+        }
+    }
+
+    /**
+     * Updates the clickable while disabled state and action for a preference. This will also
+     * update all child preferences with the same state and action when {@param preference}
+     * is a PreferenceGroup.
+     *
+     * @param preference the preference to update
+     * @param clickable whether or not the preference should be clickable when disabled
+     * @param disabledClickAction the action that should be taken when clicked while disabled
+     */
+    protected void setClickableWhileDisabled(Preference preference, boolean clickable,
+            @Nullable Consumer<Preference> disabledClickAction) {
+        if (preference instanceof ClickableWhileDisabledPreference) {
+            ClickableWhileDisabledPreference pref =
+                    (ClickableWhileDisabledPreference) preference;
+            pref.setClickableWhileDisabled(clickable);
+            pref.setDisabledClickListener(disabledClickAction);
+        }
+        if (preference instanceof PreferenceGroup) {
+            PreferenceGroup preferenceGroup = (PreferenceGroup) preference;
+            for (int i = 0; i < preferenceGroup.getPreferenceCount(); i++) {
+                setClickableWhileDisabled(preferenceGroup.getPreference(i), clickable,
+                        disabledClickAction);
             }
         }
     }

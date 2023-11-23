@@ -20,6 +20,12 @@
     xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/mobile_network_settings"
     android:key="@string/psk_mobile_network">
+    <com.android.car.settings.datausage.DataUsageSummaryPreference
+        android:key="@string/pk_data_usage_summary"
+        settings:controller="com.android.car.settings.datausage.DataUsageSummaryPreferenceController"
+        android:selectable="false"
+        settings:singleLineTitle="false"/>
+    <com.android.car.settings.common.DividerPreference/>
     <SwitchPreference
         android:key="@string/pk_mobile_data_toggle"
         android:summary="@string/mobile_network_toggle_summary"
@@ -30,4 +36,14 @@
         android:summary="@string/roaming_summary"
         android:title="@string/roaming_title"
         settings:controller="com.android.car.settings.network.RoamingPreferenceController"/>
+    <Preference
+        android:key="@string/pk_app_data_usage"
+        android:title="@string/app_data_usage"
+        settings:controller="com.android.car.settings.datausage.DataUsagePreferenceController"/>
+    <Preference
+        android:fragment="com.android.car.settings.datausage.DataWarningAndLimitFragment"
+        android:key="@string/pk_data_warning_and_limit"
+        android:title="@string/data_warning_limit_title"
+        settings:controller="com.android.car.settings.datausage.DataWarningAndLimitPreferenceController"
+        settings:searchable="false"/>
 </PreferenceScreen>

@@ -1,0 +1,2 @@
+# Fingerprint (UDFPS) GHBM/LHBM toggle
+system_vendor_config_prop(fingerprint_ghbm_prop)

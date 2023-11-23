@@ -18,13 +18,14 @@
 
 #include "Planner.h"
 
-#include <log/log.h>
+#include <algorithm>
 
 #include "drm/DrmDevice.h"
+#include "utils/log.h"
 
 namespace android {
 
-std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice *) {
+std::unique_ptr<Planner> Planner::CreateInstance(DrmDevice * /*device*/) {
   std::unique_ptr<Planner> planner(new Planner);
   planner->AddStage<PlanStageGreedy>();
   return planner;
@@ -43,57 +44,6 @@ std::vector<DrmPlane *> Planner::GetUsablePlanes(
   return usable_planes;
 }
 
-int Planner::PlanStage::ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer) {
-  int ret = 0;
-  uint64_t blend;
-
-  if ((plane->rotation_property().id() == 0) &&
-      layer->transform != DrmHwcTransform::kIdentity) {
-    ALOGE("Rotation is not supported on plane %d", plane->id());
-    return -EINVAL;
-  }
-
-  if (plane->alpha_property().id() == 0 && layer->alpha != 0xffff) {
-    ALOGE("Alpha is not supported on plane %d", plane->id());
-    return -EINVAL;
-  }
-
-  if (plane->blend_property().id() == 0) {
-    if ((layer->blending != DrmHwcBlending::kNone) &&
-        (layer->blending != DrmHwcBlending::kPreMult)) {
-      ALOGE("Blending is not supported on plane %d", plane->id());
-      return -EINVAL;
-    }
-  } else {
-    switch (layer->blending) {
-      case DrmHwcBlending::kPreMult:
-        std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
-            "Pre-multiplied");
-        break;
-      case DrmHwcBlending::kCoverage:
-        std::tie(blend, ret) = plane->blend_property().GetEnumValueWithName(
-            "Coverage");
-        break;
-      case DrmHwcBlending::kNone:
-      default:
-        std::tie(blend,
-                 ret) = plane->blend_property().GetEnumValueWithName("None");
-        break;
-    }
-    if (ret)
-      ALOGE("Expected a valid blend mode on plane %d", plane->id());
-  }
-
-  uint32_t format = layer->buffer->format;
-  if (!plane->IsFormatSupported(format)) {
-    ALOGE("Plane %d does not supports %c%c%c%c format", plane->id(), format,
-          format >> 8, format >> 16, format >> 24);
-    return -EINVAL;
-  }
-
-  return ret;
-}
-
 std::tuple<int, std::vector<DrmCompositionPlane>> Planner::ProvisionPlanes(
     std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
     std::vector<DrmPlane *> *primary_planes,
@@ -108,9 +58,9 @@ std::tuple<int, std::vector<DrmCompositionPlane>> Planner::ProvisionPlanes(
 
   // Go through the provisioning stages and provision planes
   for (auto &i : stages_) {
-    int ret = i->ProvisionPlanes(&composition, layers, crtc, &planes);
+    int ret = i->ProvisionPlanes(&composition, layers, &planes);
     if (ret) {
-      ALOGE("Failed provision stage with ret %d", ret);
+      ALOGV("Failed provision stage with ret %d", ret);
       return std::make_tuple(ret, std::vector<DrmCompositionPlane>());
     }
   }
@@ -120,24 +70,22 @@ std::tuple<int, std::vector<DrmCompositionPlane>> Planner::ProvisionPlanes(
 
 int PlanStageProtected::ProvisionPlanes(
     std::vector<DrmCompositionPlane> *composition,
-    std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
+    std::map<size_t, DrmHwcLayer *> &layers,
     std::vector<DrmPlane *> *planes) {
-  int ret;
-  int protected_zorder = -1;
+  int ret = 0;
   for (auto i = layers.begin(); i != layers.end();) {
     if (!i->second->protected_usage()) {
       ++i;
       continue;
     }
 
-    ret = Emplace(composition, planes, DrmCompositionPlane::Type::kLayer, crtc,
+    ret = Emplace(composition, planes, DrmCompositionPlane::Type::kLayer,
                   std::make_pair(i->first, i->second));
     if (ret) {
       ALOGE("Failed to dedicate protected layer! Dropping it.");
       return ret;
     }
 
-    protected_zorder = i->first;
     i = layers.erase(i);
   }
 
@@ -146,17 +94,18 @@ int PlanStageProtected::ProvisionPlanes(
 
 int PlanStageGreedy::ProvisionPlanes(
     std::vector<DrmCompositionPlane> *composition,
-    std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
+    std::map<size_t, DrmHwcLayer *> &layers,
     std::vector<DrmPlane *> *planes) {
   // Fill up the remaining planes
   for (auto i = layers.begin(); i != layers.end(); i = layers.erase(i)) {
     int ret = Emplace(composition, planes, DrmCompositionPlane::Type::kLayer,
-                      crtc, std::make_pair(i->first, i->second));
+                      std::make_pair(i->first, i->second));
     // We don't have any planes left
     if (ret == -ENOENT)
       break;
-    else if (ret) {
-      ALOGE("Failed to emplace layer %zu, dropping it", i->first);
+
+    if (ret) {
+      ALOGV("Failed to emplace layer %zu, dropping it", i->first);
       return ret;
     }
   }

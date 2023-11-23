@@ -22,6 +22,7 @@ import android.view.View;
 import android.view.WindowManager;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 
 import java.lang.annotation.Retention;
 
@@ -30,28 +31,6 @@ import java.lang.annotation.Retention;
  * represented.
  */
 public interface AppStyledViewController {
-
-    /**
-     * Callback to be invoked when the close icon is clicked.
-     */
-    interface AppStyledVCloseClickListener {
-
-        /**
-         * Called when the close icon is clicked.
-         */
-        void onClick();
-    }
-
-    /**
-     * Callback to be invoked when the dialog is dismissed.
-     */
-    interface AppStyledDismissListener {
-
-        /**
-         * Called when the dialog is dismissed.
-         */
-        void onDismiss();
-    }
 
     /**
      * The possible values for AppStyledViewNavIcon.
@@ -79,7 +58,7 @@ public interface AppStyledViewController {
      *
      * @return the view used for app styled view.
      */
-    View getAppStyledView(View contentView);
+    View getAppStyledView(@Nullable View contentView);
 
     /**
      * Sets the nav icon to be used.
@@ -87,9 +66,9 @@ public interface AppStyledViewController {
     void setNavIcon(@AppStyledViewNavIcon int navIcon);
 
     /**
-     * Sets the {@link AppStyledVCloseClickListener}
+     * Sets a runnable that will be invoked when a nav icon is clicked.
      */
-    void setOnCloseClickListener(AppStyledVCloseClickListener listener);
+    void setOnNavIconClickListener(Runnable listener);
 
     /**
      * Returns the layout params for the AppStyledView dialog

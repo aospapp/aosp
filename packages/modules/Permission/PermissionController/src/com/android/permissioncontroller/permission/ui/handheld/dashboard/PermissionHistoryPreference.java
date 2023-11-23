@@ -247,6 +247,7 @@ public class PermissionHistoryPreference extends Preference {
         viewUsageIntent.putExtra(Intent.EXTRA_START_TIME,
                 mAccessTimeList.get(mAccessTimeList.size() - 1));
         viewUsageIntent.putExtra(Intent.EXTRA_END_TIME, mAccessTimeList.get(0));
+        viewUsageIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
         PackageManager packageManager = mContext.getPackageManager();
         ResolveInfo resolveInfo = packageManager.resolveActivity(viewUsageIntent,

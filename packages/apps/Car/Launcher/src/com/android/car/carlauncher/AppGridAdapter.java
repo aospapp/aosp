@@ -16,7 +16,6 @@
 
 package com.android.car.carlauncher;
 
-import android.annotation.Nullable;
 import android.content.ComponentName;
 import android.content.Context;
 import android.util.Log;
@@ -24,6 +23,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.Collections;

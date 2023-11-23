@@ -184,6 +184,7 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
     private static boolean sWasVerboseLoggingEnabled;
     private static boolean sWasScanThrottleEnabled;
     private static WifiConfiguration sTestNetwork;
+    private static boolean sShouldRunTest = false;
 
     private Context mContext;
     private WifiManager mWifiManager;
@@ -199,6 +200,7 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
         // skip the test if WiFi is not supported
         if (!WifiFeature.isWifiSupported(context)) return;
+        sShouldRunTest = true;
 
         WifiManager wifiManager = context.getSystemService(WifiManager.class);
         assertThat(wifiManager).isNotNull();
@@ -251,9 +253,9 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
 
     @AfterClass
     public static void tearDownClass() throws Exception {
-        Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        if (!WifiFeature.isWifiSupported(context)) return;
+        if (!sShouldRunTest) return;
 
+        Context context = InstrumentationRegistry.getInstrumentation().getContext();
         WifiManager wifiManager = context.getSystemService(WifiManager.class);
         assertThat(wifiManager).isNotNull();
 
@@ -272,6 +274,7 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
 
     @Before
     public void setUp() throws Exception {
+        assumeTrue(sShouldRunTest);
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
         mWifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
         mConnectivityManager = mContext.getSystemService(ConnectivityManager.class);
@@ -302,6 +305,7 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
 
     @After
     public void tearDown() throws Exception {
+        if (!sShouldRunTest) return;
         // If there is failure, ensure we unregister the previous request.
         if (mNrNetworkCallback != null) {
             mConnectivityManager.unregisterNetworkCallback(mNrNetworkCallback);

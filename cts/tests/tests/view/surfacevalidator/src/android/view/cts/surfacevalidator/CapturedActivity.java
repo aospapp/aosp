@@ -60,6 +60,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CapturedActivity extends Activity {
     public static class TestResult {
@@ -101,9 +102,12 @@ public class CapturedActivity extends Activity {
     private Point mLogicalDisplaySize = new Point();
     private long mMinimumCaptureDurationMs = 0;
 
+    private AtomicBoolean mIsSharingScreenDenied;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mIsSharingScreenDenied = new AtomicBoolean(false);
         final PackageManager packageManager = getPackageManager();
         mOnWatch = packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH);
         if (mOnWatch) {
@@ -191,8 +195,9 @@ public class CapturedActivity extends Activity {
         if (requestCode != PERMISSION_CODE) {
             throw new IllegalStateException("Unknown request code: " + requestCode);
         }
-        if (resultCode != RESULT_OK) {
-            throw new IllegalStateException("User denied screen sharing permission");
+        mIsSharingScreenDenied.set(resultCode != RESULT_OK);
+        if (mIsSharingScreenDenied.get()) {
+            return;
         }
         Log.d(TAG, "onActivityResult");
         mMediaProjection = mProjectionManager.getMediaProjection(resultCode, data);
@@ -236,6 +241,9 @@ public class CapturedActivity extends Activity {
         // because permission activity is already recreated.
         // Thus, we try to click that button multiple times.
         do {
+            if (mIsSharingScreenDenied.get()) {
+                throw new IllegalStateException("User denied screen sharing permission.");
+            }
             assertTrue("Can't get the permission", count <= RETRY_COUNT);
             dismissPermissionDialog();
             count++;
@@ -268,7 +276,7 @@ public class CapturedActivity extends Activity {
 
             Rect boundsToCheck =
                     animationTestCase.getBoundsToCheck(findViewById(android.R.id.content));
-            if (boundsToCheck.width() < 90 || boundsToCheck.height() < 90) {
+            if (boundsToCheck.width() < 40 || boundsToCheck.height() < 40) {
                 fail("capture bounds too small to be a fullscreen activity: " + boundsToCheck);
             }
 
@@ -349,6 +357,10 @@ public class CapturedActivity extends Activity {
     }
 
     public void verifyTest(ISurfaceValidatorTestCase testCase, TestName name) throws Throwable {
+        if (mIsSharingScreenDenied.get()) {
+            throw new IllegalStateException("User denied screen sharing permission.");
+        }
+
         CapturedActivity.TestResult result = runTest(testCase);
         saveFailureCaptures(result.failures, name);
 

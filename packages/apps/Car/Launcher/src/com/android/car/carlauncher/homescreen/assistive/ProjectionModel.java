@@ -16,7 +16,6 @@
 
 package com.android.car.carlauncher.homescreen.assistive;
 
-import android.annotation.Nullable;
 import android.car.Car;
 import android.car.CarProjectionManager;
 import android.car.projection.ProjectionStatus;
@@ -30,8 +29,10 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
-import com.android.car.carlauncher.homescreen.HomeCardInterface;
+import androidx.annotation.Nullable;
+
 import com.android.car.carlauncher.R;
+import com.android.car.carlauncher.homescreen.HomeCardInterface;
 import com.android.car.carlauncher.homescreen.ui.CardContent;
 import com.android.car.carlauncher.homescreen.ui.CardHeader;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextView;
@@ -47,7 +48,9 @@ public class ProjectionModel implements CarProjectionManager.ProjectionStatusLis
     private static final String TAG = "ProjectionModel";
 
     private HomeCardInterface.Presenter mPresenter;
+    @Nullable
     private Car mCar;
+    @Nullable
     private CarProjectionManager mCarProjectionManager;
     private PackageManager mPackageManager;
     private Resources mResources;
@@ -61,26 +64,35 @@ public class ProjectionModel implements CarProjectionManager.ProjectionStatusLis
 
     @Override
     public void onCreate(Context context) {
-        if (mCar == null) {
-            mCar = Car.createCar(context);
-            mCarProjectionManager = (CarProjectionManager) mCar.getCarManager(
-                    Car.PROJECTION_SERVICE);
-        }
+        mCar = Car.createCar(context.getApplicationContext(), null,
+                Car.CAR_WAIT_TIMEOUT_DO_NOT_WAIT,
+                (Car car, boolean ready) -> {
+                    if (ready) {
+                        mCarProjectionManager = (CarProjectionManager)
+                                car.getCarManager(Car.PROJECTION_SERVICE);
+                        mCarProjectionManager.registerProjectionStatusListener(this);
+                    } else {
+                        mCarProjectionManager = null;
+                        onProjectionStatusChanged(
+                                ProjectionStatus.PROJECTION_STATE_INACTIVE, null, null);
+                    }
+                });
         mPackageManager = context.getPackageManager();
         mResources = context.getResources();
 
-        mCarProjectionManager.registerProjectionStatusListener(this);
         mLaunchMessage = context.getResources().getString(R.string.projected_launch_text);
         mTapToLaunchText = context.getResources().getString(R.string.tap_to_launch_text);
     }
 
     @Override
     public void onDestroy(Context context) {
-        if (mCar != null) {
-            mCar.disconnect();
-        }
         if (mCarProjectionManager != null) {
             mCarProjectionManager.unregisterProjectionStatusListener(this);
+            mCarProjectionManager = null;
+        }
+        if (mCar != null) {
+            mCar.disconnect();
+            mCar = null;
         }
     }
 

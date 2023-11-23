@@ -60,6 +60,7 @@ public class MockConnection extends Connection {
     private PhoneAccountHandle mPhoneAccountHandle;
     private RemoteConnection mRemoteConnection = null;
     private RttTextStream mRttTextStream;
+    private boolean mAutoDestroy = true;
 
     private SparseArray<InvokeCounter> mInvokeCounterMap = new SparseArray<>(13);
 
@@ -91,7 +92,7 @@ public class MockConnection extends Connection {
         if (mRemoteConnection != null) {
             mRemoteConnection.reject();
         }
-        destroy();
+        if (mAutoDestroy) destroy();
     }
 
     @Override
@@ -99,7 +100,7 @@ public class MockConnection extends Connection {
         super.onReject(rejectReason);
         setDisconnected(new DisconnectCause(DisconnectCause.REJECTED,
                 Integer.toString(rejectReason)));
-        destroy();
+        if (mAutoDestroy) destroy();
     }
 
     @Override
@@ -109,7 +110,7 @@ public class MockConnection extends Connection {
         if (mRemoteConnection != null) {
             mRemoteConnection.reject();
         }
-        destroy();
+        if (mAutoDestroy) destroy();
     }
 
     @Override
@@ -137,7 +138,7 @@ public class MockConnection extends Connection {
         if (mRemoteConnection != null) {
             mRemoteConnection.disconnect();
         }
-        destroy();
+        if (mAutoDestroy) destroy();
     }
 
     @Override
@@ -147,7 +148,7 @@ public class MockConnection extends Connection {
         if (mRemoteConnection != null) {
             mRemoteConnection.abort();
         }
-        destroy();
+        if (mAutoDestroy) destroy();
     }
 
     @Override
@@ -277,6 +278,14 @@ public class MockConnection extends Connection {
         if (mRemoteConnection != null) {
             mRemoteConnection.onCallFilteringCompleted(callFilteringCompletionInfo);
         }
+    }
+
+    /**
+     * Do not destroy after setting disconnected for cases that need finer state control. If
+     * disabled the caller will need to call destroy manually.
+     */
+    public void disableAutoDestroy() {
+        mAutoDestroy = false;
     }
 
     public int getCurrentState()  {

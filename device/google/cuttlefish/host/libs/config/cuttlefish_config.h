@@ -52,6 +52,8 @@ constexpr char kWifiConnectedMessage[] =
 constexpr char kEthernetConnectedMessage[] =
     "VIRTUAL_DEVICE_NETWORK_ETHERNET_CONNECTED";
 constexpr char kScreenChangedMessage[] = "VIRTUAL_DEVICE_SCREEN_CHANGED";
+constexpr char kDisplayPowerModeChangedMessage[] =
+    "VIRTUAL_DEVICE_DISPLAY_POWER_MODE_CHANGED";
 constexpr char kInternalDirName[] = "internal";
 constexpr char kSharedDirName[] = "shared";
 constexpr char kCrosvmVarEmptyDir[] = "/var/empty";
@@ -101,15 +103,11 @@ class CuttlefishConfig {
   int memory_mb() const;
   void set_memory_mb(int memory_mb);
 
-  int dpi() const;
-  void set_dpi(int dpi);
-
-  int refresh_rate_hz() const;
-  void set_refresh_rate_hz(int refresh_rate_hz);
-
   struct DisplayConfig {
     int width;
     int height;
+    int dpi;
+    int refresh_rate_hz;
   };
 
   std::vector<DisplayConfig> display_configs() const;
@@ -294,9 +292,6 @@ class CuttlefishConfig {
   void set_vhost_net(bool vhost_net);
   bool vhost_net() const;
 
-  void set_ethernet(bool ethernet);
-  bool ethernet() const;
-
   void set_record_screen(bool record_screen);
   bool record_screen() const;
 
@@ -370,6 +365,8 @@ class CuttlefishConfig {
     int rootcanal_hci_port() const;
     int rootcanal_link_port() const;
     int rootcanal_test_port() const;
+    // Port number to connect to the camera hal on the guest
+    int camera_server_port() const;
     std::string rootcanal_config_file() const;
     std::string rootcanal_default_commands_file() const;
 
@@ -396,7 +393,7 @@ class CuttlefishConfig {
 
     std::string instance_internal_dir() const;
 
-    std::string touch_socket_path() const;
+    std::string touch_socket_path(int screen_idx) const;
     std::string keyboard_socket_path() const;
     std::string switches_socket_path() const;
     std::string frames_socket_path() const;
@@ -485,6 +482,7 @@ class CuttlefishConfig {
     void set_rootcanal_hci_port(int rootcanal_hci_port);
     void set_rootcanal_link_port(int rootcanal_link_port);
     void set_rootcanal_test_port(int rootcanal_test_port);
+    void set_camera_server_port(int camera_server_port);
     void set_rootcanal_config_file(const std::string& rootcanal_config_file);
     void set_rootcanal_default_commands_file(
         const std::string& rootcanal_default_commands_file);

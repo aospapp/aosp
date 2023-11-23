@@ -16,8 +16,6 @@
 
 package com.android.tv.settings.accessories;
 
-import static android.app.slice.Slice.EXTRA_TOGGLE_STATE;
-
 import static com.android.tv.settings.accessories.ConnectedDevicesSliceUtils.DIRECTION_BACK;
 import static com.android.tv.settings.accessories.ConnectedDevicesSliceUtils.EXTRAS_DIRECTION;
 import static com.android.tv.settings.accessories.ConnectedDevicesSliceUtils.EXTRAS_SLICE_URI;
@@ -49,7 +47,6 @@ public class ConnectedDevicesSliceBroadcastReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         // Handle CEC control toggle.
         final String action = intent.getAction();
-        final boolean isChecked = intent.getBooleanExtra(EXTRA_TOGGLE_STATE, false);
         if (ACTION_TOGGLE_CHANGED.equals(action)) {
             if (BLUETOOTH_ON.equals(intent.getStringExtra(EXTRA_TOGGLE_TYPE))) {
                 if (AccessoryUtils.getDefaultBluetoothAdapter() != null) {

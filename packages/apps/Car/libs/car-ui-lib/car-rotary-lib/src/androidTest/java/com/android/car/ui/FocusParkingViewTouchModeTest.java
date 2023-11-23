@@ -26,6 +26,8 @@ import android.view.View;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.car.rotary.test.R;
+import com.android.car.ui.utils.TestUtils;
+import com.android.car.ui.utils.ViewUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -44,46 +46,42 @@ public class FocusParkingViewTouchModeTest {
     @Before
     public void setUp() {
         FocusParkingViewTestActivity activity = mActivityRule.getActivity();
-        mFpv = activity.findViewById(R.id.fpv);
+        // Since FocusParkingViewTestActivity uses Theme.CarUi.NoToolbar, a FocusParkingView has
+        // been added to the view tree automatically.
+        View view1 = activity.findViewById(R.id.view1);
+        View root = view1.getRootView();
+        mFpv = ViewUtils.findFocusParkingView(root);
     }
 
     @Test
-    public void testRestoreDefaultFocus_doesNothing() {
-        mFpv.post(() -> {
-            assertThat(mFpv.getRootView().findFocus()).isNull();
+    public void testRestoreDefaultFocus_doesNothing() throws InterruptedException {
+        assertThat(mFpv.getRootView().findFocus()).isNull();
 
-            boolean result = mFpv.restoreDefaultFocus();
-
-            assertWithMessage("restoreDefaultFocus returned").that(result).isFalse();
-            assertWithMessage("No view should be focused")
-                    .that(mFpv.getRootView().findFocus()).isNull();
-        });
+        boolean success = TestUtils.test(mFpv, v -> v.restoreDefaultFocus());
+        assertWithMessage("restoreDefaultFocus returned").that(success).isFalse();
+        assertWithMessage("No view should be focused")
+                .that(mFpv.getRootView().findFocus()).isNull();
     }
 
     @Test
-    public void testRequestFocus_doesNothing() {
-        mFpv.post(() -> {
-            assertThat(mFpv.getRootView().findFocus()).isNull();
-
-            boolean result = mFpv.requestFocus(View.FOCUS_DOWN, /* previouslyFocusedRect= */ null);
-
-            assertWithMessage("requestFocus returned").that(result).isFalse();
-            assertWithMessage("No view should be focused")
-                    .that(mFpv.getRootView().findFocus()).isNull();
-        });
+    public void testRequestFocus_doesNothing() throws InterruptedException {
+        assertThat(mFpv.getRootView().findFocus()).isNull();
+        boolean success = TestUtils.test(mFpv,
+                v -> v.requestFocus(View.FOCUS_DOWN, /* previouslyFocusedRect= */ null));
+        assertWithMessage("requestFocus returned").that(success).isFalse();
+        assertWithMessage("No view should be focused")
+                .that(mFpv.getRootView().findFocus()).isNull();
     }
 
     @Test
-    public void testPerformActionRestoreDefaultFocus_exitsTouchMode() {
-        mFpv.post(() -> {
-            assertThat(mFpv.getRootView().findFocus()).isNull();
-
-            boolean result = mFpv.performAccessibilityAction(
-                    ACTION_RESTORE_DEFAULT_FOCUS, /* arguments= */ null);
-
-            assertWithMessage("performAccessibilityAction returned").that(result).isTrue();
-            assertWithMessage("A view should be focused")
-                    .that(mFpv.getRootView().findFocus()).isNotNull();
-        });
+    public void testPerformActionRestoreDefaultFocus_exitsTouchMode() throws InterruptedException {
+        assertThat(mFpv.getRootView().findFocus()).isNull();
+        boolean success = TestUtils.test(mFpv,
+                v -> v.performAccessibilityAction(ACTION_RESTORE_DEFAULT_FOCUS,
+                        /* arguments= */ null));
+        assertWithMessage("performAccessibilityAction returned")
+                .that(success).isTrue();
+        assertWithMessage("A view should be focused")
+                .that(mFpv.getRootView().findFocus()).isNotNull();
     }
 }

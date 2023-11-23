@@ -30,7 +30,7 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.apps.common.LetterTileDrawable;
-import com.android.car.arch.common.FutureData;
+import com.android.car.apps.common.util.FutureData;
 import com.android.car.dialer.R;
 import com.android.car.dialer.ui.common.DialerListBaseFragment;
 import com.android.car.telephony.common.Contact;
@@ -67,6 +67,7 @@ public class ContactDetailsFragment extends Hilt_ContactDetailsFragment implemen
     private Contact mContact;
     private LiveData<FutureData<Contact>> mContactDetailsLiveData;
     private ContactDetailsViewModel mContactDetailsViewModel;
+    private LiveData<Boolean> mPhoneNumberRefreshEvent;
 
     private boolean mShowActionBarView;
     private boolean mShowActionBarAvatar;
@@ -93,6 +94,7 @@ public class ContactDetailsFragment extends Hilt_ContactDetailsFragment implemen
         mContactDetailsViewModel = new ViewModelProvider(this).get(
                 ContactDetailsViewModel.class);
         mContactDetailsLiveData = mContactDetailsViewModel.getContactDetails(mContact);
+        mPhoneNumberRefreshEvent = mContactDetailsViewModel.getPhoneNumberRefreshEvent();
 
         mShowActionBarView = getResources().getBoolean(
                 R.bool.config_show_contact_details_action_bar_view);
@@ -104,7 +106,7 @@ public class ContactDetailsFragment extends Hilt_ContactDetailsFragment implemen
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         ContactDetailsAdapter contactDetailsAdapter = mContactDetailsAdapterFactory.create(mContact,
-                this);
+                this, getActivity());
         getRecyclerView().setAdapter(contactDetailsAdapter);
         mContactDetailsLiveData.observe(this, contact -> {
             if (contact.isLoading()) {
@@ -113,6 +115,15 @@ public class ContactDetailsFragment extends Hilt_ContactDetailsFragment implemen
                 onContactChanged(contact.getData());
                 contactDetailsAdapter.setContact(contact.getData());
                 showContent();
+            }
+        });
+
+        mPhoneNumberRefreshEvent.observe(this, refresh -> {
+            int itemCount = contactDetailsAdapter.getItemCount();
+            for (int i = 0; i < itemCount; i++) {
+                if (contactDetailsAdapter.getItemViewType(i) == ContactDetailsAdapter.ID_NUMBER) {
+                    contactDetailsAdapter.notifyItemChanged(i);
+                }
             }
         });
     }
@@ -126,7 +137,7 @@ public class ContactDetailsFragment extends Hilt_ContactDetailsFragment implemen
         if (toolbar == null) {
             return;
         }
-        toolbar.setTitle(null);
+        toolbar.setTitle((CharSequence) null);
         toolbar.setLogo(null);
         if (mShowActionBarView) {
             toolbar.setTitle(contact == null ? getString(R.string.error_contact_deleted)

@@ -27,4 +27,9 @@
         <item>Always allow</item>
     </string-array>
 
+    <!-- Packages allowed to retrieve Quick Controls from CarSettings -->
+    <string-array name="settings_qc_provider_package_allowlist">
+        <item>com.android.systemui</item>
+    </string-array>
+
 </resources>

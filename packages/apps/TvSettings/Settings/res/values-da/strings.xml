@@ -68,7 +68,7 @@
     <string name="privacy_assistant_settings_title" msgid="4524957824712623680">"Google Assistent"</string>
     <string name="privacy_purchases_settings_title" msgid="6490965297061569673">"Betaling og køb"</string>
     <string name="privacy_app_settings_category" msgid="858250971978879266">"Appindstillinger"</string>
-    <string name="privacy_category_summary" msgid="3534434883380511043">"Placering, brug og diagnostik, annoncer"</string>
+    <string name="privacy_category_summary" msgid="3534434883380511043">"Lokation, brug og diagnostik, annoncer"</string>
     <string name="add_account" msgid="7386223854837017129">"Tilføj konto"</string>
     <string name="account_header_remove_account" msgid="8573697553061331373">"Fjern konto"</string>
     <string name="account_sync" msgid="4315295293211313989">"Vælg synkroniserede apps"</string>
@@ -90,8 +90,8 @@
     <string name="connectivity_summary_no_network_connected" msgid="6111160695454212460">"Der er ikke forbindelse til et netværk"</string>
     <string name="connectivity_summary_wifi_disabled" msgid="7819225159680467324">"Wi-Fi er deaktiveret"</string>
     <string name="wifi_setting_always_scan" msgid="431846292711998602">"Scanning altid tilgængelig"</string>
-    <string name="wifi_setting_always_scan_context" msgid="1092998659666221222">"Lad Googles placeringstjeneste og andre apps scanne efter netværk, selv når Wi-Fi er slået fra"</string>
-    <string name="wifi_setting_always_scan_content_description" msgid="484630053450137332">"Scanning altid tilgængelig, lad Googles placeringstjeneste og andre apps scanne efter netværk, selv når Wi-Fi er slået fra"</string>
+    <string name="wifi_setting_always_scan_context" msgid="1092998659666221222">"Lad Googles lokationstjeneste og andre apps scanne efter netværk, selv når Wi-Fi er slået fra"</string>
+    <string name="wifi_setting_always_scan_content_description" msgid="484630053450137332">"Scanning altid tilgængelig, lad Googles lokationstjeneste og andre apps scanne efter netværk, selv når Wi-Fi er slået fra"</string>
     <string name="wifi_setting_enable_wifi" msgid="5276730445393952969">"Wi-Fi"</string>
     <string name="connectivity_hint_message" msgid="5638304246522516583">"Opret forbindelse til netværk"</string>
     <string name="connectivity_network_diagnostics" msgid="4396132865849151854">"Netværksdiagnostik"</string>
@@ -161,9 +161,7 @@
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Aldrig"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Selvom appen anmoder om det, forsøger din enhed aldrig at justere outputtet efter den oprindelige billedfrekvens for det indhold, du ser."</string>
     <string name="font_scale_settings_title" msgid="4114019544800225980">"Skalering af tekst"</string>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for font_scale_item_detail (1558315053348778805) -->
-    <skip />
+    <string name="font_scale_item_detail" msgid="1558315053348778805">"Skaler til <xliff:g id="SCALE">%1$d</xliff:g> %%"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"Eksempeltekst"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"Den vidunderlige troldmand fra Oz"</string>
     <string name="font_scale_preview_text_subtitle" msgid="677394182922188048">"Kapitel 11: Den vidunderlige smaragdby i Oz"</string>
@@ -289,7 +287,7 @@
       <item quantity="one">Mindst <xliff:g id="COUNT_1">%d</xliff:g> app</item>
       <item quantity="other">Mindst <xliff:g id="COUNT_1">%d</xliff:g> apps</item>
     </plurals>
-    <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"Adgangstilladelser til placering"</string>
+    <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"Adgangstilladelser til lokation"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"Adgangstilladelser til mikrofon"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"Adgangstilladelser til kamera"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"Standardapps"</string>
@@ -573,7 +571,7 @@
     <string name="storage_wizard_migrate_progress_title" msgid="2623480667090826800">"Flytter data til <xliff:g id="NAME">%1$s</xliff:g>…"</string>
     <string name="storage_wizard_migrate_progress_description" msgid="4023358325977284145">"Dette kan tage et øjeblik. Du må ikke fjerne drevet.\nNogle apps virker ikke korrekt under flytningen."</string>
     <string name="storage_wizard_format_slow_title" msgid="7640229918512394316">"Dette drev ser ud til at være langsomt."</string>
-    <string name="storage_wizard_format_slow_summary" msgid="3674023258060474037">"Du kan sagtens fortsætte, men apps, der er flyttet til denne placering, vil muligvis hakke, og dataoverførsler kan tage længere tid. Du kan også skifte til et hurtigere drev for at få en bedre ydeevne."</string>
+    <string name="storage_wizard_format_slow_summary" msgid="3674023258060474037">"Du kan sagtens fortsætte, men apps, der er flyttet til denne lokation, vil muligvis hakke, og dataoverførsler kan tage længere tid. Du kan også skifte til et hurtigere drev for at få en bedre ydeevne."</string>
     <string name="storage_wizard_format_action" msgid="3275676687226857170">"Formatér"</string>
     <string name="storage_wizard_backup_apps_action" msgid="1402199004931596519">"Sikkerhedskopiér apps"</string>
     <string name="storage_wizard_back_up_apps_title" msgid="6225663573896846937">"Apps, der er gemt på <xliff:g id="NAME">%1$s</xliff:g>"</string>
@@ -635,30 +633,30 @@
     <string name="camera_toggle_info_content" msgid="2999965953853204003">"Når du har aktiveret denne indstilling, kan alle apps og tjenester, der har fået tilladelse til det, få adgang til ethvert kamera på denne enhed.\n\nEksterne kameraenheder med en tilpasset protokol påvirkes ikke af denne indstilling."</string>
     <string name="sensor_toggle_info_on" msgid="4568111889147132257">"Til"</string>
     <string name="sensor_toggle_info_off" msgid="7546772458177469821">"Fra"</string>
-    <string name="system_location" msgid="4057295363709016511">"Placering"</string>
+    <string name="system_location" msgid="4057295363709016511">"Lokation"</string>
     <string name="system_desc_location" msgid="1680134126100535031">"Tillad, at apps, der har bedt om din tilladelse, bruger dine stedoplysninger"</string>
     <string name="system_network_location_confirm" msgid="7128162421781085332">"Placeringssamtykke"</string>
     <string name="location_mode_title" msgid="728244518174115443">"Tilstand"</string>
-    <string name="location_category_recent_location_requests" msgid="4541924383164183490">"Seneste placeringsanmodninger"</string>
-    <string name="location_no_recent_apps" msgid="7033474075806435793">"Ingen apps har anmodet om placering for nylig"</string>
+    <string name="location_category_recent_location_requests" msgid="4541924383164183490">"Seneste lokationsanmodninger"</string>
+    <string name="location_no_recent_apps" msgid="7033474075806435793">"Ingen apps har anmodet om lokation for nylig"</string>
     <string name="location_high_battery_use" msgid="5325556609027887602">"Højt batteriforbrug"</string>
     <string name="location_low_battery_use" msgid="728585923412018253">"Lavt batteriforbrug"</string>
-    <string name="location_mode_wifi_description" msgid="84697248707903061">"Brug Wi-Fi til at fastslå placering"</string>
+    <string name="location_mode_wifi_description" msgid="84697248707903061">"Brug Wi-Fi til at fastslå lokation"</string>
     <string name="location_status" msgid="3037321737386011224">"Placeringsstatus"</string>
-    <string name="location_services" msgid="551503779736382878">"Placeringstjenester"</string>
+    <string name="location_services" msgid="551503779736382878">"Lokationstjenester"</string>
     <string name="on" msgid="4899322147062342542">"Til"</string>
     <string name="off" msgid="3127416478888499352">"Fra"</string>
-    <string name="google_location_services_title" msgid="6304196603522909239">"Googles placeringstjenester"</string>
-    <string name="third_party_location_services_title" msgid="2826218400381676508">"Placeringstjenester fra tredjepart"</string>
-    <string name="location_reporting" msgid="3552501333650895634">"Placeringsrapportering"</string>
-    <string name="location_history" msgid="4055660203090513120">"Placeringshistorik"</string>
-    <string name="location_reporting_desc" msgid="1580018652781674608">"Google bruger denne funktion i andre produkter, f.eks. Google Nu og Google Maps. Når du slår Placeringsrapportering til, giver du ethvert Google-produkt, der bruger denne funktion, tilladelse til at gemme og bruge enhedens seneste placeringsdata i forbindelse med din Google-konto."</string>
-    <string name="location_history_desc" msgid="926674012916014270">"Når Placeringshistorik er slået til for denne konto, kan Google gemme enhedens placeringsdata, så dine apps kan bruge dem.\n\nGoogle Maps kan f.eks. give dig rutevejledning, og Google Nu kan informere dig om pendlertrafik.\n\nDu kan til enhver tid slå Placeringshistorik fra, men det vil ikke slette den. Du kan se og administrere din Placeringshistorik på maps.google.com/locationhistory."</string>
-    <string name="delete_location_history_title" msgid="707559064715633152">"Slet Placeringshistorik"</string>
-    <string name="delete_location_history_desc" msgid="4035229731487113147">"Dette vil slette alt, som Placeringshistorik har gemt fra denne enhed for denne Google-konto. Du kan ikke fortryde denne sletning. Nogle apps, herunder Google Nu, vil stoppe med at virke."</string>
+    <string name="google_location_services_title" msgid="6304196603522909239">"Googles lokationstjenester"</string>
+    <string name="third_party_location_services_title" msgid="2826218400381676508">"Lokationstjenester fra tredjepart"</string>
+    <string name="location_reporting" msgid="3552501333650895634">"Lokationsrapportering"</string>
+    <string name="location_history" msgid="4055660203090513120">"Lokationshistorik"</string>
+    <string name="location_reporting_desc" msgid="1580018652781674608">"Google bruger denne funktion i andre produkter, f.eks. Google Nu og Google Maps. Når du slår Lokationsrapportering til, giver du ethvert Google-produkt, der bruger denne funktion, tilladelse til at gemme og bruge enhedens seneste lokationsdata i forbindelse med din Google-konto."</string>
+    <string name="location_history_desc" msgid="926674012916014270">"Når Lokationshistorik er slået til for denne konto, kan Google gemme enhedens lokationsdata, så dine apps kan bruge dem.\n\nGoogle Maps kan f.eks. give dig rutevejledning, og Google Nu kan informere dig om pendlertrafik.\n\nDu kan til enhver tid slå Lokationshistorik fra, men det vil ikke slette den. Du kan se og administrere din Lokationshistorik på maps.google.com/locationhistory."</string>
+    <string name="delete_location_history_title" msgid="707559064715633152">"Slet Lokationshistorik"</string>
+    <string name="delete_location_history_desc" msgid="4035229731487113147">"Dette vil slette alt, som Lokationshistorik har gemt fra denne enhed for denne Google-konto. Du kan ikke fortryde denne sletning. Nogle apps, herunder Google Nu, vil stoppe med at virke."</string>
     <string name="system_services" msgid="5754310941186053151">"Tjenester"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"Tjenesteindstillinger"</string>
-    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"Tekst med stor kontrast"</string>
+    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"Tekst med høj kontrast"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"Genvej til hjælpefunktion"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"Aktivér genvej til Hjælpefunktioner"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"Genvejstjeneste"</string>
@@ -730,7 +728,7 @@
     <string name="system_bt_hci_log" msgid="1891838112637932603">"Logføring for Bluetooth HCI"</string>
     <string name="system_email_address" msgid="3725494874473757217">"Mailadresse"</string>
     <string name="system_usb_debugging" msgid="2158285492172755923">"USB-fejlretning"</string>
-    <string name="system_allow_mock_locations" msgid="2483106887711851466">"Tillad imiterede placeringer"</string>
+    <string name="system_allow_mock_locations" msgid="2483106887711851466">"Tillad imiterede lokationer"</string>
     <string name="system_select_debug_app" msgid="6200987902307533721">"Vælg app til fejlretning"</string>
     <string name="system_wait_for_debugger" msgid="5715878008542589060">"Vent på fejlfinder"</string>
     <string name="system_verify_apps_over_usb" msgid="7289212844195483932">"Bekræft apps via USB"</string>
@@ -738,7 +736,7 @@
     <string name="system_wifi_verbose_logging" msgid="3097788974146704831">"Detaljeret Wi-Fi-logføring"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="3537578245428327314">"Aktivér detaljeret Wi-Fi-logføring"</string>
     <string name="system_show_touches" msgid="8244331695139748286">"Vis tryk"</string>
-    <string name="system_pointer_location" msgid="8724050865245555084">"Markørens placering"</string>
+    <string name="system_pointer_location" msgid="8724050865245555084">"Markørens lokation"</string>
     <string name="system_show_layout_bounds" msgid="8803080672553699649">"Vis layoutgrænser"</string>
     <string name="system_show_gpu_view_updates" msgid="1625918928089365222">"Vis opdateringer af GPU-visning"</string>
     <string name="system_show_hardware_layer" msgid="5833664339844452290">"Vis hardwarelag"</string>
@@ -755,7 +753,7 @@
     <string name="system_show_all_anrs" msgid="5353216640638263217">"Vis \"App svarer ikke\"-meddelelser"</string>
     <string name="system_desc_stay_awake" msgid="8485868071929937500">"Deaktiver dvale"</string>
     <string name="system_desc_hdcp_checking" msgid="1664068008848077241">"Brug kun til DRM-indhold"</string>
-    <string name="system_desc_hdmi_optimization" msgid="5695603795556335912">"Optimer skærmen for maksimal opløsning eller maksimal rammehastighed. Dette påvirker kun Ultra HD-skærme. En eventuel ændring af denne indstilling vil medføre en genstart af din enhed."</string>
+    <string name="system_desc_hdmi_optimization" msgid="5695603795556335912">"Optimer skærmen for maksimal opløsning eller maksimal billedfrekvens. Dette påvirker kun Ultra HD-skærme. En eventuel ændring af denne indstilling vil medføre en genstart af din enhed."</string>
     <string name="system_desc_bt_hci_log" msgid="2592649923221658103">"Aktivér Bluetooth HCI spionlog"</string>
     <string name="system_desc_usb_debugging" msgid="5672275208185222785">"Fejlretningstilstand, når USB er tilsluttet"</string>
     <string name="system_desc_wait_for_debugger" msgid="7213496668606417691">"Fejlrettet app venter på tilknytning af fejlfinder før udførelse"</string>
@@ -774,7 +772,7 @@
     <string name="system_hdcp_checking_drm" msgid="2159124883496899278">"Til DRM-indhold"</string>
     <string name="system_hdcp_checking_always" msgid="5868177105455148262">"Altid"</string>
     <string name="system_hdmi_optimization_best_resolution" msgid="4916028940107998097">"Bedste opløsning"</string>
-    <string name="system_hdmi_optimization_best_framerate" msgid="3778579148517609370">"Bedste rammehastighed"</string>
+    <string name="system_hdmi_optimization_best_framerate" msgid="3778579148517609370">"Bedste billedfrekvens"</string>
     <string name="system_hw_overdraw_off" msgid="6637679040053936280">"Fra"</string>
     <string name="system_hw_overdraw_areas" msgid="6442009722913530348">"Vis områder med overlap"</string>
     <string name="system_hw_overdraw_counter" msgid="9132113146364838852">"Vis antal overlapninger"</string>
@@ -858,7 +856,7 @@
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"Kontrolleret af <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="app_not_supported_in_limited" msgid="4046604594925826955">"Denne app understøttes ikke for begrænsede profiler"</string>
     <string name="app_sees_restricted_accounts" msgid="174038126799649152">"Denne app kan få adgang til dine konti"</string>
-    <string name="restriction_location_enable_title" msgid="2552780806199464266">"Placering"</string>
+    <string name="restriction_location_enable_title" msgid="2552780806199464266">"Lokation"</string>
     <string name="restriction_location_enable_summary" msgid="3719330231217994482">"Tillad, at apps bruger dine stedoplysninger"</string>
     <string name="restricted_profile_switch_to" msgid="6193201935877168764">"Skift til begrænset profil"</string>
     <string name="restricted_profile_switch_out" msgid="3589381233390753413">"Forlad begrænset profil"</string>
@@ -1029,9 +1027,9 @@
     <string name="disabled_by_policy_title_suspend_packages" msgid="6500185610058872758">"Denne app kan ikke åbnes"</string>
     <string name="default_admin_support_msg" msgid="7913455019068370350">"Kontakt din it-administrator, hvis du har spørgsmål"</string>
     <string name="admin_support_more_info" msgid="9053232166115098434">"Mere info"</string>
-    <string name="admin_profile_owner_message" msgid="5729169873349157622">"Din administrator kan overvåge og administrere apps og data, der er knyttet til din arbejdsprofil, herunder indstillinger, tilladelser, virksomhedsadgang, netværksaktivitet og enhedens placeringsoplysninger."</string>
-    <string name="admin_profile_owner_user_message" msgid="6431405126322617268">"Din administrator kan overvåge og administrere apps og data, der er knyttet til denne bruger, herunder indstillinger, tilladelser, virksomhedsadgang, netværksaktivitet og enhedens placeringsoplysninger."</string>
-    <string name="admin_device_owner_message" msgid="1935507216776040907">"Din administrator kan overvåge og administrere apps og data, der er knyttet til denne enhed, herunder indstillinger, tilladelser, virksomhedsadgang, netværksaktivitet og enhedens placeringsoplysninger."</string>
+    <string name="admin_profile_owner_message" msgid="5729169873349157622">"Din administrator kan overvåge og administrere apps og data, der er knyttet til din arbejdsprofil, herunder indstillinger, tilladelser, virksomhedsadgang, netværksaktivitet og enhedens lokationsoplysninger."</string>
+    <string name="admin_profile_owner_user_message" msgid="6431405126322617268">"Din administrator kan overvåge og administrere apps og data, der er knyttet til denne bruger, herunder indstillinger, tilladelser, virksomhedsadgang, netværksaktivitet og enhedens lokationsoplysninger."</string>
+    <string name="admin_device_owner_message" msgid="1935507216776040907">"Din administrator kan overvåge og administrere apps og data, der er knyttet til denne enhed, herunder indstillinger, tilladelser, virksomhedsadgang, netværksaktivitet og enhedens lokationsoplysninger."</string>
     <string name="remove_managed_profile_label" msgid="8950011141359605612">"Fjern arbejdsprofil"</string>
     <string name="active_device_admin_msg" msgid="185537304726228624">"App til enhedsadministration"</string>
     <string name="remove_device_admin" msgid="2623866073546295104">"Deaktiver denne app til enhedsadministration"</string>
@@ -1043,7 +1041,7 @@
     <string name="device_admin_warning" msgid="7399916080685200660">"Hvis denne administratorapp aktiveres, får appen <xliff:g id="APP_NAME">%1$s</xliff:g> tilladelse til at foretage følgende handlinger:"</string>
     <string name="device_admin_warning_simplified" msgid="3310965971422346950">"Denne enhed administreres og overvåges af <xliff:g id="APP_NAME">%1$s</xliff:g>."</string>
     <string name="device_admin_status" msgid="5467001937240455367">"Denne administratorapp er aktiv og giver appen <xliff:g id="APP_NAME">%1$s</xliff:g> tilladelse til at udføre følgende handlinger:"</string>
-    <string name="adding_profile_owner_warning" msgid="3888867082224127564">"Hvis du fortsætter, administreres din bruger af din administrator, som også kan gemme tilknyttede data ud over dine personlige data.\n\nDin administrator kan overvåge og administrere indstillinger, adgang, apps og data, der er knyttet til denne bruger, herunder netværksaktivitet og din enheds placeringsoplysninger."</string>
+    <string name="adding_profile_owner_warning" msgid="3888867082224127564">"Hvis du fortsætter, administreres din bruger af din administrator, som også kan gemme tilknyttede data ud over dine personlige data.\n\nDin administrator kan overvåge og administrere indstillinger, adgang, apps og data, der er knyttet til denne bruger, herunder netværksaktivitet og din enheds lokationsoplysninger."</string>
     <string name="share_remote_bugreport_dialog_title" msgid="2080017987692459555">"Vil du dele fejlrapporten?"</string>
     <string name="share_remote_bugreport_dialog_message_finished" msgid="8515056665416643253">"Din it-administrator har anmodet om en fejlrapport for bedre at kunne finde og rette fejlen på enheden. Apps og data deles muligvis."</string>
     <string name="share_remote_bugreport_dialog_message" msgid="4637489112422692638">"Din it-administrator har anmodet om en fejlrapport for bedre at kunne finde og rette fejlen på enheden. Apps og data deles muligvis, og din enhed kan midlertidigt blive langsommere."</string>

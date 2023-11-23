@@ -35,12 +35,10 @@ impl TraceProvider for SimpleperfEtmTraceProvider {
     }
 
     fn trace(&self, trace_dir: &Path, tag: &str, sampling_period: &Duration) {
-        let mut trace_file = PathBuf::from(trace_dir);
-        trace_file.push(trace_provider::construct_file_name(tag));
-        trace_file.set_extension(ETM_TRACEFILE_EXTENSION);
+        let trace_file = trace_provider::get_path(trace_dir, tag, ETM_TRACEFILE_EXTENSION);
 
         simpleperf_profcollect::record(
-            &trace_file,
+            &*trace_file,
             sampling_period,
             simpleperf_profcollect::RecordScope::BOTH,
         );

@@ -20,6 +20,7 @@
     <color name="emergency_background_color">#B41B1A</color>
     <color name="call_accept_button">#208746</color>
     <color name="call_decline_button">#D33B30</color>
+    <color name="unmute_button">#66B5FF</color>
     <color name="primary_text_color">@*android:color/car_body1</color>
     <color name="secondary_text_color">@*android:color/car_body3</color>
     <color name="notification_accent_color">@*android:color/car_body1</color>
@@ -32,4 +33,5 @@
 
     <color name="notification_list_divider_color">@*android:color/car_list_divider</color>
     <color name="icon_tint">@*android:color/car_tint</color>
+    <color name="dark_icon_tint">@*android:color/car_tint_dark</color>
 </resources>

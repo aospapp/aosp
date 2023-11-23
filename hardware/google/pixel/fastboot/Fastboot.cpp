@@ -19,11 +19,19 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <map>
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
+
+// FS headers
+#include <ext4_utils/wipe.h>
+#include <fs_mgr.h>
+#include <fs_mgr/roots.h>
+
+// Nugget headers
 #include <app_nugget.h>
 #include <nos/NuggetClient.h>
 #include <nos/debug.h>
@@ -122,7 +130,50 @@ Return<void> Fastboot::doOemCommand(const ::android::hardware::hidl_string& oemC
     return Void();
 }
 
+static android::fs_mgr::Fstab fstab;
+enum WipeVolumeStatus {
+    WIPE_OK = 0,
+    VOL_FSTAB,
+    VOL_UNKNOWN,
+    VOL_MOUNTED,
+    VOL_BLK_DEV_OPEN,
+    WIPE_ERROR_MAX = 0xffffffff,
+};
+std::map<enum WipeVolumeStatus, std::string> wipe_vol_ret_msg{
+        {WIPE_OK, ""},
+        {VOL_FSTAB, "Unknown FS table"},
+        {VOL_UNKNOWN, "Unknown volume"},
+        {VOL_MOUNTED, "Fail to unmount volume"},
+        {VOL_BLK_DEV_OPEN, "Fail to open block device"},
+        {WIPE_ERROR_MAX, "Unknown wipe error"}};
+
+enum WipeVolumeStatus wipe_volume(const std::string &volume) {
+    if (!android::fs_mgr::ReadDefaultFstab(&fstab)) {
+        return VOL_FSTAB;
+    }
+    const fs_mgr::FstabEntry *v = android::fs_mgr::GetEntryForPath(&fstab, volume);
+    if (v == nullptr) {
+        return VOL_UNKNOWN;
+    }
+    if (android::fs_mgr::EnsurePathUnmounted(&fstab, volume) != true) {
+        return VOL_MOUNTED;
+    }
+
+    int fd = open(v->blk_device.c_str(), O_WRONLY | O_CREAT, 0644);
+    if (fd == -1) {
+        return VOL_BLK_DEV_OPEN;
+    }
+    wipe_block_device(fd, get_block_device_size(fd));
+    close(fd);
+
+    return WIPE_OK;
+}
+
 Return<void> Fastboot::doOemSpecificErase(V1_1::IFastboot::doOemSpecificErase_cb _hidl_cb) {
+    // Erase metadata partition along with userdata partition.
+    // Keep erasing Titan M even if failing on this case.
+    auto wipe_status = wipe_volume("/metadata");
+
     // Connect to Titan M
     ::nos::NuggetClient client;
     client.Open();
@@ -136,16 +187,27 @@ Return<void> Fastboot::doOemSpecificErase(V1_1::IFastboot::doOemSpecificErase_cb
     std::vector<uint8_t> magic(sizeof(magicValue));
     memcpy(magic.data(), &magicValue, sizeof(magicValue));
     const uint8_t retry_count = 5;
+    uint32_t nugget_status;
     for(uint8_t i = 0; i < retry_count; i++) {
-        const uint32_t status
-            = client.CallApp(APP_ID_NUGGET, NUGGET_PARAM_NUKE_FROM_ORBIT, magic, nullptr);
-        if (status == APP_SUCCESS) {
-            _hidl_cb({ Status::SUCCESS, "" });
+        nugget_status = client.CallApp(APP_ID_NUGGET, NUGGET_PARAM_NUKE_FROM_ORBIT, magic, nullptr);
+        if (nugget_status == APP_SUCCESS && wipe_status == WIPE_OK) {
+            _hidl_cb({Status::SUCCESS, wipe_vol_ret_msg[wipe_status]});
             return Void();
         }
     }
 
-    _hidl_cb({ Status::FAILURE_UNKNOWN, "Titan M user data wipe failed" });
+    // Return exactly what happened
+    if (nugget_status != APP_SUCCESS && wipe_status != WIPE_OK) {
+        _hidl_cb({Status::FAILURE_UNKNOWN, "Fail on wiping metadata and Titan M user data"});
+    } else if (nugget_status != APP_SUCCESS) {
+        _hidl_cb({Status::FAILURE_UNKNOWN, "Titan M user data wipe failed"});
+    } else {
+        if (wipe_vol_ret_msg.find(wipe_status) != wipe_vol_ret_msg.end())
+            _hidl_cb({Status::FAILURE_UNKNOWN, wipe_vol_ret_msg[wipe_status]});
+        else  // Should not reach here, but handle it anyway
+            _hidl_cb({Status::FAILURE_UNKNOWN, "Unknown failure"});
+    }
+
     return Void();
 }
 

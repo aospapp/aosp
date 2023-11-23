@@ -17,6 +17,7 @@
 package com.android.compatibility.common.util;
 
 import android.content.Context;
+import android.hardware.display.DisplayManager;
 import android.hardware.hdmi.HdmiControlManager;
 import android.view.Display;
 
@@ -76,5 +77,22 @@ public class DisplayUtil {
         }
 
         return false;
+    }
+
+    public static int getRefreshRateSwitchingType(DisplayManager displayManager) {
+        return toSwitchingType(displayManager.getMatchContentFrameRateUserPreference());
+    }
+
+    private static int toSwitchingType(int matchContentFrameRateUserPreference) {
+        switch (matchContentFrameRateUserPreference) {
+            case DisplayManager.MATCH_CONTENT_FRAMERATE_NEVER:
+                return DisplayManager.SWITCHING_TYPE_NONE;
+            case DisplayManager.MATCH_CONTENT_FRAMERATE_SEAMLESSS_ONLY:
+                return DisplayManager.SWITCHING_TYPE_WITHIN_GROUPS;
+            case DisplayManager.MATCH_CONTENT_FRAMERATE_ALWAYS:
+                return DisplayManager.SWITCHING_TYPE_ACROSS_AND_WITHIN_GROUPS;
+            default:
+                return -1;
+        }
     }
 }

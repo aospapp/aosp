@@ -61,6 +61,7 @@ import android.companion.CompanionDeviceManager;
 import android.content.Attributable;
 import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -124,9 +125,9 @@ import com.android.internal.os.BackgroundThread;
 import com.android.internal.os.BinderCallsStats;
 import com.android.internal.util.ArrayUtils;
 
-import libcore.util.SneakyThrow;
-
 import com.google.protobuf.InvalidProtocolBufferException;
+
+import libcore.util.SneakyThrow;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -190,6 +191,10 @@ public class AdapterService extends Service {
     private static final String SIM_ACCESS_PERMISSION_PREFERENCE_FILE = "sim_access_permission";
 
     private static final int CONTROLLER_ENERGY_UPDATE_TIMEOUT_MILLIS = 30;
+
+    private static final ComponentName BLUETOOTH_INCALLSERVICE_COMPONENT =
+            new ComponentName("com.android.bluetooth",
+                    BluetoothInCallService.class.getCanonicalName());
 
     // Report ID definition
     public enum BqrQualityReportId {
@@ -807,6 +812,20 @@ public class AdapterService extends Service {
                     timestamp, rssi, snr, retransmissionCount,
                     packetsNotReceiveCount, negativeAcknowledgementCount);
         }
+    }
+
+    /**
+     * Enable/disable BluetoothInCallService
+     *
+     * @param enable to enable/disable BluetoothInCallService.
+     */
+    public void enableBluetoothInCallService(boolean enable) {
+        debugLog("enableBluetoothInCallService() - Enable = " + enable);
+        getPackageManager().setComponentEnabledSetting(
+                BLUETOOTH_INCALLSERVICE_COMPONENT,
+                enable ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                        : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
     }
 
     void cleanup() {
@@ -3649,6 +3668,7 @@ public class AdapterService extends Service {
         if (DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_BLUETOOTH,
                 LOGGING_DEBUG_ENABLED_FOR_ALL_FLAG, false)) {
             initFlags.add(String.format("%s=%s", LOGGING_DEBUG_ENABLED_FOR_ALL_FLAG, "true"));
+            mIsVerboseLoggingEnabledForAll = true;
         }
         String debugLoggingEnabledTags = DeviceConfig.getString(DeviceConfig.NAMESPACE_BLUETOOTH,
                 LOGGING_DEBUG_ENABLED_FOR_TAGS_FLAG, "");
@@ -3666,6 +3686,12 @@ public class AdapterService extends Service {
             initFlags.add(String.format("%s=%s", BTAA_HCI_LOG_FLAG, "true"));
         }
         return initFlags.toArray(new String[0]);
+    }
+
+    private boolean mIsVerboseLoggingEnabledForAll = false;
+
+    public boolean getIsVerboseLoggingEnabledForAll() {
+        return mIsVerboseLoggingEnabledForAll;
     }
 
     private final Object mDeviceConfigLock = new Object();

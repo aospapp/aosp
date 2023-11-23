@@ -451,8 +451,8 @@
     <string name="sum_fdn" msgid="6152246141642323582">"Hantera fasta nummer"</string>
     <string name="sum_fdn_change_pin" msgid="3510994280557335727">"Ändra PIN-kod för FDN-åtkomst"</string>
     <string name="sum_fdn_manage_list" msgid="3311397063233992907">"Hantera nummerlistan"</string>
-    <string name="voice_privacy" msgid="7346935172372181951">"Sekretess för Voice"</string>
-    <string name="voice_privacy_summary" msgid="3556460926168473346">"Aktivera avancerat sekretessläge"</string>
+    <string name="voice_privacy" msgid="7346935172372181951">"Integritet för Voice"</string>
+    <string name="voice_privacy_summary" msgid="3556460926168473346">"Aktivera avancerat integritetsläge"</string>
     <string name="tty_mode_option_title" msgid="3843817710032641703">"TTY-läge"</string>
     <string name="tty_mode_option_summary" msgid="4770510287236494371">"Ange TTY-läge"</string>
     <string name="auto_retry_mode_title" msgid="2985801935424422340">"Försök igen automatiskt"</string>

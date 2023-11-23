@@ -97,4 +97,35 @@ public abstract class DexMember {
 
         return javaType + javaDimension;
     }
+
+    public static Class<?> typeToClass(String type) throws ClassNotFoundException {
+        if ("V".equals(type)) {
+            return void.class;
+        } else if ("Z".equals(type)) {
+            return boolean.class;
+        } else if ("B".equals(type)) {
+            return byte.class;
+        } else if ("C".equals(type)) {
+            return char.class;
+        } else if ("S".equals(type)) {
+            return short.class;
+        } else if ("I".equals(type)) {
+            return int.class;
+        } else if ("J".equals(type)) {
+            return long.class;
+        } else if ("F".equals(type)) {
+            return float.class;
+        } else if ("D".equals(type)) {
+            return double.class;
+        } else {
+            // Class names expected for Class.forName are:
+            // * for reference types: Ljava/lang/String; -> java.lang.String
+            // * for array types: [Ljava/lang/String; -> [Ljava.lang.String;
+            type = type.startsWith("L")
+                    ? type.substring(1, type.length() - 1).replace('/', '.')
+                    : type.replace('/', '.');
+        }
+
+        return Class.forName(type, /* initialize */ false, DexMember.class.getClassLoader());
+    }
 }

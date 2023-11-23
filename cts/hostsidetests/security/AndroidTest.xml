@@ -19,6 +19,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceInfoCollector">
         <option name="apk" value="CtsDeviceInfo.apk"/>

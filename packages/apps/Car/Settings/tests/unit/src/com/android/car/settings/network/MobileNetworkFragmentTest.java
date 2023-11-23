@@ -40,6 +40,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
@@ -55,6 +56,8 @@ public class MobileNetworkFragmentTest {
     private BaseCarSettingsTestActivity mActivity;
     private FragmentManager mFragmentManager;
 
+    @Mock
+    private static MobileNetworkUpdateManager.PhoneChangeReceiver sMockPhoneChangeReceiver;
     @Rule
     public ActivityTestRule<BaseCarSettingsTestActivity> mActivityTestRule =
             new ActivityTestRule<>(BaseCarSettingsTestActivity.class);
@@ -141,6 +144,12 @@ public class MobileNetworkFragmentTest {
         @Override
         SubscriptionManager getSubscriptionManager(Context context) {
             return sMockSubscriptionManager;
+        }
+
+        @Override
+        MobileNetworkUpdateManager getMobileNetworkUpdateManager(Context context, int subId) {
+            return new MobileNetworkUpdateManager(subId, sMockSubscriptionManager,
+                    sMockPhoneChangeReceiver);
         }
     }
 }

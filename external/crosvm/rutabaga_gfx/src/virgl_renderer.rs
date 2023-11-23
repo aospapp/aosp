@@ -88,7 +88,7 @@ impl Drop for VirglRendererContext {
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 extern "C" fn debug_callback(fmt: *const ::std::os::raw::c_char, ap: *mut __va_list_tag) {
     let len: u32 = 256;
-    let mut c_str = CString::new(vec![' ' as u8; len as usize]).unwrap();
+    let mut c_str = CString::new(vec![b' '; len as usize]).unwrap();
     unsafe {
         let mut varargs = __va_list_tag {
             gp_offset: (*ap).gp_offset,
@@ -168,6 +168,7 @@ fn unmap_func(resource_id: u32) {
 impl VirglRenderer {
     pub fn init(
         virglrenderer_flags: VirglRendererFlags,
+        fence_handler: RutabagaFenceHandler,
     ) -> RutabagaResult<Box<dyn RutabagaComponent>> {
         if cfg!(debug_assertions) {
             let ret = unsafe { libc::dup2(libc::STDOUT_FILENO, libc::STDERR_FILENO) };
@@ -192,7 +193,10 @@ impl VirglRenderer {
         // to the Renderer instance. Doing so greatly simplifies the ownership for users of this
         // library.
 
-        let fence_state = Rc::new(RefCell::new(FenceState { latest_fence: 0 }));
+        let fence_state = Rc::new(RefCell::new(FenceState {
+            latest_fence: 0,
+            handler: Some(fence_handler),
+        }));
 
         let cookie: *mut VirglCookie = Box::into_raw(Box::new(VirglCookie {
             fence_state: Rc::clone(&fence_state),
@@ -556,6 +560,7 @@ impl RutabagaComponent for VirglRenderer {
         &self,
         ctx_id: u32,
         context_init: u32,
+        _fence_handler: RutabagaFenceHandler,
     ) -> RutabagaResult<Box<dyn RutabagaContext>> {
         const CONTEXT_NAME: &[u8] = b"gpu_renderer";
         // Safe because virglrenderer is initialized by now and the context name is statically

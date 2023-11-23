@@ -27,6 +27,7 @@ public class StatsdCtsBackgroundService extends IntentService {
     public static final String KEY_ACTION = "action";
     public static final String ACTION_BACKGROUND_SLEEP = "action.background_sleep";
     public static final String ACTION_END_IMMEDIATELY = "action.end_immediately";
+    public static final String ACTION_ALLOCATE_MEMORY = "action.allocate_memory";
 
     public static final int SLEEP_OF_ACTION_BACKGROUND_SLEEP = 2_000;
 
@@ -42,6 +43,9 @@ public class StatsdCtsBackgroundService extends IntentService {
         switch (action) {
             case ACTION_BACKGROUND_SLEEP:
                 AtomTests.sleep(SLEEP_OF_ACTION_BACKGROUND_SLEEP);
+                break;
+            case ACTION_ALLOCATE_MEMORY:
+                new Thread(MemoryHogger::allocate).start();
                 break;
             case ACTION_END_IMMEDIATELY:
                 break;

@@ -53,6 +53,18 @@ java_defaults {
     compile_multilib: "both",
 }
 
+// Defaults for signature api checks with dynamic config.
+java_defaults {
+    name: "signature-api-check-dynamic-config-defaults",
+    defaults: ["signature-api-check-defaults"],
+    defaults_visibility: [
+        "//cts/tests/signature:__subpackages__",
+    ],
+    static_libs: [
+        "cts-signature-with-dynamic-config",
+    ],
+}
+
 // Defaults for hiddenapi killswitch checks.
 java_defaults {
     name: "hiddenapi-killswitch-check-defaults",
@@ -80,12 +92,21 @@ filegroup {
 // Defaults for hiddenapi blocklist checks.
 java_defaults {
     name: "hiddenapi-blocklist-check-defaults",
-    defaults: ["signature-api-check-defaults"],
+    defaults: ["signature-api-check-dynamic-config-defaults"],
     java_resources: [
         ":platform-bootclasspath{hiddenapi-flags.csv}",
         ":cts-api-hiddenapi-filter-csv"
     ],
     jni_libs: [
         "libcts_dexchecker",
+    ],
+}
+
+// The CtsHiddenApiBlocklistApiDynamicConfig file is intended to be used by
+// multiple CtsHiddenApiBlocklist...TestCases.
+filegroup {
+    name: "CtsHiddenApiBlocklistApiDynamicConfig",
+    srcs: [
+      "CtsHiddenApiBlocklistApiDynamicConfig.dynamic",
     ],
 }

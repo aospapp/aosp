@@ -71,6 +71,8 @@ class CameraProviderHwl {
   // allocator, need return INVALID_OPERATION.
   virtual status_t CreateBufferAllocatorHwl(
       std::unique_ptr<CameraBufferAllocatorHwl>* camera_buffer_allocator_hwl) = 0;
+
+  virtual status_t NotifyDeviceStateChange(DeviceState device_state) = 0;
 };
 typedef CameraProviderHwl* (*CreateCameraProviderHwl_t)();
 }  // namespace google_camera_hal

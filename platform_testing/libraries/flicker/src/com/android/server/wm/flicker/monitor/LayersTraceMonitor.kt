@@ -31,7 +31,7 @@ import java.nio.file.Path
 open class LayersTraceMonitor(
     outputDir: Path,
     private val traceFlags: Int
-) : TransitionMonitor(outputDir, "layers_trace.pb") {
+) : TransitionMonitor(outputDir, "layers_trace$WINSCOPE_EXT") {
 
     constructor(outputDir: Path) : this(outputDir, TRACE_FLAGS)
 

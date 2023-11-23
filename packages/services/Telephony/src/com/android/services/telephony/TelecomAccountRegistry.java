@@ -588,11 +588,15 @@ public class TelecomAccountRegistry {
         private boolean isCarrierVideoPresenceSupported() {
             PersistableBundle b =
                     PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
-            boolean carrierConfigEnabled = b != null
-                    && (b.getBoolean(CarrierConfigManager.KEY_USE_RCS_PRESENCE_BOOL)
-                    || b.getBoolean(
-                    CarrierConfigManager.Ims.KEY_ENABLE_PRESENCE_CAPABILITY_EXCHANGE_BOOL));
-            return carrierConfigEnabled && isUserContactDiscoverySettingEnabled();
+            if (b == null) return false;
+
+            // If using the new RcsUceAdapter API, this should be true if
+            // KEY_ENABLE_PRESENCE_CAPABILITY_EXCHANGE_BOOL is set. If using the old
+            // KEY_USE_RCS_PRESENCE_BOOL key, we have to also check the user setting.
+            return b.getBoolean(
+                    CarrierConfigManager.Ims.KEY_ENABLE_PRESENCE_CAPABILITY_EXCHANGE_BOOL)
+                    || (b.getBoolean(CarrierConfigManager.KEY_USE_RCS_PRESENCE_BOOL)
+                    && isUserContactDiscoverySettingEnabled());
         }
 
         /**

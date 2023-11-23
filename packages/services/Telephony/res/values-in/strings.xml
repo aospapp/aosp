@@ -183,7 +183,7 @@
     <string name="registration_done" msgid="5337407023566953292">"Terdaftar pada jaringan."</string>
     <string name="already_auto" msgid="8607068290733079336">"Sudah ada di pemilihan otomatis."</string>
     <string name="select_automatically" msgid="779750291257872651">"Pilih jaringan secara otomatis"</string>
-    <string name="manual_mode_disallowed_summary" msgid="3970048592179890197">"Tidak tersedia saat tersambung ke %1$s"</string>
+    <string name="manual_mode_disallowed_summary" msgid="3970048592179890197">"Tidak tersedia saat terhubung ke %1$s"</string>
     <string name="network_select_title" msgid="4117305053881611988">"Jaringan"</string>
     <string name="register_automatically" msgid="3907580547590554834">"Pendaftaran otomatis..."</string>
     <string name="preferred_network_mode_title" msgid="5253395265169539830">"Jenis jaringan yang dipilih"</string>
@@ -194,7 +194,7 @@
     <string name="network_disconnected" msgid="8844141106841160825">"Terputus"</string>
     <string name="network_connected" msgid="2760235679963580224">"Terhubung"</string>
     <string name="network_connecting" msgid="160901383582774987">"Menghubungkan..."</string>
-    <string name="network_could_not_connect" msgid="6547460848093727998">"Tidak dapat tersambung"</string>
+    <string name="network_could_not_connect" msgid="6547460848093727998">"Tidak dapat terhubung"</string>
   <string-array name="preferred_network_mode_choices">
     <item msgid="4531933377509551889">"GSM/WCDMA lebih disukai"</item>
     <item msgid="5120532750027435355">"GSM saja"</item>
@@ -313,7 +313,7 @@
     <string name="video_calling_settings_title" msgid="342829454913266078">"Panggilan video operator"</string>
     <string name="gsm_umts_options" msgid="4968446771519376808">"Opsi GSM//UMTS"</string>
     <string name="cdma_options" msgid="3669592472226145665">"Opsi CDMA"</string>
-    <string name="throttle_data_usage" msgid="1944145350660420711">"Penggunaan kuota"</string>
+    <string name="throttle_data_usage" msgid="1944145350660420711">"Penggunaan data"</string>
     <string name="throttle_current_usage" msgid="7483859109708658613">"Data yang digunakan dalam periode saat ini"</string>
     <string name="throttle_time_frame" msgid="1813452485948918791">"Periode penggunaan data"</string>
     <string name="throttle_rate" msgid="7641913901133634905">"Kebijakan kecepatan data"</string>
@@ -687,7 +687,7 @@
     <string name="message_decode_error" msgid="1061856591500290887">"Terjadi kesalahan saat mendekode pesan."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Kartu SIM telah mengaktifkan layanan dan memperbarui kemampuan roaming ponsel."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Ada terlalu banyak panggilan aktif. Akhiri atau gabungkan panggilan yang ada sebelum melakukan panggilan baru."</string>
-    <string name="callFailed_imei_not_accepted" msgid="7257903653685147251">"Tidak dapat tersambung, masukkan kartu SIM yang valid."</string>
+    <string name="callFailed_imei_not_accepted" msgid="7257903653685147251">"Tidak dapat terhubung, masukkan kartu SIM yang valid."</string>
     <string name="callFailed_wifi_lost" msgid="1788036730589163141">"Sambungan Wi-Fi terputus. Panggilan diakhiri."</string>
     <string name="dialFailed_low_battery" msgid="6857904237423407056">"Panggilan video tidak bisa dilakukan karena daya baterai lemah."</string>
     <string name="callFailed_low_battery" msgid="4056828320214416182">"Panggilan video berakhir karena daya baterai lemah."</string>

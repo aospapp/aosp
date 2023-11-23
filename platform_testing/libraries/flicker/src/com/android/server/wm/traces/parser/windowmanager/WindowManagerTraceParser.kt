@@ -22,42 +22,45 @@ import android.graphics.nano.RectProto
 import android.util.Log
 import android.view.nano.ViewProtoEnums
 import android.view.nano.WindowLayoutParamsProto
-import com.android.server.wm.traces.common.windowmanager.windows.Configuration
-import com.android.server.wm.traces.common.Rect
-import com.android.server.wm.traces.common.windowmanager.windows.WindowConfiguration
-import com.android.server.wm.traces.common.windowmanager.WindowManagerTrace
-import com.android.server.wm.traces.common.windowmanager.WindowManagerState
-import com.android.server.wm.traces.common.windowmanager.windows.Activity
-import com.android.server.wm.traces.common.windowmanager.windows.ActivityTask
-import com.android.server.wm.traces.common.windowmanager.windows.ConfigurationContainer
-import com.android.server.wm.traces.common.windowmanager.windows.DisplayArea
-import com.android.server.wm.traces.common.windowmanager.windows.DisplayContent
-import com.android.server.wm.traces.common.windowmanager.windows.KeyguardControllerState
-import com.android.server.wm.traces.common.windowmanager.windows.RootWindowContainer
-import com.android.server.wm.traces.common.windowmanager.windows.WindowContainer
-import com.android.server.wm.traces.common.windowmanager.windows.WindowManagerPolicy
-import com.android.server.wm.traces.common.windowmanager.windows.WindowState
-import com.android.server.wm.traces.common.windowmanager.windows.WindowToken
 import com.android.server.wm.nano.ActivityRecordProto
 import com.android.server.wm.nano.AppTransitionProto
 import com.android.server.wm.nano.ConfigurationContainerProto
 import com.android.server.wm.nano.DisplayAreaProto
 import com.android.server.wm.nano.DisplayContentProto
 import com.android.server.wm.nano.KeyguardControllerProto
-import com.android.server.wm.nano.WindowManagerPolicyProto
 import com.android.server.wm.nano.RootWindowContainerProto
+import com.android.server.wm.nano.TaskFragmentProto
 import com.android.server.wm.nano.TaskProto
 import com.android.server.wm.nano.WindowContainerChildProto
 import com.android.server.wm.nano.WindowContainerProto
+import com.android.server.wm.nano.WindowManagerPolicyProto
 import com.android.server.wm.nano.WindowManagerServiceDumpProto
 import com.android.server.wm.nano.WindowManagerTraceFileProto
 import com.android.server.wm.nano.WindowStateProto
 import com.android.server.wm.nano.WindowTokenProto
-import com.android.server.wm.traces.common.Bounds
+import com.android.server.wm.traces.common.Size
+import com.android.server.wm.traces.common.Rect
+import com.android.server.wm.traces.common.windowmanager.WindowManagerState
+import com.android.server.wm.traces.common.windowmanager.WindowManagerTrace
+import com.android.server.wm.traces.common.windowmanager.windows.Activity
+import com.android.server.wm.traces.common.windowmanager.windows.Configuration
+import com.android.server.wm.traces.common.windowmanager.windows.ConfigurationContainer
+import com.android.server.wm.traces.common.windowmanager.windows.DisplayArea
+import com.android.server.wm.traces.common.windowmanager.windows.DisplayContent
+import com.android.server.wm.traces.common.windowmanager.windows.KeyguardControllerState
+import com.android.server.wm.traces.common.windowmanager.windows.RootWindowContainer
+import com.android.server.wm.traces.common.windowmanager.windows.Task
+import com.android.server.wm.traces.common.windowmanager.windows.TaskFragment
+import com.android.server.wm.traces.common.windowmanager.windows.WindowConfiguration
+import com.android.server.wm.traces.common.windowmanager.windows.WindowContainer
 import com.android.server.wm.traces.common.windowmanager.windows.WindowLayoutParams
+import com.android.server.wm.traces.common.windowmanager.windows.WindowManagerPolicy
+import com.android.server.wm.traces.common.windowmanager.windows.WindowState
+import com.android.server.wm.traces.common.windowmanager.windows.WindowToken
 import com.android.server.wm.traces.parser.LOG_TAG
 import com.google.protobuf.nano.InvalidProtocolBufferNanoException
 import java.nio.file.Path
+import kotlin.math.max
 import kotlin.system.measureTimeMillis
 
 object WindowManagerTraceParser {
@@ -83,16 +86,14 @@ object WindowManagerTraceParser {
      *
      * @param data binary proto data
      * @param source Path to source of data for additional debug information
-     * @param checksum File SHA512 checksum
      */
     @JvmOverloads
     @JvmStatic
     fun parseFromTrace(
         data: ByteArray?,
-        source: Path? = null,
-        checksum: String = ""
+        source: Path? = null
     ): WindowManagerTrace {
-        val fileProto: WindowManagerTraceFileProto
+        var fileProto: WindowManagerTraceFileProto? = null
         try {
             measureTimeMillis {
                 fileProto = WindowManagerTraceFileProto.parseFrom(data)
@@ -102,7 +103,9 @@ object WindowManagerTraceParser {
         } catch (e: InvalidProtocolBufferNanoException) {
             throw RuntimeException(e)
         }
-        return parseFromTrace(fileProto, source, checksum)
+
+        return fileProto?.let { parseFromTrace(it, source) }
+                ?: error("Unable to read trace file")
     }
 
     /**
@@ -110,14 +113,12 @@ object WindowManagerTraceParser {
      *
      * @param proto Parsed proto data
      * @param source Path to source of data for additional debug information
-     * @param checksum File SHA512 checksum
      */
     @JvmOverloads
     @JvmStatic
     fun parseFromTrace(
         proto: WindowManagerTraceFileProto,
-        source: Path? = null,
-        checksum: String = ""
+        source: Path? = null
     ): WindowManagerTrace {
         val entries = mutableListOf<WindowManagerState>()
         var traceParseTime = 0L
@@ -131,9 +132,8 @@ object WindowManagerTraceParser {
         }
 
         Log.v(LOG_TAG, "Parsing duration (WM Trace): ${traceParseTime}ms " +
-            "(avg ${traceParseTime / entries.size}ms per entry)")
-        return WindowManagerTrace(entries, source?.toAbsolutePath()?.toString()
-            ?: "", checksum)
+            "(avg ${traceParseTime / max(entries.size, 1)}ms per entry)")
+        return WindowManagerTrace(entries.toTypedArray(), "${source?.toAbsolutePath()}")
     }
 
     /**
@@ -145,9 +145,8 @@ object WindowManagerTraceParser {
     @JvmStatic
     fun parseFromDump(proto: WindowManagerServiceDumpProto): WindowManagerTrace {
         return WindowManagerTrace(
-            listOf(newTraceEntry(proto, timestamp = 0, where = "")),
-            source = "",
-            sourceChecksum = "")
+                arrayOf(newTraceEntry(proto, timestamp = 0, where = "")),
+            source = "")
     }
 
     /**
@@ -163,7 +162,7 @@ object WindowManagerTraceParser {
         } catch (e: InvalidProtocolBufferNanoException) {
             throw RuntimeException(e)
         }
-        return WindowManagerTrace(parseFromDump(fileProto), source = "", sourceChecksum = "")
+        return parseFromDump(fileProto)
     }
 
     private fun newTraceEntry(
@@ -189,11 +188,11 @@ object WindowManagerTraceParser {
             root = newRootWindowContainer(proto.rootWindowContainer),
             keyguardControllerState = newKeyguardControllerState(
                 proto.rootWindowContainer.keyguardController),
-            timestamp = timestamp
+            _timestamp = timestamp.toString()
         )
     }
 
-    private fun newWindowManagerPolicy(proto: WindowManagerPolicyProto): WindowManagerPolicy? {
+    private fun newWindowManagerPolicy(proto: WindowManagerPolicyProto): WindowManagerPolicy {
         return WindowManagerPolicy(
             focusedAppToken = proto.focusedAppToken ?: "",
             forceStatusBar = proto.forceStatusBar,
@@ -240,7 +239,9 @@ object WindowManagerTraceParser {
     ): WindowContainer? {
         return newDisplayContent(proto.displayContent, isActivityInTree)
             ?: newDisplayArea(proto.displayArea, isActivityInTree)
-            ?: newTask(proto.task, isActivityInTree) ?: newActivity(proto.activity)
+            ?: newTask(proto.task, isActivityInTree)
+            ?: newTaskFragment(proto.taskFragment, isActivityInTree)
+            ?: newActivity(proto.activity)
             ?: newWindowToken(proto.windowToken, isActivityInTree)
             ?: newWindowState(proto.window, isActivityInTree)
             ?: newWindowContainer(proto.windowContainer, children = emptyList())
@@ -258,8 +259,10 @@ object WindowManagerTraceParser {
                 focusedRootTaskId = proto.focusedRootTaskId,
                 resumedActivity = proto.resumedActivity?.title ?: "",
                 singleTaskInstance = proto.singleTaskInstance,
-                _defaultPinnedStackBounds = proto.pinnedTaskController?.defaultBounds?.toRect(),
-                _pinnedStackMovementBounds = proto.pinnedTaskController?.movementBounds?.toRect(),
+                defaultPinnedStackBounds = proto.pinnedTaskController?.defaultBounds?.toRect()
+                    ?: Rect.EMPTY,
+                pinnedStackMovementBounds = proto.pinnedTaskController?.movementBounds?.toRect()
+                    ?: Rect.EMPTY,
                 displayRect = Rect(0, 0, proto.displayInfo?.logicalWidth
                     ?: 0, proto.displayInfo?.logicalHeight ?: 0),
                 appRect = Rect(0, 0, proto.displayInfo?.appWidth ?: 0,
@@ -267,7 +270,7 @@ object WindowManagerTraceParser {
                         ?: 0),
                 dpi = proto.dpi,
                 flags = proto.displayInfo?.flags ?: 0,
-                _stableBounds = proto.displayFrames?.stableBounds?.toRect(),
+                stableBounds = proto.displayFrames?.stableBounds?.toRect() ?: Rect.EMPTY,
                 surfaceSize = proto.surfaceSize,
                 focusedApp = proto.focusedApp,
                 lastTransition = appTransitionToString(
@@ -301,18 +304,18 @@ object WindowManagerTraceParser {
         }
     }
 
-    private fun newTask(proto: TaskProto?, isActivityInTree: Boolean): ActivityTask? {
+    private fun newTask(proto: TaskProto?, isActivityInTree: Boolean): Task? {
         return if (proto == null) {
             null
         } else {
-            ActivityTask(
-                activityType = proto.activityType,
+            Task(
+                activityType = proto.taskFragment?.activityType ?: proto.activityType,
                 isFullscreen = proto.fillsParent,
                 bounds = proto.bounds.toRect(),
                 taskId = proto.id,
                 rootTaskId = proto.rootTaskId,
-                displayId = proto.displayId,
-                _lastNonFullscreenBounds = proto.lastNonFullscreenBounds?.toRect(),
+                displayId = proto.taskFragment?.displayId ?: proto.displayId,
+                lastNonFullscreenBounds = proto.lastNonFullscreenBounds?.toRect() ?: Rect.EMPTY,
                 realActivity = proto.realActivity,
                 origActivity = proto.origActivity,
                 resizeMode = proto.resizeMode,
@@ -321,6 +324,30 @@ object WindowManagerTraceParser {
                 surfaceWidth = proto.surfaceWidth,
                 surfaceHeight = proto.surfaceHeight,
                 createdByOrganizer = proto.createdByOrganizer,
+                minWidth = proto.taskFragment?.minWidth ?: proto.minWidth,
+                minHeight = proto.taskFragment?.minHeight ?: proto.minHeight,
+                windowContainer = newWindowContainer(
+                    proto.taskFragment?.windowContainer ?: proto.windowContainer,
+                    if (proto.taskFragment != null) {
+                        proto.taskFragment.windowContainer.children
+                                .mapNotNull { p -> newWindowContainerChild(p, isActivityInTree) }
+                    } else {
+                        proto.windowContainer.children
+                                .mapNotNull { p -> newWindowContainerChild(p, isActivityInTree) }
+                    }
+                ) ?: error("Window container should not be null")
+            )
+        }
+    }
+
+    private fun newTaskFragment(proto: TaskFragmentProto?, isActivityInTree: Boolean):
+            TaskFragment? {
+        return if (proto == null) {
+            null
+        } else {
+            TaskFragment(
+                activityType = proto.activityType,
+                displayId = proto.displayId,
                 minWidth = proto.minWidth,
                 minHeight = proto.minHeight,
                 windowContainer = newWindowContainer(
@@ -385,16 +412,16 @@ object WindowManagerTraceParser {
                         WindowState.WINDOW_TYPE_STARTING
                     else -> 0
                 },
-                requestedSize = Bounds(proto.requestedWidth, proto.requestedHeight),
+                requestedSize = Size(proto.requestedWidth, proto.requestedHeight),
                 surfacePosition = proto.surfacePosition?.toRect(),
-                _frame = proto.windowFrames?.frame?.toRect(),
-                _containingFrame = proto.windowFrames?.containingFrame?.toRect(),
-                _parentFrame = proto.windowFrames?.parentFrame?.toRect(),
-                _contentFrame = proto.windowFrames?.contentFrame?.toRect(),
-                _contentInsets = proto.windowFrames?.contentInsets?.toRect(),
-                _surfaceInsets = proto.surfaceInsets?.toRect(),
-                _givenContentInsets = proto.givenContentInsets?.toRect(),
-                _crop = proto.animator?.lastClipRect?.toRect(),
+                frame = proto.windowFrames?.frame?.toRect() ?: Rect.EMPTY,
+                containingFrame = proto.windowFrames?.containingFrame?.toRect() ?: Rect.EMPTY,
+                parentFrame = proto.windowFrames?.parentFrame?.toRect() ?: Rect.EMPTY,
+                contentFrame = proto.windowFrames?.contentFrame?.toRect() ?: Rect.EMPTY,
+                contentInsets = proto.windowFrames?.contentInsets?.toRect() ?: Rect.EMPTY,
+                surfaceInsets = proto.surfaceInsets?.toRect() ?: Rect.EMPTY,
+                givenContentInsets = proto.givenContentInsets?.toRect() ?: Rect.EMPTY,
+                crop = proto.animator?.lastClipRect?.toRect() ?: Rect.EMPTY,
                 windowContainer = newWindowContainer(
                     proto.windowContainer,
                     proto.windowContainer.children
@@ -504,7 +531,8 @@ object WindowManagerTraceParser {
                 _isVisible = proto.visible,
                 configurationContainer = newConfigurationContainer(
                     proto.configurationContainer),
-                children.toTypedArray()
+                layerId = proto.surfaceControl?.layerId ?: 0,
+                children = children.toTypedArray()
             )
         }
     }

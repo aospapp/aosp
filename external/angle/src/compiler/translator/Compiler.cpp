@@ -30,7 +30,6 @@
 #include "compiler/translator/tree_ops/DeferGlobalInitializers.h"
 #include "compiler/translator/tree_ops/EmulateGLFragColorBroadcast.h"
 #include "compiler/translator/tree_ops/EmulateMultiDrawShaderBuiltins.h"
-#include "compiler/translator/tree_ops/EmulatePrecision.h"
 #include "compiler/translator/tree_ops/FoldExpressions.h"
 #include "compiler/translator/tree_ops/ForcePrecisionQualifier.h"
 #include "compiler/translator/tree_ops/InitializeVariables.h"
@@ -44,14 +43,13 @@
 #include "compiler/translator/tree_ops/SeparateDeclarations.h"
 #include "compiler/translator/tree_ops/SimplifyLoopConditions.h"
 #include "compiler/translator/tree_ops/SplitSequenceOperator.h"
+#include "compiler/translator/tree_ops/apple/AddAndTrueToLoopCondition.h"
+#include "compiler/translator/tree_ops/apple/RewriteDoWhile.h"
+#include "compiler/translator/tree_ops/apple/UnfoldShortCircuitAST.h"
 #include "compiler/translator/tree_ops/gl/ClampFragDepth.h"
 #include "compiler/translator/tree_ops/gl/RegenerateStructNames.h"
 #include "compiler/translator/tree_ops/gl/RewriteRepeatedAssignToSwizzled.h"
 #include "compiler/translator/tree_ops/gl/UseInterfaceBlockFields.h"
-#include "compiler/translator/tree_ops/gl/VectorizeVectorScalarArithmetic.h"
-#include "compiler/translator/tree_ops/gl/mac/AddAndTrueToLoopCondition.h"
-#include "compiler/translator/tree_ops/gl/mac/RewriteDoWhile.h"
-#include "compiler/translator/tree_ops/gl/mac/UnfoldShortCircuitAST.h"
 #include "compiler/translator/tree_ops/vulkan/EarlyFragmentTestsOptimization.h"
 #include "compiler/translator/tree_util/BuiltIn.h"
 #include "compiler/translator/tree_util/IntermNodePatternMatcher.h"
@@ -311,10 +309,17 @@ TCompiler::TCompiler(sh::GLenum type, ShShaderSpec spec, ShShaderOutput output)
       mTessEvaluationShaderInputVertexSpacingType(EtetUndefined),
       mTessEvaluationShaderInputOrderingType(EtetUndefined),
       mTessEvaluationShaderInputPointType(EtetUndefined),
+      mHasAnyPreciseType(false),
       mCompileOptions(0)
 {}
 
 TCompiler::~TCompiler() {}
+
+bool TCompiler::isHighPrecisionSupported() const
+{
+    return mShaderVersion > 100 || mShaderType != GL_FRAGMENT_SHADER ||
+           mResources.FragmentPrecisionHigh == 1;
+}
 
 bool TCompiler::shouldRunLoopAndIndexingValidation(ShCompileOptions compileOptions) const
 {
@@ -516,6 +521,8 @@ void TCompiler::setASTMetadata(const TParseContext &parseContext)
 
     mNumViews = parseContext.getNumViews();
 
+    mHasAnyPreciseType = parseContext.hasAnyPreciseType();
+
     if (mShaderType == GL_GEOMETRY_SHADER_EXT)
     {
         mGeometryShaderInputPrimitiveType  = parseContext.getGeometryShaderInputPrimitiveType();
@@ -559,6 +566,7 @@ bool TCompiler::validateAST(TIntermNode *root)
 #if defined(ANGLE_ENABLE_ASSERTS)
         if (!valid)
         {
+            OutputTree(root, mInfoSink.info);
             fprintf(stderr, "AST validation error(s):\n%s\n", mInfoSink.info.c_str());
         }
 #endif
@@ -571,11 +579,46 @@ bool TCompiler::validateAST(TIntermNode *root)
     return true;
 }
 
+bool TCompiler::disableValidateFunctionCall()
+{
+    bool wasEnabled                          = mValidateASTOptions.validateFunctionCall;
+    mValidateASTOptions.validateFunctionCall = false;
+    return wasEnabled;
+}
+
+void TCompiler::restoreValidateFunctionCall(bool enable)
+{
+    ASSERT(!mValidateASTOptions.validateFunctionCall);
+    mValidateASTOptions.validateFunctionCall = enable;
+}
+
+bool TCompiler::disableValidateVariableReferences()
+{
+    bool wasEnabled                                = mValidateASTOptions.validateVariableReferences;
+    mValidateASTOptions.validateVariableReferences = false;
+    return wasEnabled;
+}
+
+void TCompiler::restoreValidateVariableReferences(bool enable)
+{
+    ASSERT(!mValidateASTOptions.validateVariableReferences);
+    mValidateASTOptions.validateVariableReferences = enable;
+}
+
+void TCompiler::enableValidateNoMoreTransformations()
+{
+    mValidateASTOptions.validateNoMoreTransformations = true;
+}
+
 bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
                                     const TParseContext &parseContext,
                                     ShCompileOptions compileOptions)
 {
     mValidateASTOptions = {};
+
+    // Desktop GLSL shaders don't have precision, so don't expect them to be specified.
+    mValidateASTOptions.validatePrecision = !IsDesktopGLSpec(mShaderSpec);
+
     if (!validateAST(root))
     {
         return false;
@@ -636,13 +679,27 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
                                       !IsOutputHLSL(getOutputType());
     bool canUseLoopsToInitialize =
         (compileOptions & SH_DONT_USE_LOOPS_TO_INITIALIZE_VARIABLES) == 0;
-    bool highPrecisionSupported = mShaderVersion > 100 || mShaderType != GL_FRAGMENT_SHADER ||
-                                  mResources.FragmentPrecisionHigh == 1;
+    bool highPrecisionSupported        = isHighPrecisionSupported();
     bool enableNonConstantInitializers = IsExtensionEnabled(
         mExtensionBehavior, TExtension::EXT_shader_non_constant_global_initializers);
+    // forceDeferGlobalInitializers is needed for MSL
+    // to convert a non-const global. For example:
+    //
+    //    int someGlobal = 123;
+    //
+    // to
+    //
+    //    int someGlobal;
+    //    void main() {
+    //        someGlobal = 123;
+    //
+    // This is because MSL doesn't allow statically initialized globals.
+    bool forceDeferGlobalInitializers = getOutputType() == SH_MSL_METAL_OUTPUT;
+
     if (enableNonConstantInitializers &&
         !DeferGlobalInitializers(this, root, initializeLocalsAndGlobals, canUseLoopsToInitialize,
-                                 highPrecisionSupported, &mSymbolTable))
+                                 highPrecisionSupported, forceDeferGlobalInitializers,
+                                 &mSymbolTable))
     {
         return false;
     }
@@ -683,14 +740,6 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
     if (mShaderVersion >= 300 && mShaderType == GL_FRAGMENT_SHADER &&
         !ValidateOutputs(root, getExtensionBehavior(), mResources.MaxDrawBuffers, &mDiagnostics))
     {
-        return false;
-    }
-
-    // Fail compilation if precision emulation not supported.
-    if (getResources().WEBGL_debug_shader_precision && getPragma().debugShaderPrecision &&
-        !EmulatePrecision::SupportedInLanguage(mOutputType))
-    {
-        mDiagnostics.globalError("Precision emulation not supported for this output type.");
         return false;
     }
 
@@ -813,7 +862,7 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
 
     // Note that separate declarations need to be run before other AST transformations that
     // generate new statements from expressions.
-    if (!SeparateDeclarations(this, root))
+    if (!SeparateDeclarations(this, root, &getSymbolTable()))
     {
         return false;
     }
@@ -856,8 +905,7 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
 
     if ((compileOptions & SH_SCALARIZE_VEC_AND_MAT_CONSTRUCTOR_ARGS) != 0)
     {
-        if (!ScalarizeVecAndMatConstructorArgs(this, root, mShaderType, highPrecisionSupported,
-                                               &mSymbolTable))
+        if (!ScalarizeVecAndMatConstructorArgs(this, root, &mSymbolTable))
         {
             return false;
         }
@@ -945,7 +993,8 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
     // be optimized out
     if (!enableNonConstantInitializers &&
         !DeferGlobalInitializers(this, root, initializeLocalsAndGlobals, canUseLoopsToInitialize,
-                                 highPrecisionSupported, &mSymbolTable))
+                                 highPrecisionSupported, forceDeferGlobalInitializers,
+                                 &mSymbolTable))
     {
         return false;
     }
@@ -997,14 +1046,6 @@ bool TCompiler::checkAndSimplifyAST(TIntermBlock *root,
     if ((compileOptions & SH_REWRITE_REPEATED_ASSIGN_TO_SWIZZLED) != 0)
     {
         if (!sh::RewriteRepeatedAssignToSwizzled(this, root))
-        {
-            return false;
-        }
-    }
-
-    if ((compileOptions & SH_REWRITE_VECTOR_SCALAR_ARITHMETIC) != 0)
-    {
-        if (!VectorizeVectorScalarArithmetic(this, root, &getSymbolTable()))
         {
             return false;
         }
@@ -1153,6 +1194,7 @@ void TCompiler::setResourceString()
         << ":MaxFunctionParameters:" << mResources.MaxFunctionParameters
         << ":EXT_blend_func_extended:" << mResources.EXT_blend_func_extended
         << ":EXT_frag_depth:" << mResources.EXT_frag_depth
+        << ":EXT_primitive_bounding_box:" << mResources.EXT_primitive_bounding_box
         << ":EXT_shader_texture_lod:" << mResources.EXT_shader_texture_lod
         << ":EXT_shader_framebuffer_fetch:" << mResources.EXT_shader_framebuffer_fetch
         << ":EXT_shader_framebuffer_fetch_non_coherent:" << mResources.EXT_shader_framebuffer_fetch_non_coherent
@@ -1174,7 +1216,6 @@ void TCompiler::setResourceString()
         << ":MaxDualSourceDrawBuffers:" << mResources.MaxDualSourceDrawBuffers
         << ":MaxViewsOVR:" << mResources.MaxViewsOVR
         << ":NV_draw_buffers:" << mResources.NV_draw_buffers
-        << ":WEBGL_debug_shader_precision:" << mResources.WEBGL_debug_shader_precision
         << ":ANGLE_multi_draw:" << mResources.ANGLE_multi_draw
         << ":ANGLE_base_vertex_base_instance:" << mResources.ANGLE_base_vertex_base_instance
         << ":APPLE_clip_distance:" << mResources.APPLE_clip_distance
@@ -1260,26 +1301,6 @@ void TCompiler::collectInterfaceBlocks()
     mInterfaceBlocks.insert(mInterfaceBlocks.end(), mUniformBlocks.begin(), mUniformBlocks.end());
     mInterfaceBlocks.insert(mInterfaceBlocks.end(), mShaderStorageBlocks.begin(),
                             mShaderStorageBlocks.end());
-}
-
-bool TCompiler::emulatePrecisionIfNeeded(TIntermBlock *root,
-                                         TInfoSinkBase &sink,
-                                         bool *isNeeded,
-                                         const ShShaderOutput outputLanguage)
-{
-    *isNeeded = getResources().WEBGL_debug_shader_precision && getPragma().debugShaderPrecision;
-
-    if (*isNeeded)
-    {
-        EmulatePrecision emulatePrecision(&getSymbolTable());
-        root->traverse(&emulatePrecision);
-        if (!emulatePrecision.updateTree(this, root))
-        {
-            return false;
-        }
-        emulatePrecision.writeEmulationHelpers(sink, getShaderVersion(), outputLanguage);
-    }
-    return true;
 }
 
 void TCompiler::clearResults()

@@ -489,6 +489,16 @@ class SensorRequestManager : public NonCopyable {
    */
   bool configurePlatformSensor(Sensor &sensor,
                                const SensorRequest &prevSensorRequest);
+
+  /**
+   * @param nanoappInstanceId The instance ID of the nanoapp to check.
+   * @param sensorType The sensor type.
+   *
+   * @return the target group masks that are actively enabled for this nanoapp
+   *  and the sensor type.
+   */
+  uint16_t getActiveTargetGroupMask(uint32_t nanoappInstanceId,
+                                    uint8_t sensorType);
 };
 
 }  // namespace chre

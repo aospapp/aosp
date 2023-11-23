@@ -15,7 +15,12 @@
  */
 package com.android.car.notification;
 
+import android.app.NotificationManager;
+import android.os.Build;
+import android.service.notification.NotificationListenerService;
 import android.util.Log;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.car.assist.client.CarAssistUtils;
 
@@ -33,7 +38,6 @@ import java.util.stream.Collectors;
  * only be called from the main thread.
  */
 public class NotificationDataManager {
-
     /**
      * Interface for listeners that want to register for receiving updates to the notification
      * unseen count.
@@ -45,7 +49,10 @@ public class NotificationDataManager {
         void onUnseenCountUpdate();
     }
 
-    private static String TAG = "NotificationDataManager";
+    private static final boolean DEBUG = Build.IS_DEBUGGABLE;
+    private static final String TAG = "NotificationDataManager";
+
+    private static NotificationDataManager sInstance;
 
     /**
      * Map that contains the key of all message notifications, mapped to whether or not the key's
@@ -66,11 +73,26 @@ public class NotificationDataManager {
     /**
      * List of notifications that are visible to the user.
      */
-    private final List<AlertEntry> mVisibleNotifications = new ArrayList<>();
+    private final Set<AlertEntry> mVisibleNotifications = new HashSet<>();
 
     private OnUnseenCountUpdateListener mOnUnseenCountUpdateListener;
 
-    public NotificationDataManager() {
+    /**
+     * @return the {@link NotificationDataManager} singleton
+     */
+    public static NotificationDataManager getInstance() {
+        if (sInstance == null) {
+            sInstance = new NotificationDataManager();
+        }
+        return sInstance;
+    }
+
+    @VisibleForTesting
+    static void refreshInstance() {
+        sInstance = null;
+    }
+
+    private NotificationDataManager() {
         clearAll();
     }
 
@@ -91,8 +113,12 @@ public class NotificationDataManager {
 
             if (mUnseenNotificationMap.containsKey(alertEntry.getKey())) {
                 mUnseenNotificationMap.put(alertEntry.getKey(), true);
+                mVisibleNotifications.add(alertEntry);
 
                 if (mOnUnseenCountUpdateListener != null) {
+                    if (DEBUG) {
+                        Log.d(TAG, "Unseen notification map: " + mUnseenNotificationMap);
+                    }
                     mOnUnseenCountUpdateListener.onUnseenCountUpdate();
                 }
             }
@@ -103,25 +129,39 @@ public class NotificationDataManager {
         if (mUnseenNotificationMap.containsKey(alertEntry.getKey())) {
             mUnseenNotificationMap.remove(alertEntry.getKey());
             if (mOnUnseenCountUpdateListener != null) {
+                if (DEBUG) {
+                    Log.d(TAG, "UnseenNotificationMap: " + mUnseenNotificationMap);
+                }
                 mOnUnseenCountUpdateListener.onUnseenCountUpdate();
             }
         }
     }
 
-    void updateUnseenNotification(List<NotificationGroup> notificationGroups) {
+    void updateUnseenNotificationGroups(List<NotificationGroup> notificationGroups) {
+        List<AlertEntry> alertEntries = new ArrayList<>();
+
+        notificationGroups.forEach(group -> {
+            if (group.getGroupSummaryNotification() != null) {
+                alertEntries.add(group.getGroupSummaryNotification());
+            }
+            alertEntries.addAll(group.getChildNotifications());
+        });
+
+        updateUnseenAlertEntries(alertEntries);
+    }
+
+    void updateUnseenAlertEntries(List<AlertEntry> alertEntries) {
         Set<String> currentNotificationKeys = new HashSet<>();
 
         Collections.addAll(currentNotificationKeys,
                 mUnseenNotificationMap.keySet().toArray(new String[0]));
 
-        for (NotificationGroup group : notificationGroups) {
-            for (AlertEntry alertEntry : group.getChildNotifications()) {
-                // add new notifications
-                mUnseenNotificationMap.putIfAbsent(alertEntry.getKey(), true);
+        for (AlertEntry alertEntry : alertEntries) {
+            // add new notifications
+            mUnseenNotificationMap.putIfAbsent(alertEntry.getKey(), true);
 
-                // sbn exists in both sets.
-                currentNotificationKeys.remove(alertEntry.getKey());
-            }
+            // sbn exists in both sets.
+            currentNotificationKeys.remove(alertEntry.getKey());
         }
 
         // These keys were removed from notificationGroups. Remove from mUnseenNotificationMap.
@@ -130,8 +170,15 @@ public class NotificationDataManager {
         }
 
         if (mOnUnseenCountUpdateListener != null) {
+            if (DEBUG) {
+                Log.d(TAG, "UnseenNotificationMap: " + mUnseenNotificationMap);
+            }
             mOnUnseenCountUpdateListener.onUnseenCountUpdate();
         }
+    }
+
+    boolean isNotificationSeen(AlertEntry alertEntry) {
+        return !mUnseenNotificationMap.getOrDefault(alertEntry.getKey(), false);
     }
 
     /**
@@ -173,6 +220,9 @@ public class NotificationDataManager {
         mVisibleNotifications.clear();
 
         if (mOnUnseenCountUpdateListener != null) {
+            if (DEBUG) {
+                Log.d(TAG, "Unseen notifications cleared");
+            }
             mOnUnseenCountUpdateListener.onUnseenCountUpdate();
         }
     }
@@ -186,28 +236,40 @@ public class NotificationDataManager {
             }
         }
         if (mOnUnseenCountUpdateListener != null) {
+            if (DEBUG) {
+                Log.d(TAG, "Unseen notification map: " + mUnseenNotificationMap);
+            }
             mOnUnseenCountUpdateListener.onUnseenCountUpdate();
         }
     }
 
     /**
-     * Returns unseen notification count.
+     * Returns unseen notification count for higher than low importance notifications.
      */
-    public int getUnseenNotificationCount() {
-        int unseenCount = 0;
-        for (Boolean value : mUnseenNotificationMap.values()) {
-            if (value) {
-                unseenCount++;
+    public int getNonLowImportanceUnseenNotificationCount(
+            NotificationListenerService.RankingMap rankingMap) {
+        final int[] unseenCount = {0};
+        mUnseenNotificationMap.forEach((key, val) -> {
+            if (val) {
+                NotificationListenerService.Ranking ranking =
+                        new NotificationListenerService.Ranking();
+                rankingMap.getRanking(key, ranking);
+                if (ranking.getImportance() > NotificationManager.IMPORTANCE_LOW) {
+                    unseenCount[0]++;
+                }
             }
+        });
+        if (DEBUG) {
+            Log.d(TAG, "Unseen notification map: " + mUnseenNotificationMap);
         }
-        return unseenCount;
+        return unseenCount[0];
     }
 
     /**
      * Returns a collection containing all notifications the user should be seeing right now.
      */
     public List<AlertEntry> getVisibleNotifications() {
-        return mVisibleNotifications;
+        return mVisibleNotifications.stream().collect(Collectors.toList());
     }
 
     /**

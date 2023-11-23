@@ -109,14 +109,15 @@ public class RingtonePickerPreferenceControllerTest {
     }
 
     @Test
-    public void onCreate_noArgsSet_invalidRingtoneTypeSet() {
+    public void onStart_noArgsSet_invalidRingtoneTypeSet() {
         mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
 
         verify(mRingtoneManager).setType(eq(-1));
     }
 
     @Test
-    public void onCreate_setArgs_validRingtoneTypeSet() {
+    public void onStart_setArgs_validRingtoneTypeSet() {
         Bundle args = new Bundle();
         args.putInt(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE);
         args.putBoolean(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false);
@@ -125,12 +126,13 @@ public class RingtonePickerPreferenceControllerTest {
 
         mPreferenceController.setArguments(args);
         mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
 
         verify(mRingtoneManager).setType(eq(RingtoneManager.TYPE_RINGTONE));
     }
 
     @Test
-    public void onCreate_doesNotShowSilent_noExtraPreference() {
+    public void onStart_doesNotShowSilent_noExtraPreference() {
         Bundle args = new Bundle();
         args.putInt(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE);
         args.putBoolean(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false);
@@ -145,12 +147,13 @@ public class RingtonePickerPreferenceControllerTest {
 
         mPreferenceController.setArguments(args);
         mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
 
         assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(2);
     }
 
     @Test
-    public void onCreate_showSilent_hasExtraPreference() {
+    public void onStart_showSilent_hasExtraPreference() {
         Bundle args = new Bundle();
         args.putInt(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE);
         args.putBoolean(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true);
@@ -165,13 +168,14 @@ public class RingtonePickerPreferenceControllerTest {
 
         mPreferenceController.setArguments(args);
         mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
 
         // Has 2 ringtones + silent option.
         assertThat(mPreferenceGroup.getPreferenceCount()).isEqualTo(3);
     }
 
     @Test
-    public void onCreate_showSilent_firstPreferenceIsSilent() {
+    public void onStart_showSilent_firstPreferenceIsSilent() {
         Bundle args = new Bundle();
         args.putInt(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE);
         args.putBoolean(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true);
@@ -180,6 +184,7 @@ public class RingtonePickerPreferenceControllerTest {
 
         mPreferenceController.setArguments(args);
         mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
 
         Preference preference = mPreferenceGroup.getPreference(0);
         int posKey = Integer.parseInt(preference.getKey());
@@ -187,7 +192,7 @@ public class RingtonePickerPreferenceControllerTest {
     }
 
     @Test
-    public void onCreate_hasSilent_defaultRingtoneSelected() {
+    public void onStart_hasSilent_defaultRingtoneSelected() {
         Bundle args = new Bundle();
         args.putInt(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE);
         args.putBoolean(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true);
@@ -205,6 +210,7 @@ public class RingtonePickerPreferenceControllerTest {
 
         mPreferenceController.setArguments(args);
         mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
 
         // Currently selected ringtone is the first ringtone in the list. However, since we also
         // have the "silent" item, it is the second item in the overall list.
@@ -230,6 +236,7 @@ public class RingtonePickerPreferenceControllerTest {
 
         mPreferenceController.setArguments(args);
         mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
         mPreferenceGroup.getPreference(1).performClick();
 
         // Currently selected ringtone is the first ringtone in the list. However, since we also
@@ -256,6 +263,7 @@ public class RingtonePickerPreferenceControllerTest {
 
         mPreferenceController.setArguments(args);
         mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
         mPreferenceGroup.getPreference(2).performClick();
 
         assertThat(mPreferenceController.getCurrentlySelectedPreferencePos()).isEqualTo(2);
@@ -280,6 +288,7 @@ public class RingtonePickerPreferenceControllerTest {
 
         mPreferenceController.setArguments(args);
         mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
         mPreferenceGroup.getPreference(2).performClick();
         mPreferenceController.onStop(mLifecycleOwner);
 

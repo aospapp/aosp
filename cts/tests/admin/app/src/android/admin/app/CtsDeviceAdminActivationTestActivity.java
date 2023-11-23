@@ -19,6 +19,8 @@ package android.admin.app;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Process;
+import android.util.Log;
 import android.view.WindowManager;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -29,6 +31,9 @@ import com.google.common.annotations.VisibleForTesting;
  * providing a {@link OnActivityResultListener}.
  */
 public class CtsDeviceAdminActivationTestActivity extends Activity {
+
+    private static final String TAG = CtsDeviceAdminActivationTestActivity.class.getSimpleName();
+
     public interface OnActivityResultListener {
         void onActivityResult(int requestCode, int resultCode, Intent data);
     }
@@ -37,6 +42,7 @@ public class CtsDeviceAdminActivationTestActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d(TAG, "onCreate(): user=" + Process.myUserHandle());
         super.onCreate(savedInstanceState);
 
         // Dismiss keyguard and keep screen on while this Activity is displayed.
@@ -54,6 +60,8 @@ public class CtsDeviceAdminActivationTestActivity extends Activity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Log.d(TAG, "onActivityResult(): requestCode=" + requestCode + ", resultCode=" + resultCode
+                + ", listener=" + mOnActivityResultListener + ", user=" + Process.myUserHandle());
         if (mOnActivityResultListener != null) {
             mOnActivityResultListener.onActivityResult(requestCode, resultCode, data);
             return;

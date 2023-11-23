@@ -39,5 +39,6 @@ TEST(AidlMetadata, HasTestInstances) {
                           "some_package.sub_package.IFoo", "some_package.sub_package.SubThing"));
   EXPECT_THAT(info->hashes, ElementsAre("13e24b2fac6a979971819fba2ab0d6d7c4182122",
                                         "dc2a9292847e43b4360bb183f7491f0e9895eaa9",
-                                        "54f935920ab0934c242145cf00f9852ae3f5a63e"));
+                                        "54f935920ab0934c242145cf00f9852ae3f5a63e",
+                                        "be5dd6bf9c9000ee053621f118b7d6a7cfd1e79e"));
 }

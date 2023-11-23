@@ -20,7 +20,4 @@
 <resources>
     <!-- Preferred refresh rate at keyguard, if supported by the display -->
     <integer name="config_keyguardRefreshRate">60</integer>
-
-    <!-- Whether global actions should show an informational message about changes in S -->
-    <bool name="global_actions_show_change_info">true</bool>
 </resources>

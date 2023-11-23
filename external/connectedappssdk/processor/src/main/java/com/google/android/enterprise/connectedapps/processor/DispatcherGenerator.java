@@ -187,6 +187,21 @@ final class DispatcherGenerator {
     methodCode.addStatement("$T.throwInBackground(e)", BACKGROUND_EXCEPTION_THROWER_CLASSNAME);
 
     methodCode.addStatement("return throwableBytes");
+    methodCode.nextControlFlow("catch ($T e)", Error.class);
+
+    // parcel is recycled in this method
+    methodCode.addStatement("$1T throwableParcel = $1T.obtain()", PARCEL_CLASSNAME);
+    methodCode.add("throwableParcel.writeInt(1); //errors\n");
+    methodCode.addStatement(
+            "$T.writeThrowableToParcel(throwableParcel, e)", PARCEL_UTILITIES_CLASSNAME);
+    methodCode.addStatement(
+            "$1T throwableBytes = parcelCallReceiver.prepareResponse(callId, throwableParcel)",
+            ArrayTypeName.of(byte.class));
+    methodCode.addStatement("throwableParcel.recycle()");
+
+    methodCode.addStatement("$T.throwInBackground(e)", BACKGROUND_EXCEPTION_THROWER_CLASSNAME);
+
+    methodCode.addStatement("return throwableBytes");
     methodCode.endControlFlow();
 
     MethodSpec callMethod =

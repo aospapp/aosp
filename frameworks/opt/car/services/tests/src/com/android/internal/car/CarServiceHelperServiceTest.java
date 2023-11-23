@@ -83,6 +83,9 @@ public class CarServiceHelperServiceTest extends AbstractExtendedMockitoTestCase
     @Mock
     private CarServiceProxy mCarServiceProxy;
 
+    @Mock
+    private CarDevicePolicySafetyChecker mCarDevicePolicySafetyChecker;
+
     /**
      * Initialize objects and setup testing environment.
      */
@@ -97,7 +100,8 @@ public class CarServiceHelperServiceTest extends AbstractExtendedMockitoTestCase
                 mMockContext,
                 mCarLaunchParamsModifier,
                 mCarWatchdogDaemonHelper,
-                mCarServiceProxy);
+                mCarServiceProxy,
+                mCarDevicePolicySafetyChecker);
         mHelperSpy = spy(mHelper);
         when(mMockContext.getPackageManager()).thenReturn(mPackageManager);
     }

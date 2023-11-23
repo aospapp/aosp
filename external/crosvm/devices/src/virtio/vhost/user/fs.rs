@@ -12,7 +12,7 @@ use cros_async::Executor;
 use data_model::{DataInit, Le32};
 use vm_memory::GuestMemory;
 use vmm_vhost::vhost_user::message::{VhostUserProtocolFeatures, VhostUserVirtioFeatures};
-use vmm_vhost::vhost_user::{Error as VhostUserError, Master};
+use vmm_vhost::vhost_user::Error as VhostUserError;
 use vmm_vhost::Error as VhostError;
 
 use crate::virtio::fs::{virtio_fs_config, FS_MAX_TAG_LEN, QUEUE_SIZE};
@@ -51,16 +51,17 @@ impl Fs {
         };
 
         let socket = UnixStream::connect(&socket_path).map_err(Error::SocketConnect)?;
-        let master = Master::from_stream(socket, default_queue_size as u64);
 
         let allow_features = 1u64 << crate::virtio::VIRTIO_F_VERSION_1
+            | base_features
             | VhostUserVirtioFeatures::PROTOCOL_FEATURES.bits();
         let init_features = base_features | VhostUserVirtioFeatures::PROTOCOL_FEATURES.bits();
         let allow_protocol_features =
             VhostUserProtocolFeatures::MQ | VhostUserProtocolFeatures::CONFIG;
 
-        let mut handler = VhostUserHandler::new(
-            master,
+        let mut handler = VhostUserHandler::new_from_stream(
+            socket,
+            default_queue_size as u64,
             allow_features,
             init_features,
             allow_protocol_features,
@@ -160,7 +161,6 @@ impl VirtioDevice for Fs {
         match worker_result {
             Err(e) => {
                 error!("failed to spawn vhost-user virtio_fs worker: {}", e);
-                return;
             }
             Ok(join_handle) => {
                 self.worker_thread = Some(join_handle);

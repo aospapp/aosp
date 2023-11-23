@@ -25,12 +25,18 @@ import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentat
 
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.spyOn;
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.when;
+import static com.android.server.wm.CarLaunchParamsModifier.RESULT_SUCCESS;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
 import android.annotation.UserIdInt;
@@ -42,16 +48,23 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
+import android.content.res.Configuration;
 import android.hardware.display.DisplayManager;
+import android.os.Parcel;
+import android.os.Parcelable;
+import android.os.ServiceSpecificException;
 import android.os.UserHandle;
 import android.view.Display;
 import android.view.SurfaceControl;
+import android.window.DisplayAreaOrganizer;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.internal.policy.AttributeCache;
 import com.android.server.LocalServices;
 import com.android.server.display.color.ColorDisplayService;
+import com.android.server.input.InputManagerService;
+import com.android.server.policy.WindowManagerPolicy;
 
 import org.junit.After;
 import org.junit.Before;
@@ -62,6 +75,7 @@ import org.mockito.MockitoSession;
 import org.mockito.quality.Strictness;
 
 import java.util.Arrays;
+import java.util.function.Function;
 
 /**
  * Tests for {@link CarLaunchParamsModifier}
@@ -73,13 +87,16 @@ public class CarLaunchParamsModifierTest {
     private static final int PASSENGER_DISPLAY_ID_10 = 10;
     private static final int PASSENGER_DISPLAY_ID_11 = 11;
     private static final int VIRTUAL_DISPLAY_ID_2 = 2;
+    private static final int FEATURE_MAP_ID = 1111;
 
     private MockitoSession mMockingSession;
 
     private CarLaunchParamsModifier mModifier;
 
-    @Mock
     private Context mContext;
+    private WindowManagerService mWindowManagerService;
+    private final WindowManagerGlobalLock mWindowManagerGlobalLock = new WindowManagerGlobalLock();
+
     @Mock
     private DisplayManager mDisplayManager;
     @Mock
@@ -89,13 +106,15 @@ public class CarLaunchParamsModifierTest {
     @Mock
     private RecentTasks mRecentTasks;
     @Mock
-    private WindowManagerService mWindowManagerService;
-    @Mock
     private ColorDisplayService.ColorDisplayServiceInternal mColorDisplayServiceInternal;
     @Mock
     private RootWindowContainer mRootWindowContainer;
     @Mock
     private LaunchParamsController mLaunchParamsController;
+    @Mock
+    private PackageConfigPersister mPackageConfigPersister;
+    @Mock
+    private InputManagerService mInputManagerService;
 
     @Mock
     private Display mDisplay0ForDriver;
@@ -117,6 +136,7 @@ public class CarLaunchParamsModifierTest {
     private Display mDisplay2Virtual;
     @Mock
     private TaskDisplayArea mDisplayArea2Virtual;
+    private TaskDisplayArea mMapTaskDisplayArea;
 
     // All mocks from here before CarLaunchParamsModifier are arguments for
     // LaunchParamsModifier.onCalculate() call.
@@ -134,6 +154,40 @@ public class CarLaunchParamsModifierTest {
     private LaunchParamsController.LaunchParams mCurrentParams;
     @Mock
     private LaunchParamsController.LaunchParams mOutParams;
+
+    private static class CustomParcel implements Parcelable {
+        private final int mValue;
+
+        CustomParcel() {
+            mValue = 42;  // random initial value
+        }
+
+        protected CustomParcel(Parcel in) {
+            mValue = in.readInt();
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            dest.writeInt(mValue);
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        public static final Creator<CustomParcel> CREATOR = new Creator<CustomParcel>() {
+            @Override
+            public CustomParcel createFromParcel(Parcel in) {
+                return new CustomParcel(in);
+            }
+
+            @Override
+            public CustomParcel[] newArray(int size) {
+                return new CustomParcel[size];
+            }
+        };
+    }
 
     private void mockDisplay(Display display, TaskDisplayArea defaultTaskDisplayArea,
             int displayId, int flags, int type) {
@@ -158,21 +212,46 @@ public class CarLaunchParamsModifierTest {
                 .mockStatic(ActivityTaskManager.class)
                 .strictness(Strictness.LENIENT)
                 .startMocking();
-        when(mContext.getSystemService(DisplayManager.class)).thenReturn(mDisplayManager);
+        mContext = getInstrumentation().getTargetContext();
+        spyOn(mContext);
+        doReturn(mDisplayManager).when(mContext).getSystemService(eq(DisplayManager.class));
+
         doReturn(mActivityTaskManagerService).when(() -> ActivityTaskManager.getService());
         mActivityTaskManagerService.mTaskSupervisor = mActivityTaskSupervisor;
         when(mActivityTaskSupervisor.getLaunchParamsController()).thenReturn(
                 mLaunchParamsController);
         mActivityTaskManagerService.mRootWindowContainer = mRootWindowContainer;
+        mActivityTaskManagerService.mPackageConfigPersister = mPackageConfigPersister;
         mActivityTaskManagerService.mWindowManager = mWindowManagerService;
+        mActivityTaskManagerService.mWindowOrganizerController =
+                new WindowOrganizerController(mActivityTaskManagerService);
+        when(mActivityTaskManagerService.getTransitionController()).thenCallRealMethod();
         when(mActivityTaskManagerService.getRecentTasks()).thenReturn(mRecentTasks);
-        mWindowManagerService.mTransactionFactory = () -> new SurfaceControl.Transaction();
+        when(mActivityTaskManagerService.getGlobalLock()).thenReturn(mWindowManagerGlobalLock);
+
+        mWindowManagerService = WindowManagerService.main(
+                mContext, mInputManagerService, /* showBootMsgs= */ false, /* onlyCore= */ false,
+                /* policy= */ null, mActivityTaskManagerService,
+                /* displayWindowSettingsProvider= */ null, () -> new SurfaceControl.Transaction(),
+                /* surfaceFactory= */ null, /* surfaceControlFactory= */ null);
+        mActivityTaskManagerService.mWindowManager = mWindowManagerService;
+        mRootWindowContainer.mWindowManager = mWindowManagerService;
+
         AttributeCache.init(getInstrumentation().getTargetContext());
         LocalServices.addService(ColorDisplayService.ColorDisplayServiceInternal.class,
                 mColorDisplayServiceInternal);
         when(mActivityOptions.getLaunchDisplayId()).thenReturn(INVALID_DISPLAY);
         mockDisplay(mDisplay0ForDriver, mDisplayArea0ForDriver, DEFAULT_DISPLAY,
                 FLAG_TRUSTED, /* type= */ 0);
+        DisplayContent defaultDC = mRootWindowContainer.getDisplayContentOrCreate(DEFAULT_DISPLAY);
+        mMapTaskDisplayArea = new TaskDisplayArea(
+                defaultDC, mWindowManagerService, "MapTDA", FEATURE_MAP_ID);
+        doAnswer((invocation) -> {
+            Function<TaskDisplayArea, TaskDisplayArea> callback = invocation.getArgument(0);
+            return callback.apply(mMapTaskDisplayArea);
+        }).when(defaultDC).getItemFromTaskDisplayAreas(any());
+        when(mActivityRecordSource.getDisplayContent()).thenReturn(defaultDC);
+
         mockDisplay(mDisplay10ForPassenger, mDisplayArea10ForPassenger, PASSENGER_DISPLAY_ID_10,
                 FLAG_TRUSTED, /* type= */ 0);
         mockDisplay(mDisplay11ForPassenger, mDisplayArea11ForPassenger, PASSENGER_DISPLAY_ID_11,
@@ -181,8 +260,6 @@ public class CarLaunchParamsModifierTest {
                 FLAG_TRUSTED | FLAG_PRIVATE, /* type= */ 0);
         mockDisplay(mDisplay2Virtual, mDisplayArea2Virtual, VIRTUAL_DISPLAY_ID_2,
                 FLAG_PRIVATE, /* type= */ 0);
-        DisplayContent defaultDc = mRootWindowContainer.getDisplayContentOrCreate(DEFAULT_DISPLAY);
-        when(mActivityRecordSource.getDisplayContent()).thenReturn(defaultDc);
 
         mModifier = new CarLaunchParamsModifier(mContext);
         mModifier.init();
@@ -190,6 +267,8 @@ public class CarLaunchParamsModifierTest {
 
     @After
     public void tearDown() {
+        LocalServices.removeServiceForTest(WindowManagerInternal.class);
+        LocalServices.removeServiceForTest(WindowManagerPolicy.class);
         LocalServices.removeServiceForTest(ColorDisplayService.ColorDisplayServiceInternal.class);
         mMockingSession.finishMocking();
     }
@@ -255,7 +334,12 @@ public class CarLaunchParamsModifierTest {
         return new ActivityRecord.Builder(mActivityTaskManagerService)
                 .setIntent(intent)
                 .setActivityInfo(info)
+                .setConfiguration(new Configuration())
                 .build();
+    }
+
+    private ActivityRecord buildActivityRecord(ComponentName componentName) {
+        return buildActivityRecord(componentName.getPackageName(), componentName.getClassName());
     }
 
     @Test
@@ -658,7 +742,62 @@ public class CarLaunchParamsModifierTest {
                 .isEqualTo(mDisplayArea11ForPassenger);
     }
 
-    private ActivityStarter.Request fakeRequest() {
+    @Test
+    public void testSetPersistentActivityThrowsExceptionForInvalidDisplayId() {
+        ComponentName mapActivity = new ComponentName("testMapPkg", "mapActivity");
+        int invalidDisplayId = 999990;
+
+        assertThrows(IllegalArgumentException.class,
+                () -> mModifier.setPersistentActivity(mapActivity,
+                        invalidDisplayId, DisplayAreaOrganizer.FEATURE_DEFAULT_TASK_CONTAINER));
+    }
+
+    @Test
+    public void testSetPersistentActivityThrowsExceptionForInvalidFeatureId() {
+        ComponentName mapActivity = new ComponentName("testMapPkg", "mapActivity");
+        int invalidFeatureId = 999990;
+
+        assertThrows(IllegalArgumentException.class,
+                () -> mModifier.setPersistentActivity(mapActivity,
+                        DEFAULT_DISPLAY, invalidFeatureId));
+    }
+
+    @Test
+    public void testPersistentActivityOverridesTDA() {
+        ComponentName mapActivityName = new ComponentName("testMapPkg", "mapActivity");
+        mActivityRecordActivity = buildActivityRecord(mapActivityName);
+
+        int ret = mModifier.setPersistentActivity(mapActivityName, DEFAULT_DISPLAY, FEATURE_MAP_ID);
+        assertThat(ret).isEqualTo(RESULT_SUCCESS);
+
+        assertDisplayIsAssigned(UserHandle.USER_SYSTEM, mMapTaskDisplayArea);
+    }
+
+    @Test
+    public void testRemovePersistentActivity() {
+        ComponentName mapActivityName = new ComponentName("testMapPkg", "mapActivity");
+        mActivityRecordActivity = buildActivityRecord(mapActivityName);
+
+        int ret = mModifier.setPersistentActivity(mapActivityName, DEFAULT_DISPLAY, FEATURE_MAP_ID);
+        assertThat(ret).isEqualTo(RESULT_SUCCESS);
+        // Removes the existing persistent Activity assignment.
+        ret = mModifier.setPersistentActivity(mapActivityName, DEFAULT_DISPLAY,
+                DisplayAreaOrganizer.FEATURE_UNDEFINED);
+        assertThat(ret).isEqualTo(RESULT_SUCCESS);
+
+        assertNoDisplayIsAssigned(UserHandle.USER_SYSTEM);
+    }
+
+    @Test
+    public void testRemoveUnknownPersistentActivityThrowsException() {
+        ComponentName mapActivity = new ComponentName("testMapPkg", "mapActivity");
+
+        assertThrows(ServiceSpecificException.class,
+                () -> mModifier.setPersistentActivity(mapActivity, DEFAULT_DISPLAY,
+                        DisplayAreaOrganizer.FEATURE_UNDEFINED));
+    }
+
+    private static ActivityStarter.Request fakeRequest() {
         ActivityStarter.Request request = new ActivityStarter.Request();
         request.realCallingPid = 1324;
         request.realCallingUid = 235;

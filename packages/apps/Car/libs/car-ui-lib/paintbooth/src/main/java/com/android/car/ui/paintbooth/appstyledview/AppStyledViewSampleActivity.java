@@ -39,6 +39,8 @@ import com.android.car.ui.toolbar.ToolbarController;
  */
 public class AppStyledViewSampleActivity extends AppCompatActivity {
 
+    private AppStyledDialogController mAppStyledDialogController;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -51,8 +53,8 @@ public class AppStyledViewSampleActivity extends AppCompatActivity {
         toolbar.setNavButtonMode(NavButtonMode.BACK);
         toolbar.setLogo(R.drawable.ic_launcher);
 
-        AppStyledDialogController controller = new AppStyledDialogController(this);
-        int width = controller.getAppStyledViewDialogWidth();
+        mAppStyledDialogController = new AppStyledDialogController(this);
+        int width = mAppStyledDialogController.getAppStyledViewDialogWidth();
 
         Resources resources = getResources();
         Configuration config = resources.getConfiguration();
@@ -70,9 +72,17 @@ public class AppStyledViewSampleActivity extends AppCompatActivity {
 
         Button btn = findViewById(R.id.show_app_styled_fragment);
         btn.setOnClickListener(v -> {
-            controller.setContentView(appStyledTestView);
-            controller.setNavIcon(AppStyledViewNavIcon.CLOSE);
-            controller.show();
+            mAppStyledDialogController.setContentView(appStyledTestView);
+            mAppStyledDialogController.setNavIcon(AppStyledViewNavIcon.CLOSE);
+            mAppStyledDialogController.show();
         });
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (mAppStyledDialogController != null) {
+            mAppStyledDialogController.dismiss();
+        }
     }
 }

@@ -160,8 +160,8 @@
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"اگر برنامه درخواست کند، دستگاهتان خروجی‌اش را با نرخ فریم اصلی محتوایی که تماشا می‌کنید هماهنگ خواهد کرد. در چنین شرایطی، وقتی از بازپخش ویدیو خارج می‌شوید یا به آن وارد می‌شود، ممکن است صفحه‌تان لحظه‌ای خالی شود."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"هرگز"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"حتی اگر برنامه درخواست کند، دستگاهتان هیچ‌گاه خروجی‌اش را با نرخ فریم اصلی محتوایی که تماشا می‌کنید هماهنگ نخواهد کرد."</string>
-    <string name="font_scale_settings_title" msgid="4114019544800225980">"مقیاس‌بندی نوشتار"</string>
-    <string name="font_scale_item_detail" msgid="1558315053348778805">"تغییر اندازه: <xliff:g id="SCALE">%1$d</xliff:g>%%"</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"مقیاس‌گذاری نوشتار"</string>
+    <string name="font_scale_item_detail" msgid="1558315053348778805">"مقیاس‌گذاری به <xliff:g id="SCALE">%1$d</xliff:g>%%"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"نوشتار نمونه"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"جادوگر شهر اوز"</string>
     <string name="font_scale_preview_text_subtitle" msgid="677394182922188048">"فصل ۱۱: شهر زمردی شگفت‌انگیز اوز"</string>
@@ -421,8 +421,8 @@
     <item msgid="2713050260700175954">"خوب"</item>
     <item msgid="6005053494500517261">"عالی"</item>
   </string-array>
-    <string name="title_mac_address" msgid="7511588678922209883">"نشانی MAC دستگاه"</string>
-    <string name="title_randomized_mac_address" msgid="3359532498635833471">"نشانی MAC تصادفی"</string>
+    <string name="title_mac_address" msgid="7511588678922209883">"«نشانی واد» دستگاه"</string>
+    <string name="title_randomized_mac_address" msgid="3359532498635833471">"«نشانی واد» تصادفی"</string>
     <string name="title_signal_strength" msgid="5047116893338315998">"قدرت سیگنال"</string>
     <string name="title_random_mac_settings" msgid="6685812569356353378">"حریم‌خصوصی"</string>
   <string-array name="random_mac_settings_entries">
@@ -750,7 +750,7 @@
     <string name="system_enable_traces" msgid="108745519968154528">"فعال کردن ردیابی"</string>
     <string name="system_dont_keep_activities" msgid="4641165963339846161">"فعالیت‌ها را ادامه ندهید"</string>
     <string name="system_background_process_limit" msgid="1985373407150771045">"محدودیت پردازش در پس‌زمینه"</string>
-    <string name="system_show_all_anrs" msgid="5353216640638263217">"نمایش تمام ANRها"</string>
+    <string name="system_show_all_anrs" msgid="5353216640638263217">"نمایش تمام برنامه‌هایی که پاسخ نمی‌دهند"</string>
     <string name="system_desc_stay_awake" msgid="8485868071929937500">"غیرفعال کردن حالت خواب"</string>
     <string name="system_desc_hdcp_checking" msgid="1664068008848077241">"استفاده فقط برای محتوای DRM"</string>
     <string name="system_desc_hdmi_optimization" msgid="5695603795556335912">"بهینه‌سازی نمایشگر برای حداکثر وضوح تصویر یا حداکثر نرخ فریم. تنها برای نمایشگرهای Ultra HD کاربرد دارد. با تغییر این تنظیم دستگاه شما راه‌اندازی مجدد می‌شود."</string>

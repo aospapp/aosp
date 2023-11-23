@@ -23,13 +23,12 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.dialer.R;
 import com.android.car.dialer.ui.common.DialerUtils;
 import com.android.car.telephony.common.Contact;
 import com.android.car.telephony.common.TelecomUtils;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.recyclerview.ContentLimitingAdapter;
 
 import java.util.ArrayList;
@@ -42,7 +41,8 @@ import dagger.hilt.android.qualifiers.ActivityContext;
 /**
  * Adapter for contact list.
  */
-class ContactListAdapter extends ContentLimitingAdapter<ContactListViewHolder> {
+class ContactListAdapter extends ContentLimitingAdapter<ContactListViewHolder>
+        implements CarUiRecyclerView.OnAttachListener {
     private static final String TAG = "CD.ContactListAdapter";
 
     private final Context mContext;
@@ -50,7 +50,7 @@ class ContactListAdapter extends ContentLimitingAdapter<ContactListViewHolder> {
     private final List<Contact> mContactList = new ArrayList<>();
 
     private Integer mSortMethod;
-    private LinearLayoutManager mLinearLayoutManager;
+    private CarUiRecyclerView mRrecyclerView;
     private int mLimitingAnchorIndex = 0;
 
     @Inject
@@ -77,7 +77,7 @@ class ContactListAdapter extends ContentLimitingAdapter<ContactListViewHolder> {
 
     @Override
     public int computeAnchorIndexWhenRestricting() {
-        mLimitingAnchorIndex = DialerUtils.getFirstVisibleItemPosition(mLinearLayoutManager);
+        mLimitingAnchorIndex = DialerUtils.getFirstVisibleItemPosition(mRrecyclerView);
         return mLimitingAnchorIndex;
     }
 
@@ -86,7 +86,7 @@ class ContactListAdapter extends ContentLimitingAdapter<ContactListViewHolder> {
     public ContactListViewHolder onCreateViewHolderImpl(@NonNull ViewGroup parent, int viewType) {
         View itemView = LayoutInflater.from(mContext).inflate(R.layout.contact_list_item, parent,
                 false);
-        return  mViewHolderFactory.create(itemView);
+        return mViewHolderFactory.create(itemView);
     }
 
     @Override
@@ -128,14 +128,12 @@ class ContactListAdapter extends ContentLimitingAdapter<ContactListViewHolder> {
     }
 
     @Override
-    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
-        super.onAttachedToRecyclerView(recyclerView);
-        mLinearLayoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+    public void onAttachedToCarUiRecyclerView(@NonNull CarUiRecyclerView recyclerView) {
+        mRrecyclerView = recyclerView;
     }
 
     @Override
-    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
-        mLinearLayoutManager = null;
-        super.onDetachedFromRecyclerView(recyclerView);
+    public void onDetachedFromCarUiRecyclerView(@NonNull CarUiRecyclerView recyclerView) {
+        mRrecyclerView = null;
     }
 }

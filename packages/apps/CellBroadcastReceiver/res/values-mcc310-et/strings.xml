@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Turvahoiatussüsteem saadab igakuiseid nõutavaid teste"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Riiklik hoiatus"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Loobumise dialoogi näitamine pärast esimese hoiatuse kuvamist (v.a riiklik hoiatus)."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Riiklikud hoiatused"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Riiklikud hoiatussõnumid. Ei saa välja lülitada."</string>
 </resources>

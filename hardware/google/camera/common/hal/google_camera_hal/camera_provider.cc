@@ -332,5 +332,15 @@ status_t CameraProvider::CreateHwl(
 
   return OK;
 }
+
+status_t CameraProvider::NotifyDeviceStateChange(
+    google_camera_hal::DeviceState device_state) {
+  if (camera_provider_hwl_ == nullptr) {
+    ALOGE("%s: null provider hwl", __FUNCTION__);
+    return NO_INIT;
+  }
+  camera_provider_hwl_->NotifyDeviceStateChange(device_state);
+  return OK;
+}
 }  // namespace google_camera_hal
 }  // namespace android

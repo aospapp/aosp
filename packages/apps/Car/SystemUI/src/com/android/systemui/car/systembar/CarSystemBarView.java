@@ -19,13 +19,19 @@ package com.android.systemui.car.systembar;
 import android.annotation.IntDef;
 import android.content.Context;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
 
 import com.android.systemui.R;
+import com.android.systemui.car.hvac.HvacPanelOverlayViewController;
+import com.android.systemui.car.statusicon.ui.QuickControlsEntryPointsController;
+import com.android.systemui.car.statusicon.ui.ReadOnlyIconsController;
+import com.android.systemui.car.systembar.CarSystemBarController.HvacPanelController;
 import com.android.systemui.car.systembar.CarSystemBarController.NotificationsShadeController;
-import com.android.systemui.statusbar.FeatureFlags;
+import com.android.systemui.flags.FeatureFlags;
 import com.android.systemui.statusbar.phone.StatusBarIconController;
 
 import java.lang.annotation.ElementType;
@@ -44,6 +50,8 @@ public class CarSystemBarView extends LinearLayout {
     private @interface ButtonsType {
     }
 
+    private static final String TAG = CarSystemBarView.class.getSimpleName();
+
     public static final int BUTTON_TYPE_NAVIGATION = 0;
     public static final int BUTTON_TYPE_KEYGUARD = 1;
     public static final int BUTTON_TYPE_OCCLUSION = 2;
@@ -53,11 +61,16 @@ public class CarSystemBarView extends LinearLayout {
 
     private View mNavButtons;
     private CarSystemBarButton mNotificationsButton;
+    private HvacButton mHvacButton;
     private NotificationsShadeController mNotificationsShadeController;
+    private HvacPanelController mHvacPanelController;
     private View mLockScreenButtons;
     private View mOcclusionButtons;
+    private ViewGroup mQcEntryPointsContainer;
+    private ViewGroup mReadOnlyIconsContainer;
     // used to wire in open/close gestures for notifications
     private OnTouchListener mStatusBarWindowTouchListener;
+    private HvacPanelOverlayViewController mHvacPanelOverlayViewController;
 
     public CarSystemBarView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -72,6 +85,9 @@ public class CarSystemBarView extends LinearLayout {
         mLockScreenButtons = findViewById(R.id.lock_screen_nav_buttons);
         mOcclusionButtons = findViewById(R.id.occlusion_buttons);
         mNotificationsButton = findViewById(R.id.notifications);
+        mHvacButton = findViewById(R.id.hvac);
+        mQcEntryPointsContainer = findViewById(R.id.qc_entry_points_container);
+        mReadOnlyIconsContainer = findViewById(R.id.read_only_icons_container);
         if (mNotificationsButton != null) {
             mNotificationsButton.setOnClickListener(this::onNotificationsClick);
         }
@@ -79,6 +95,26 @@ public class CarSystemBarView extends LinearLayout {
         setClickable(true);
         // Needs to not be focusable so rotary won't highlight the entire nav bar.
         setFocusable(false);
+    }
+
+    void setupHvacButton() {
+        if (mHvacButton != null) {
+            mHvacButton.setOnClickListener(this::onHvacClick);
+        }
+    }
+
+    void setupQuickControlsEntryPoints(
+            QuickControlsEntryPointsController quickControlsEntryPointsController,
+            boolean isSetUp) {
+        if (mQcEntryPointsContainer != null) {
+            quickControlsEntryPointsController.addIconViews(mQcEntryPointsContainer, isSetUp);
+        }
+    }
+
+    void setupReadOnlyIcons(ReadOnlyIconsController readOnlyIconsController) {
+        if (mReadOnlyIconsContainer != null) {
+            readOnlyIconsController.addIconViews(mReadOnlyIconsContainer);
+        }
     }
 
     void setupIconController(FeatureFlags featureFlags, StatusBarIconController iconController) {
@@ -120,9 +156,19 @@ public class CarSystemBarView extends LinearLayout {
         mNotificationsShadeController = controller;
     }
 
+    /** Sets the HVAC panel controller. */
+    public void setHvacPanelController(HvacPanelController controller) {
+        mHvacPanelController = controller;
+    }
+
     /** Gets the notifications panel controller. */
     public NotificationsShadeController getNotificationsPanelController() {
         return mNotificationsShadeController;
+    }
+
+    /** Gets the HVAC panel controller. */
+    public HvacPanelController getHvacPanelController() {
+        return mHvacPanelController;
     }
 
     /**
@@ -148,8 +194,19 @@ public class CarSystemBarView extends LinearLayout {
     }
 
     protected void onNotificationsClick(View v) {
+        if (mNotificationsButton != null
+                && mNotificationsButton.getDisabled()) {
+            mNotificationsButton.runOnClickWhileDisabled();
+            return;
+        }
         if (mNotificationsShadeController != null) {
             mNotificationsShadeController.togglePanel();
+        }
+    }
+
+    protected void onHvacClick(View v) {
+        if (mHvacPanelController != null) {
+            mHvacPanelController.togglePanel();
         }
     }
 
@@ -181,19 +238,58 @@ public class CarSystemBarView extends LinearLayout {
         }
     }
 
-    private void setNavigationButtonsVisibility(int visibility) {
+    /**
+     * Sets the system bar view's disabled state and runnable when disabled.
+     */
+    public void setLockTaskDisabledButton(int viewId, boolean disabled, Runnable runnable) {
+        CarSystemBarButton button = findViewById(viewId);
+        if (button != null) {
+            button.setDisabled(disabled, runnable);
+        }
+    }
+
+    /**
+     * Sets the system bar ViewGroup container's visibility
+     */
+    public void setLockTaskDisabledContainer(int viewId, @View.Visibility int visibility) {
+        View v = findViewById(viewId);
+        if (v == null) {
+            Log.e(TAG, "setLockTaskViewVisibility for: " + viewId + " not found");
+            return;
+        }
+        if (v instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) v;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                group.getChildAt(i).setVisibility(visibility);
+            }
+            return;
+        }
+        v.setVisibility(visibility);
+    }
+
+    /**
+     * Sets the HvacPanelOverlayViewController and adds HVAC button listeners
+     */
+    public void registerHvacPanelOverlayViewController(HvacPanelOverlayViewController controller) {
+        mHvacPanelOverlayViewController = controller;
+        if (mHvacPanelOverlayViewController != null && mHvacButton != null) {
+            mHvacPanelOverlayViewController.registerViewStateListener(mHvacButton);
+        }
+    }
+
+    private void setNavigationButtonsVisibility(@View.Visibility int visibility) {
         if (mNavButtons != null) {
             mNavButtons.setVisibility(visibility);
         }
     }
 
-    private void setKeyguardButtonsVisibility(int visibility) {
+    private void setKeyguardButtonsVisibility(@View.Visibility int visibility) {
         if (mLockScreenButtons != null) {
             mLockScreenButtons.setVisibility(visibility);
         }
     }
 
-    private void setOcclusionButtonsVisibility(int visibility) {
+    private void setOcclusionButtonsVisibility(@View.Visibility int visibility) {
         if (mOcclusionButtons != null) {
             mOcclusionButtons.setVisibility(visibility);
         }

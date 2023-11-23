@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Validate TEST_MAPPING files in Android source code.
+"""Validates TEST_MAPPING files in Android source code.
 
 The goal of this script is to validate the format of TEST_MAPPING files:
 1. It must be a valid json file.
@@ -27,6 +27,7 @@ import json
 import os
 import re
 import sys
+from typing import Any, Dict
 
 _path = os.path.realpath(__file__ + '/../..')
 if sys.path[0] != _path:
@@ -38,26 +39,21 @@ del _path
 # pylint: disable=wrong-import-position
 import rh.git
 
-IMPORTS = 'imports'
-NAME = 'name'
-OPTIONS = 'options'
-PATH = 'path'
-HOST = 'host'
-PREFERRED_TARGETS = 'preferred_targets'
-FILE_PATTERNS = 'file_patterns'
-TEST_MAPPING_URL = (
+_IMPORTS = 'imports'
+_NAME = 'name'
+_OPTIONS = 'options'
+_PATH = 'path'
+_HOST = 'host'
+_PREFERRED_TARGETS = 'preferred_targets'
+_FILE_PATTERNS = 'file_patterns'
+_INVALID_IMPORT_CONFIG = 'Invalid import config in TEST_MAPPING file'
+_INVALID_TEST_CONFIG = 'Invalid test config in TEST_MAPPING file'
+_TEST_MAPPING_URL = (
     'https://source.android.com/compatibility/tests/development/'
     'test-mapping')
 
 # Pattern used to identify line-level '//'-format comment in TEST_MAPPING file.
 _COMMENTS_RE = re.compile(r'^\s*//')
-
-
-if sys.version_info.major < 3:
-    # pylint: disable=basestring-builtin,undefined-variable
-    string_types = basestring
-else:
-    string_types = str
 
 
 class Error(Exception):
@@ -68,8 +64,8 @@ class InvalidTestMappingError(Error):
     """Exception to raise when detecting an invalid TEST_MAPPING file."""
 
 
-def filter_comments(json_data):
-    """Remove '//'-format comments in TEST_MAPPING file to valid format.
+def _filter_comments(json_data: str) -> str:
+    """Removes '//'-format comments in TEST_MAPPING file to valid format.
 
     Args:
         json_data: TEST_MAPPING file content (as a string).
@@ -77,12 +73,12 @@ def filter_comments(json_data):
     Returns:
         Valid json string without comments.
     """
-    return ''.join('\n' if _COMMENTS_RE.match(x) else x for x in
-                   json_data.splitlines())
+    return ''.join(
+        '\n' if _COMMENTS_RE.match(x) else x for x in json_data.splitlines())
 
 
-def _validate_import(entry, test_mapping_file):
-    """Validate an import setting.
+def _validate_import(entry: Dict[str, Any], test_mapping_file: str):
+    """Validates an import setting.
 
     Args:
         entry: A dictionary of an import setting.
@@ -93,85 +89,84 @@ def _validate_import(entry, test_mapping_file):
     """
     if len(entry) != 1:
         raise InvalidTestMappingError(
-            'Invalid import config in test mapping file %s. each import can '
-            'only have one `path` setting. Failed entry: %s' %
-            (test_mapping_file, entry))
-    if list(entry.keys())[0] != PATH:
+            f'{_INVALID_IMPORT_CONFIG} {test_mapping_file}. Each import can '
+            f'only have one `path` setting. Failed entry: {entry}')
+    if _PATH not in entry:
         raise InvalidTestMappingError(
-            'Invalid import config in test mapping file %s. import can only '
-            'have one `path` setting. Failed entry: %s' %
-            (test_mapping_file, entry))
+            f'{_INVALID_IMPORT_CONFIG} {test_mapping_file}. Import can '
+            f'only have one `path` setting. Failed entry: {entry}')
 
 
-def _validate_test(test, test_mapping_file):
-    """Validate a test declaration.
+def _validate_test(test: Dict[str, Any], test_mapping_file: str) -> bool:
+    """Returns whether a test declaration is valid.
 
     Args:
-        entry: A dictionary of a test declaration.
+        test: A dictionary of a test declaration.
         test_mapping_file: Path to the TEST_MAPPING file to be validated.
 
     Raises:
         InvalidTestMappingError: if the a test declaration is invalid.
     """
-    if NAME not in test:
+    if _NAME not in test:
         raise InvalidTestMappingError(
-            'Invalid test config in test mapping file %s. test config must '
-            'a `name` setting. Failed test config: %s' %
-            (test_mapping_file, test))
-    if not isinstance(test.get(HOST, False), bool):
+
+            f'{_INVALID_TEST_CONFIG} {test_mapping_file}. Test config must '
+            f'have a `name` setting. Failed test config: {test}')
+
+    if not isinstance(test.get(_HOST, False), bool):
         raise InvalidTestMappingError(
-            'Invalid test config in test mapping file %s. `host` setting in '
-            'test config can only have boolean value of `true` or `false`. '
-            'Failed test config: %s' % (test_mapping_file, test))
-    preferred_targets = test.get(PREFERRED_TARGETS, [])
-    if (not isinstance(preferred_targets, list) or
-            any(not isinstance(t, string_types) for t in preferred_targets)):
-        raise InvalidTestMappingError(
-            'Invalid test config in test mapping file %s. `preferred_targets` '
-            'setting in test config can only be a list of strings. Failed test '
-            'config: %s' % (test_mapping_file, test))
-    file_patterns = test.get(FILE_PATTERNS, [])
-    if (not isinstance(file_patterns, list) or
-            any(not isinstance(p, string_types) for p in file_patterns)):
-        raise InvalidTestMappingError(
-            'Invalid test config in test mapping file %s. `file_patterns` '
-            'setting in test config can only be a list of strings. Failed test '
-            'config: %s' % (test_mapping_file, test))
-    for option in test.get(OPTIONS, []):
+            f'{_INVALID_TEST_CONFIG} {test_mapping_file}. `host` setting in '
+            f'test config can only have boolean value of `true` or `false`. '
+            f'Failed test config: {test}')
+
+    for key in (_PREFERRED_TARGETS, _FILE_PATTERNS):
+        value = test.get(key, [])
+        if (not isinstance(value, list) or
+            any(not isinstance(t, str) for t in value)):
+            raise InvalidTestMappingError(
+                f'{_INVALID_TEST_CONFIG} {test_mapping_file}. `{key}` setting '
+                f'in test config can only be a list of strings. '
+                f'Failed test config: {test}')
+
+    for option in test.get(_OPTIONS, []):
+        if not isinstance(option, dict):
+            raise InvalidTestMappingError(
+                f'{_INVALID_TEST_CONFIG} {test_mapping_file}. Option setting '
+                f'in test config can only be a dictionary of key-val setting. '
+                f'Failed entry: {option}')
         if len(option) != 1:
             raise InvalidTestMappingError(
-                'Invalid option setting in test mapping file %s. each option '
-                'setting can only have one key-val setting. Failed entry: %s' %
-                (test_mapping_file, option))
+                f'{_INVALID_TEST_CONFIG} {test_mapping_file}. Each option '
+                f'setting can only have one key-val setting. '
+                f'Failed entry: {option}')
 
 
-def _load_file(test_mapping_file):
-    """Load a TEST_MAPPING file as a json file."""
+def process_file(test_mapping_file: str):
+    """Validates a TEST_MAPPING file content."""
     try:
-        return json.loads(filter_comments(test_mapping_file))
-    except ValueError as e:
+        test_mapping_data = json.loads(_filter_comments(test_mapping_file))
+    except ValueError as exception:
         # The file is not a valid JSON file.
         print(
-            'Failed to parse JSON file %s, error: %s' % (test_mapping_file, e),
+            f'Invalid JSON data in TEST_MAPPING file '
+            f'Failed to parse JSON data: {test_mapping_file}, '
+            f'error: {exception}',
             file=sys.stderr)
         raise
 
-
-def process_file(test_mapping_file):
-    """Validate a TEST_MAPPING file."""
-    test_mapping = _load_file(test_mapping_file)
-    # Validate imports.
-    for import_entry in test_mapping.get(IMPORTS, []):
-        _validate_import(import_entry, test_mapping_file)
-    # Validate tests.
-    all_tests = [test for group, tests in test_mapping.items()
-                 if group != IMPORTS for test in tests]
-    for test in all_tests:
-        _validate_test(test, test_mapping_file)
+    for group, value in test_mapping_data.items():
+        if group == _IMPORTS:
+            # Validate imports.
+            for test in value:
+                _validate_import(test, test_mapping_file)
+        else:
+            # Validate tests.
+            for test in value:
+                _validate_test(test, test_mapping_file)
 
 
 def get_parser():
-    """Return a command line parser."""
+    """Returns a command line parser."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--commit', type=str,
                         help='Specify the commit to validate.')
@@ -181,6 +176,7 @@ def get_parser():
 
 
 def main(argv):
+    """Main function."""
     parser = get_parser()
     opts = parser.parse_args(argv)
     try:
@@ -188,12 +184,12 @@ def main(argv):
             if opts.commit:
                 json_data = rh.git.get_file_content(opts.commit, filename)
             else:
-                with open(os.path.join(opts.project_dir, filename)) as f:
-                    json_data = f.read()
+                with open(os.path.join(opts.project_dir, filename)) as file:
+                    json_data = file.read()
             process_file(json_data)
     except:
         print('Visit %s for details about the format of TEST_MAPPING '
-              'file.' % TEST_MAPPING_URL, file=sys.stderr)
+              'file.' % _TEST_MAPPING_URL, file=sys.stderr)
         raise
 
 

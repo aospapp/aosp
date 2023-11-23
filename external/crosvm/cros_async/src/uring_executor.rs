@@ -52,13 +52,14 @@
 //! ensure it lives long enough.
 
 use std::convert::TryInto;
+use std::ffi::CStr;
 use std::fs::File;
 use std::future::Future;
 use std::io;
-use std::mem;
+use std::mem::{self, MaybeUninit};
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::pin::Pin;
-use std::sync::atomic::{AtomicI32, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Weak};
 use std::task::Waker;
 use std::task::{Context, Poll};
@@ -67,15 +68,19 @@ use std::thread::{self, ThreadId};
 use async_task::Task;
 use futures::task::noop_waker;
 use io_uring::URingContext;
+use once_cell::sync::Lazy;
 use pin_utils::pin_mut;
 use slab::Slab;
 use sync::Mutex;
 use sys_util::{warn, WatchingEvents};
 use thiserror::Error as ThisError;
 
-use crate::mem::{BackingMemory, MemRegion};
 use crate::queue::RunnableQueue;
 use crate::waker::{new_waker, WakerToken, WeakWake};
+use crate::{
+    mem::{BackingMemory, MemRegion},
+    BlockingPool,
+};
 
 #[derive(Debug, ThisError)]
 pub enum Error {
@@ -112,29 +117,59 @@ pub enum Error {
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
+impl From<Error> for io::Error {
+    fn from(e: Error) -> Self {
+        use Error::*;
+        match e {
+            DuplicatingFd(e) => e.into(),
+            ExecutorGone => io::Error::new(io::ErrorKind::Other, ExecutorGone),
+            InvalidOffset => io::Error::new(io::ErrorKind::InvalidInput, InvalidOffset),
+            InvalidSource => io::Error::new(io::ErrorKind::InvalidData, InvalidSource),
+            Io(e) => e,
+            CreatingContext(e) => e.into(),
+            RemovingWaker(e) => e.into(),
+            SubmittingOp(e) => e.into(),
+            URingContextError(e) => e.into(),
+            URingEnter(e) => e.into(),
+        }
+    }
+}
+
+static USE_URING: Lazy<bool> = Lazy::new(|| {
+    let mut utsname = MaybeUninit::zeroed();
+
+    // Safe because this will only modify `utsname` and we check the return value.
+    let res = unsafe { libc::uname(utsname.as_mut_ptr()) };
+    if res < 0 {
+        return false;
+    }
+
+    // Safe because the kernel has initialized `utsname`.
+    let utsname = unsafe { utsname.assume_init() };
+
+    // Safe because the pointer is valid and the kernel guarantees that this is a valid C string.
+    let release = unsafe { CStr::from_ptr(utsname.release.as_ptr()) };
+
+    let mut components = match release.to_str().map(|r| r.split('.').map(str::parse)) {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+
+    // Kernels older than 5.10 either didn't support io_uring or had bugs in the implementation.
+    match (components.next(), components.next()) {
+        (Some(Ok(major)), Some(Ok(minor))) if (major, minor) >= (5, 10) => {
+            // The kernel version is new enough so check if we can actually make a uring context.
+            URingContext::new(8).is_ok()
+        }
+        _ => false,
+    }
+});
+
 // Checks if the uring executor is available.
 // Caches the result so that the check is only run once.
 // Useful for falling back to the FD executor on pre-uring kernels.
 pub(crate) fn use_uring() -> bool {
-    const UNKNOWN: u32 = 0;
-    const URING: u32 = 1;
-    const FD: u32 = 2;
-    static USE_URING: AtomicU32 = AtomicU32::new(UNKNOWN);
-    match USE_URING.load(Ordering::Relaxed) {
-        UNKNOWN => {
-            // Create a dummy uring context to check that the kernel understands the syscalls.
-            if URingContext::new(8).is_ok() {
-                USE_URING.store(URING, Ordering::Relaxed);
-                true
-            } else {
-                USE_URING.store(FD, Ordering::Relaxed);
-                false
-            }
-        }
-        URING => true,
-        FD => false,
-        _ => unreachable!("invalid use uring state"),
-    }
+    *USE_URING
 }
 
 pub struct RegisteredSource {
@@ -259,6 +294,7 @@ struct RawExecutor {
     ctx: URingContext,
     queue: RunnableQueue,
     ring: Mutex<Ring>,
+    blocking_pool: BlockingPool,
     thread_id: Mutex<Option<ThreadId>>,
     state: AtomicI32,
 }
@@ -272,6 +308,7 @@ impl RawExecutor {
                 ops: Slab::with_capacity(NUM_ENTRIES),
                 registered_sources: Slab::with_capacity(NUM_ENTRIES),
             }),
+            blocking_pool: Default::default(),
             thread_id: Mutex::new(None),
             state: AtomicI32::new(PROCESSING),
         })
@@ -331,6 +368,14 @@ impl RawExecutor {
         let (runnable, task) = async_task::spawn_local(f, schedule);
         runnable.schedule();
         task
+    }
+
+    fn spawn_blocking<F, R>(self: &Arc<Self>, f: F) -> Task<R>
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        self.blocking_pool.spawn(f)
     }
 
     fn runs_tasks_on_current_thread(&self) -> bool {
@@ -735,6 +780,14 @@ impl URingExecutor {
         self.raw.spawn_local(f)
     }
 
+    pub fn spawn_blocking<F, R>(&self, f: F) -> Task<R>
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        self.raw.spawn_blocking(f)
+    }
+
     pub fn run(&self) -> Result<()> {
         let waker = new_waker(Arc::downgrade(&self.raw));
         let mut cx = Context::from_waker(&waker);
@@ -862,6 +915,10 @@ mod tests {
 
     #[test]
     fn dont_drop_backing_mem_read() {
+        if !use_uring() {
+            return;
+        }
+
         // Create a backing memory wrapped in an Arc and check that the drop isn't called while the
         // op is pending.
         let bm =
@@ -902,6 +959,10 @@ mod tests {
 
     #[test]
     fn dont_drop_backing_mem_write() {
+        if !use_uring() {
+            return;
+        }
+
         // Create a backing memory wrapped in an Arc and check that the drop isn't called while the
         // op is pending.
         let bm =
@@ -943,6 +1004,10 @@ mod tests {
 
     #[test]
     fn canceled_before_completion() {
+        if !use_uring() {
+            return;
+        }
+
         async fn cancel_io(op: PendingOperation) {
             mem::drop(op);
         }
@@ -981,6 +1046,10 @@ mod tests {
 
     #[test]
     fn drop_before_completion() {
+        if !use_uring() {
+            return;
+        }
+
         const VALUE: u64 = 0xef6c_a8df_b842_eb9c;
 
         async fn check_op(op: PendingOperation) {
@@ -1026,6 +1095,10 @@ mod tests {
 
     #[test]
     fn drop_on_different_thread() {
+        if !use_uring() {
+            return;
+        }
+
         let ex = URingExecutor::new().unwrap();
 
         let ex2 = ex.clone();

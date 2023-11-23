@@ -159,7 +159,7 @@ public final class CarInputManager extends CarManagerBase {
     public static final int INPUT_TYPE_DPAD_KEYS = 100;
 
     /**
-     * This is for all {@code KeyEvent#KEYCODE_NAVIGATE_*} keys.
+     * This is for all {@code KeyEvent#KEYCODE_NAVIGATE_*} keys and {@link KeyEvent#KEYCODE_BACK}.
      *
      * @hide
      */
@@ -264,8 +264,10 @@ public final class CarInputManager extends CarManagerBase {
      * same {@link CarInputManager} instance, then only the last registered callback will receive
      * events, even if they were registered for different input event types.
      *
-     * @throws SecurityException is caller doesn't have android.car.permission.CAR_MONITOR_INPUT
-     *                           permission granted
+     * @throws SecurityException if caller doesn't have
+     *                           {@code android.car.permission.CAR_MONITOR_INPUT} permission
+     *                           granted. Currently this method also accept
+     *                           {@code android.permission.MONITOR_INPUT}
      * @throws IllegalArgumentException if targetDisplayType parameter correspond to a non supported
      *                                  display type
      * @throws IllegalArgumentException if inputTypes parameter contains invalid or non supported
@@ -292,6 +294,10 @@ public final class CarInputManager extends CarManagerBase {
      * CarInputCaptureCallback)} except that callbacks are invoked using
      * the executor passed as parameter.
      *
+     * @throws SecurityException if caller doesn't have
+     *                           {@code android.permission.MONITOR_INPUT} permission
+     *                           granted. Currently this method also accept
+     *                           {@code android.car.permission.CAR_MONITOR_INPUT}
      * @param targetDisplayType the display type to register callback against
      * @param inputTypes the input type to register callback against
      * @param requestFlags the capture request flag

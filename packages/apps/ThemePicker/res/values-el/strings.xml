@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"Εφαρμογή"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Πατήστε για επεξεργασία"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Διατήρηση τρέχουσας ταπετσαρίας"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"Εφαρμογή"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Προεπισκόπηση στιλ"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Προεπισκόπηση πλέγματος"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"Προεπισκόπηση γραμματοσειράς"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"Αυτήν τη στιγμή εφαρμόζεται το θέμα <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"Αυτήν τη στιγμή εφαρμόζεται και εμφανίζεται σε προεπισκόπηση η επιλογή <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"Αυτήν τη στιγμή εμφανίζεται σε προεπισκόπηση η επιλογή <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, η αλλαγή επιλέχθηκε και προβλήθηκε σε προεπισκόπηση"</string>
     <string name="theme_description" msgid="3697012391785254635">"Γραμματοσειρά: <xliff:g id="ID_1">%1$s</xliff:g>, εικονίδια: <xliff:g id="ID_2">%2$s</xliff:g>, σχήμα: <xliff:g id="ID_3">%3$s</xliff:g>, χρώμα: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"Προεπιλογή"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"Γραμματοσειρά"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Προσαρμοσμένο όνομα στιλ"</string>
     <string name="mode_title" msgid="2394873501427436055">"Σκούρο θέμα"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"Απενεργοποιήθηκε προσωρινά λόγω Εξοικονόμησης μπαταρίας"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"Το θέμα άλλαξε"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"Θεματικά εικονίδια"</string>
     <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Αλλαγή πλέγματος εφαρμογής"</string>

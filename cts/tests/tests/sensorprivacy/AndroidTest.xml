@@ -25,6 +25,7 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsSensorPrivacyTestCases.apk" />
         <option name="test-file-name" value="CtsUseMicOrCameraForSensorPrivacy.apk" />
+        <option name="test-file-name" value="CtsUseMicOrCameraAndOverlayForSensorPrivacy.apk" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

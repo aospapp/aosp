@@ -31,9 +31,14 @@ constexpr int kChannelCount = 2;
 constexpr int32_t DONT_SET = -1000;
 constexpr const char *DONT_SET_STR = "don't set";
 
+#define IS_SPATIALIZED_FALSE (AAUDIO_UNSPECIFIED + 1)
+#define IS_SPATIALIZED_TRUE  (AAUDIO_UNSPECIFIED + 2)
+
 static void checkAttributes(aaudio_performance_mode_t perfMode,
                             aaudio_usage_t usage,
                             aaudio_content_type_t contentType,
+                            aaudio_spatialization_behavior_t spatializationBehavior = DONT_SET,
+                            int isContentSpatialized = DONT_SET,
                             aaudio_input_preset_t preset = DONT_SET,
                             aaudio_allowed_capture_policy_t capturePolicy = DONT_SET,
                             int privacyMode = DONT_SET,
@@ -63,6 +68,13 @@ static void checkAttributes(aaudio_performance_mode_t perfMode,
     }
     if (contentType != DONT_SET) {
         AAudioStreamBuilder_setContentType(aaudioBuilder, contentType);
+    }
+    if (spatializationBehavior != DONT_SET) {
+        AAudioStreamBuilder_setSpatializationBehavior(aaudioBuilder, spatializationBehavior);
+    }
+    if (isContentSpatialized != DONT_SET) {
+        AAudioStreamBuilder_setIsContentSpatialized(aaudioBuilder,
+                                                    isContentSpatialized == IS_SPATIALIZED_TRUE);
     }
     if (preset != DONT_SET) {
         AAudioStreamBuilder_setInputPreset(aaudioBuilder, preset);
@@ -96,6 +108,20 @@ static void checkAttributes(aaudio_performance_mode_t perfMode,
             ? AAUDIO_CONTENT_TYPE_MUSIC // default
             : contentType;
     EXPECT_EQ(expectedContentType, AAudioStream_getContentType(aaudioStream));
+
+    if (perfMode == AAUDIO_PERFORMANCE_MODE_NONE) {
+        aaudio_spatialization_behavior_t expectedBehavior =
+                (spatializationBehavior == DONT_SET || spatializationBehavior == AAUDIO_UNSPECIFIED)
+                ? AAUDIO_SPATIALIZATION_BEHAVIOR_AUTO // default
+                : spatializationBehavior;
+        EXPECT_EQ(expectedBehavior, AAudioStream_getSpatializationBehavior(aaudioStream));
+
+        bool expectedIsContentSpatialized =
+                (isContentSpatialized == DONT_SET)
+                ? false //default
+                : isContentSpatialized == IS_SPATIALIZED_TRUE;
+        EXPECT_EQ(expectedIsContentSpatialized, AAudioStream_isContentSpatialized(aaudioStream));
+    }
 
     aaudio_input_preset_t expectedPreset =
             (preset == DONT_SET || preset == AAUDIO_UNSPECIFIED)
@@ -165,6 +191,19 @@ static const aaudio_content_type_t sContentypes[] = {
     AAUDIO_CONTENT_TYPE_SONIFICATION
 };
 
+static const aaudio_spatialization_behavior_t sSpatializationBehavior[] = {
+    DONT_SET,
+    AAUDIO_UNSPECIFIED,
+    AAUDIO_SPATIALIZATION_BEHAVIOR_AUTO,
+    AAUDIO_SPATIALIZATION_BEHAVIOR_NEVER
+};
+
+static const int sIsContentSpatialized[] = {
+    DONT_SET,
+    IS_SPATIALIZED_TRUE,
+    IS_SPATIALIZED_FALSE
+};
+
 static const aaudio_input_preset_t sInputPresets[] = {
     DONT_SET,
     AAUDIO_UNSPECIFIED,
@@ -217,11 +256,32 @@ static void checkAttributesContentType(aaudio_performance_mode_t perfMode) {
     }
 }
 
+static void checkAttributesSpatializationBehavior(aaudio_performance_mode_t perfMode) {
+    for (aaudio_spatialization_behavior_t behavior : sSpatializationBehavior) {
+        checkAttributes(perfMode,
+                        DONT_SET, // usage
+                        DONT_SET, // content type
+                        behavior);
+    }
+}
+
+static void checkAttributesIsContentSpatialized(aaudio_performance_mode_t perfMode) {
+    for (int spatialized : sIsContentSpatialized) {
+        checkAttributes(perfMode,
+                        DONT_SET, // usage
+                        DONT_SET, // content type
+                        DONT_SET, // spatialization behavior
+                        spatialized);
+    }
+}
+
 static void checkAttributesInputPreset(aaudio_performance_mode_t perfMode) {
     for (aaudio_input_preset_t inputPreset : sInputPresets) {
         checkAttributes(perfMode,
                         DONT_SET,
                         DONT_SET,
+                        DONT_SET, // spatialization behavior
+                        DONT_SET, // is content spatialized
                         inputPreset,
                         DONT_SET,
                         DONT_SET,
@@ -234,6 +294,8 @@ static void checkAttributesAllowedCapturePolicy(aaudio_performance_mode_t perfMo
         checkAttributes(perfMode,
                         DONT_SET,
                         DONT_SET,
+                        DONT_SET, // spatialization behavior
+                        DONT_SET, // is content spatialized
                         DONT_SET,
                         policy);
     }
@@ -244,6 +306,8 @@ static void checkAttributesPrivacySensitive(aaudio_performance_mode_t perfMode) 
         checkAttributes(perfMode,
                         DONT_SET,
                         DONT_SET,
+                        DONT_SET, // spatialization behavior
+                        DONT_SET, // is content spatialized
                         DONT_SET,
                         DONT_SET,
                         privacyMode,
@@ -256,6 +320,8 @@ TEST(test_attributes, package_name) {
         checkAttributes(AAUDIO_PERFORMANCE_MODE_NONE,
                         DONT_SET,
                         DONT_SET,
+                        DONT_SET, // spatialization behavior
+                        DONT_SET, // is content spatialized
                         DONT_SET,
                         DONT_SET,
                         DONT_SET,
@@ -269,6 +335,8 @@ TEST(test_attributes_low_latency, package_name) {
         checkAttributes(AAUDIO_PERFORMANCE_MODE_LOW_LATENCY,
                         DONT_SET,
                         DONT_SET,
+                        DONT_SET, // spatialization behavior
+                        DONT_SET, // is content spatialized
                         DONT_SET,
                         DONT_SET,
                         DONT_SET,
@@ -282,6 +350,8 @@ TEST(test_attributes, attribution_tag) {
         checkAttributes(AAUDIO_PERFORMANCE_MODE_NONE,
                         DONT_SET,
                         DONT_SET,
+                        DONT_SET, // spatialization behavior
+                        DONT_SET, // is content spatialized
                         DONT_SET,
                         DONT_SET,
                         DONT_SET,
@@ -297,6 +367,14 @@ TEST(test_attributes, aaudio_usage_perfnone) {
 
 TEST(test_attributes, aaudio_content_type_perfnone) {
     checkAttributesContentType(AAUDIO_PERFORMANCE_MODE_NONE);
+}
+
+TEST(test_attributes, aaudio_spatialization_behavior_perfnone) {
+    checkAttributesSpatializationBehavior(AAUDIO_PERFORMANCE_MODE_NONE);
+}
+
+TEST(test_attributes, aaudio_is_content_spatialized_perfnone) {
+    checkAttributesIsContentSpatialized(AAUDIO_PERFORMANCE_MODE_NONE);
 }
 
 TEST(test_attributes, aaudio_input_preset_perfnone) {

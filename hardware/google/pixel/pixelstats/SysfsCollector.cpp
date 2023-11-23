@@ -45,14 +45,15 @@ using android::base::WriteStringToFile;
 using android::hardware::google::pixel::PixelAtoms::BatteryCapacity;
 using android::hardware::google::pixel::PixelAtoms::BootStatsInfo;
 using android::hardware::google::pixel::PixelAtoms::F2fsCompressionInfo;
-using android::hardware::google::pixel::PixelAtoms::F2fsStatsInfo;
 using android::hardware::google::pixel::PixelAtoms::F2fsGcSegmentInfo;
+using android::hardware::google::pixel::PixelAtoms::F2fsStatsInfo;
 using android::hardware::google::pixel::PixelAtoms::StorageUfsHealth;
 using android::hardware::google::pixel::PixelAtoms::StorageUfsResetCount;
 using android::hardware::google::pixel::PixelAtoms::VendorChargeCycles;
 using android::hardware::google::pixel::PixelAtoms::VendorHardwareFailed;
 using android::hardware::google::pixel::PixelAtoms::VendorSlowIo;
 using android::hardware::google::pixel::PixelAtoms::VendorSpeakerImpedance;
+using android::hardware::google::pixel::PixelAtoms::VendorSpeakerStatsReported;
 using android::hardware::google::pixel::PixelAtoms::VendorSpeechDspStat;
 using android::hardware::google::pixel::PixelAtoms::ZramBdStat;
 using android::hardware::google::pixel::PixelAtoms::ZramMmStat;
@@ -72,12 +73,15 @@ SysfsCollector::SysfsCollector(const struct SysfsPaths &sysfs_paths)
       kUFSLifetimeA(sysfs_paths.UFSLifetimeA),
       kUFSLifetimeB(sysfs_paths.UFSLifetimeB),
       kUFSLifetimeC(sysfs_paths.UFSLifetimeC),
-      kUFSHostResetPath(sysfs_paths.UFSHostResetPath),
       kF2fsStatsPath(sysfs_paths.F2fsStatsPath),
       kZramMmStatPath("/sys/block/zram0/mm_stat"),
       kZramBdStatPath("/sys/block/zram0/bd_stat"),
       kEEPROMPath(sysfs_paths.EEPROMPath),
-      kPowerMitigationStatsPath(sysfs_paths.MitigationPath) {}
+      kPowerMitigationStatsPath(sysfs_paths.MitigationPath),
+      kSpeakerTemperaturePath(sysfs_paths.SpeakerTemperaturePath),
+      kSpeakerExcursionPath(sysfs_paths.SpeakerExcursionPath),
+      kSpeakerHeartbeatPath(sysfs_paths.SpeakerHeartBeatPath),
+      kUFSErrStatsPath(sysfs_paths.UFSErrStatsPath) {}
 
 bool SysfsCollector::ReadFileToInt(const std::string &path, int *val) {
     return ReadFileToInt(path.c_str(), val);
@@ -271,6 +275,91 @@ void SysfsCollector::logSpeakerImpedance(const std::shared_ptr<IStats> &stats_cl
 }
 
 /**
+ * Report the last-detected impedance, temperature and heartbeats of left & right speakers.
+ */
+void SysfsCollector::logSpeakerHealthStats(const std::shared_ptr<IStats> &stats_client) {
+    std::string file_contents;
+
+    if (kImpedancePath == nullptr || strlen(kImpedancePath) == 0) {
+        ALOGD("Audio impedance path not specified");
+        return;
+    }
+
+    if (kSpeakerTemperaturePath == nullptr || strlen(kSpeakerTemperaturePath) == 0) {
+        ALOGD("Audio speaker temperature path not specified");
+        return;
+    }
+
+    if (kSpeakerHeartbeatPath == nullptr || strlen(kSpeakerHeartbeatPath) == 0) {
+        ALOGD("Audio speaker heartbeat path not specified");
+        return;
+    }
+
+    if (kSpeakerExcursionPath == nullptr || strlen(kSpeakerExcursionPath) == 0) {
+        ALOGD("Audio speaker excursion path not specified");
+        return;
+    }
+
+    float left_impedance_ohm, right_impedance_ohm;
+
+    if (!ReadFileToString(kImpedancePath, &file_contents)) {
+        ALOGE("Unable to read speaker impedance path %s", kImpedancePath);
+        return;
+    }
+    if (sscanf(file_contents.c_str(), "%g,%g", &left_impedance_ohm, &right_impedance_ohm) != 2) {
+        ALOGE("Unable to parse speaker impedance %s", file_contents.c_str());
+        return;
+    }
+
+    float left_temperature_C, right_temperature_C;
+    if (!ReadFileToString(kSpeakerTemperaturePath, &file_contents)) {
+        ALOGE("Unable to read speaker temperature path %s", kSpeakerTemperaturePath);
+        return;
+    }
+    if (sscanf(file_contents.c_str(), "%g,%g", &left_temperature_C, &right_temperature_C) != 2) {
+        ALOGE("Unable to parse speaker temperature %s", file_contents.c_str());
+        return;
+    }
+
+    float left_excursion_mm, right_excursion_mm;
+    if (!ReadFileToString(kSpeakerExcursionPath, &file_contents)) {
+        ALOGE("Unable to read speaker excursion path %s", kSpeakerExcursionPath);
+        return;
+    }
+    if (sscanf(file_contents.c_str(), "%g,%g", &left_excursion_mm, &right_excursion_mm) != 2) {
+        ALOGE("Unable to parse speaker excursion %s", file_contents.c_str());
+        return;
+    }
+
+    float left_heartbeat, right_heartbeat;
+    if (!ReadFileToString(kSpeakerHeartbeatPath, &file_contents)) {
+        ALOGE("Unable to read speaker heartbeat path %s", kSpeakerHeartbeatPath);
+        return;
+    }
+    if (sscanf(file_contents.c_str(), "%g,%g", &left_heartbeat, &right_heartbeat) != 2) {
+        ALOGE("Unable to parse speaker heartbeat %s", file_contents.c_str());
+        return;
+    }
+
+    VendorSpeakerStatsReported left_obj;
+    left_obj.set_speaker_location(0);
+    left_obj.set_impedance(static_cast<int32_t>(left_impedance_ohm * 1000));
+    left_obj.set_max_temperature(static_cast<int32_t>(left_temperature_C * 1000));
+    left_obj.set_excursion(static_cast<int32_t>(left_excursion_mm * 1000));
+    left_obj.set_heartbeat(static_cast<int32_t>(left_heartbeat));
+
+    VendorSpeakerStatsReported right_obj;
+    right_obj.set_speaker_location(1);
+    right_obj.set_impedance(static_cast<int32_t>(right_impedance_ohm * 1000));
+    right_obj.set_max_temperature(static_cast<int32_t>(right_temperature_C * 1000));
+    right_obj.set_excursion(static_cast<int32_t>(right_excursion_mm * 1000));
+    right_obj.set_heartbeat(static_cast<int32_t>(right_heartbeat));
+
+    reportSpeakerHealthStat(stats_client, left_obj);
+    reportSpeakerHealthStat(stats_client, right_obj);
+}
+
+/**
  * Report the Speech DSP state.
  */
 void SysfsCollector::logSpeechDspStat(const std::shared_ptr<IStats> &stats_client) {
@@ -378,16 +467,19 @@ void SysfsCollector::logUFSLifetime(const std::shared_ptr<IStats> &stats_client)
 }
 
 void SysfsCollector::logUFSErrorStats(const std::shared_ptr<IStats> &stats_client) {
-    int host_reset_count;
+    int value, host_reset_count = 0;
 
-    if (kUFSHostResetPath == nullptr || strlen(kUFSHostResetPath) == 0) {
+    if (kUFSErrStatsPath.empty() || strlen(kUFSErrStatsPath.front().c_str()) == 0) {
         ALOGV("UFS host reset count specified");
         return;
     }
 
-    if (!ReadFileToInt(kUFSHostResetPath, &host_reset_count)) {
-        ALOGE("Unable to read host reset count");
-        return;
+    for (int i = 0; i < kUFSErrStatsPath.size(); i++) {
+        if (!ReadFileToInt(kUFSErrStatsPath[i], &value)) {
+            ALOGE("Unable to read host reset count");
+            return;
+        }
+        host_reset_count += value;
     }
 
     // Load values array
@@ -802,7 +894,7 @@ void SysfsCollector::logPerDay() {
     logSpeechDspStat(stats_client);
     logUFSLifetime(stats_client);
     logUFSErrorStats(stats_client);
-    logZramStats(stats_client);
+    logSpeakerHealthStats(stats_client);
     mm_metrics_reporter_.logCmaStatus(stats_client);
     mm_metrics_reporter_.logPixelMmMetricsPerDay(stats_client);
 }
@@ -814,6 +906,7 @@ void SysfsCollector::logPerHour() {
         return;
     }
     mm_metrics_reporter_.logPixelMmMetricsPerHour(stats_client);
+    logZramStats(stats_client);
     if (kPowerMitigationStatsPath != nullptr && strlen(kPowerMitigationStatsPath) > 0)
         mitigation_stats_reporter_.logMitigationStatsPerHour(stats_client,
                                                              kPowerMitigationStatsPath);

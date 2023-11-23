@@ -18,8 +18,13 @@ package com.android.systemui.biometrics;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,17 +35,21 @@ import android.testing.TestableLooper.RunWithLooper;
 import androidx.test.filters.SmallTest;
 
 import com.android.keyguard.KeyguardUpdateMonitor;
-import com.android.keyguard.KeyguardUpdateMonitorCallback;
 import com.android.systemui.SysuiTestCase;
 import com.android.systemui.dump.DumpManager;
 import com.android.systemui.keyguard.KeyguardViewMediator;
 import com.android.systemui.plugins.statusbar.StatusBarStateController;
 import com.android.systemui.statusbar.LockscreenShadeTransitionController;
 import com.android.systemui.statusbar.StatusBarState;
-import com.android.systemui.statusbar.phone.StatusBar;
 import com.android.systemui.statusbar.phone.StatusBarKeyguardViewManager;
+import com.android.systemui.statusbar.phone.SystemUIDialogManager;
+import com.android.systemui.statusbar.phone.UnlockedScreenOffAnimationController;
+import com.android.systemui.statusbar.phone.panelstate.PanelExpansionListener;
+import com.android.systemui.statusbar.phone.panelstate.PanelExpansionStateManager;
 import com.android.systemui.statusbar.policy.ConfigurationController;
+import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.util.concurrency.DelayableExecutor;
+import com.android.systemui.util.time.FakeSystemClock;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -50,6 +59,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.List;
 
 @SmallTest
 @RunWith(AndroidTestingRunner.class)
@@ -63,7 +73,7 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
     @Mock
     private StatusBarStateController mStatusBarStateController;
     @Mock
-    private StatusBar mStatusBar;
+    private PanelExpansionStateManager mPanelExpansionStateManager;
     @Mock
     private StatusBarKeyguardViewManager mStatusBarKeyguardViewManager;
     @Mock
@@ -75,11 +85,18 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
     @Mock
     private KeyguardUpdateMonitor mKeyguardUpdateMonitor;
     @Mock
+    private KeyguardStateController mKeyguardStateController;
+    @Mock
     private KeyguardViewMediator mKeyguardViewMediator;
     @Mock
     private ConfigurationController mConfigurationController;
     @Mock
+    private UnlockedScreenOffAnimationController mUnlockedScreenOffAnimationController;
+    @Mock
+    private SystemUIDialogManager mDialogManager;
+    @Mock
     private UdfpsController mUdfpsController;
+    private FakeSystemClock mSystemClock = new FakeSystemClock();
 
     private UdfpsKeyguardViewController mController;
 
@@ -87,15 +104,16 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
     @Captor private ArgumentCaptor<StatusBarStateController.StateListener> mStateListenerCaptor;
     private StatusBarStateController.StateListener mStatusBarStateListener;
 
-    @Captor private ArgumentCaptor<StatusBar.ExpansionChangedListener> mExpansionListenerCaptor;
-    private StatusBar.ExpansionChangedListener mExpansionListener;
+    @Captor private ArgumentCaptor<PanelExpansionListener> mExpansionListenerCaptor;
+    private List<PanelExpansionListener> mExpansionListeners;
 
     @Captor private ArgumentCaptor<StatusBarKeyguardViewManager.AlternateAuthInterceptor>
             mAltAuthInterceptorCaptor;
     private StatusBarKeyguardViewManager.AlternateAuthInterceptor mAltAuthInterceptor;
 
-    @Captor private ArgumentCaptor<KeyguardUpdateMonitorCallback> mUpdateMonitorCallbackCaptor;
-    private KeyguardUpdateMonitorCallback mKeyguardUpdateMonitorCallback;
+    @Captor private ArgumentCaptor<KeyguardStateController.Callback>
+            mKeyguardStateControllerCallbackCaptor;
+    private KeyguardStateController.Callback mKeyguardStateControllerCallback;
 
     @Before
     public void setUp() {
@@ -106,21 +124,23 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
         mController = new UdfpsKeyguardViewController(
                 mView,
                 mStatusBarStateController,
-                mStatusBar,
+                mPanelExpansionStateManager,
                 mStatusBarKeyguardViewManager,
                 mKeyguardUpdateMonitor,
-                mExecutor,
                 mDumpManager,
-                mKeyguardViewMediator,
                 mLockscreenShadeTransitionController,
                 mConfigurationController,
+                mSystemClock,
+                mKeyguardStateController,
+                mUnlockedScreenOffAnimationController,
+                mDialogManager,
                 mUdfpsController);
     }
 
     @Test
     public void testRegistersExpansionChangedListenerOnAttached() {
         mController.onViewAttached();
-        captureExpansionListener();
+        captureExpansionListeners();
     }
 
     @Test
@@ -149,11 +169,15 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
     public void testListenersUnregisteredOnDetached() {
         mController.onViewAttached();
         captureStatusBarStateListeners();
-        captureExpansionListener();
+        captureExpansionListeners();
+        captureKeyguardStateControllerCallback();
         mController.onViewDetached();
 
         verify(mStatusBarStateController).removeCallback(mStatusBarStateListener);
-        verify(mStatusBar).removeExpansionChangedListener(mExpansionListener);
+        for (PanelExpansionListener listener : mExpansionListeners) {
+            verify(mPanelExpansionStateManager).removeExpansionListener(listener);
+        }
+        verify(mKeyguardStateController).removeCallback(mKeyguardStateControllerCallback);
     }
 
     @Test
@@ -172,7 +196,6 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
     public void testShouldPauseAuthBouncerShowing() {
         mController.onViewAttached();
         captureStatusBarStateListeners();
-        captureExpansionListener();
 
         sendStatusBarStateChanged(StatusBarState.KEYGUARD);
 
@@ -183,7 +206,6 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
     public void testShouldNotPauseAuthOnKeyguard() {
         mController.onViewAttached();
         captureStatusBarStateListeners();
-        captureExpansionListener();
 
         sendStatusBarStateChanged(StatusBarState.KEYGUARD);
 
@@ -191,10 +213,25 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
     }
 
     @Test
+    public void testShouldPauseAuthIsLaunchTransitionFadingAway() {
+        // GIVEN view is attached and we're on the keyguard (see testShouldNotPauseAuthOnKeyguard)
+        mController.onViewAttached();
+        captureStatusBarStateListeners();
+        sendStatusBarStateChanged(StatusBarState.KEYGUARD);
+
+        // WHEN isLaunchTransitionFadingAway=true
+        captureKeyguardStateControllerCallback();
+        when(mKeyguardStateController.isLaunchTransitionFadingAway()).thenReturn(true);
+        mKeyguardStateControllerCallback.onLaunchTransitionFadingAwayChanged();
+
+        // THEN pause auth
+        assertTrue(mController.shouldPauseAuth());
+    }
+
+    @Test
     public void testShouldPauseAuthOnShadeLocked() {
         mController.onViewAttached();
         captureStatusBarStateListeners();
-        captureExpansionListener();
 
         sendStatusBarStateChanged(StatusBarState.SHADE_LOCKED);
 
@@ -205,7 +242,6 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
     public void testShouldPauseAuthOnShade() {
         mController.onViewAttached();
         captureStatusBarStateListeners();
-        captureExpansionListener();
 
         // WHEN not on keyguard yet (shade = home)
         sendStatusBarStateChanged(StatusBarState.SHADE);
@@ -218,7 +254,6 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
     public void testShouldPauseAuthAnimatingScreenOffFromShade() {
         mController.onViewAttached();
         captureStatusBarStateListeners();
-        captureExpansionListener();
 
         // WHEN transitioning from home/shade => keyguard + animating screen off
         mStatusBarStateListener.onStatePreChange(StatusBarState.SHADE, StatusBarState.KEYGUARD);
@@ -232,7 +267,6 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
     public void testDoNotPauseAuthAnimatingScreenOffFromLS() {
         mController.onViewAttached();
         captureStatusBarStateListeners();
-        captureExpansionListener();
 
         // WHEN animating screen off transition from LS => AOD
         sendStatusBarStateChanged(StatusBarState.KEYGUARD);
@@ -273,6 +307,126 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
         verify(mStatusBarKeyguardViewManager).removeAlternateAuthInterceptor(mAltAuthInterceptor);
     }
 
+    @Test
+    public void testHiddenUdfpsBouncerOnTouchOutside_nothingHappens() {
+        // GIVEN view is attached
+        mController.onViewAttached();
+        captureAltAuthInterceptor();
+
+        // GIVEN udfps bouncer isn't showing
+        mAltAuthInterceptor.hideAlternateAuthBouncer();
+
+        // WHEN touch is observed outside the view
+        mController.onTouchOutsideView();
+
+        // THEN bouncer / alt auth methods are never called
+        verify(mStatusBarKeyguardViewManager, never()).showBouncer(anyBoolean());
+        verify(mStatusBarKeyguardViewManager, never()).resetAlternateAuth(anyBoolean());
+    }
+
+    @Test
+    public void testShowingUdfpsBouncerOnTouchOutsideWithinThreshold_nothingHappens() {
+        // GIVEN view is attached
+        mController.onViewAttached();
+        captureAltAuthInterceptor();
+
+        // GIVEN udfps bouncer is showing
+        mAltAuthInterceptor.showAlternateAuthBouncer();
+
+        // WHEN touch is observed outside the view 200ms later (just within threshold)
+        mSystemClock.advanceTime(200);
+        mController.onTouchOutsideView();
+
+        // THEN bouncer / alt auth methods are never called because not enough time has passed
+        verify(mStatusBarKeyguardViewManager, never()).showBouncer(anyBoolean());
+        verify(mStatusBarKeyguardViewManager, never()).resetAlternateAuth(anyBoolean());
+    }
+
+    @Test
+    public void testShowingUdfpsBouncerOnTouchOutsideAboveThreshold_showInputBouncer() {
+        // GIVEN view is attached
+        mController.onViewAttached();
+        captureAltAuthInterceptor();
+
+        // GIVEN udfps bouncer is showing
+        mAltAuthInterceptor.showAlternateAuthBouncer();
+
+        // WHEN touch is observed outside the view 205ms later
+        mSystemClock.advanceTime(205);
+        mController.onTouchOutsideView();
+
+        // THEN show the bouncer
+        verify(mStatusBarKeyguardViewManager).showBouncer(eq(true));
+    }
+
+    @Test
+    public void testFadeInWithStatusBarExpansion() {
+        // GIVEN view is attached
+        mController.onViewAttached();
+        captureExpansionListeners();
+        captureKeyguardStateControllerCallback();
+        reset(mView);
+
+        // WHEN status bar expansion is 0
+        updateStatusBarExpansion(0, true);
+
+        // THEN alpha is 0
+        verify(mView).setUnpausedAlpha(0);
+    }
+
+    @Test
+    public void testShowUdfpsBouncer() {
+        // GIVEN view is attached and status bar expansion is 0
+        mController.onViewAttached();
+        captureExpansionListeners();
+        captureKeyguardStateControllerCallback();
+        captureAltAuthInterceptor();
+        updateStatusBarExpansion(0, true);
+        reset(mView);
+        when(mView.getContext()).thenReturn(mResourceContext);
+        when(mResourceContext.getString(anyInt())).thenReturn("test string");
+
+        // WHEN status bar expansion is 0 but udfps bouncer is requested
+        mAltAuthInterceptor.showAlternateAuthBouncer();
+
+        // THEN alpha is 255
+        verify(mView).setUnpausedAlpha(255);
+    }
+
+    @Test
+    public void testTransitionToFullShadeProgress() {
+        // GIVEN view is attached and status bar expansion is 1f
+        mController.onViewAttached();
+        captureExpansionListeners();
+        updateStatusBarExpansion(1f, true);
+        reset(mView);
+
+        // WHEN we're transitioning to the full shade
+        float transitionProgress = .6f;
+        mController.setTransitionToFullShadeProgress(transitionProgress);
+
+        // THEN alpha is between 0 and 255
+        verify(mView).setUnpausedAlpha((int) ((1f - transitionProgress) * 255));
+    }
+
+    @Test
+    public void testShowUdfpsBouncer_transitionToFullShadeProgress() {
+        // GIVEN view is attached and status bar expansion is 1f
+        mController.onViewAttached();
+        captureExpansionListeners();
+        captureKeyguardStateControllerCallback();
+        captureAltAuthInterceptor();
+        updateStatusBarExpansion(1f, true);
+        mAltAuthInterceptor.showAlternateAuthBouncer();
+        reset(mView);
+
+        // WHEN we're transitioning to the full shade
+        mController.setTransitionToFullShadeProgress(1.0f);
+
+        // THEN alpha is 255 (b/c udfps bouncer is requested)
+        verify(mView).setUnpausedAlpha(255);
+    }
+
     private void sendStatusBarStateChanged(int statusBarState) {
         mStatusBarStateListener.onStateChanged(statusBarState);
     }
@@ -282,9 +436,18 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
         mStatusBarStateListener = mStateListenerCaptor.getValue();
     }
 
-    private void captureExpansionListener() {
-        verify(mStatusBar).addExpansionChangedListener(mExpansionListenerCaptor.capture());
-        mExpansionListener = mExpansionListenerCaptor.getValue();
+    private void captureExpansionListeners() {
+        verify(mPanelExpansionStateManager, times(2))
+                .addExpansionListener(mExpansionListenerCaptor.capture());
+        // first (index=0) is from super class, UdfpsAnimationViewController.
+        // second (index=1) is from UdfpsKeyguardViewController
+        mExpansionListeners = mExpansionListenerCaptor.getAllValues();
+    }
+
+    private void updateStatusBarExpansion(float fraction, boolean expanded) {
+        for (PanelExpansionListener listener : mExpansionListeners) {
+            listener.onPanelExpansionChanged(fraction, expanded, /* tracking= */ false);
+        }
     }
 
     private void captureAltAuthInterceptor() {
@@ -293,8 +456,11 @@ public class UdfpsKeyguardViewControllerTest extends SysuiTestCase {
         mAltAuthInterceptor = mAltAuthInterceptorCaptor.getValue();
     }
 
-    private void captureKeyguardUpdateMonitorCallback() {
-        verify(mKeyguardUpdateMonitor).registerCallback(mUpdateMonitorCallbackCaptor.capture());
-        mKeyguardUpdateMonitorCallback = mUpdateMonitorCallbackCaptor.getValue();
+
+
+    private void captureKeyguardStateControllerCallback() {
+        verify(mKeyguardStateController).addCallback(
+                mKeyguardStateControllerCallbackCaptor.capture());
+        mKeyguardStateControllerCallback = mKeyguardStateControllerCallbackCaptor.getValue();
     }
 }

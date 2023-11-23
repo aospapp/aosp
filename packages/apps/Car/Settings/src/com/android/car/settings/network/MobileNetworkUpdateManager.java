@@ -24,6 +24,7 @@ import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
 import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 
@@ -51,7 +52,8 @@ public class MobileNetworkUpdateManager implements DefaultLifecycleObserver {
     private List<SubscriptionInfo> mSubscriptionInfos;
     private int mCurSubscriptionId;
 
-    private final SubscriptionManager.OnSubscriptionsChangedListener
+    @VisibleForTesting
+    final SubscriptionManager.OnSubscriptionsChangedListener
             mOnSubscriptionsChangeListener =
             new SubscriptionManager.OnSubscriptionsChangedListener() {
                 @Override
@@ -78,6 +80,16 @@ public class MobileNetworkUpdateManager implements DefaultLifecycleObserver {
                 updateReceived(mCurSubscriptionId);
             }
         });
+    }
+
+    @VisibleForTesting
+    MobileNetworkUpdateManager(int subId, SubscriptionManager subscriptionManager,
+            PhoneChangeReceiver phoneChangeReceiver) {
+        mCurSubscriptionId = subId;
+        mSubscriptionManager = subscriptionManager;
+        mSubscriptionInfos = mSubscriptionManager.getActiveSubscriptionInfoList();
+
+        mPhoneChangeReceiver = phoneChangeReceiver;
     }
 
     /**
@@ -165,8 +177,10 @@ public class MobileNetworkUpdateManager implements DefaultLifecycleObserver {
     }
 
     /** Broadcast receiver which observes changes in radio technology (i.e. CDMA vs GSM). */
-    private static class PhoneChangeReceiver extends BroadcastReceiver {
-        private static final IntentFilter RADIO_TECHNOLOGY_CHANGED_FILTER = new IntentFilter(
+    @VisibleForTesting
+    static class PhoneChangeReceiver extends BroadcastReceiver {
+        @VisibleForTesting
+        static final IntentFilter RADIO_TECHNOLOGY_CHANGED_FILTER = new IntentFilter(
                 TelephonyIntents.ACTION_RADIO_TECHNOLOGY_CHANGED);
 
         private Context mContext;

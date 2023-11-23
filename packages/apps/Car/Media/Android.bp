@@ -28,10 +28,14 @@ android_app {
     required: ["allowed_privapp_com.android.car.media"],
 
     certificate: "platform",
+    // Keep this commented out until enough apps stop requiring a system signature.
+    // certificate: ":com-android-car-apps-test",
 
     privileged: true,
 
     libs: ["android.car-system-stubs"],
+    min_sdk_version: "30", // Media requires apis that became public in R.
+    target_sdk_version: "31",
     sdk_version: "system_current",
 
     optimize: {

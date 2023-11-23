@@ -22,6 +22,7 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.ui.R;
@@ -33,9 +34,10 @@ import com.android.car.ui.appstyledview.AppStyledRecyclerViewAdapter.AppStyledRe
 public class AppStyledRecyclerViewAdapter extends
         RecyclerView.Adapter<AppStyledRecyclerViewHolder> {
 
-    private View mContent;
+    @Nullable
+    private final View mContent;
 
-    public AppStyledRecyclerViewAdapter(View content) {
+    public AppStyledRecyclerViewAdapter(@Nullable View content) {
         mContent = content;
     }
 
@@ -55,7 +57,7 @@ public class AppStyledRecyclerViewAdapter extends
 
     @Override
     public int getItemCount() {
-        return 1;
+        return mContent != null ? 1 : 0;
     }
 
     /**

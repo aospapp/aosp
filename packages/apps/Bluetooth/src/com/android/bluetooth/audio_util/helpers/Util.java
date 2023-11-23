@@ -43,17 +43,16 @@ class Util {
      * Get an empty set of Metadata
      */
     public static final Metadata empty_data() {
-        Metadata ret = new Metadata();
-        ret.mediaId = "Not Provided";
-        ret.title = "Not Provided";
-        ret.artist = "";
-        ret.album = "";
-        ret.genre = "";
-        ret.trackNum = "1";
-        ret.numTracks = "1";
-        ret.duration = "0";
-        ret.image = null;
-        return ret;
+        Metadata.Builder builder = new Metadata.Builder();
+        return builder.useDefaults().build();
+    }
+
+    /**
+     * Determine if a set of Metadata is "empty" as defined by audio_util.
+     */
+    public static final boolean isEmptyData(Metadata data) {
+        if (data == null) return true;
+        return (empty_data().equals(data) && data.mediaId.equals("Not Provided"));
     }
 
     /**
@@ -71,7 +70,12 @@ class Util {
      */
     public static Metadata toMetadata(Context context, Bundle bundle) {
         Metadata.Builder builder = new Metadata.Builder();
-        return builder.useContext(context).useDefaults().fromBundle(bundle).build();
+        try {
+            return builder.useContext(context).useDefaults().fromBundle(bundle).build();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to build Metadata from Bundle, returning empty data", e);
+            return empty_data();
+        }
     }
 
     /**
@@ -86,8 +90,13 @@ class Util {
         }
 
         Metadata.Builder builder = new Metadata.Builder();
-        return builder.useContext(context).useDefaults().fromMediaDescription(desc)
-                .fromMediaMetadata(data).build();
+        try {
+            return builder.useContext(context).useDefaults().fromMediaDescription(desc)
+                    .fromMediaMetadata(data).build();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to build Metadata from MediaDescription, returning empty data", e);
+            return empty_data();
+        }
     }
 
     /**
@@ -95,14 +104,27 @@ class Util {
      */
     public static Metadata toMetadata(Context context, MediaItem item) {
         Metadata.Builder builder = new Metadata.Builder();
-        return builder.useContext(context).useDefaults().fromMediaItem(item).build();
+        try {
+            return builder.useContext(context).useDefaults().fromMediaItem(item).build();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to build Metadata from MediaItem, returning empty data", e);
+            return empty_data();
+        }
     }
 
     /**
      * Translate a MediaSession.QueueItem to audio_util's Metadata
      */
     public static Metadata toMetadata(Context context, MediaSession.QueueItem item) {
-        Metadata.Builder builder = new Metadata.Builder().useDefaults().fromQueueItem(item);
+        Metadata.Builder builder = new Metadata.Builder();
+
+        try {
+            builder.useDefaults().fromQueueItem(item);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to build Metadata from QueueItem, returning empty data", e);
+            return empty_data();
+        }
+
         // For Queue Items, the Media Id will always be just its Queue ID
         // We don't need to use its actual ID since we don't promise UIDS being valid
         // between a file system and it's now playing list.
@@ -118,8 +140,13 @@ class Util {
         // This will always be currsong. The AVRCP service will overwrite the mediaId if it needs to
         // TODO (apanicke): Remove when the service is ready, right now it makes debugging much more
         // convenient
-        return builder.useContext(context).useDefaults().fromMediaMetadata(data)
-                .setMediaId("currsong").build();
+        try {
+            return builder.useContext(context).useDefaults().fromMediaMetadata(data)
+                    .setMediaId("currsong").build();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to build Metadata from MediaMetadata, returning empty data", e);
+            return empty_data();
+        }
     }
 
     /**
@@ -133,6 +160,10 @@ class Util {
 
         for (int i = 0; i < items.size(); i++) {
             Metadata data = toMetadata(context, items.get(i));
+            if (isEmptyData(data)) {
+                Log.e(TAG, "Received an empty Metadata item in list. Returning an empty queue");
+                return new ArrayList<Metadata>();
+            }
             data.trackNum = "" + (i + 1);
             data.numTracks = "" + items.size();
             list.add(data);

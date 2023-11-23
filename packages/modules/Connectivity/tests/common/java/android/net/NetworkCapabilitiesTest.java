@@ -52,7 +52,6 @@ import static com.android.modules.utils.build.SdkLevel.isAtLeastS;
 import static com.android.net.module.util.NetworkCapabilitiesUtils.TRANSPORT_USB;
 import static com.android.testutils.MiscAsserts.assertEmpty;
 import static com.android.testutils.MiscAsserts.assertThrows;
-import static com.android.testutils.ParcelUtils.assertParcelSane;
 import static com.android.testutils.ParcelUtils.assertParcelingIsLossless;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -341,13 +340,7 @@ public class NetworkCapabilitiesTest {
     }
 
     private void testParcelSane(NetworkCapabilities cap) {
-        if (isAtLeastS()) {
-            assertParcelSane(cap, 16);
-        } else if (isAtLeastR()) {
-            assertParcelSane(cap, 15);
-        } else {
-            assertParcelSane(cap, 11);
-        }
+        assertParcelingIsLossless(cap);
     }
 
     private static NetworkCapabilities createNetworkCapabilitiesWithTransportInfo() {

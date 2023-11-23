@@ -1,0 +1,43 @@
+allow hal_graphics_composer_default video_device:chr_file rw_file_perms;
+add_service(hal_graphics_composer_default, vendor_surfaceflinger_vndservice)
+hal_client_domain(hal_graphics_composer_default, hal_graphics_allocator)
+allow hal_graphics_composer_default self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
+vndbinder_use(hal_graphics_composer_default)
+
+userdebug_or_eng(`
+    allow hal_graphics_composer_default vendor_log_file:dir create_dir_perms;
+
+    # For HWC/libdisplaycolor to generate calibration file.
+    allow hal_graphics_composer_default persist_display_file:file create_file_perms;
+    allow hal_graphics_composer_default persist_display_file:dir rw_dir_perms;
+')
+
+# allow HWC/libdisplaycolor to read calibration data
+allow hal_graphics_composer_default mnt_vendor_file:dir search;
+allow hal_graphics_composer_default persist_file:dir search;
+allow hal_graphics_composer_default persist_display_file:file r_file_perms;
+allow hal_graphics_composer_default persist_display_file:dir search;
+
+# allow HWC to r/w backlight
+allow hal_graphics_composer_default sysfs_leds:dir r_dir_perms;
+allow hal_graphics_composer_default sysfs_leds:file rw_file_perms;
+
+# allow HWC to get vendor_persist_sys_default_prop
+get_prop(hal_graphics_composer_default, vendor_persist_sys_default_prop)
+
+# allow HWC to get vendor_display_prop
+get_prop(hal_graphics_composer_default, vendor_display_prop)
+
+# allow HWC to access vendor_displaycolor_service
+add_service(hal_graphics_composer_default, vendor_displaycolor_service)
+
+add_service(hal_graphics_composer_default, hal_pixel_display_service)
+binder_use(hal_graphics_composer_default)
+get_prop(hal_graphics_composer_default, boot_status_prop);
+
+# allow HWC to access vendor log file
+allow hal_graphics_composer_default vendor_log_file:file create_file_perms;
+
+# allow HWC to output to dumpstate via pipe fd
+allow hal_graphics_composer_default hal_dumpstate_default:fifo_file { append write };
+allow hal_graphics_composer_default hal_dumpstate_default:fd use;

@@ -404,8 +404,8 @@ public:
 
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            ALOGE("failed to enable full scan results; result = %d", result);
             unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_FULL_SCAN_RESULTS);
+            ALOGE("failed to enable full scan results; result = %d", result);
             return result;
         }
 
@@ -566,6 +566,12 @@ public:
         return createFeatureRequest(request, GSCAN_SUBCMD_ENABLE_GSCAN, 0);
     }
 
+    void unregisterVendorHandlerAll() {
+        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_COMPLETE_SCAN);
+        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SCAN_RESULTS_AVAILABLE);
+        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_FULL_SCAN_RESULTS);
+    }
+
     int start() {
         ALOGV("GSCAN start");
         WifiRequest request(familyId(), ifaceId());
@@ -581,6 +587,7 @@ public:
 
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
+            unregisterVendorHandlerAll();
             ALOGE("failed to configure setup; result = %d", result);
             return result;
         }
@@ -589,12 +596,14 @@ public:
 
         result = createScanConfigRequest(request);
         if (result != WIFI_SUCCESS) {
+            unregisterVendorHandlerAll();
             ALOGE("failed to create scan config request; result = %d", result);
             return result;
         }
 
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
+            unregisterVendorHandlerAll();
             ALOGE("failed to configure scan; result = %d", result);
             return result;
         }
@@ -603,16 +612,15 @@ public:
 
         result = createStartRequest(request);
         if (result != WIFI_SUCCESS) {
+            unregisterVendorHandlerAll();
             ALOGE("failed to create start request; result = %d", result);
             return result;
         }
 
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
+            unregisterVendorHandlerAll();
             ALOGE("failed to start scan; result = %d", result);
-            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_COMPLETE_SCAN);
-            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SCAN_RESULTS_AVAILABLE);
-            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_FULL_SCAN_RESULTS);
             return result;
         }
         return result;
@@ -632,9 +640,7 @@ public:
             }
         }
 
-        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_COMPLETE_SCAN);
-        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SCAN_RESULTS_AVAILABLE);
-        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_FULL_SCAN_RESULTS);
+        unregisterVendorHandlerAll();
         return WIFI_SUCCESS;
     }
 
@@ -1057,6 +1063,11 @@ public:
         return result;
     }
 
+    void unregisterVendorHandlerAll() {
+        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_FOUND);
+        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_LOST);
+    }
+
     int start() {
         ALOGI("Executing hotlist setup request, num = %d", mParams.num_bssid);
         WifiRequest request(familyId(), ifaceId());
@@ -1070,22 +1081,21 @@ public:
 
         result = requestResponse(request);
         if (result < 0) {
+            unregisterVendorHandlerAll();
             ALOGI("Failed to execute hotlist setup request, result = %d", result);
-            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_FOUND);
-            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_LOST);
             return result;
         }
 
         ALOGI("Successfully set %d APs in the hotlist ", mParams.num_bssid);
         result = createFeatureRequest(request, GSCAN_SUBCMD_ENABLE_GSCAN, 1);
         if (result < 0) {
+            unregisterVendorHandlerAll();
             return result;
         }
 
         result = requestResponse(request);
         if (result < 0) {
-            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_FOUND);
-            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_LOST);
+            unregisterVendorHandlerAll();
             return result;
         }
 
@@ -1095,8 +1105,7 @@ public:
 
     virtual int cancel() {
         /* unregister event handler */
-        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_FOUND);
-        unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_HOTLIST_RESULTS_LOST);
+        unregisterVendorHandlerAll();
         /* create set hotlist message with empty hotlist */
         WifiRequest request(familyId(), ifaceId());
         int result = createTeardownRequest(request);
@@ -1288,8 +1297,8 @@ public:
         registerVendorHandler(GOOGLE_OUI, GSCAN_EVENT_EPNO_EVENT);
         result = requestResponse(request);
         if (result < 0) {
-            ALOGI("Failed to execute ePNO setup request, result = %d", result);
             unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_EPNO_EVENT);
+            ALOGI("Failed to execute ePNO setup request, result = %d", result);
             return result;
         }
 
@@ -1496,6 +1505,7 @@ public:
 
         result = requestResponse(request);
         if (result < 0) {
+            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SIGNIFICANT_CHANGE_RESULTS);
             ALOGI("failed to set significant wifi change config %d", result);
             return result;
         }
@@ -1504,6 +1514,7 @@ public:
 
         result = createFeatureRequest(request, GSCAN_SUBCMD_ENABLE_GSCAN, 1);
         if (result < 0) {
+            unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_SIGNIFICANT_CHANGE_RESULTS);
             return result;
         }
 
@@ -1891,8 +1902,8 @@ public:
 
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
-            ALOGE("failed to set ANQPO networks; result = %d", result);
             unregisterVendorHandler(GOOGLE_OUI, GSCAN_EVENT_ANQPO_HOTSPOT_MATCH);
+            ALOGE("failed to set ANQPO networks; result = %d", result);
             return result;
         }
 

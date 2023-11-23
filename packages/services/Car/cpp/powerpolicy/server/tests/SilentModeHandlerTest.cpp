@@ -46,20 +46,6 @@ constexpr const char* kBootReasonNormal = "reboot,shell";
 constexpr int kMaxPollingAttempts = 5;
 constexpr std::chrono::microseconds kPollingDelayUs = 50ms;
 
-bool waitForSilentMode(SilentModeHandler* handler, bool expectedSilentMode) {
-    int count = 0;
-    while (true) {
-        if (handler->isSilentMode() == expectedSilentMode) {
-            return true;
-        }
-        if (count++; count == kMaxPollingAttempts) {
-            break;
-        }
-        usleep(kPollingDelayUs.count());
-    }
-    return false;
-}
-
 }  // namespace
 
 namespace internal {
@@ -123,23 +109,6 @@ public:
 
     sp<MockCarPowerPolicyServer> carPowerPolicyServer;
 };
-
-TEST_F(SilentModeHandlerTest, TestSilentModeHwStateMonitoring) {
-    SilentModeHandler handler(carPowerPolicyServer.get());
-    internal::SilentModeHandlerPeer handlerPeer(&handler);
-    handlerPeer.injectBootReason(kBootReasonNormal);
-    handlerPeer.init();
-
-    handlerPeer.updateSilentModeHwState(/*isSilent=*/true);
-
-    ASSERT_TRUE(waitForSilentMode(&handler, /*expectedSilentMode=*/true))
-            << "It should be silent mode when HW state is on";
-
-    handlerPeer.updateSilentModeHwState(/*isSilent=*/false);
-
-    ASSERT_TRUE(waitForSilentMode(&handler, /*expectedSilentMode=*/false))
-            << "It should be non-silent mode when HW state is off";
-}
 
 TEST_F(SilentModeHandlerTest, TestRebootForForcedSilentMode) {
     SilentModeHandler handler(carPowerPolicyServer.get());

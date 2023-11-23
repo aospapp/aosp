@@ -19,7 +19,7 @@
     <string name="app_name" msgid="1756632159204796305">"Calendar"</string>
     <string name="no_dialler" msgid="1448265958659890310">"డయలర్ అందుబాటులో లేదు"</string>
     <string name="no_events" msgid="2454460886004475314">"షెడ్యూల్ చేసిన ఈవెంట్‌లు లేవు. మీరు ఖాళీగా ఉన్నారు!"</string>
-    <string name="no_calendars" msgid="5059614627806215716">"Calendar ప్రారంభం కావచ్చు, లేదా మీరు సెట్టింగ్‌లను మీ సహచర యాప్‌లో చెక్ చేయాలి"</string>
+    <string name="no_calendars" msgid="5059614627806215716">"క్యాలెండర్ ప్రారంభం కావడానికి సమయం పడుతున్నట్టు ఉంది, లేదా సహచర యాప్‌లోని మీ సెట్టింగ్‌లను చెక్ చేసి చూడండి"</string>
     <string name="all_day_event" msgid="5817490740700803034">"పూర్తి రోజు"</string>
     <!-- no translation found for phone_number (3879925006862072135) -->
     <skip />

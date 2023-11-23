@@ -230,8 +230,8 @@ public abstract class CarUiDialogFragment extends DialogFragment implements
     /**
      * Called when the dialog is dismissed.
      *
-     * @param positiveResult {@code true} if the dialog was dismissed with {@link
-     *                       DialogInterface#BUTTON_POSITIVE}.
+     * @param positiveResult {@code true} if the dialog was dismissed with
+     * {@code DialogInterface#BUTTON_POSITIVE}.
      */
     protected abstract void onDialogClosed(boolean positiveResult);
 }

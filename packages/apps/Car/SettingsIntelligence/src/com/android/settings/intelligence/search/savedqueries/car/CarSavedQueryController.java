@@ -27,6 +27,7 @@ import androidx.loader.content.Loader;
 
 import com.android.car.ui.imewidescreen.CarUiImeSearchListItem;
 import com.android.car.ui.recyclerview.CarUiContentListItem;
+import com.android.car.ui.toolbar.SearchConfig;
 import com.android.car.ui.toolbar.ToolbarController;
 import com.android.settings.intelligence.R;
 import com.android.settings.intelligence.overlay.FeatureFactory;
@@ -96,7 +97,7 @@ public class CarSavedQueryController implements LoaderManager.LoaderCallbacks,
                     Log.d(TAG, "Saved queries loaded");
                 }
                 List<SearchResult> results = (List<SearchResult>) data;
-                if (mToolbar.canShowSearchResultItems()) {
+                if (mToolbar.getSearchCapabilities().canShowSearchResultItems()) {
                     List<CarUiImeSearchListItem> searchItems = new ArrayList<>();
                     for (SearchResult result : results) {
                         CarUiImeSearchListItem item = new CarUiImeSearchListItem(
@@ -108,7 +109,9 @@ public class CarSavedQueryController implements LoaderManager.LoaderCallbacks,
 
                         searchItems.add(item);
                     }
-                    mToolbar.setSearchResultItems(searchItems);
+                    mToolbar.setSearchConfig(SearchConfig.builder()
+                            .setSearchResultItems(searchItems)
+                            .build());
                 }
 
                 mResultAdapter.displaySavedQuery(results);

@@ -47,10 +47,12 @@ interface ICarPowerPolicySystemNotification {
    * System private API for CarService.
    *
    * @param policyId The current policy ID.
+   * @param force If {@code true}, the given policy is applied even when the current policy
+   *        is a system power policy.
    * @throws IllegalStateException if it fails to notify power policy change.
    * @throws SecurityException if the caller doesn't have sufficient permissions.
    */
-  void notifyPowerPolicyChange(in @utf8InCpp String policyId);
+  void notifyPowerPolicyChange(in @utf8InCpp String policyId, boolean force);
 
   /**
    * CarService uses this method to tell that there is a newly defined power policy.

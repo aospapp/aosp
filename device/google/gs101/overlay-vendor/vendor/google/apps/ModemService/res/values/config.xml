@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Antenna tuning by USB status -->
+    <bool name="config_tuner_by_usb">false</bool>
+    <integer name="config_proximity_values_usb_connected">1</integer>
+    <integer name="config_proximity_values_usb_disconnected">0</integer>
+
+    <!-- SAR cutback -->
+    <integer name="config_sar_comp_key">0</integer>
+    <integer name="config_sar_state_default">3</integer>
+
+    <!-- SAR cutback by USB device -->
+    <bool name="config_sar_by_usb_device">false</bool>
+    <string-array name="config_sar_usb_devices">
+        <!--
+        <item>6353,20521,Google,USB-C to 3.5mm-Headphone Adapter</item>
+         -->
+    </string-array>
+    <integer name="config_sar_state_usb_connected">3</integer>
+    <integer name="config_sar_state_usb_device_matched">4</integer>
+</resources>

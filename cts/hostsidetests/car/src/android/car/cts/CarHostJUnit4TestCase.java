@@ -77,7 +77,7 @@ public abstract class CarHostJUnit4TestCase extends BaseHostJUnit4Test {
 
     /**
      * User's package permission pattern string format in the output of "dumpsys package PKG_NAME"
-    */
+     */
     protected static final String APP_APK = "CtsCarApp.apk";
     protected static final String APP_PKG = "android.car.cts.app";
 
@@ -462,6 +462,13 @@ public abstract class CarHostJUnit4TestCase extends BaseHostJUnit4Test {
             }
         }
         return pkgMap;
+    }
+
+    /**
+     * Checks if the given package has a process running on the device.
+     */
+    protected boolean isPackageRunning(String packageName) throws Exception {
+        return !executeCommand("pidof %s", packageName).isEmpty();
     }
 
     /**

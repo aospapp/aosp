@@ -161,9 +161,17 @@ void StreamHandler::doneWithFrame(const BufferDesc_1_1& buffer) {
         auto it = mReceivedBuffers.begin();
         while (it != mReceivedBuffers.end()) {
             if (it->bufferId == buffer.bufferId) {
+                // We intentionally do not update the iterator to detect a
+                // request to return an unknown buffer.
                 mReceivedBuffers.erase(it);
                 break;
             }
+            ++it;
+        }
+
+        if (it == mReceivedBuffers.end()) {
+            LOG(DEBUG) << "Ignores a request to return unknown buffer";
+            return;
         }
     }
 

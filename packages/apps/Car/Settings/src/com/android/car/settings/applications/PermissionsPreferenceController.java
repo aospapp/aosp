@@ -31,6 +31,7 @@ import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
 import com.android.settingslib.applications.PermissionsSummaryHelper;
+import com.android.settingslib.utils.StringUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -114,10 +115,9 @@ public class PermissionsPreferenceController extends PreferenceController<Prefer
                         ArrayList<CharSequence> list = new ArrayList<>(grantedGroupLabels);
                         if (additionalGrantedPermissionCount > 0) {
                             // N additional permissions.
-                            list.add(res.getQuantityString(
-                                    R.plurals.runtime_permissions_additional_count,
+                            list.add(StringUtil.getIcuPluralsString(getContext(),
                                     additionalGrantedPermissionCount,
-                                    additionalGrantedPermissionCount));
+                                    R.string.runtime_permissions_additional_count));
                         }
                         if (list.isEmpty()) {
                             mSummary = res.getString(

@@ -22,7 +22,7 @@
     android:viewportHeight="24.0"
     android:viewportWidth="24.0">
     <path
-        android:fillColor="?attr/iconColor"
+        android:fillColor="@color/icon_color_default"
         android:pathData="M13.5 7.75v4.5l3.37 2c.34 .2 .46 .65 .25 .99 s-.64 .45 -.98 .24 L12
 13V7.75c0-.41 .34 -.75 .75 -.75s.75 .34 .75 .75 zM13.05 3C8.11 3 4.1 7.02 4.1
 11.95c0 .02 .01 .03 .01 .05H2.05c-.47 0-.71 .57 -.37 .9 l2.95 2.94c.21 .21 .54

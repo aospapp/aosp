@@ -27,6 +27,26 @@ data class Color(val r: Float, val g: Float, val b: Float, val a: Float) {
 
     override fun toString(): String = if (isEmpty) "[empty]" else prettyPrint()
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Color) return false
+
+        if (r != other.r) return false
+        if (g != other.g) return false
+        if (b != other.b) return false
+        if (a != other.a) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = r.hashCode()
+        result = 31 * result + g.hashCode()
+        result = 31 * result + b.hashCode()
+        result = 31 * result + a.hashCode()
+        return result
+    }
+
     companion object {
         val EMPTY = Color(r = -1f, g = -1f, b = -1f, a = 0f)
 

@@ -81,7 +81,7 @@
     <string name="wifi_trust_config_text" msgid="5916047381475747783">"Certificado de confianza:\n%s\n"</string>
     <string name="install_done_title" msgid="4822989918460334497">"Credenciales instaladas"</string>
     <string name="install_done" msgid="1522718684172097080">"Se han añadido las credenciales de <xliff:g id="NAME">%1$s</xliff:g> a las redes Wi-Fi guardadas."</string>
-    <string name="done_label" msgid="5597425930652904250">"LISTO"</string>
+    <string name="done_label" msgid="5597425930652904250">"HECHO"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"Instala las credenciales de Wi-Fi para conectarte a las redes disponibles a través de <xliff:g id="NAME">%1$s</xliff:g>."</string>
     <string name="wifi_installer_download_error" msgid="5429453090956277692">"El archivo descargado tiene problemas y no se puede instalar. Comprueba que has descargado el archivo de la fuente correcta."</string>
     <string name="wifi_installer_fail" msgid="894483173306576331">"No se pueden instalar las credenciales de Wi-Fi. Vuelve a descargar el archivo."</string>

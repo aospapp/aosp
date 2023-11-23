@@ -260,6 +260,12 @@ import java.util.List;
         int areaType = getVehicleAreaType(p.prop & VehicleArea.MASK);
 
         Class<?> clazz = getJavaClass(p.prop & VehiclePropertyType.MASK);
+        float maxSampleRate = 0f;
+        float minSampleRate = 0f;
+        if (p.changeMode != CarPropertyConfig.VEHICLE_PROPERTY_CHANGE_MODE_STATIC) {
+            maxSampleRate = p.maxSampleRate;
+            minSampleRate = p.minSampleRate;
+        }
         if (p.areaConfigs.isEmpty()) {
             return CarPropertyConfig
                     .newBuilder(clazz, propertyId, areaType, /* capacity */ 1)
@@ -268,8 +274,8 @@ import java.util.List;
                     .setChangeMode(p.changeMode)
                     .setConfigArray(p.configArray)
                     .setConfigString(p.configString)
-                    .setMaxSampleRate(p.maxSampleRate)
-                    .setMinSampleRate(p.minSampleRate)
+                    .setMaxSampleRate(maxSampleRate)
+                    .setMinSampleRate(minSampleRate)
                     .build();
         } else {
             CarPropertyConfig.Builder builder = CarPropertyConfig
@@ -278,8 +284,8 @@ import java.util.List;
                     .setChangeMode(p.changeMode)
                     .setConfigArray(p.configArray)
                     .setConfigString(p.configString)
-                    .setMaxSampleRate(p.maxSampleRate)
-                    .setMinSampleRate(p.minSampleRate);
+                    .setMaxSampleRate(maxSampleRate)
+                    .setMinSampleRate(minSampleRate);
 
             for (VehicleAreaConfig area : p.areaConfigs) {
                 if (classMatched(Integer.class, clazz)) {

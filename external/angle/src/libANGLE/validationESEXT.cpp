@@ -72,6 +72,14 @@ bool IsValidMemoryObjectParamater(const Context *context, GLenum pname)
         case GL_DEDICATED_MEMORY_OBJECT_EXT:
             return true;
 
+        case GL_PROTECTED_MEMORY_OBJECT_EXT:
+            if (!context->getExtensions().protectedTexturesEXT)
+            {
+                context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+                return false;
+            }
+            return true;
+
         default:
             return false;
     }
@@ -1514,8 +1522,13 @@ bool ValidatePrimitiveBoundingBoxEXT(const Context *context,
                                      GLfloat maxZ,
                                      GLfloat maxW)
 {
-    context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
-    return false;
+    if (!context->getExtensions().primitiveBoundingBoxEXT)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return true;
 }
 
 // GL_EXT_separate_shader_objects
@@ -2212,4 +2225,23 @@ bool ValidateLabelObjectEXT(const Context *context,
 
     return ValidateObjectIdentifierAndName(context, type, object);
 }
+
+bool ValidateEGLImageTargetTextureStorageEXT(const Context *context,
+                                             GLuint texture,
+                                             GLeglImageOES image,
+                                             const GLint *attrib_list)
+{
+    UNREACHABLE();
+    return false;
+}
+
+bool ValidateEGLImageTargetTexStorageEXT(const Context *context,
+                                         GLenum target,
+                                         GLeglImageOES image,
+                                         const GLint *attrib_list)
+{
+    UNREACHABLE();
+    return false;
+}
+
 }  // namespace gl

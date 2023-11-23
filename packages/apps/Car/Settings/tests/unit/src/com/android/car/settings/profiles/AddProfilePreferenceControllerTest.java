@@ -16,12 +16,17 @@
 
 package com.android.car.settings.profiles;
 
+import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 import static com.android.car.settings.profiles.AddProfilePreferenceController.MAX_PROFILES_LIMIT_REACHED_DIALOG_TAG;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,15 +35,18 @@ import android.content.Context;
 import android.os.UserManager;
 
 import androidx.lifecycle.LifecycleOwner;
-import androidx.preference.Preference;
+import androidx.test.annotation.UiThreadTest;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
+import com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment;
+import com.android.car.settings.testutils.EnterpriseTestUtils;
 import com.android.car.settings.testutils.ResourceTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
+import com.android.car.ui.preference.CarUiPreference;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -48,10 +56,11 @@ import org.mockito.MockitoAnnotations;
 
 @RunWith(AndroidJUnit4.class)
 public class AddProfilePreferenceControllerTest {
-
-    private Context mContext = ApplicationProvider.getApplicationContext();
+    private static final String TEST_RESTRICTION =
+            android.os.UserManager.DISALLOW_ADD_USER;
+    private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private LifecycleOwner mLifecycleOwner;
-    private Preference mPreference;
+    private CarUiPreference mPreference;
     private AddProfilePreferenceController mPreferenceController;
     private CarUxRestrictions mCarUxRestrictions;
 
@@ -59,6 +68,8 @@ public class AddProfilePreferenceControllerTest {
     private FragmentController mFragmentController;
     @Mock
     private UserManager mUserManager;
+    @Mock
+    private ProfileHelper mMockProfileHelper;
 
     @Before
     public void setUp() {
@@ -67,10 +78,10 @@ public class AddProfilePreferenceControllerTest {
 
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
-
-        mPreference = new Preference(mContext);
+        mPreference = new CarUiPreference(mContext);
         mPreferenceController = new AddProfilePreferenceController(mContext,
                 /* preferenceKey= */ "key", mFragmentController, mCarUxRestrictions);
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
         mPreferenceController.setUserManager(mUserManager);
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreference);
     }
@@ -93,18 +104,33 @@ public class AddProfilePreferenceControllerTest {
 
         mPreferenceController.onCreate(mLifecycleOwner);
 
+        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
         assertThat(mPreference.isVisible()).isTrue();
         assertThat(mPreference.getTitle()).isEqualTo(
                 ResourceTestUtils.getString(mContext, "add_profile_text"));
     }
 
     @Test
-    public void onCreate_userRestrictedFromAddingNewProfileAndNotInDemo_doesNotShowActionButton() {
+    public void onCreate_userRestrictedByDpmFromAddingNewProfileAndNotInDemo_availableForViewing() {
         when(mUserManager.isDemoUser()).thenReturn(false);
-        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_ADD_USER)).thenReturn(true);
+        when(mUserManager.canAddMoreUsers()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
 
         mPreferenceController.onCreate(mLifecycleOwner);
 
+        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void onCreate_userRestrictedByUmFromAddingNewProfileAndNotInDemo_buttonDisabled() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
         assertThat(mPreference.isVisible()).isFalse();
     }
 
@@ -113,7 +139,8 @@ public class AddProfilePreferenceControllerTest {
     @Test
     public void testCallOnClick_profileLimitReached_showErrorDialog() {
         when(mUserManager.isDemoUser()).thenReturn(false);
-        when(mUserManager.hasUserRestriction(UserManager.DISALLOW_ADD_USER)).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mUserManager, TEST_RESTRICTION, false);
         when(mUserManager.canAddMoreUsers()).thenReturn(false);
 
         mPreferenceController.onCreate(mLifecycleOwner);
@@ -121,5 +148,24 @@ public class AddProfilePreferenceControllerTest {
 
         verify(mFragmentController).showDialog(any(ConfirmationDialogFragment.class),
                 eq(MAX_PROFILES_LIMIT_REACHED_DIALOG_TAG));
+    }
+
+    @Test
+    @UiThreadTest
+    public void disabledClick_restrictedByDpm_dialog() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        when(mUserManager.canAddMoreUsers()).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreference.performClick();
+
+        assertShowingDisabledByAdminDialog();
+    }
+
+    private void assertShowingDisabledByAdminDialog() {
+        verify(mFragmentController).showDialog(any(ActionDisabledByAdminDialogFragment.class),
+                eq(DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG));
     }
 }

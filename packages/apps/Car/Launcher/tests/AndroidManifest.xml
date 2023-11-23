@@ -16,13 +16,18 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.car.carlauncher">
+          package="com.android.car.carlauncher.test">
 
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />
+
+        <!-- This is used in AppLauncherUtilTests -->
+        <meta-data android:name="com.android.automotive"
+            android:resource="@xml/automotive_app_desc"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.car.carlauncher"
                      android:label="Tests for Car Launcher"/>
+
 </manifest>

@@ -240,6 +240,39 @@ public class UiTranslationManagerTest {
     }
 
     @Test
+    public void testPauseUiTranslationThenStartUiTranslation() throws Throwable {
+        final Pair<List<AutofillId>, ContentCaptureContext> result =
+                enableServicesAndStartActivityForTranslation();
+
+        final CharSequence originalText = mTextView.getText();
+        final List<AutofillId> views = result.first;
+        final ContentCaptureContext contentCaptureContext = result.second;
+
+        final String translatedText = "success";
+        final UiObject2 helloText = Helper.findObjectByResId(Helper.ACTIVITY_PACKAGE,
+                SimpleActivity.HELLO_TEXT_ID);
+        assertThat(helloText).isNotNull();
+        // Set response
+        final TranslationResponse response =
+                createViewsTranslationResponse(views, translatedText);
+        sTranslationReplier.addResponse(response);
+
+        startUiTranslation(/* shouldPadContent */ false, views, contentCaptureContext);
+
+        assertThat(helloText.getText()).isEqualTo(translatedText);
+
+        pauseUiTranslation(contentCaptureContext);
+
+        assertThat(helloText.getText()).isEqualTo(originalText.toString());
+
+        sTranslationReplier.addResponse(createViewsTranslationResponse(views, translatedText));
+
+        startUiTranslation(/* shouldPadContent */ false, views, contentCaptureContext);
+
+        assertThat(helloText.getText()).isEqualTo(translatedText);
+    }
+
+    @Test
     public void testUiTranslation_CustomViewTranslationCallback() throws Throwable {
         final Pair<List<AutofillId>, ContentCaptureContext> result =
                 enableServicesAndStartActivityForTranslation();

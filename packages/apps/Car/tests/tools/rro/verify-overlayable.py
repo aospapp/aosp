@@ -46,7 +46,9 @@ def compare_resources(old_mapping, new_mapping, res_public_file):
         print('Resources added:\n' + '\n'.join(map(lambda x: str(x), added)))
     if len(added) + len(removed) > 0:
         print("Some resource have been modified. If this is intentional please " +
-              "run 'python generate-overlayable.py' again and submit the new %s" % res_public_file)
+              "run 'python3 generate-overlayable.py' again and submit the new %s" % res_public_file)
+        print("Some projects may include $PROJECT_TOP/tools/generate-overlayable.sh which calls " +
+              "the above command with the appropriate command line arguments")
         sys.exit(1)
 
 if __name__ == '__main__':

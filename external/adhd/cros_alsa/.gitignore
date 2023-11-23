@@ -1,3 +1,0 @@
-target/
-.*.rustfmt
-Cargo.lock

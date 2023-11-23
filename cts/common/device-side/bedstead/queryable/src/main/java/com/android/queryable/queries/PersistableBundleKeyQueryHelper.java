@@ -21,10 +21,14 @@ import android.os.PersistableBundle;
 import com.android.queryable.Queryable;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Implementation of {@link PersistableBundleKeyQuery}. */
 public final class PersistableBundleKeyQueryHelper<E extends Queryable>
         implements PersistableBundleKeyQuery<E>, Serializable {
+
+    private static final long serialVersionUID = 1;
 
     private final E mQuery;
     private Boolean mExpectsToExist = null;
@@ -92,5 +96,22 @@ public final class PersistableBundleKeyQueryHelper<E extends Queryable>
         }
 
         return true;
+    }
+
+    @Override
+    public String describeQuery(String fieldName) {
+        List<String> queryStrings = new ArrayList<>();
+        if (mExpectsToExist != null) {
+            queryStrings.add(fieldName + " exists");
+        }
+        if (mStringQuery != null) {
+            queryStrings.add(mStringQuery.describeQuery(fieldName + ".stringValue"));
+        }
+        if (mPersistableBundleQuery != null) {
+            queryStrings.add(mPersistableBundleQuery.describeQuery(
+                    fieldName + ".persistableBundleValue"));
+        }
+
+        return Queryable.joinQueryStrings(queryStrings);
     }
 }

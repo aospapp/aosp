@@ -77,6 +77,9 @@ typedef void (renderControl_APIENTRY *rcComposeAsyncWithoutPost_client_proc_t) (
 typedef int (renderControl_APIENTRY *rcCreateDisplayById_client_proc_t) (void * ctx, uint32_t);
 typedef int (renderControl_APIENTRY *rcSetDisplayPoseDpi_client_proc_t) (void * ctx, uint32_t, GLint, GLint, uint32_t, uint32_t, uint32_t);
 typedef int (renderControl_APIENTRY *rcReadColorBufferDMA_client_proc_t) (void * ctx, uint32_t, GLint, GLint, GLint, GLint, GLenum, GLenum, void*, uint32_t);
+typedef int (renderControl_APIENTRY *rcGetFBDisplayConfigsCount_client_proc_t) (void * ctx);
+typedef int (renderControl_APIENTRY *rcGetFBDisplayConfigsParam_client_proc_t) (void * ctx, int, EGLint);
+typedef int (renderControl_APIENTRY *rcGetFBDisplayActiveConfig_client_proc_t) (void * ctx);
 
 
 #endif

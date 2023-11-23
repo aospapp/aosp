@@ -23,7 +23,6 @@ import numpy
 
 
 import cv2
-import camera_properties_utils
 import capture_request_utils
 import image_processing_utils
 
@@ -72,6 +71,7 @@ VGA_WIDTH = 640
 
 def find_all_contours(img):
   cv2_version = cv2.__version__
+  logging.debug('cv2_version: %s', cv2_version)
   if cv2_version.startswith('3.'):  # OpenCV 3.x
     _, contours, _ = cv2.findContours(img, cv2.RETR_TREE,
                                       cv2.CHAIN_APPROX_SIMPLE)
@@ -169,11 +169,7 @@ class Chart(object):
     self.xnorm, self.ynorm, self.wnorm, self.hnorm, self.scale = (
         image_processing_utils.chart_located_per_argv(chart_loc))
     if not self.xnorm:
-      if camera_properties_utils.read_3a(props):
-        self.locate(cam, props, log_path)
-      else:
-        logging.debug('Chart locator skipped.')
-        self._set_scale_factors_to_one()
+      self.locate(cam, props, log_path)
 
   def _set_scale_factors_to_one(self):
     """Set scale factors to 1.0 for skipped tests."""
@@ -183,18 +179,13 @@ class Chart(object):
     self.ynorm = 0.0
     self.scale = 1.0
 
-  def _calc_scale_factors(self, cam, props, fmt, s, e, fd, log_path):
+  def _calc_scale_factors(self, cam, props, fmt, log_path):
     """Take an image with s, e, & fd to find the chart location.
 
     Args:
      cam: An open its session.
      props: Properties of cam
      fmt: Image format for the capture
-     s: Sensitivity for the AF request as defined in
-                            android.sensor.sensitivity
-     e: Exposure time for the AF request as defined in
-                            android.sensor.exposureTime
-     fd: float; autofocus lens position
      log_path: log path to save the captured images.
 
     Returns:
@@ -202,8 +193,7 @@ class Chart(object):
       img_3a: numpy array; RGB image for chart location
       scale_factor: float; scaling factor for chart search
     """
-    req = capture_request_utils.manual_capture_request(s, e)
-    req['android.lens.focusDistance'] = fd
+    req = capture_request_utils.auto_capture_request()
     cap_chart = image_processing_utils.stationary_lens_cap(cam, req, fmt)
     img_3a = image_processing_utils.convert_capture_to_rgb_image(
         cap_chart, props)
@@ -239,15 +229,9 @@ class Chart(object):
     hnorm: float; [0, 1] height of chart in scene
     scale: float; scale factor to extract chart
     """
-    if camera_properties_utils.read_3a(props):
-      s, e, _, _, fd = cam.do_3a(get_results=True)
-      fmt = {'format': 'yuv', 'width': VGA_WIDTH, 'height': VGA_HEIGHT}
-      chart, scene, s_factor = self._calc_scale_factors(cam, props, fmt, s, e,
-                                                        fd, log_path)
-    else:
-      logging.debug('Chart locator skipped.')
-      self._set_scale_factors_to_one()
-      return
+    fmt = {'format': 'yuv', 'width': VGA_WIDTH, 'height': VGA_HEIGHT}
+    cam.do_3a()
+    chart, scene, s_factor = self._calc_scale_factors(cam, props, fmt, log_path)
     scale_start = self._scale_start * s_factor
     scale_stop = self._scale_stop * s_factor
     scale_step = self._scale_step * s_factor
@@ -557,29 +541,17 @@ def get_angle(input_img):
 class Cv2ImageProcessingUtilsTests(unittest.TestCase):
   """Unit tests for this module."""
 
-  def test_get_angle_identify_unrotated_chessboard_angle(self):
-    normal_img_path = os.path.join(
-        TEST_IMG_DIR, 'rotated_chessboards/normal.jpg')
-    wide_img_path = os.path.join(
-        TEST_IMG_DIR, 'rotated_chessboards/wide.jpg')
-    normal_img = cv2.cvtColor(cv2.imread(normal_img_path), cv2.COLOR_BGR2GRAY)
-    wide_img = cv2.cvtColor(cv2.imread(wide_img_path), cv2.COLOR_BGR2GRAY)
-    normal_angle = get_angle(normal_img)
-    wide_angle = get_angle(wide_img)
-    e_msg = f'Angle: 0, Regular: {normal_angle}, Wide: {wide_angle}'
-    self.assertEqual(get_angle(normal_img), 0, e_msg)
-    self.assertEqual(get_angle(wide_img), 0, e_msg)
-
   def test_get_angle_identify_rotated_chessboard_angle(self):
     # Array of the image files and angles containing rotated chessboards.
     test_cases = [
-        ('_15_ccw', 15),
-        ('_30_ccw', 30),
-        ('_45_ccw', 45),
-        ('_60_ccw', 60),
-        ('_75_ccw', 75),
-        ('_90_ccw', 90)
+        ('', 0),
+        ('_15_ccw', -15),
+        ('_30_ccw', -30),
+        ('_45_ccw', -45),
+        ('_60_ccw', -60),
+        ('_75_ccw', -75),
     ]
+    test_fails = ''
 
     # For each rotated image pair (normal, wide), check angle against expected.
     for suffix, angle in test_cases:
@@ -594,13 +566,21 @@ class Cv2ImageProcessingUtilsTests(unittest.TestCase):
       wide_img = cv2.cvtColor(cv2.imread(wide_img_path), cv2.COLOR_BGR2GRAY)
 
       # Assert angle as expected.
-      normal_angle = get_angle(normal_img)
-      wide_angle = get_angle(wide_img)
-      e_msg = f'Angle: {angle}, Regular: {normal_angle}, Wide: {wide_angle}'
-      self.assertTrue(
-          numpy.isclose(abs(normal_angle), angle, ANGLE_CHECK_TOL), e_msg)
-      self.assertTrue(
-          numpy.isclose(abs(wide_angle), angle, ANGLE_CHECK_TOL), e_msg)
+      normal = get_angle(normal_img)
+      wide = get_angle(wide_img)
+      valid_angles = (angle, angle+90)  # try both angle & +90 due to squares
+      e_msg = (f'\n Rotation angle test failed: {angle}, extracted normal: '
+               f'{normal:.2f}, wide: {wide:.2f}, valid_angles: {valid_angles}')
+      matched_angles = False
+      for a in valid_angles:
+        if (math.isclose(normal, a, abs_tol=ANGLE_CHECK_TOL) and
+            math.isclose(wide, a, abs_tol=ANGLE_CHECK_TOL)):
+          matched_angles = True
+
+      if not matched_angles:
+        test_fails += e_msg
+
+    self.assertEqual(len(test_fails), 0, test_fails)
 
 
 if __name__ == '__main__':

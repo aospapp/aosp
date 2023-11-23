@@ -37,7 +37,7 @@ public class CarHeadsUpNotificationAppContainer extends CarHeadsUpNotificationCo
     protected WindowManager.LayoutParams getWindowManagerLayoutParams() {
         WindowManager.LayoutParams wrapperParams = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
                 // This type allows covering status bar and receiving touch input
                 WindowManager.LayoutParams.TYPE_SYSTEM_ERROR,
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN

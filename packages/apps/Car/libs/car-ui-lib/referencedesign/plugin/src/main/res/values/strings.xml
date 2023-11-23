@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- The text on a dialog's dismiss button. [CHAR_LIMIT=50] -->
+  <string name="dialog_dismiss_button">Close</string>
+
+  <!-- Search hint, displayed inside the search box [CHAR LIMIT=50] -->
+  <string name="toolbar_default_search_hint">Search&#8230;</string>
+
+  <!-- Search hint, displayed inside the search box [CHAR LIMIT=50] -->
+  <string name="toolbar_ux_restricted_search_hint">Unavailable while driving</string>
+
+  <!-- The content description on the toolbar back button [CHAR_LIMIT=100] -->
+  <string name="toolbar_nav_icon_content_description">Back</string>
+
+  <!-- The content description of the toolber menu item overflow button [CHAR_LIMIT=50] -->
+  <string name="toolbar_menu_item_overflow_title">Overflow</string>
+
+  <!-- Content description for car ui recycler view scroll bar down arrow [CHAR LIMIT=30] -->
+  <string name="scrollbar_page_down_button">Scroll down</string>
+  <!-- Content description for car ui recycler view scroll bar up arrow [CHAR LIMIT=30] -->
+  <string name="scrollbar_page_up_button">Scroll up</string>
+
+</resources>

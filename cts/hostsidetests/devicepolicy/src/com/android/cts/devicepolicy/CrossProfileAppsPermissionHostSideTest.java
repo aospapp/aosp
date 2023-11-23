@@ -72,6 +72,8 @@ public class CrossProfileAppsPermissionHostSideTest extends BaseDevicePolicyTest
         super.setUp();
     }
 
+    // TODO(b/199122256): Remove testCanRequestInteractAcrossProfiles tests after fixing the
+    //  installation issue in the migrated tests.
     @Test
     public void testCanRequestInteractAcrossProfiles_fromPersonalProfile_returnsTrue()
             throws Exception {

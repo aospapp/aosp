@@ -22,10 +22,9 @@ android_test {
     static_libs: [
         "androidx.test.runner",
         "androidx.test.rules",
-        "automotive-settings-scenarios",
         "automotive-app-grid-scenarios",
         "automotive-health-test-rules",
-        "automotive-settings-app-helper",
+        "automotive-app-grid-helper",
         "app-helpers-auto-interfaces",
         "ub-uiautomator",
         "collector-device-lib-platform",

@@ -29,7 +29,7 @@ public class MainInteractionSessionService extends VoiceInteractionSessionServic
     @Override
     public VoiceInteractionSession onNewSession(Bundle args) {
         final String className = (args != null)
-                ? args.getString(Utils.DIRECT_ACTIONS_KEY_CLASS) : null;
+                ? args.getString(Utils.VOICE_INTERACTION_KEY_CLASS) : null;
         if (className == null) {
             return new MainInteractionSession(this);
         } else {

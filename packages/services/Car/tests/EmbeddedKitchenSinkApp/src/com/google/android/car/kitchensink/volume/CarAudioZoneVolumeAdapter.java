@@ -66,25 +66,26 @@ public final class CarAudioZoneVolumeAdapter extends ArrayAdapter<CarAudioZoneVo
         }
         if (mVolumeList[position] != null) {
             vh.id.setText(mVolumeList[position].id);
-            vh.maxVolume.setText(String.valueOf(mVolumeList[position].maxGain));
             vh.currentVolume.setText(String.valueOf(mVolumeList[position].currentGain));
             int color = mVolumeList[position].hasAudioFocus ? Color.GREEN : Color.GRAY;
             vh.requestButton.setBackgroundColor(color);
             if (position == 0) {
+                vh.maxVolume.setText("Max");
                 vh.upButton.setVisibility(View.INVISIBLE);
                 vh.downButton.setVisibility(View.INVISIBLE);
                 vh.requestButton.setVisibility(View.INVISIBLE);
                 vh.muteButton.setVisibility(View.INVISIBLE);
             } else {
+                vh.maxVolume.setText(String.valueOf(mVolumeList[position].maxGain));
                 vh.upButton.setVisibility(View.VISIBLE);
                 vh.downButton.setVisibility(View.VISIBLE);
                 vh.requestButton.setVisibility(View.VISIBLE);
                 vh.muteButton.setVisibility(mGroupMuteEnabled ? View.VISIBLE : View.INVISIBLE);
                 vh.upButton.setOnClickListener((view) -> {
-                    mFragment.adjustVolumeByOne(mVolumeList[position].groupId, true);
+                    mFragment.adjustVolumeUp(mVolumeList[position].groupId);
                 });
                 vh.downButton.setOnClickListener((view) -> {
-                    mFragment.adjustVolumeByOne(mVolumeList[position].groupId, false);
+                    mFragment.adjustVolumeDown(mVolumeList[position].groupId);
                 });
                 vh.muteButton.setChecked(mVolumeList[position].isMuted);
                 vh.muteButton.setOnClickListener((view) -> {

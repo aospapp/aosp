@@ -26,6 +26,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibilit
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static com.android.car.ui.core.CarUi.TARGET_API_R;
 import static com.android.car.ui.core.SearchResultsProvider.ITEM_ID;
 import static com.android.car.ui.core.SearchResultsProvider.SECONDARY_IMAGE_ID;
 import static com.android.car.ui.core.SearchResultsProvider.SUBTITLE;
@@ -41,8 +42,7 @@ import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.WIDE
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.WIDE_SCREEN_EXTRACTED_TEXT_ICON_RES_ID;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.WIDE_SCREEN_SEARCH_RESULTS;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenTestActivity.sCarUiImeWideScreenController;
-
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.android.car.ui.matchers.CarUiRecyclerViewMatcher.atPosition;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -79,13 +79,10 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.widget.FrameLayout;
 
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
+import androidx.annotation.RequiresApi;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.espresso.contrib.RecyclerViewActions;
-import androidx.test.espresso.matcher.BoundedMatcher;
 import androidx.test.espresso.matcher.ViewMatchers.Visibility;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -94,8 +91,6 @@ import com.android.car.ui.core.SearchResultsProvider;
 import com.android.car.ui.test.R;
 import com.android.car.ui.utils.CarUiUtils;
 
-import org.hamcrest.Description;
-import org.hamcrest.Matcher;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -110,6 +105,7 @@ import org.mockito.MockitoAnnotations;
  * Unit tests for {@link CarUiImeWideScreenController}.
  */
 @RunWith(AndroidJUnit4.class)
+@RequiresApi(TARGET_API_R)
 public class CarUiImeWideScreenControllerTest {
 
     private final Context mContext = ApplicationProvider.getApplicationContext();
@@ -410,9 +406,7 @@ public class CarUiImeWideScreenControllerTest {
                 .check(matches(atPosition(0, hasDescendant(withText("Title")))));
         onView(withId(R.id.car_ui_wideScreenSearchResultList))
                 .check(matches(atPosition(0, hasDescendant(withText("SubTitle")))));
-        onView(withId(R.id.car_ui_wideScreenSearchResultList))
-                .perform(RecyclerViewActions.actionOnItem(hasDescendant(withText("Title")),
-                        click()));
+        onView((withText("Title"))).perform(click());
 
         verify(spy, times(1)).onItemClicked("1");
     }
@@ -480,29 +474,6 @@ public class CarUiImeWideScreenControllerTest {
         byte[] bytes = parcel.marshall();
         parcel.recycle();
         return bytes;
-    }
-
-    private static Matcher<View> atPosition(final int position,
-            @NonNull final Matcher<View> itemMatcher) {
-        checkNotNull(itemMatcher);
-        return new BoundedMatcher<View, RecyclerView>(RecyclerView.class) {
-            @Override
-            public void describeTo(Description description) {
-                description.appendText("has item at position " + position + ": ");
-                itemMatcher.describeTo(description);
-            }
-
-            @Override
-            protected boolean matchesSafely(final RecyclerView view) {
-                RecyclerView.ViewHolder viewHolder = view.findViewHolderForAdapterPosition(
-                        position);
-                if (viewHolder == null) {
-                    // has no item on such position
-                    return false;
-                }
-                return itemMatcher.matches(viewHolder.itemView);
-            }
-        };
     }
 
     private CarUiImeWideScreenController getController() {

@@ -26,7 +26,7 @@
     <string name="cmas_exercise_alert" msgid="5775307523978007483">"Жаттығу"</string>
     <string name="cmas_required_monthly_test" msgid="638043663020315444">"Сынақ ескерту"</string>
     <string name="state_local_test_alert" msgid="5347253401221487116">"Сынақ ескерту"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="5365080705719184919">"Ескертулер"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="5365080705719184919">"Ескертуші хабарландырулар"</string>
     <string name="enable_public_safety_messages_title" msgid="4702006823902961758">"Халыққа арналған қауіпсіздік туралы хабарландырулар"</string>
     <string name="enable_cmas_test_alerts_title" msgid="3586102183699625309">"Сынақ ескертулер"</string>
 </resources>

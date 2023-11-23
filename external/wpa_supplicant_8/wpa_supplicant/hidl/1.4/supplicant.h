@@ -23,6 +23,7 @@ extern "C"
 #include "utils/includes.h"
 #include "utils/wpa_debug.h"
 #include "wpa_supplicant_i.h"
+#include "scan.h"
 }
 
 namespace android {

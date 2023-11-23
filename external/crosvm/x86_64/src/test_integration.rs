@@ -4,6 +4,7 @@
 
 #![cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 
+use arch::LinuxArch;
 use devices::{IrqChipX86_64, ProtectionType};
 use hypervisor::{HypervisorX86_64, VcpuExit, VcpuX86_64, VmX86_64};
 use vm_memory::{GuestAddress, GuestMemory};
@@ -98,7 +99,7 @@ where
     let arch_mem_regions = arch_memory_regions(memory_size, None);
     let guest_mem = GuestMemory::new(&arch_mem_regions).unwrap();
 
-    let mut resources = X8664arch::get_resource_allocator(&guest_mem);
+    let mut resources = X8664arch::create_system_allocator(&guest_mem);
 
     let (hyp, mut vm) = create_vm(guest_mem.clone());
     let (irqchip_tube, device_tube) = Tube::pair().expect("failed to create irq tube");
@@ -106,6 +107,7 @@ where
     let mut irq_chip = create_irq_chip(vm.try_clone().expect("failed to clone vm"), 1, device_tube);
 
     let mut mmio_bus = devices::Bus::new();
+    let mut io_bus = devices::Bus::new();
     let exit_evt = Event::new().unwrap();
 
     let mut control_tubes = vec![TaggedControlTube::VmIrq(irqchip_tube)];
@@ -128,17 +130,19 @@ where
         devices,
         &mut irq_chip,
         &mut mmio_bus,
+        &mut io_bus,
         &mut resources,
         &mut vm,
         4,
     )
     .unwrap();
     let pci_bus = Arc::new(Mutex::new(PciConfigIo::new(pci)));
+    io_bus.insert(pci_bus, 0xcf8, 0x8).unwrap();
 
-    let mut io_bus = X8664arch::setup_io_bus(
+    X8664arch::setup_legacy_devices(
+        &mut io_bus,
         irq_chip.pit_uses_speaker_port(),
         exit_evt.try_clone().unwrap(),
-        Some(pci_bus),
         memory_size,
     )
     .unwrap();
@@ -156,7 +160,7 @@ where
     )
     .unwrap();
 
-    let param_args = "nokaslr";
+    let param_args = "nokaslr acpi=noirq";
 
     let mut cmdline = X8664arch::get_base_linux_cmdline();
 
@@ -174,7 +178,9 @@ where
     // let (params, kernel_end) = X8664arch::load_kernel(&guest_mem, &mut kernel_image).expect("failed to load kernel");
 
     let suspend_evt = Event::new().unwrap();
+    let mut resume_notify_devices = Vec::new();
     let acpi_dev_resource = X8664arch::setup_acpi_devices(
+        &guest_mem,
         &mut io_bus,
         &mut resources,
         suspend_evt
@@ -185,6 +191,7 @@ where
         &mut irq_chip,
         (&None, None),
         &mut mmio_bus,
+        &mut resume_notify_devices,
     )
     .unwrap();
 

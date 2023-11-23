@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"গাড়ির পাওয়ার নীতি নিয়ন্ত্রণ করুন।"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"টেম্পলেট রেন্ডার করুন"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"টেম্পলেট রেন্ডার করুন।"</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"অ্যাপ্লিকেশন চালু করা প্রক্রিয়া নিয়ন্ত্রণ করুন"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"অ্যাপ্লিকেশন চালু করা প্রক্রিয়া নিয়ন্ত্রণ করুন।"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"আমার ডিভাইস"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"অতিথি"</string>
     <string name="importance_default" msgid="8587741629268312938">"ডিফল্ট গুরুত্ব"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"পরে রিসেট করুন"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"ইনফোটেইনমেন্ট সিস্টেম পরের বার গাড়ি চালু হলে রিসেট হবে।"</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"রিসেট শুরু করতে গাড়িকে পার্কিং অবস্থায় থাকতে হবে।"</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> আপনার সিস্টেমের পারফর্ম্যান্সে প্রভাব ফেলছে"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"সিস্টেমের পারফর্ম্যান্স উন্নত করতে অ্যাপ বন্ধ করুন। সেটিংস থেকে আপনি আবার অ্যাপ চালু করতে পারবেন।"</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"ব্যবহার করা চালিয়ে যেতে অ্যাপকে অগ্রাধিকার দিন।"</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"সিস্টেমের পারফর্ম্যান্স উন্নত করতে অ্যাপটি আনইনস্টল করুন।"</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"অ্যাপ বন্ধ করুন"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"অ্যাপকে অগ্রাধিকার দিন"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"অ্যাপ আনইনস্টল করুন"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> বন্ধ করা হয়েছে। সেটিংস থেকে আপনি আবার এটি চালু করতে পারবেন।"</string>
 </resources>

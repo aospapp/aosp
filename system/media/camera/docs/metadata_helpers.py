@@ -181,7 +181,8 @@ def protobuf_type(entry):
     "enumList"               : "int32",
     "string"                 : "string",
     "capability"             : "Capability",
-    "multiResolutionStreamConfigurationMap" : "MultiResolutionStreamConfigurations"
+    "multiResolutionStreamConfigurationMap" : "MultiResolutionStreamConfigurations",
+    "deviceStateSensorOrientationMap"  : "DeviceStateSensorOrientationMap",
   }
 
   if typeName not in typename_to_protobuftype:

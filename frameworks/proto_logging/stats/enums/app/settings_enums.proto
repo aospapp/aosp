@@ -3174,6 +3174,57 @@ enum PageId {
     // CATEGORY: SETTINGS
     // OS: S
     CREDENTIAL_MANAGEMENT_APP_REMOVE_APP = 1895;
+
+    // OPEN: Settings -> Accessibility -> Timing controls -> Time to take action (Accessibility timeout)
+    // CATEGORY: SETTINGS
+    // OS: S
+    ACCESSIBILITY_TIMEOUT = 1898;
+
+    // OPEN: Settings -> Accessibility -> Talkback
+    // CATEGORY: SETTINGS
+    // OS: S
+    TALKBACK = 1899;
+
+    // OPEN: Settings -> Accessibility -> Accessibility Menu
+    // CATEGORY: SETTINGS
+    // OS: S
+    ACCESSIBILITY_MENU = 1900;
+
+    // OPEN: Settings -> Accessibility -> Select to Speak
+    // CATEGORY: SETTINGS
+    // OS: S
+    SELECT_TO_SPEAK = 1901;
+
+    // OPEN: Settings -> Accessibility -> Switch Access
+    // CATEGORY: SETTINGS
+    // OS: S
+    SWITCH_ACCESS = 1902;
+
+    // OPEN: Settings -> Accessibility -> Voice Access
+    // CATEGORY: SETTINGS
+    // OS: S
+    VOICE_ACCESS = 1903;
+
+    // OPEN: Settings -> Accessibility -> Sound Amplifier
+    // CATEGORY: SETTINGS
+    // OS: S
+    SOUND_AMPLIFIER = 1904;
+
+    // OPEN: Settings -> Accessibility -> Live Transcribe
+    // CATEGORY: SETTINGS
+    // OS: S
+    LIVE_TRANSCRIBE = 1905;
+
+    // OPEN: Settings -> Accessibility -> Sound Notifications
+    // CATEGORY: SETTINGS
+    // OS: S
+    SOUND_NOTIFICATIONS = 1906;
+
+    // OPEN: Settings > System > Gestures > System navigation > 2-/3-button
+    // navigation gear icon
+    // CATEGORY: SETTINGS
+    // OS: S
+    SETTINGS_BUTTON_NAV_DLG = 1907;
 }
 
 // Battery Saver schedule types.

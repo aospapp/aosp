@@ -104,6 +104,7 @@ import static android.view.WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -147,6 +148,7 @@ import android.server.wm.CommandSession.LaunchInjector;
 import android.server.wm.CommandSession.LaunchProxy;
 import android.server.wm.CommandSession.SizeInfo;
 import android.server.wm.TestJournalProvider.TestJournalContainer;
+import android.server.wm.WindowManagerState.Task;
 import android.server.wm.WindowManagerState.WindowState;
 import android.server.wm.settings.SettingsSession;
 import android.util.DisplayMetrics;
@@ -228,6 +230,9 @@ public abstract class ActivityManagerTestBase {
     private static final int UI_MODE_TYPE_MASK = 0x0f;
     private static final int UI_MODE_TYPE_VR_HEADSET = 0x07;
 
+    static final boolean ENABLE_SHELL_TRANSITIONS =
+            SystemProperties.getBoolean("persist.debug.shell_transit", false);
+
     private static Boolean sHasHomeScreen = null;
     private static Boolean sSupportsSystemDecorsOnSecondaryDisplays = null;
     private static Boolean sSupportsInsecureLockScreen = null;
@@ -254,6 +259,15 @@ public abstract class ActivityManagerTestBase {
     @Rule
     public final TestRule mBaseRule = RuleChain.outerRule(mPostAssertionRule)
             .around(new WrapperRule(null /* before */, this::tearDownBase));
+
+    /**
+     * Whether to wait for the rotation to be stable state after testing. It can be set if the
+     * display rotation may be changed by test.
+     */
+    protected boolean mWaitForRotationOnTearDown;
+
+    /** Indicate to wait for all non-home activities to be destroyed when test finished. */
+    protected boolean mShouldWaitForAllNonHomeActivitiesToDestroyed = false;
 
     /**
      * @return the am command to start the given activity with the following extra key/value pairs.
@@ -424,7 +438,7 @@ public abstract class ActivityManagerTestBase {
          * @param activityClass The {@link Activity} class to be launched
          * @param displayId ID of the target display
          */
-        void launchTestActivityOnDisplaySync(Class<T> activityClass, int displayId) {
+        public void launchTestActivityOnDisplaySync(Class<T> activityClass, int displayId) {
             launchTestActivityOnDisplaySync(activityClass, displayId, WINDOWING_MODE_UNDEFINED);
         }
 
@@ -557,7 +571,7 @@ public abstract class ActivityManagerTestBase {
             }
         }
 
-        T getActivity() {
+        public T getActivity() {
             return mTestActivity;
         }
 
@@ -581,7 +595,7 @@ public abstract class ActivityManagerTestBase {
 
         runWithShellPermission(() -> {
             // TaskOrganizer ctor requires MANAGE_ACTIVITY_TASKS permission
-            mTaskOrganizer = new TestTaskOrganizer(mContext);
+            mTaskOrganizer = new TestTaskOrganizer();
             // Clear launch params for all test packages to make sure each test is run in a clean
             // state.
             mAtm.clearLaunchParamsForPackages(TEST_PACKAGES);
@@ -599,11 +613,24 @@ public abstract class ActivityManagerTestBase {
         // activities but home are cleaned up from the root task at the end of each test. Am force
         // stop shell commands might be asynchronous and could interrupt the task cleanup
         // process if executed first.
+        launchHomeActivityNoWait();
         removeRootTasksWithActivityTypes(ALL_ACTIVITY_TYPE_BUT_HOME);
         stopTestPackage(TEST_PACKAGE);
         stopTestPackage(SECOND_TEST_PACKAGE);
         stopTestPackage(THIRD_TEST_PACKAGE);
-        launchHomeActivityNoWait();
+        if (mShouldWaitForAllNonHomeActivitiesToDestroyed) {
+            mWmState.waitForAllNonHomeActivitiesToDestroyed();
+        }
+
+        if (mWaitForRotationOnTearDown) {
+            mWmState.waitForDisplayUnfrozen();
+        }
+
+        if (ENABLE_SHELL_TRANSITIONS) {
+            if (!mWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY)) {
+                fail("Shell Transition left unfinished!");
+            }
+        }
     }
 
     /**
@@ -687,8 +714,8 @@ public abstract class ActivityManagerTestBase {
         mTouchHelper.tapOnViewCenter(view);
     }
 
-    protected void tapOnStackCenter(WindowManagerState.ActivityTask stack) {
-        mTouchHelper.tapOnStackCenter(stack);
+    protected void tapOnTaskCenter(Task task) {
+        mTouchHelper.tapOnTaskCenter(task);
     }
 
     protected void tapOnDisplayCenter(int displayId) {
@@ -765,22 +792,22 @@ public abstract class ActivityManagerTestBase {
                 .setOnFailure(unusedResult -> fail("FAILED because unsatisfied: " + message)));
     }
 
-    /** Returns the stack that contains the provided task. */
-    protected WindowManagerState.ActivityTask getStackForTaskId(int taskId) {
+    /** Returns the root task that contains the provided leaf task id. */
+    protected Task getRootTaskForLeafTaskId(int taskId) {
         mWmState.computeState();
-        final List<WindowManagerState.ActivityTask> stacks = mWmState.getRootTasks();
-        for (WindowManagerState.ActivityTask stack : stacks) {
-            if (stack.getTask(taskId) != null) {
-                return stack;
+        final List<Task> rootTasks = mWmState.getRootTasks();
+        for (Task rootTask : rootTasks) {
+            if (rootTask.getTask(taskId) != null) {
+                return rootTask;
             }
         }
         return null;
     }
 
-    protected WindowManagerState.ActivityTask getRootTask(int taskId) {
+    protected Task getRootTask(int taskId) {
         mWmState.computeState();
-        final List<WindowManagerState.ActivityTask> rootTasks = mWmState.getRootTasks();
-        for (WindowManagerState.ActivityTask rootTask : rootTasks) {
+        final List<Task> rootTasks = mWmState.getRootTasks();
+        for (Task rootTask : rootTasks) {
             if (rootTask.getTaskId() == taskId) {
                 return rootTask;
             }
@@ -934,7 +961,7 @@ public abstract class ActivityManagerTestBase {
      */
     protected void moveActivityToRootTaskOrOnTop(ComponentName activityName, int rootTaskId) {
         mWmState.computeState(activityName);
-        WindowManagerState.ActivityTask rootTask = getRootTask(rootTaskId);
+        Task rootTask = getRootTask(rootTaskId);
         if (rootTask.getActivities().size() != 0) {
             // If the root task is a 1-level task, start the activity on top of given task.
             getLaunchActivityBuilder()
@@ -950,7 +977,7 @@ public abstract class ActivityManagerTestBase {
             runWithShellPermission(() -> mAtm.moveTaskToRootTask(taskId, rootTaskId, true));
         }
         mWmState.waitForValidState(new WaitForValidActivityState.Builder(activityName)
-                .setStackId(rootTaskId)
+                .setRootTaskId(rootTaskId)
                 .build());
     }
 
@@ -1047,14 +1074,14 @@ public abstract class ActivityManagerTestBase {
         mWmState.assertFocusedActivity(message, activityName);
 
         final int frontRootTaskId = mWmState.getFrontRootTaskId(displayId);
-        WindowManagerState.ActivityTask frontRootTaskOnDisplay =
-                mWmState.getRootTask(frontRootTaskId);
+        Task frontRootTaskOnDisplay = mWmState.getRootTask(frontRootTaskId);
         assertEquals(
                 "Resumed activity of front root task of the target display must match. " + message,
                 activityClassName,
                 frontRootTaskOnDisplay.isLeafTask() ? frontRootTaskOnDisplay.mResumedActivity
                         : frontRootTaskOnDisplay.getTopTask().mResumedActivity);
-        mWmState.assertFocusedStack("Top activity's rootTask must also be on top", frontRootTaskId);
+        mWmState.assertFocusedRootTask("Top activity's rootTask must also be on top",
+                frontRootTaskId);
     }
 
     /**
@@ -1281,7 +1308,7 @@ public abstract class ActivityManagerTestBase {
      */
     protected static class DisableScreenDozeRule implements TestRule {
 
-        /** Copied from android.provider.Settings.Secure since these keys are hiden. */
+        /** Copied from android.provider.Settings.Secure since these keys are hidden. */
         private static final String[] DOZE_SETTINGS = {
                 "doze_enabled",
                 "doze_always_on",
@@ -1290,7 +1317,8 @@ public abstract class ActivityManagerTestBase {
                 "doze_pulse_on_double_tap",
                 "doze_wake_screen_gesture",
                 "doze_wake_display_gesture",
-                "doze_tap_gesture"
+                "doze_tap_gesture",
+                "doze_quick_pickup_gesture"
         };
 
         private String get(String key) {
@@ -1487,6 +1515,7 @@ public abstract class ActivityManagerTestBase {
             // LockScreenSession#close is always called before stopping all test activities,
             // which could cause the keyguard to stay occluded after wakeup.
             // If Keyguard is occluded, pressing the back key can hide the ShowWhenLocked activity.
+            wakeUpDevice();
             pressBackButton();
 
             // If the credential wasn't set, the steps for restoring can be simpler.
@@ -1685,6 +1714,7 @@ public abstract class ActivityManagerTestBase {
             super.close();
             // Restore accelerometer_rotation preference.
             mAccelerometerRotation.close();
+            mWaitForRotationOnTearDown = true;
         }
 
         private class SettingsObserver extends ContentObserver {

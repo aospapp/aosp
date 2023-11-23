@@ -167,6 +167,14 @@
          to signal the potential for flash wear. -->
     <integer name="maxExcessiveIoSamplesInWindow">11</integer>
 
+    <!-- The number of days past until the current day considered by car watchdog to
+         attribute recurring overuse to a package.  -->
+    <integer name="recurringResourceOverusePeriodInDays">14</integer>
+
+    <!-- The number of overuses a package has to exceed for car watchdog to attribute
+         recurring overuse.  -->
+    <integer name="recurringResourceOveruseTimes">2</integer>
+
     <!-- The name of an intent to be notified by CarService whenever it detects too many
          samples with excessive I/O activity. Value must either be an empty string, which
          means that no notification will take place, or be in the format of a flattened
@@ -413,4 +421,14 @@
     <!-- A configuration flag to adjust Wifi for suspend. -->
     <bool name="config_wifiAdjustmentForSuspend">false</bool>
 
+    <!-- A configuration flag to prevent the templated apps from showing dialogs. This is done in
+         the view of driver safety as templated apps can potentially show a dialog with custom UI
+         which can be a distraction hazard for the driver. -->
+    <bool name="config_preventTemplatedAppsFromShowingDialog">true</bool>
+
+    <!-- The class name of the templated activities. This is used to detect currently running
+         templated activity.-->
+    <string name="config_template_activity_class_name">
+        androidx.car.app.activity.CarAppActivity
+    </string>
 </resources>

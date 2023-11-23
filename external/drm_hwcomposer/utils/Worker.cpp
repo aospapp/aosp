@@ -34,8 +34,7 @@ int Worker::InitWorker() {
   if (initialized())
     return -EALREADY;
 
-  thread_ = std::unique_ptr<std::thread>(
-      new std::thread(&Worker::InternalRoutine, this));
+  thread_ = std::make_unique<std::thread>(&Worker::InternalRoutine, this);
   initialized_ = true;
   exit_ = false;
 

@@ -16,9 +16,12 @@
 
 package android.os.cts
 
+import android.app.Instrumentation
 import android.companion.CompanionDeviceManager
+import android.content.pm.PackageManager
 import android.content.pm.PackageManager.FEATURE_AUTOMOTIVE
 import android.content.pm.PackageManager.FEATURE_COMPANION_DEVICE_SETUP
+import android.content.pm.PackageManager.FEATURE_LEANBACK
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.net.MacAddress
 import android.os.Binder
@@ -26,18 +29,17 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.os.UserHandle
 import android.platform.test.annotations.AppModeFull
-import android.test.InstrumentationTestCase
 import android.util.Size
 import android.util.SizeF
 import android.util.SparseArray
-import android.view.accessibility.AccessibilityNodeInfo
-import android.view.accessibility.AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE
-import android.view.accessibility.AccessibilityNodeInfo.ACTION_SET_TEXT
-import android.widget.EditText
 import android.widget.TextView
 import androidx.test.InstrumentationRegistry
 import androidx.test.runner.AndroidJUnit4
-import com.android.compatibility.common.util.MatcherUtils
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.BySelector
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
+import androidx.test.uiautomator.Until
 import com.android.compatibility.common.util.MatcherUtils.hasIdThat
 import com.android.compatibility.common.util.SystemUtil.eventually
 import com.android.compatibility.common.util.SystemUtil.getEventually
@@ -48,82 +50,80 @@ import com.android.compatibility.common.util.ThrowingSupplier
 import com.android.compatibility.common.util.UiAutomatorUtils.waitFindObject
 import com.android.compatibility.common.util.children
 import com.android.compatibility.common.util.click
-import org.hamcrest.CoreMatchers.`is`
+import java.io.Serializable
 import org.hamcrest.CoreMatchers.containsString
-import org.hamcrest.CoreMatchers.equalTo
-import org.hamcrest.Matcher
 import org.hamcrest.Matchers.empty
 import org.hamcrest.Matchers.not
+import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThat
+import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeFalse
 import org.junit.Assume.assumeTrue
 import org.junit.Before
-import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.Serializable
-
-const val COMPANION_APPROVE_WIFI_CONNECTIONS =
-        "android.permission.COMPANION_APPROVE_WIFI_CONNECTIONS"
-const val DUMMY_MAC_ADDRESS = "00:00:00:00:00:10"
-const val MANAGE_COMPANION_DEVICES = "android.permission.MANAGE_COMPANION_DEVICES"
-const val SHELL_PACKAGE_NAME = "com.android.shell"
-val InstrumentationTestCase.context get() = InstrumentationRegistry.getTargetContext()
 
 /**
  * Test for [CompanionDeviceManager]
  */
 @RunWith(AndroidJUnit4::class)
-class CompanionDeviceManagerTest : InstrumentationTestCase() {
+class CompanionDeviceManagerTest {
+    companion object {
+        const val COMPANION_APPROVE_WIFI_CONNECTIONS =
+                "android.permission.COMPANION_APPROVE_WIFI_CONNECTIONS"
+        const val DUMMY_MAC_ADDRESS = "00:00:00:00:00:10"
+        const val MANAGE_COMPANION_DEVICES = "android.permission.MANAGE_COMPANION_DEVICES"
+        const val SHELL_PACKAGE_NAME = "com.android.shell"
+        const val TEST_APP_PACKAGE_NAME = "android.os.cts.companiontestapp"
+        const val TEST_APP_APK_LOCATION = "/data/local/tmp/cts/os/CtsCompanionTestApp.apk"
+    }
 
-    val cdm: CompanionDeviceManager by lazy {
+    private val instrumentation: Instrumentation = InstrumentationRegistry.getInstrumentation()
+    private val uiDevice = UiDevice.getInstance(instrumentation)
+    private val context = instrumentation.targetContext
+    private val userId = context.userId
+    private val packageName = context.packageName!!
+
+    private val pm: PackageManager by lazy { context.packageManager }
+    private val hasFeatureCompanionDeviceSetup: Boolean by lazy {
+        pm.hasSystemFeature(FEATURE_COMPANION_DEVICE_SETUP)
+    }
+
+    private val cdm: CompanionDeviceManager by lazy {
         context.getSystemService(CompanionDeviceManager::class.java)
     }
-
-    private fun isShellAssociated(macAddress: String, packageName: String): Boolean {
-        val userId = context.userId
-        return runShellCommand("cmd companiondevice list $userId")
-                .lines()
-                .any {
-                    packageName in it && macAddress in it
-                }
-    }
-
-    private fun isCdmAssociated(
-        macAddress: String,
-        packageName: String,
-        vararg permissions: String
-    ): Boolean {
-        return runWithShellPermissionIdentity(ThrowingSupplier {
-            cdm.isDeviceAssociatedForWifiConnection(packageName,
-                    MacAddress.fromString(macAddress), context.user)
-        }, *permissions)
-    }
+    private val isAuto: Boolean by lazy { pm.hasSystemFeature(FEATURE_AUTOMOTIVE) }
+    private val isTV: Boolean by lazy { pm.hasSystemFeature(FEATURE_LEANBACK) }
 
     @Before
     fun assumeHasFeature() {
-        assumeTrue(context.packageManager.hasSystemFeature(FEATURE_COMPANION_DEVICE_SETUP))
+        assumeTrue(hasFeatureCompanionDeviceSetup)
         // TODO(b/191699828) test does not work in automotive due to accessibility issue
-        assumeFalse(context.packageManager.hasSystemFeature(FEATURE_AUTOMOTIVE))
+        assumeFalse(isAuto)
     }
 
     @After
-    fun removeAllAssociations() {
-        val packageName = "android.os.cts.companiontestapp"
-        val userId = context.userId
-        val associations = getAssociatedDevices(packageName)
+    fun cleanUp() {
+        // If the devices does not have the feature or is an Auto, the test didn't run, and the
+        // clean up is not needed (will actually crash if the feature is missing).
+        // See assumeHasFeature @Before method.
+        if (!hasFeatureCompanionDeviceSetup || isAuto) return
 
+        // Remove associations
+        val associations = getAssociatedDevices(TEST_APP_PACKAGE_NAME)
         for (address in associations) {
-            runShellCommandOrThrow("cmd companiondevice disassociate $userId $packageName $address")
+            runShellCommandOrThrow(
+                    "cmd companiondevice disassociate $userId $TEST_APP_PACKAGE_NAME $address")
         }
+
+        // Uninstall test app
+        uninstallAppWithoutAssertion(TEST_APP_PACKAGE_NAME)
     }
 
     @AppModeFull(reason = "Companion API for non-instant apps only")
     @Test
     fun testIsDeviceAssociated() {
-        val userId = context.userId
-        val packageName = context.packageName
-
         assertFalse(isCdmAssociated(DUMMY_MAC_ADDRESS, packageName, MANAGE_COMPANION_DEVICES))
         assertFalse(isShellAssociated(DUMMY_MAC_ADDRESS, packageName))
 
@@ -150,9 +150,6 @@ class CompanionDeviceManagerTest : InstrumentationTestCase() {
     @AppModeFull(reason = "Companion API for non-instant apps only")
     @Test
     fun testDump() {
-        val userId = context.userId
-        val packageName = context.packageName
-
         try {
             runShellCommand(
                     "cmd companiondevice associate $userId $packageName $DUMMY_MAC_ADDRESS")
@@ -168,15 +165,11 @@ class CompanionDeviceManagerTest : InstrumentationTestCase() {
     @AppModeFull(reason = "Companion API for non-instant apps only")
     @Test
     fun testProfiles() {
-        val packageName = "android.os.cts.companiontestapp"
-        installApk(
-                "--user ${UserHandle.myUserId()} /data/local/tmp/cts/os/CtsCompanionTestApp.apk")
-        startApp(packageName)
+        installApk("--user $userId $TEST_APP_APK_LOCATION")
+        startApp(TEST_APP_PACKAGE_NAME)
 
-        waitFindNode(hasClassThat(`is`(equalTo(EditText::class.java.name))))
-                .performAction(ACTION_SET_TEXT,
-                        bundleOf(ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE to ""))
-        waitForIdle()
+        uiDevice.waitAndFind(By.desc("name filter")).text = ""
+        uiDevice.waitForIdle()
 
         click("Watch")
         val device = getEventually({
@@ -191,29 +184,31 @@ class CompanionDeviceManagerTest : InstrumentationTestCase() {
         device!!.click()
 
         eventually {
-            assertThat(getAssociatedDevices(packageName), not(empty()))
+            assertThat(getAssociatedDevices(TEST_APP_PACKAGE_NAME), not(empty()))
         }
-        val deviceAddress = getAssociatedDevices(packageName).last()
+        val deviceAddress = getAssociatedDevices(TEST_APP_PACKAGE_NAME).last()
 
         runShellCommandOrThrow("cmd companiondevice simulate_connect $deviceAddress")
-        assertPermission(packageName, "android.permission.CALL_PHONE", PERMISSION_GRANTED)
+        assertPermission(
+                TEST_APP_PACKAGE_NAME, "android.permission.CALL_PHONE", PERMISSION_GRANTED)
 
         runShellCommandOrThrow("cmd companiondevice simulate_disconnect $deviceAddress")
-        assertPermission(packageName, "android.permission.CALL_PHONE", PERMISSION_GRANTED)
+        assertPermission(
+                TEST_APP_PACKAGE_NAME, "android.permission.CALL_PHONE", PERMISSION_GRANTED)
     }
 
     @AppModeFull(reason = "Companion API for non-instant apps only")
     @Test
     fun testRequestNotifications() {
-        val packageName = "android.os.cts.companiontestapp"
-        installApk(
-                "--user ${UserHandle.myUserId()} /data/local/tmp/cts/os/CtsCompanionTestApp.apk")
-        startApp(packageName)
+        // Skip this test for Android TV due to NotificationAccessConfirmationActivity only exists
+        // in Settings but not in TvSettings for Android TV devices (b/199224565).
+        assumeFalse(isTV)
 
-        waitFindNode(hasClassThat(`is`(equalTo(EditText::class.java.name))))
-                .performAction(ACTION_SET_TEXT,
-                        bundleOf(ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE to ""))
-        waitForIdle()
+        installApk("--user $userId $TEST_APP_APK_LOCATION")
+        startApp(TEST_APP_PACKAGE_NAME)
+
+        uiDevice.waitAndFind(By.desc("name filter")).text = ""
+        uiDevice.waitForIdle()
 
         val deviceForAssociation = getEventually({
             click("Associate")
@@ -251,22 +246,33 @@ class CompanionDeviceManagerTest : InstrumentationTestCase() {
                 .filter { it.startsWith(pkg) }
                 .map { it.substringAfterLast(" ") }
     }
+
+    private fun isShellAssociated(macAddress: String, packageName: String): Boolean {
+        return runShellCommand("cmd companiondevice list $userId")
+                .lines()
+                .any {
+                    packageName in it && macAddress in it
+                }
+    }
+
+    private fun isCdmAssociated(
+        macAddress: String,
+        packageName: String,
+        vararg permissions: String
+    ): Boolean {
+        return runWithShellPermissionIdentity(ThrowingSupplier {
+            cdm.isDeviceAssociatedForWifiConnection(packageName,
+                    MacAddress.fromString(macAddress), context.user)
+        }, *permissions)
+    }
 }
+
+private fun UiDevice.waitAndFind(selector: BySelector): UiObject2 =
+        wait(Until.findObject(selector), 1000)
 
 private fun click(label: String) {
     waitFindObject(byTextIgnoreCase(label)).click()
     waitForIdle()
-}
-
-fun hasClassThat(condition: Matcher<in String?>?): Matcher<AccessibilityNodeInfo> {
-    return MatcherUtils.propertyMatches(
-            "class",
-            { obj: AccessibilityNodeInfo -> obj.className },
-            condition)
-}
-
-fun bundleOf(vararg entries: Pair<String, Any>) = Bundle().apply {
-    entries.forEach { (k, v) -> set(k, v) }
 }
 
 operator fun Bundle.set(key: String, value: Any?) {

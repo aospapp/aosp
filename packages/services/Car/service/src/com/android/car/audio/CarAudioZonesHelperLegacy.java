@@ -17,6 +17,7 @@ package com.android.car.audio;
 
 import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
 
+import static com.android.car.audio.CarAudioUtils.isMicrophoneInputDevice;
 import static com.android.car.audio.CarAudioZonesHelper.LEGACY_CONTEXTS;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DEPRECATED_CODE;
 
@@ -25,6 +26,8 @@ import android.annotation.XmlRes;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
+import android.media.AudioDeviceAttributes;
+import android.media.AudioDeviceInfo;
 import android.util.AttributeSet;
 import android.util.Slog;
 import android.util.SparseArray;
@@ -62,15 +65,21 @@ class CarAudioZonesHelperLegacy {
     private final SparseIntArray mLegacyAudioContextToBus;
     private final SparseArray<CarAudioDeviceInfo> mBusToCarAudioDeviceInfo;
     private final CarAudioSettings mCarAudioSettings;
+    private final AudioDeviceInfo[] mInputDevices;
 
-    CarAudioZonesHelperLegacy(@NonNull  Context context, @XmlRes int xmlConfiguration,
+    CarAudioZonesHelperLegacy(@NonNull Context context, @XmlRes int xmlConfiguration,
             @NonNull List<CarAudioDeviceInfo> carAudioDeviceInfos,
             @NonNull AudioControlWrapperV1 audioControlWrapper,
-            @NonNull CarAudioSettings carAudioSettings) {
-        Objects.requireNonNull(context);
-        Objects.requireNonNull(carAudioDeviceInfos);
-        Objects.requireNonNull(audioControlWrapper);
-        mCarAudioSettings = Objects.requireNonNull(carAudioSettings);
+            @NonNull CarAudioSettings carAudioSettings,
+            AudioDeviceInfo[] inputDevices) {
+        Objects.requireNonNull(context, "Context must not be null.");
+        Objects.requireNonNull(carAudioDeviceInfos,
+                "Car Audio Device Info must not be null.");
+        Objects.requireNonNull(audioControlWrapper,
+                "Car Audio Control must not be null.");
+        Objects.requireNonNull(inputDevices, "Input Devices must not be null.");
+        mCarAudioSettings = Objects.requireNonNull(carAudioSettings,
+                "Car Audio Settings can not be null.");
         mContext = context;
         mXmlConfiguration = xmlConfiguration;
         mBusToCarAudioDeviceInfo =
@@ -78,6 +87,7 @@ class CarAudioZonesHelperLegacy {
 
         mLegacyAudioContextToBus =
                 loadBusesForLegacyContexts(audioControlWrapper);
+        mInputDevices = inputDevices;
     }
 
     /* Loads mapping from {@link CarAudioContext} values to bus numbers
@@ -135,7 +145,9 @@ class CarAudioZonesHelperLegacy {
             zone.addVolumeGroup(volumeGroup);
         }
         SparseArray<CarAudioZone> carAudioZones = new SparseArray<>();
+        addMicrophonesToPrimaryZone(zone);
         carAudioZones.put(PRIMARY_AUDIO_ZONE, zone);
+
         return carAudioZones;
     }
 
@@ -219,6 +231,15 @@ class CarAudioZonesHelperLegacy {
         }
 
         return contexts;
+    }
+
+    private void addMicrophonesToPrimaryZone(CarAudioZone primaryAudioZone) {
+        for (int index = 0; index < mInputDevices.length; index++) {
+            AudioDeviceInfo info = mInputDevices[index];
+            if (isMicrophoneInputDevice(info)) {
+                primaryAudioZone.addInputAudioDevice(new AudioDeviceAttributes(info));
+            }
+        }
     }
 
     /**

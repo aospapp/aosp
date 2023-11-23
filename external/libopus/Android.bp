@@ -208,6 +208,7 @@ cc_library {
         "-DOPUS_BUILD",
         "-DFIXED_POINT",
         "-DUSE_ALLOCA",
+        "-DSIMD_EXTRA_ALLOC_BYTES=16",
         "-DHAVE_LRINT",
         "-DHAVE_LRINTF",
         "-DENABLE_HARDENING",

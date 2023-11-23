@@ -16,9 +16,14 @@
 
 package com.android.car.settings.accounts;
 
+import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
@@ -29,6 +34,7 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.pm.UserInfo;
 import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.lifecycle.LifecycleOwner;
 import androidx.preference.Preference;
@@ -43,6 +49,7 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.car.settings.profiles.ProfileHelper;
+import com.android.car.settings.testutils.EnterpriseTestUtils;
 import com.android.car.settings.testutils.ResourceTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
@@ -64,13 +71,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+// TODO(b/201465719) add unittest to show ActionDisabledByAdminDialog
 @RunWith(AndroidJUnit4.class)
 public class AccountListPreferenceControllerTest {
+    private static final String TEST_RESTRICTION =
+            android.os.UserManager.DISALLOW_MODIFY_ACCOUNTS;
+
     private static final int USER_ID = 0;
     private static final String USER_NAME = "name";
     private static final int NOT_THIS_USER_ID = 1;
 
-    private Context mContext = ApplicationProvider.getApplicationContext();
+    private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private LifecycleOwner mLifecycleOwner;
     private PreferenceCategory mPreference;
     private CarUxRestrictions mCarUxRestrictions;
@@ -88,6 +99,8 @@ public class AccountListPreferenceControllerTest {
     private ProfileHelper mMockProfileHelper;
     @Mock
     private AccountManager mMockAccountManager;
+    @Mock
+    private UserManager mMockUserManager;
 
     @Before
     @UiThreadTest
@@ -97,6 +110,8 @@ public class AccountListPreferenceControllerTest {
 
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
+
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mMockUserManager);
 
         PreferenceManager preferenceManager = new PreferenceManager(mContext);
         PreferenceScreen screen = preferenceManager.createPreferenceScreen(mContext);
@@ -235,6 +250,7 @@ public class AccountListPreferenceControllerTest {
     @Test
     @UiThreadTest
     public void onAccountPreferenceClicked_shouldLaunchAccountDetailsFragment() {
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
         addAccount(/* name= */ "Account1", /* type= */ "com.acct1");
         mController.onCreate(mLifecycleOwner);
 
@@ -256,6 +272,56 @@ public class AccountListPreferenceControllerTest {
     private void removeAllAccounts() {
         mAccountTypeToNameMap.clear();
         updateEnabledAccountTypes();
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoOrGuest_notAvailable() {
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByUm_notAvailable() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_demoOrGuest_restrictedByDpm_notAvailable() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        when(mMockProfileHelper.isDemoOrGuest()).thenReturn(true);
+
+        mController.onCreate(mLifecycleOwner);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_restrictedByDpm_availableForViewing() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+
+        mController.onCreate(mLifecycleOwner);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_canModifyAccounts_available() {
+        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
+        PreferenceControllerTestUtil.assignPreference(mController, mPreference);
+
+        mController.onCreate(mLifecycleOwner);
+
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
     }
 
     private void initMocks() {
@@ -286,7 +352,6 @@ public class AccountListPreferenceControllerTest {
         when(ProfileHelper.getInstance(mContext)).thenReturn(mMockProfileHelper);
         UserInfo userInfo = new UserInfo(USER_ID, USER_NAME, 0);
         when(mMockProfileHelper.getCurrentProcessUserInfo()).thenReturn(userInfo);
-        when(mMockProfileHelper.canCurrentProcessModifyAccounts()).thenReturn(true);
 
         when(AccountManager.get(mContext)).thenReturn(mMockAccountManager);
         when(mMockAccountManager.getAccountsByTypeAsUser(any(), any())).then(invocation -> {

@@ -33,8 +33,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class BroadcastReceivedEventTest {
 
-    private static final TestApis sTestApis = new TestApis();
-    private static final Context sContext = sTestApis.context().instrumentedContext();
+    private static final Context sContext = TestApis.context().instrumentedContext();
     private static final String STRING_VALUE = "Value";
     private static final String DIFFERENT_STRING_VALUE = "Value2";
     private static final Intent INTENT = new Intent();
@@ -58,8 +57,7 @@ public final class BroadcastReceivedEventTest {
 
     @Test
     public void whereIntent_works() {
-        Intent intent = new Intent();
-        intent.setAction(STRING_VALUE);
+        Intent intent = new Intent(STRING_VALUE);
         BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, intent).log();
 
         EventLogs<BroadcastReceivedEvent> eventLogs =
@@ -71,8 +69,7 @@ public final class BroadcastReceivedEventTest {
 
     @Test
     public void whereIntent_skipsNonMatching() {
-        Intent intent = new Intent();
-        intent.setAction(STRING_VALUE);
+        Intent intent = new Intent(STRING_VALUE);
         Intent differentIntent = new Intent();
         differentIntent.setAction(DIFFERENT_STRING_VALUE);
         BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, differentIntent).log();

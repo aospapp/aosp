@@ -117,11 +117,15 @@ public class StorageTest extends InstrumentationTestCase {
     }
 
     private void clearSpaceGeneric(UiDevice device) throws UiObjectNotFoundException {
-        UiScrollable uiScrollable = new UiScrollable(new UiSelector().scrollable(true));
-        try {
-            uiScrollable.scrollTextIntoView("internal storage");
-        } catch (UiObjectNotFoundException e) {
-            // Scrolling can fail if the UI is not scrollable
+        int i = device.findObjects(android.support.test.uiautomator.By.scrollable(true)).size();
+        for (int j = 0; j < i; j++) {
+            UiScrollable localObject = new UiScrollable(new UiSelector().scrollable(true).instance(j));
+            ((UiScrollable) localObject).setMaxSearchSwipes(10);
+            try {
+                 ((UiScrollable) localObject).scrollTextIntoView("internal storage");
+            } catch (UiObjectNotFoundException localUiObjectNotFoundException) {
+                // Scrolling can fail if the UI is not scrollable
+            }
         }
         device.findObject(new UiSelector().textContains("internal storage")).click();
         device.waitForIdle();
@@ -159,12 +163,19 @@ public class StorageTest extends InstrumentationTestCase {
     }
 
     private void clearSpaceCar(UiDevice device) throws UiObjectNotFoundException {
-        UiScrollable uiScrollable = new UiScrollable(new UiSelector().scrollable(true));
         String storageString = "internal storage";
-        try {
-            uiScrollable.scrollTextIntoView(storageString);
-        } catch (UiObjectNotFoundException e) {
-            // Scrolling can fail if the UI is not scrollable
+        int i = device.findObjects(android.support.test.uiautomator.By.scrollable(true)).size();
+        for (int j = 0; j < i; j++) {
+            UiScrollable localObject = new UiScrollable(new UiSelector().scrollable(true).instance(j));
+            localObject.setMaxSearchSwipes(10);
+            try {
+                 boolean found = localObject.scrollTextIntoView(storageString);
+                 if (found) {
+                     break;
+                 }
+            } catch (UiObjectNotFoundException localUiObjectNotFoundException) {
+                // Scrolling can fail if the UI is not scrollable
+            }
         }
         device.findObject(new UiSelector().textContains(storageString)).click();
         device.waitForIdle();

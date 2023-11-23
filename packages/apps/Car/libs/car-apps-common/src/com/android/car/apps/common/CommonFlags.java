@@ -19,15 +19,13 @@ package com.android.car.apps.common;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.os.SystemProperties;
 
 import androidx.annotation.NonNull;
 
+import com.android.car.ui.utils.CarUiUtils;
+
 /** Singleton class regrouping common library feature flags. */
 public class CommonFlags {
-
-    private static final String FLAG_IMPROPER_IMAGE_REFS_KEY =
-            "com.android.car.apps.common.FlagNonLocalImages";
 
     @SuppressWarnings("StaticFieldLeak") // We store the application context, not an activity.
     private static CommonFlags sInstance;
@@ -68,7 +66,8 @@ public class CommonFlags {
         if (mFlagImproperImageRefs == null) {
             Resources res = mApplicationContext.getResources();
             mFlagImproperImageRefs = res.getBoolean(R.bool.flag_improper_image_references)
-                    || "1".equals(SystemProperties.get(FLAG_IMPROPER_IMAGE_REFS_KEY, "0"));
+                    || "1".equals(CarUiUtils.getSystemProperty(res,
+                    R.string.flag_non_local_images_system_property_name));
         }
         return mFlagImproperImageRefs;
     }

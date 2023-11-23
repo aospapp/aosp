@@ -44,13 +44,13 @@ void tryOpeningStream(aaudio_direction_t direction, aaudio_performance_mode_t pe
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_android_media_metrics_cts_MediaMetricsAtomHostSideTests_testAAudioMmapOutputStream(
+Java_android_media_metrics_cts_MediaMetricsAtomHostSideTests_testAAudioLowLatencyOutputStream(
         JNIEnv *, jobject /* this */) {
     tryOpeningStream(AAUDIO_DIRECTION_OUTPUT, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_android_media_metrics_cts_MediaMetricsAtomHostSideTests_testAAudioMmapInputStream(
+Java_android_media_metrics_cts_MediaMetricsAtomHostSideTests_testAAudioLowLatencyInputStream(
         JNIEnv *, jobject /* this */) {
     tryOpeningStream(AAUDIO_DIRECTION_INPUT, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
 }

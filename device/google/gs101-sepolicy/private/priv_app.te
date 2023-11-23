@@ -1,0 +1,19 @@
+# b/178433525
+dontaudit priv_app adbd_prop:file { map };
+dontaudit priv_app adbd_prop:file { getattr };
+dontaudit priv_app adbd_prop:file { open };
+dontaudit priv_app ab_update_gki_prop:file { map };
+dontaudit priv_app ab_update_gki_prop:file { getattr };
+dontaudit priv_app ab_update_gki_prop:file { open };
+dontaudit priv_app aac_drc_prop:file { map };
+dontaudit priv_app aac_drc_prop:file { getattr };
+dontaudit priv_app aac_drc_prop:file { open };
+dontaudit priv_app adbd_prop:file { map };
+dontaudit priv_app aac_drc_prop:file { open };
+dontaudit priv_app aac_drc_prop:file { getattr };
+dontaudit priv_app aac_drc_prop:file { map };
+dontaudit priv_app ab_update_gki_prop:file { open };
+dontaudit priv_app ab_update_gki_prop:file { getattr };
+dontaudit priv_app ab_update_gki_prop:file { map };
+dontaudit priv_app adbd_prop:file { open };
+dontaudit priv_app adbd_prop:file { getattr };

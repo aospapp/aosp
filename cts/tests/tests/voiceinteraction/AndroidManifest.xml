@@ -44,6 +44,14 @@
             android:label="Voice Interaction Service Activity"
             android:exported="true">
         </activity>
+        <activity android:name=".activities.EmptyActivity"
+                  android:label="Empty Activity"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
         <service android:name="android.voiceinteraction.service.BasicVoiceInteractionService"
                  android:label="CTS test Basic voice interaction service"
                  android:permission="android.permission.BIND_VOICE_INTERACTION"

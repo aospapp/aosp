@@ -18,6 +18,7 @@ package com.android.car.internal;
 
 import android.content.ComponentName;
 import android.content.pm.UserInfo;
+import android.os.UserHandle;
 
 import java.util.List;
 
@@ -55,4 +56,16 @@ interface ICarServiceHelper {
      * Creates the given user, even when it's disallowed by DevicePolicyManager.
      */
     UserInfo createUserEvenWhenDisallowed(String name, String userType, int flags);
+
+    /**
+     * Designates the given {@code activity} to be launched in {@code TaskDisplayArea} of
+     * {@code featureId} in the display of {@code displayId}.
+     */
+    int setPersistentActivity(in ComponentName activity, int displayId, int featureId);
+
+    /**
+     * Saves initial user information in System Server. If car service crashes, Car service helepr
+     * service would send back this information.
+     */
+    void sendInitialUser(in UserHandle user);
 }

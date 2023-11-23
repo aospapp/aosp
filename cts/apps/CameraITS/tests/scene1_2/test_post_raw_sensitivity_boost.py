@@ -15,11 +15,11 @@
 
 
 import logging
+import math
 import os.path
 import matplotlib
 from matplotlib import pylab
 from mobly import test_runner
-import numpy as np
 
 import its_base_test
 import camera_properties_utils
@@ -36,7 +36,7 @@ _PATCH_H = 0.1  # center 10%
 _PATCH_W = 0.1
 _PATCH_X = 0.5 - _PATCH_W/2
 _PATCH_Y = 0.5 - _PATCH_H/2
-_RATIO_TOL = 0.1  # +/-10% TOL on images vs expected values
+_RATIO_RTOL = 0.1  # +/-10% TOL on images vs expected values
 _RAW_PIXEL_THRESH = 0.03  # Waive check if RAW [0, 1] value below this thresh
 
 
@@ -189,10 +189,11 @@ class PostRawSensitivityBoost(its_base_test.ItsBaseTest):
                         raw_means[step][ch], ratio_per_step)
           if raw_means[step][ch] <= _RAW_PIXEL_THRESH:
             continue
-          if not np.isclose(ratio_per_step, expected_ratio, atol=_RATIO_TOL):
+          if not math.isclose(ratio_per_step, expected_ratio,
+                              rel_tol=_RATIO_RTOL):
             raise AssertionError(
                 f'step: {step}, ratio: {ratio_per_step}, expected ratio: '
-                f'{expected_ratio:.3f}, ATOL: {_RATIO_TOL}')
+                f'{expected_ratio:.3f}, RTOL: {_RATIO_RTOL}')
 
       # YUV asserts
       for ch, _ in enumerate(_COLORS):
@@ -204,9 +205,9 @@ class PostRawSensitivityBoost(its_base_test.ItsBaseTest):
         logging.debug('%s channel vals %s mean %f', _COLORS[ch], vals, mean)
         for step in range(len(vals)):
           ratio_mean = vals[step] / mean
-          if not np.isclose(1.0, ratio_mean, atol=_RATIO_TOL):
+          if not math.isclose(1.0, ratio_mean, rel_tol=_RATIO_RTOL):
             raise AssertionError(
-                f'Capture vs mean ratio: {ratio_mean}, TOL: +/- {_RATIO_TOL}')
+                f'Capture vs mean ratio: {ratio_mean}, RTOL: +/- {_RATIO_RTOL}')
 
 if __name__ == '__main__':
   test_runner.main()

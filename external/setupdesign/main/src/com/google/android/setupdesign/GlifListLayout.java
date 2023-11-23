@@ -76,7 +76,7 @@ public class GlifListLayout extends GlifLayout {
 
     View view = this.findManagedViewById(R.id.sud_landscape_content_area);
     if (view != null) {
-      applyPartnerCustomizationContentPaddingTopStyle(view);
+      tryApplyPartnerCustomizationContentPaddingTopStyle(view);
     }
     updateLandscapeMiddleHorizontalSpacing();
   }

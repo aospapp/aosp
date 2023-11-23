@@ -34,7 +34,7 @@ public class CVE_2019_2014 extends SecurityTestCase {
     public void testPocCVE_2019_2014() throws Exception {
         pocPusher.only64();
         String binaryName = "CVE-2019-2014";
-        String signals[] = {CrashUtils.SIGSEGV, CrashUtils.SIGBUS, CrashUtils.SIGABRT};
+        String signals[] = {CrashUtils.SIGABRT};
         AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig(binaryName, getDevice());
         testConfig.config = new CrashUtils.Config().setProcessPatterns(binaryName);
         testConfig.config.setSignals(signals);

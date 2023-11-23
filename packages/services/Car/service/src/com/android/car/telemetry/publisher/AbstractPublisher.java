@@ -16,11 +16,10 @@
 
 package com.android.car.telemetry.publisher;
 
+import com.android.car.telemetry.TelemetryProto;
 import com.android.car.telemetry.databroker.DataSubscriber;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.List;
 
 /**
  * Abstract class for publishers. It is 1-1 with data source and manages sending data to
@@ -30,54 +29,62 @@ import java.util.HashSet;
  * configuration. Single publisher instance can send data as several
  * {@link com.android.car.telemetry.TelemetryProto.Publisher} to subscribers.
  *
- * <p>Not thread-safe.
+ * <p>The methods must be called from the telemetry thread.
  */
 public abstract class AbstractPublisher {
-    private final HashSet<DataSubscriber> mDataSubscribers = new HashSet<>();
+    private final PublisherFailureListener mFailureListener;
+
+    /**
+     * Listener for publisher failures, such as failing to connect to a underlying service or
+     * invalid Publisher configuration. When publishers fail, the affected configs should be
+     * disabled, because the associated scripts cannot receive data from the failed publishers.
+     */
+    public interface PublisherFailureListener {
+        /** Called by publishers when they fail. */
+        void onPublisherFailure(
+                AbstractPublisher publisher,
+                List<TelemetryProto.MetricsConfig> affectedConfigs, Throwable error);
+    }
+
+    AbstractPublisher(PublisherFailureListener failureListener) {
+        mFailureListener = failureListener;
+    }
 
     /**
      * Adds a subscriber that listens for data produced by this publisher.
      *
+     * <p>DataBroker may call this method when a new {@code MetricsConfig} is added,
+     * {@code CarTelemetryService} is restarted or the device is restarted.
+     *
      * @param subscriber a subscriber to receive data
-     * @throws IllegalArgumentException if an invalid subscriber was provided.
+     * @throws IllegalArgumentException if the subscriber is invalid.
+     * @throws IllegalStateException if there are internal errors.
      */
-    public void addDataSubscriber(DataSubscriber subscriber) {
-        // This method can throw exceptions if data is invalid - do now swap these 2 lines.
-        onDataSubscriberAdded(subscriber);
-        mDataSubscribers.add(subscriber);
-    }
+    public abstract void addDataSubscriber(DataSubscriber subscriber);
 
     /**
      * Removes the subscriber from the publisher. Publisher stops if necessary.
      *
-     * @throws IllegalArgumentException if the subscriber was not found.
+     * <p>It does nothing if subscriber is not found.
      */
-    public void removeDataSubscriber(DataSubscriber subscriber) {
-        if (!mDataSubscribers.remove(subscriber)) {
-            throw new IllegalArgumentException("Failed to remove, subscriber not found");
-        }
-        onDataSubscribersRemoved(Collections.singletonList(subscriber));
-    }
+    public abstract void removeDataSubscriber(DataSubscriber subscriber);
 
     /**
      * Removes all the subscribers from the publisher. The publisher may stop.
+     *
+     * <p>This method also cleans-up internal publisher and the data source persisted state.
      */
-    public void removeAllDataSubscribers() {
-        onDataSubscribersRemoved(mDataSubscribers);
-        mDataSubscribers.clear();
-    }
+    public abstract void removeAllDataSubscribers();
+
+    /** Returns true if the publisher already has this data subscriber. */
+    public abstract boolean hasDataSubscriber(DataSubscriber subscriber);
 
     /**
-     * Called when a new subscriber is added to the publisher.
-     *
-     * @throws IllegalArgumentException if the invalid subscriber was provided.
+     * Notifies the failure Listener that this publisher failed. See
+     * {@link PublisherFailureListener} for details.
      */
-    protected abstract void onDataSubscriberAdded(DataSubscriber subscriber);
-
-    /** Called when subscribers are removed from the publisher. */
-    protected abstract void onDataSubscribersRemoved(Collection<DataSubscriber> subscribers);
-
-    protected HashSet<DataSubscriber> getDataSubscribers() {
-        return mDataSubscribers;
+    protected void onPublisherFailure(
+            List<TelemetryProto.MetricsConfig> affectedConfigs, Throwable error) {
+        mFailureListener.onPublisherFailure(this, affectedConfigs, error);
     }
 }

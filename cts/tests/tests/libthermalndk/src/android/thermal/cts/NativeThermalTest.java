@@ -21,6 +21,7 @@ import android.os.PowerManager;
 import android.support.test.uiautomator.UiDevice;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+import com.android.compatibility.common.util.CddTest;
 import com.google.common.base.Strings;
 
 import org.junit.After;
@@ -126,6 +127,7 @@ public class NativeThermalTest {
      *
      * @throws Exception
      */
+    @CddTest(requirement="7.3.6")
     @Test
     public void testGetThermalHeadroom() throws Exception {
         final String failureMessage = nativeTestGetThermalHeadroom();

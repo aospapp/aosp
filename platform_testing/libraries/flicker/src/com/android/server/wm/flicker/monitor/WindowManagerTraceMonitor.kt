@@ -30,7 +30,7 @@ import java.nio.file.Path
  */
 open class WindowManagerTraceMonitor(
     outputDir: Path
-) : TransitionMonitor(outputDir, "wm_trace.pb") {
+) : TransitionMonitor(outputDir, "wm_trace$WINSCOPE_EXT") {
     private val windowManager = WindowManagerGlobal.getWindowManagerService()
     override fun start() {
         try {

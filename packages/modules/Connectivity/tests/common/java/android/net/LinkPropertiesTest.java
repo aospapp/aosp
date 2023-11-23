@@ -20,7 +20,6 @@ import static android.net.RouteInfo.RTN_THROW;
 import static android.net.RouteInfo.RTN_UNICAST;
 import static android.net.RouteInfo.RTN_UNREACHABLE;
 
-import static com.android.testutils.ParcelUtils.assertParcelSane;
 import static com.android.testutils.ParcelUtils.assertParcelingIsLossless;
 import static com.android.testutils.ParcelUtils.parcelingRoundTrip;
 
@@ -1006,7 +1005,7 @@ public class LinkPropertiesTest {
     @Test @IgnoreAfter(Build.VERSION_CODES.Q)
     public void testLinkPropertiesParcelable_Q() throws Exception {
         final LinkProperties source = makeLinkPropertiesForParceling();
-        assertParcelSane(source, 14 /* fieldCount */);
+        assertParcelingIsLossless(source);
     }
 
     @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
@@ -1017,8 +1016,7 @@ public class LinkPropertiesTest {
         source.setCaptivePortalApiUrl(CAPPORT_API_URL);
         source.setCaptivePortalData((CaptivePortalData) getCaptivePortalData());
         source.setDhcpServerAddress((Inet4Address) GATEWAY1);
-        assertParcelSane(new LinkProperties(source, true /* parcelSensitiveFields */),
-                18 /* fieldCount */);
+        assertParcelingIsLossless(new LinkProperties(source, true /* parcelSensitiveFields */));
 
         // Verify that without using a sensitiveFieldsParcelingCopy, sensitive fields are cleared.
         final LinkProperties sanitized = new LinkProperties(source);

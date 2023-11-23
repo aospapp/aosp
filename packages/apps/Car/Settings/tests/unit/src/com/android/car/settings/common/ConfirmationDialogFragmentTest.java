@@ -18,6 +18,7 @@ package com.android.car.settings.common;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 
 import android.app.AlertDialog;
@@ -179,7 +180,7 @@ public class ConfirmationDialogFragmentTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         dialog.dismiss();
         ArgumentCaptor<Bundle> bundle = ArgumentCaptor.forClass(Bundle.class);
-        verify(mDismissListener).onDismiss(bundle.capture());
+        verify(mDismissListener).onDismiss(bundle.capture(), eq(false));
         assertThat(bundle.getValue().getString(TEST_ARG_KEY)).isEqualTo(TEST_ARG_VALUE);
     }
 

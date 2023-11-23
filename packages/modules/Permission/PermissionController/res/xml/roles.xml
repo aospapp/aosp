@@ -91,6 +91,7 @@
         fallBackToDefaultHolder="true"
         showNone="true"
         label="@string/role_assistant_label"
+        overrideUserWhenGranting="true"
         requestable="false"
         shortLabel="@string/role_assistant_short_label">
         <required-components>
@@ -143,6 +144,7 @@
         description="@string/role_browser_description"
         exclusive="true"
         label="@string/role_browser_label"
+        overrideUserWhenGranting="true"
         requestDescription="@string/role_browser_request_description"
         requestTitle="@string/role_browser_request_title"
         shortLabel="@string/role_browser_short_label">
@@ -183,6 +185,7 @@
         exclusive="true"
         fallBackToDefaultHolder="true"
         label="@string/role_dialer_label"
+        overrideUserWhenGranting="true"
         requestDescription="@string/role_dialer_request_description"
         requestTitle="@string/role_dialer_request_title"
         searchKeywords="@string/role_dialer_search_keywords"
@@ -257,6 +260,7 @@
         description="@string/role_sms_description"
         exclusive="true"
         label="@string/role_sms_label"
+        overrideUserWhenGranting="true"
         requestDescription="@string/role_sms_request_description"
         requestTitle="@string/role_sms_request_title"
         searchKeywords="@string/role_sms_search_keywords"
@@ -344,6 +348,7 @@
         description="@string/role_emergency_description"
         exclusive="true"
         label="@string/role_emergency_label"
+        overrideUserWhenGranting="true"
         requestDescription="@string/role_emergency_request_description"
         requestTitle="@string/role_emergency_request_title"
         searchKeywords="@string/role_emergency_search_keywords"
@@ -373,6 +378,7 @@
         description="@string/role_home_description"
         exclusive="true"
         label="@string/role_home_label"
+        overrideUserWhenGranting="true"
         requestDescription="@string/role_home_request_description"
         requestTitle="@string/role_home_request_title"
         searchKeywords="@string/role_home_search_keywords"
@@ -409,6 +415,7 @@
         description="@string/role_call_redirection_description"
         exclusive="true"
         label="@string/role_call_redirection_label"
+        overrideUserWhenGranting="true"
         requestDescription="@string/role_call_redirection_request_description"
         requestTitle="@string/role_call_redirection_request_title"
         shortLabel="@string/role_call_redirection_short_label"
@@ -429,6 +436,7 @@
         description="@string/role_call_screening_description"
         exclusive="true"
         label="@string/role_call_screening_label"
+        overrideUserWhenGranting="true"
         requestDescription="@string/role_call_screening_request_description"
         requestTitle="@string/role_call_screening_request_title"
         shortLabel="@string/role_call_screening_short_label"
@@ -486,7 +494,6 @@
         description="@string/role_watch_description"
         exclusive="false"
         minSdkVersion="31"
-        overrideUserWhenGranting="false"
         systemOnly="false"
         visible="false">
         <permissions>
@@ -561,6 +568,7 @@
 
     <role
         name="android.app.role.SYSTEM_SPEECH_RECOGNIZER"
+        allowBypassingQualification="true"
         defaultHolders="config_systemSpeechRecognizer"
         exclusive="true"
         minSdkVersion="31"

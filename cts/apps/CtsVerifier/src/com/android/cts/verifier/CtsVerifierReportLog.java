@@ -62,7 +62,8 @@ public class CtsVerifierReportLog extends ReportLog {
                 throw new IOException("External storage is not mounted");
             } else if ((!logDirectory.exists() && !logDirectory.mkdirs())
                     || (logDirectory.exists() && !logDirectory.isDirectory())) {
-                throw new IOException("Cannot create directory for device info files");
+                throw new IOException("Cannot create directory " + logDirectory
+                        + " for device info files");
             } else {
                 File jsonFile = new File(logDirectory, mReportLogName + ".reportlog.json");
                 mStore = new ReportLogDeviceInfoStore(jsonFile, mStreamName);

@@ -79,7 +79,7 @@ public class ListMixin implements Mixin {
         int dividerInsetEnd =
             a.getDimensionPixelSize(R.styleable.SudListMixin_sudDividerInsetEnd, 0);
 
-        if (PartnerStyleHelper.shouldApplyPartnerHeavyThemeResource(templateLayout)) {
+        if (PartnerStyleHelper.shouldApplyPartnerResource(templateLayout)) {
           if (PartnerConfigHelper.get(context)
               .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_START)) {
             dividerInsetStart =

@@ -243,18 +243,23 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                 if (mStaticInfo.isLogicalMultiCamera()) {
                     Set<String> physicalCameraIds =
                             mStaticInfo.getCharacteristics().getPhysicalCameraIds();
+                    boolean skipTest = false;
                     for (String physicalId : physicalCameraIds) {
                         if (Arrays.asList(mCameraIdsUnderTest).contains(physicalId)) {
                             // If physicalId is advertised in camera ID list, do not need to test
                             // its stream combination through logical camera.
-                            continue;
+                            skipTest = true;
                         }
                         for (Pair<String, String> unavailPhysicalCam : unavailablePhysicalCameras) {
                             if (unavailPhysicalCam.first.equals(id) ||
                                     unavailPhysicalCam.second.equals(physicalId)) {
                                 // This particular physical camera isn't available. Skip.
-                                continue;
+                                skipTest = true;
+                                break;
                             }
+                        }
+                        if (skipTest) {
+                            continue;
                         }
                         StaticMetadata physicalStaticInfo = mAllStaticInfo.get(physicalId);
 

@@ -58,6 +58,7 @@ import org.junit.runner.RunWith;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
@@ -617,6 +618,36 @@ public class RenderNodeTests extends ActivityTestBase {
                                         fullBounds,
                                         new BlurPixelVerifier(Color.BLUE, Color.WHITE)
                                 )
+            );
+    }
+
+    @Test
+    public void testRenderEffectOnParentInvalidatesWhenChildChanges() {
+        final CountDownLatch latch = new CountDownLatch(1);
+        createTest()
+                .addLayout(R.layout.frame_layout, (view) -> {
+                    FrameLayout root = view.findViewById(R.id.frame_layout);
+                    root.setRenderEffect(
+                            RenderEffect.createBlurEffect(
+                                    30f, 30f, null, Shader.TileMode.CLAMP)
+                    );
+                    View innerView = new View(view.getContext());
+                    innerView.setLayoutParams(
+                            new FrameLayout.LayoutParams(TEST_WIDTH, TEST_HEIGHT));
+                    innerView.setBackgroundColor(Color.BLUE);
+                    root.addView(innerView);
+                    root.getViewTreeObserver().registerFrameCommitCallback(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    innerView.setBackgroundColor(Color.RED);
+                                    latch.countDown();
+                                    root.getViewTreeObserver().unregisterFrameCommitCallback(this);
+                                }
+                            }
+                    );
+                }, true, latch)
+                .runWithVerifier(new ColorVerifier(Color.RED)
             );
     }
 

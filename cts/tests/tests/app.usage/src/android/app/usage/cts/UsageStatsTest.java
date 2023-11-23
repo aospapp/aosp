@@ -38,11 +38,15 @@ import android.app.usage.UsageEvents;
 import android.app.usage.UsageEvents.Event;
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.SystemClock;
@@ -83,6 +87,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -123,6 +128,10 @@ public class UsageStatsTest {
             = "android.app.usage.cts.test1.SomeActivityWithLocus";
     private static final String TEST_APP_CLASS_SERVICE
             = "android.app.usage.cts.test1.TestService";
+    private static final String TEST_APP_CLASS_BROADCAST_RECEIVER
+            = "android.app.usage.cts.test1.TestBroadcastReceiver";
+    private static final String TEST_AUTHORITY = "android.app.usage.cts.test1.provider";
+    private static final String TEST_APP_CONTENT_URI_STRING = "content://" + TEST_AUTHORITY;
     private static final String TEST_APP2_PKG = "android.app.usage.cts.test2";
     private static final String TEST_APP2_CLASS_FINISHING_TASK_ROOT =
             "android.app.usage.cts.test2.FinishingTaskRootActivity";
@@ -274,6 +283,34 @@ public class UsageStatsTest {
         verifyLastTimeAnyComponentUsedWithinRange(startTime, endTime, TEST_APP_PKG);
     }
 
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testLastTimeAnyComponentUsed_bindExplicitBroadcastReceiverShouldBeDetected()
+            throws Exception {
+        mUiDevice.wakeUp();
+        dismissKeyguard(); // also want to start out with the keyguard dismissed.
+
+        final long startTime = System.currentTimeMillis();
+        bindToTestBroadcastReceiver();
+        final long endTime = System.currentTimeMillis();
+
+        verifyLastTimeAnyComponentUsedWithinRange(startTime, endTime, TEST_APP_PKG);
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testLastTimeAnyComponentUsed_bindContentProviderShouldBeDetected()
+            throws Exception {
+        mUiDevice.wakeUp();
+        dismissKeyguard(); // also want to start out with the keyguard dismissed.
+
+        final long startTime = System.currentTimeMillis();
+        bindToTestContentProvider();
+        final long endTime = System.currentTimeMillis();
+
+        verifyLastTimeAnyComponentUsedWithinRange(startTime, endTime, TEST_APP_PKG);
+    }
+
     private void verifyLastTimeAnyComponentUsedWithinRange(
             long startTime, long endTime, String targetPackage) {
         final Map<String, UsageStats> map = mUsageStatsManager.queryAndAggregateUsageStats(
@@ -281,8 +318,8 @@ public class UsageStatsTest {
         final UsageStats stats = map.get(targetPackage);
         assertNotNull(stats);
         final long lastTimeAnyComponentUsed = stats.getLastTimeAnyComponentUsed();
-        assertLessThan(startTime, lastTimeAnyComponentUsed);
-        assertLessThan(lastTimeAnyComponentUsed, endTime);
+        assertLessThanOrEqual(startTime, lastTimeAnyComponentUsed);
+        assertLessThanOrEqual(lastTimeAnyComponentUsed, endTime);
 
         SystemUtil.runWithShellPermissionIdentity(()-> {
             final long lastDayAnyComponentUsedGlobal =
@@ -909,6 +946,8 @@ public class UsageStatsTest {
     @AppModeFull(reason = "Test APK Activity not found when installed as an instant app")
     @Test
     public void testIsAppInactive() throws Exception {
+        assumeTrue("Test only works on devices with a battery", BatteryUtils.hasBattery());
+
         setStandByBucket(mTargetPackage, "rare");
 
         try {
@@ -954,6 +993,8 @@ public class UsageStatsTest {
     @AppModeFull(reason = "Test APK Activity not found when installed as an instant app")
     @Test
     public void testIsAppInactive_Charging() throws Exception {
+        assumeTrue("Test only works on devices with a battery", BatteryUtils.hasBattery());
+
         setStandByBucket(TEST_APP_PKG, "rare");
 
         try {
@@ -1796,6 +1837,52 @@ public class UsageStatsTest {
                 new ComponentName(TEST_APP_PKG, TEST_APP_CLASS_SERVICE));
         mContext.bindService(intent, connection, Context.BIND_AUTO_CREATE);
         return ITestReceiver.Stub.asInterface(connection.getService());
+    }
+
+    /**
+     * Send broadcast to test app's receiver and wait for it to be received.
+     */
+    private void bindToTestBroadcastReceiver() {
+        final Intent intent = new Intent().setComponent(
+                new ComponentName(TEST_APP_PKG, TEST_APP_CLASS_BROADCAST_RECEIVER));
+        CountDownLatch latch = new CountDownLatch(1);
+        mContext.sendOrderedBroadcast(
+                intent,
+                null /* receiverPermission */,
+                new BroadcastReceiver() {
+                    @Override public void onReceive(Context context, Intent intent) {
+                        latch.countDown();
+                    }
+                },
+                null /* scheduler */,
+                Activity.RESULT_OK,
+                null /* initialData */,
+                null /* initialExtras */);
+        try {
+            assertTrue("Timed out waiting for test broadcast to be received",
+                    latch.await(TIMEOUT, TimeUnit.MILLISECONDS));
+        } catch (InterruptedException e) {
+            throw new IllegalStateException("Interrupted", e);
+        }
+    }
+
+    /**
+     * Bind to the test app's content provider.
+     */
+    private void bindToTestContentProvider() throws Exception {
+        // Acquire unstable content provider so that test process isn't killed when content
+        // provider app is killed.
+        final Uri testUri = Uri.parse(TEST_APP_CONTENT_URI_STRING);
+        ContentProviderClient client =
+                mContext.getContentResolver().acquireUnstableContentProviderClient(testUri);
+        try (Cursor cursor = client.query(
+                testUri,
+                null /* projection */,
+                null /* selection */,
+                null /* selectionArgs */,
+                null /* sortOrder */)) {
+            assertNotNull(cursor);
+        }
     }
 
     private class TestServiceConnection implements ServiceConnection {

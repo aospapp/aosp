@@ -105,10 +105,10 @@ public class SetTimeTest extends BaseDeviceOwnerTest {
             assertTrue("timed out waiting for timezone change broadcast",
                 latch.await(TIMEOUT_SEC, TimeUnit.SECONDS));
 
-            // There might be a delay in timezone setting propagation, so we retry for 5 seconds.
+            // There might be a delay in timezone setting propagation, so we retry for 10 seconds.
             int retries = 0;
             while (!testTimeZone.equals(TimeZone.getDefault().getID())) {
-                if (retries++ > 5) {
+                if (retries++ > 10) {
                     fail("timezone wasn't updated");
                 }
                 Thread.sleep(1000);

@@ -19,10 +19,6 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-    <com.android.car.ui.FocusParkingView
-        android:id="@+id/fpv"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
     <com.android.car.ui.FocusArea
         android:id="@+id/focus_area1"
         android:layout_width="wrap_content"
@@ -84,8 +80,18 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical">
-        <androidx.recyclerview.widget.RecyclerView
+        <com.android.car.ui.recyclerview.CarUiRecyclerView
             android:id="@+id/list5"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+    </com.android.car.ui.FocusArea>
+    <com.android.car.ui.FocusArea
+        android:id="@+id/focus_area6"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+        <com.android.car.ui.recyclerview.CarUiRecyclerView
+            android:id="@+id/list6"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
     </com.android.car.ui.FocusArea>

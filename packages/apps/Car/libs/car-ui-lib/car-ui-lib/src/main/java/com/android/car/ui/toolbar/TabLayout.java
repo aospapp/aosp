@@ -15,8 +15,10 @@
  */
 package com.android.car.ui.toolbar;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.utils.CarUiUtils.requireViewByRefId;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
@@ -56,6 +58,7 @@ import java.util.function.Consumer;
  * <p>Touch feedback is using @android:attr/selectableItemBackground.
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(MIN_TARGET_API)
 public class TabLayout extends LinearLayout {
     @LayoutRes
     private final int mTabLayoutRes;
@@ -106,7 +109,7 @@ public class TabLayout extends LinearLayout {
 
     /**
      * Returns if this TabLayout has tabs. That is, if the most recent call to
-     * {@link #setTabs(List)} contained a non-empty list.
+     * {@link #setTabs(List, int)} contained a non-empty list.
      */
     public boolean hasTabs() {
         return !mTabs.isEmpty();
@@ -114,8 +117,8 @@ public class TabLayout extends LinearLayout {
 
     /** Set the tab at given position as the current selected tab. */
     public void selectTab(int position) {
-        if (position < 0 || position > mTabs.size()) {
-            position = mTabs.isEmpty() ? -1 : 0;
+        if (position < 0 || position >= mTabs.size()) {
+            throw new IllegalArgumentException("Tab position is invalid: " + position);
         }
         if (position == mSelectedTab) {
             return;
@@ -126,12 +129,10 @@ public class TabLayout extends LinearLayout {
         presentTabView(oldPosition);
         presentTabView(position);
 
-        if (position >= 0) {
-            com.android.car.ui.toolbar.Tab tab = mTabs.get(position);
-            Consumer<com.android.car.ui.toolbar.Tab> listener = tab.getSelectedListener();
-            if (listener != null) {
-                listener.accept(tab);
-            }
+        com.android.car.ui.toolbar.Tab tab = mTabs.get(position);
+        Consumer<com.android.car.ui.toolbar.Tab> listener = tab.getSelectedListener();
+        if (listener != null) {
+            listener.accept(tab);
         }
     }
 
@@ -146,8 +147,8 @@ public class TabLayout extends LinearLayout {
     }
 
     private void presentTabView(int position) {
-        if (position < 0 || position > mTabs.size()) {
-            return;
+        if (position < 0 || position >= mTabs.size()) {
+            throw new IllegalArgumentException("Tab position is invalid: " + position);
         }
         View tabView = getChildAt(position);
         com.android.car.ui.toolbar.Tab tab = mTabs.get(position);
@@ -155,9 +156,17 @@ public class TabLayout extends LinearLayout {
         TextView textView = requireViewByRefId(tabView, R.id.car_ui_toolbar_tab_item_text);
 
         tabView.setOnClickListener(view -> selectTab(position));
-        textView.setText(tab.getText());
-        iconView.setImageDrawable(tab.getIcon());
         tabView.setActivated(position == mSelectedTab);
+
+        if (tab.isTinted()) {
+            iconView.setImageTintList(getContext()
+                    .getColorStateList(R.color.car_ui_toolbar_tab_item_selector));
+        } else {
+            iconView.setImageTintList(null);
+        }
+        iconView.setImageDrawable(tab.getIcon());
+
+        textView.setText(tab.getText());
         textView.setTextAppearance(position == mSelectedTab
                 ? R.style.TextAppearance_CarUi_Widget_Toolbar_Tab_Selected
                 : R.style.TextAppearance_CarUi_Widget_Toolbar_Tab);
@@ -172,7 +181,6 @@ public class TabLayout extends LinearLayout {
     public static class Tab {
         private final Drawable mIcon;
         private final CharSequence mText;
-        private boolean mIsSelected;
 
         public Tab(@Nullable Drawable icon, @Nullable CharSequence text) {
             mIcon = icon;
@@ -184,25 +192,9 @@ public class TabLayout extends LinearLayout {
             textView.setText(mText);
         }
 
-        /**
-         * Do not use, this method is here for the shared library adapters, which cannot
-         * call the protected version due to being in a different classloader.
-         */
-        public final void bindTextPublic(TextView textView) {
-            bindText(textView);
-        }
-
         /** Set icon drawable. TODO(b/139444064): revise this api.*/
         protected void bindIcon(ImageView imageView) {
             imageView.setImageDrawable(mIcon);
-        }
-
-        /**
-         * Do not use, this method is here for the shared library adapters, which cannot
-         * call the protected version due to being in a different classloader.
-         */
-        public final void bindIconPublic(ImageView imageView) {
-            bindIcon(imageView);
         }
     }
 }

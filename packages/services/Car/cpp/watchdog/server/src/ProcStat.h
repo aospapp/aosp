@@ -18,9 +18,10 @@
 #define CPP_WATCHDOG_SERVER_SRC_PROCSTAT_H_
 
 #include <android-base/result.h>
-#include <stdint.h>
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
+
+#include <stdint.h>
 
 namespace android {
 namespace automotive {
@@ -57,28 +58,31 @@ struct CpuStats {
 
 class ProcStatInfo {
 public:
-    ProcStatInfo() : cpuStats({}), runnableProcessesCnt(0), ioBlockedProcessesCnt(0) {}
+    ProcStatInfo() : cpuStats({}), runnableProcessCount(0), ioBlockedProcessCount(0) {}
     ProcStatInfo(CpuStats stats, uint32_t runnableCnt, uint32_t ioBlockedCnt) :
-          cpuStats(stats), runnableProcessesCnt(runnableCnt), ioBlockedProcessesCnt(ioBlockedCnt) {}
+          cpuStats(stats),
+          runnableProcessCount(runnableCnt),
+          ioBlockedProcessCount(ioBlockedCnt) {}
     CpuStats cpuStats;
-    uint32_t runnableProcessesCnt;
-    uint32_t ioBlockedProcessesCnt;
+    uint32_t runnableProcessCount;
+    uint32_t ioBlockedProcessCount;
 
     uint64_t totalCpuTime() const {
         return cpuStats.userTime + cpuStats.niceTime + cpuStats.sysTime + cpuStats.idleTime +
                 cpuStats.ioWaitTime + cpuStats.irqTime + cpuStats.softIrqTime + cpuStats.stealTime +
                 cpuStats.guestTime + cpuStats.guestNiceTime;
     }
-    uint32_t totalProcessesCnt() const { return runnableProcessesCnt + ioBlockedProcessesCnt; }
+    uint32_t totalProcessCount() const { return runnableProcessCount + ioBlockedProcessCount; }
     bool operator==(const ProcStatInfo& info) const {
         return memcmp(&cpuStats, &info.cpuStats, sizeof(cpuStats)) == 0 &&
-                runnableProcessesCnt == info.runnableProcessesCnt &&
-                ioBlockedProcessesCnt == info.ioBlockedProcessesCnt;
+                runnableProcessCount == info.runnableProcessCount &&
+                ioBlockedProcessCount == info.ioBlockedProcessCount;
     }
     ProcStatInfo& operator-=(const ProcStatInfo& rhs) {
         cpuStats -= rhs.cpuStats;
-        // Don't diff *ProcessesCnt as they are real-time values unlike |cpuStats|, which are
-        // aggregated values since system startup.
+        /* Don't diff *ProcessCount as they are real-time values unlike |cpuStats|, which are
+         * aggregated values since system startup.
+         */
         return *this;
     }
 };
@@ -96,8 +100,9 @@ public:
     // Collects proc stat delta since the last collection.
     virtual android::base::Result<void> collect();
 
-    // Returns true when the proc stat file is accessible. Otherwise, returns false.
-    // Called by WatchdogPerfService and tests.
+    /* Returns true when the proc stat file is accessible. Otherwise, returns false.
+     * Called by WatchdogPerfService and tests.
+     */
     virtual bool enabled() { return kEnabled; }
 
     virtual std::string filePath() { return kProcStatPath; }

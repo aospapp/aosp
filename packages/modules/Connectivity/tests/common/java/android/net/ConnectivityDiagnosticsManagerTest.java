@@ -21,7 +21,7 @@ import static android.net.ConnectivityDiagnosticsManager.ConnectivityDiagnostics
 import static android.net.ConnectivityDiagnosticsManager.ConnectivityReport;
 import static android.net.ConnectivityDiagnosticsManager.DataStallReport;
 
-import static com.android.testutils.ParcelUtils.assertParcelSane;
+import static com.android.testutils.ParcelUtils.assertParcelingIsLossless;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -202,7 +202,7 @@ public class ConnectivityDiagnosticsManagerTest {
 
     @Test
     public void testConnectivityReportParcelUnparcel() {
-        assertParcelSane(createSampleConnectivityReport(), 5);
+        assertParcelingIsLossless(createSampleConnectivityReport());
     }
 
     private DataStallReport createSampleDataStallReport() {
@@ -303,7 +303,7 @@ public class ConnectivityDiagnosticsManagerTest {
 
     @Test
     public void testDataStallReportParcelUnparcel() {
-        assertParcelSane(createSampleDataStallReport(), 6);
+        assertParcelingIsLossless(createSampleDataStallReport());
     }
 
     @Test

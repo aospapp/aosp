@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Керувати правилами щодо ввімкнення компонентів автомобіля."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"відображати шаблони"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Відображати шаблони."</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"керувати додатками, що запускаються"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Керувати додатками, що запускаються."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Мій пристрій"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Гість"</string>
     <string name="importance_default" msgid="8587741629268312938">"Пріоритет за умовчанням"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"Скинути пізніше"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"Систему буде скинуто, коли ви наступного разу заведете авто."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"Налаштування не можна скинути, доки ви за кермом."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"Додаток <xliff:g id="ID_1">^1</xliff:g> впливає на продуктивність системи"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Вимкніть додаток, щоб покращити продуктивність системи. Ви зможете знову ввімкнути його в налаштуваннях."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Пріоритезуйте додаток, щоб продовжувати користуватися ним."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Видаліть додаток, щоб покращити продуктивність системи."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Вимкнути додаток"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Пріоритезувати додаток"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Видалити додаток"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"Додаток <xliff:g id="ID_1">^1</xliff:g> вимкнено. Ви можете знову ввімкнути його в налаштуваннях."</string>
 </resources>

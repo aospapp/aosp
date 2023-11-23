@@ -23,10 +23,13 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.fail;
 
-import android.content.ContentResolver;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.database.ContentObserver;
+import android.location.LocationManager;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -34,7 +37,6 @@ import android.os.Message;
 import android.os.Parcel;
 import android.os.Process;
 import android.os.UserHandle;
-import android.provider.Settings;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoGsm;
@@ -475,55 +477,44 @@ public class NetworkScanApiTest extends BaseCarrierApiTest {
 
     private boolean getAndSetLocationSwitch(boolean enabled) {
         CountDownLatch locationChangeLatch = new CountDownLatch(1);
-        ContentObserver settingsObserver =
-                new ContentObserver(mHandler) {
-                    @Override
-                    public void onChange(boolean selfChange) {
-                        locationChangeLatch.countDown();
-                        super.onChange(selfChange);
-                    }
-                };
+        BroadcastReceiver locationModeChangeReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (LocationManager.MODE_CHANGED_ACTION.equals(intent.getAction())
+                        && intent.getBooleanExtra(LocationManager.EXTRA_LOCATION_ENABLED, !enabled)
+                        == enabled) {
+                    locationChangeLatch.countDown();
+                }
+            }
+        };
 
-        InstrumentationRegistry.getInstrumentation()
-                .getUiAutomation()
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .adoptShellPermissionIdentity();
-        ContentResolver contentResolver = getContext().getContentResolver();
         try {
-            int oldLocationMode =
-                    Settings.Secure.getInt(
-                            contentResolver,
-                            Settings.Secure.LOCATION_MODE,
-                            Settings.Secure.LOCATION_MODE_OFF);
+            Context context = InstrumentationRegistry.getContext();
+            LocationManager lm = context.getSystemService(
+                    LocationManager.class);
+            boolean oldLocationOn = lm.isLocationEnabledForUser(
+                    UserHandle.of(UserHandle.myUserId()));
 
-            int locationMode =
-                    enabled
-                            ? Settings.Secure.LOCATION_MODE_HIGH_ACCURACY
-                            : Settings.Secure.LOCATION_MODE_OFF;
-            if (locationMode != oldLocationMode) {
-                contentResolver.registerContentObserver(
-                        Settings.Secure.getUriFor(Settings.Secure.LOCATION_MODE),
-                        false,
-                        settingsObserver);
-                Settings.Secure.putInt(
-                        contentResolver, Settings.Secure.LOCATION_MODE, locationMode);
+            if (enabled != oldLocationOn) {
+                context.registerReceiver(locationModeChangeReceiver,
+                        new IntentFilter(LocationManager.MODE_CHANGED_ACTION));
+                lm.setLocationEnabledForUser(enabled, UserHandle.of(UserHandle.myUserId()));
                 try {
-                    assertThat(
-                                    locationChangeLatch.await(
-                                            LOCATION_SETTING_CHANGE_WAIT_MS, TimeUnit.MILLISECONDS))
-                            .isTrue();
+                    assertThat(locationChangeLatch.await(LOCATION_SETTING_CHANGE_WAIT_MS,
+                            TimeUnit.MILLISECONDS)).isTrue();
                 } catch (InterruptedException e) {
-                    Log.w(
-                            NetworkScanApiTest.class.getSimpleName(),
+                    Log.w(NetworkScanApiTest.class.getSimpleName(),
                             "Interrupted while waiting for location settings change. Test results"
                                     + " may not be accurate.");
                 } finally {
-                    contentResolver.unregisterContentObserver(settingsObserver);
+                    context.unregisterReceiver(locationModeChangeReceiver);
                 }
             }
-            return oldLocationMode == Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
+            return oldLocationOn;
         } finally {
-            InstrumentationRegistry.getInstrumentation()
-                    .getUiAutomation()
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
                     .dropShellPermissionIdentity();
         }
     }

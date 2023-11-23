@@ -39,6 +39,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.net.Uri;
+import android.telephony.ims.RcsContactPresenceTuple;
 import android.telephony.ims.RcsContactUceCapability;
 import android.telephony.ims.aidl.IRcsUceControllerCallback;
 
@@ -47,6 +48,7 @@ import androidx.test.filters.SmallTest;
 
 import com.android.ims.ImsTestBase;
 import com.android.ims.rcs.uce.UceDeviceState.DeviceStateResult;
+import com.android.ims.rcs.uce.UceStatsWriter;
 import com.android.ims.rcs.uce.request.UceRequestCoordinator.RequestResult;
 import com.android.ims.rcs.uce.request.UceRequestManager.RequestManagerCallback;
 
@@ -70,6 +72,7 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
     @Mock RequestManagerCallback mRequestMgrCallback;
     @Mock IRcsUceControllerCallback mUceCallback;
     @Mock DeviceStateResult mDeviceStateResult;
+    @Mock UceStatsWriter mUceStatsWriter;
 
     private int mSubId = 1;
     private long mTaskId = 1L;
@@ -106,6 +109,7 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
     @Test
     @SmallTest
     public void testRequestCommandError() throws Exception {
+        doReturn(Optional.of(3)).when(mResponse).getCommandError();
         SubscribeRequestCoordinator coordinator = getSubscribeCoordinator();
 
         coordinator.onRequestUpdated(mTaskId, REQUEST_UPDATE_COMMAND_ERROR);
@@ -114,6 +118,9 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
         Collection<RequestResult> resultList = coordinator.getFinishedRequest();
         assertTrue(requestList.isEmpty());
         assertEquals(1, resultList.size());
+
+        verify(mUceStatsWriter).setUceEvent(eq(mSubId), eq(UceStatsWriter.SUBSCRIBE_EVENT),
+            eq(false), eq(3), eq(0));
         verify(mRequest).onFinish();
     }
 
@@ -122,6 +129,7 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
     public void testRequestNetworkRespSuccess() throws Exception {
         SubscribeRequestCoordinator coordinator = getSubscribeCoordinator();
         doReturn(true).when(mResponse).isNetworkResponseOK();
+        doReturn(Optional.of(200)).when(mResponse).getNetworkRespSipCode();
 
         coordinator.onRequestUpdated(mTaskId, REQUEST_UPDATE_NETWORK_RESPONSE);
 
@@ -129,7 +137,24 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
         Collection<RequestResult> resultList = coordinator.getFinishedRequest();
         assertEquals(1, requestList.size());
         assertTrue(resultList.isEmpty());
+
+        verify(mUceStatsWriter).setSubscribeResponse(eq(mSubId), eq(mTaskId), eq(200));
+
         verify(mRequest, never()).onFinish();
+    }
+
+    @Test
+    @SmallTest
+    public void testRequestNetworkRespFailure() throws Exception {
+        doReturn(Optional.of(400)).when(mResponse).getNetworkRespSipCode();
+
+        SubscribeRequestCoordinator coordinator = getSubscribeCoordinator();
+
+        coordinator.onRequestUpdated(mTaskId, REQUEST_UPDATE_NETWORK_RESPONSE);
+
+        verify(mUceStatsWriter).setSubscribeResponse(eq(mSubId), eq(mTaskId), eq(400));
+
+        verify(mRequest).onFinish();
     }
 
     @Test
@@ -162,7 +187,8 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
         SubscribeRequestCoordinator coordinator = getSubscribeCoordinator();
 
         final List<RcsContactUceCapability> updatedCapList = new ArrayList<>();
-        RcsContactUceCapability updatedCapability = getContactUceCapability();
+        RcsContactPresenceTuple tuple = getContactPresenceTuple();
+        RcsContactUceCapability updatedCapability = getContactUceCapability(tuple);
         updatedCapList.add(updatedCapability);
         doReturn(updatedCapList).when(mResponse).getUpdatedContactCapability();
 
@@ -171,6 +197,8 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
         verify(mRequestMgrCallback).saveCapabilities(updatedCapList);
         verify(mUceCallback).onCapabilitiesReceived(updatedCapList);
         verify(mResponse).removeUpdatedCapabilities(updatedCapList);
+
+        verify(mUceStatsWriter).setPresenceNotifyEvent(eq(mSubId), eq(mTaskId), any());
     }
 
     @Test
@@ -188,6 +216,8 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
         verify(mRequestMgrCallback).saveCapabilities(updatedCapList);
         verify(mUceCallback).onCapabilitiesReceived(updatedCapList);
         verify(mResponse).removeTerminatedResources(updatedCapList);
+
+        verify(mUceStatsWriter).setPresenceNotifyEvent(eq(mSubId), eq(mTaskId), any());
     }
 
     @Test
@@ -211,12 +241,16 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
     public void testRequestTerminated() throws Exception {
         SubscribeRequestCoordinator coordinator = getSubscribeCoordinator();
 
+        doReturn("noresource").when(mResponse).getTerminatedReason();
+
         coordinator.onRequestUpdated(mTaskId, REQUEST_UPDATE_TERMINATED);
 
         Collection<UceRequest> requestList = coordinator.getActivatedRequest();
         Collection<RequestResult> resultList = coordinator.getFinishedRequest();
         assertTrue(requestList.isEmpty());
         assertEquals(1, resultList.size());
+
+        verify(mUceStatsWriter).setSubscribeTerminated(eq(mSubId), eq(mTaskId), eq("noresource"));
     }
 
     @Test
@@ -234,8 +268,18 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
 
     private SubscribeRequestCoordinator getSubscribeCoordinator() {
         SubscribeRequestCoordinator.Builder builder = new SubscribeRequestCoordinator.Builder(
-                mSubId, Collections.singletonList(mRequest), mRequestMgrCallback);
+                mSubId, Collections.singletonList(mRequest), mRequestMgrCallback, mUceStatsWriter);
         builder.setCapabilitiesCallback(mUceCallback);
+        SubscribeRequestCoordinator subCoor = builder.build();
+        return subCoor;
+    }
+
+    private RcsContactUceCapability getContactUceCapability(RcsContactPresenceTuple tuple) {
+        int requestResult = RcsContactUceCapability.REQUEST_RESULT_FOUND;
+        RcsContactUceCapability.PresenceBuilder builder =
+                new RcsContactUceCapability.PresenceBuilder(
+                        mContact, RcsContactUceCapability.SOURCE_TYPE_NETWORK, requestResult);
+        builder.addCapabilityTuple(tuple);
         return builder.build();
     }
 
@@ -245,5 +289,13 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
                 new RcsContactUceCapability.PresenceBuilder(
                         mContact, RcsContactUceCapability.SOURCE_TYPE_NETWORK, requestResult);
         return builder.build();
+    }
+
+    private RcsContactPresenceTuple getContactPresenceTuple() {
+        RcsContactPresenceTuple.Builder builder =
+            new RcsContactPresenceTuple.Builder("open", RcsContactPresenceTuple.SERVICE_ID_CHAT_V1,
+                "1.0");
+        return builder.build();
+
     }
 }

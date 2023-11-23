@@ -25,7 +25,6 @@ import android.os.Build;
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 
-import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.AdbException;
 import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.utils.ShellCommand;
@@ -38,13 +37,11 @@ import java.util.UUID;
  */
 public class UserBuilder {
 
-    private final TestApis mTestApis;
     private String mName;
     private @Nullable UserType mType;
     private @Nullable UserReference mParent;
 
-    UserBuilder(TestApis testApis) {
-        mTestApis = testApis;
+    UserBuilder() {
     }
 
     /**
@@ -141,7 +138,7 @@ public class UserBuilder {
                     commandBuilder.validate(ShellCommandUtils::startsWithSuccess)
                             .executeAndParseOutput(
                                     (output) -> Integer.parseInt(output.split("id ")[1].trim()));
-            return new UnresolvedUser(mTestApis, userId);
+            return new UserReference(userId);
         } catch (AdbException e) {
             throw new NeneException("Could not create user " + this, e);
         }

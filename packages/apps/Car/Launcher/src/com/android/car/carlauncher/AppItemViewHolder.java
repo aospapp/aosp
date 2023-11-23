@@ -16,13 +16,13 @@
 
 package com.android.car.carlauncher;
 
-import android.annotation.Nullable;
 import android.content.Context;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 /**

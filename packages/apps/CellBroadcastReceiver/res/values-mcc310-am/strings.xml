@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"ከደህንነት ማንቂያ ሥርዓቱ አስፈላጊ ወርሃዊ ሙከራዎችን ይቀበሉ"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"ብሔራዊ ማንቂያ"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"የመጀመሪያው ማንቂያ (ከብሔራዊ ማንቂያ ሌላ) ከታየ በኋላ የመርጦ መውጫ መገናኛን አሳይ።"</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"ብሔራዊ ማንቂያዎች"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"የብሔራዊ ማስጠንቀቂያ መልዕክቶች። ሊጠፋ አይችልም።"</string>
 </resources>

@@ -113,13 +113,8 @@ public final class PowerComponentHandler {
                 mComponentStates.put(component, false);
                 PowerComponentMediator mediator = factory.createPowerComponent(component);
                 String componentName = powerComponentToString(component);
-                if (mediator == null) {
-                    Slogf.w(TAG, "Power component(%s) is not valid or doesn't need a mediator",
-                            componentName);
-                    continue;
-                }
-                if (!mediator.isComponentAvailable()) {
-                    Slogf.w(TAG, "Power component(%s) is not available", componentName);
+                if (mediator == null || !mediator.isComponentAvailable()) {
+                    // We don't not associate a mediator with the component.
                     continue;
                 }
                 mPowerComponentMediators.put(component, mediator);
@@ -237,7 +232,6 @@ public final class PowerComponentHandler {
 
         PowerComponentMediator mediator = mPowerComponentMediators.get(component);
         if (mediator == null) {
-            Slogf.w(TAG, "%s doesn't have a mediator", powerComponentToString(component));
             return true;
         }
 

@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"სავალდებულო ყოველთვიური ტესტების მიღება უსაფრთხოების გაფრთხილებების სისტემიდან"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"ეროვნული დონის გაფრთხილება"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"პირველი გაფრთხილების შემდეგ უარის თქმის დიალოგის ჩვენება (ეროვნული დონის გაფრთხილებათა გარდა)."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"ეროვნული დონის გაფრთხილებები"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"ეროვნული დონის გამაფრთხილებელი შეტყობინებები. არ შეიძლება იყოს გამორთული."</string>
 </resources>

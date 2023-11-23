@@ -21,10 +21,12 @@
         android:id="@+id/key1"
         style="@style/NumPadKeyButton"
         app:digit="1" />
+
     <com.android.keyguard.NumPadKey
         android:id="@+id/key2"
-        style="@style/NumPadKeyButton.MiddleColumn"
+        style="@style/NumPadKeyButton"
         app:digit="2" />
+
     <com.android.keyguard.NumPadKey
         android:id="@+id/key3"
         style="@style/NumPadKeyButton"
@@ -35,10 +37,12 @@
         android:id="@+id/key4"
         style="@style/NumPadKeyButton"
         app:digit="4" />
+
     <com.android.keyguard.NumPadKey
         android:id="@+id/key5"
-        style="@style/NumPadKeyButton.MiddleColumn"
+        style="@style/NumPadKeyButton"
         app:digit="5" />
+
     <com.android.keyguard.NumPadKey
         android:id="@+id/key6"
         style="@style/NumPadKeyButton"
@@ -49,10 +53,12 @@
         android:id="@+id/key7"
         style="@style/NumPadKeyButton"
         app:digit="7" />
+
     <com.android.keyguard.NumPadKey
         android:id="@+id/key8"
-        style="@style/NumPadKeyButton.MiddleColumn"
+        style="@style/NumPadKeyButton"
         app:digit="8" />
+
     <com.android.keyguard.NumPadKey
         android:id="@+id/key9"
         style="@style/NumPadKeyButton"
@@ -61,21 +67,21 @@
     <!-- Row 4 -->
     <com.android.keyguard.NumPadButton
         android:id="@+id/delete_button"
-        style="@style/NumPadKeyButton.LastRow"
-        android:gravity="center_vertical"
-        android:src="@drawable/ic_backspace"
-        android:clickable="true"
-        android:tint="?android:attr/textColorSecondary"
+        style="@style/NumPadKeyButton"
+        android:src="@drawable/ic_delete"
+        android:tint="@color/keyguard_keypad_image_color"
         android:contentDescription="@string/keyboardview_keycode_delete" />
+
     <com.android.keyguard.NumPadKey
         android:id="@+id/key0"
-        style="@style/NumPadKeyButton.LastRow.MiddleColumn"
+        style="@style/NumPadKeyButton"
         app:digit="0" />
+
     <com.android.keyguard.NumPadButton
         android:id="@+id/key_enter"
-        style="@style/NumPadKeyButton.LastRow"
-        android:src="@drawable/ic_done"
-        android:tint="?android:attr/textColorSecondary"
+        style="@style/NumPadKeyButton"
+        android:src="@drawable/ic_enter"
+        android:tint="@color/keyguard_keypad_image_color"
         android:contentDescription="@string/keyboardview_keycode_enter" />
 </merge>
 

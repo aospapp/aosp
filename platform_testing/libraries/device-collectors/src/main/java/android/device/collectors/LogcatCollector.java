@@ -85,7 +85,6 @@ public class LogcatCollector extends BaseMetricListener {
 
     @Override
     public void onTestRunStart(DataRecord runData, Description description) {
-        setupAdditionalArgs();
         mDestDir = createAndEmptyDirectory(DEFAULT_DIR);
         // Capture the start time in case onTestStart() is never called due to failure during
         // @BeforeClass.
@@ -186,10 +185,9 @@ public class LogcatCollector extends BaseMetricListener {
         return DATE_FORMATTER.format(date);
     }
 
-    /**
-     * Add custom options if available.
-     */
-    private void setupAdditionalArgs() {
+    /** Add custom options if available. */
+    @Override
+    public void setupAdditionalArgs() {
         Bundle args = getArgsBundle();
 
         if (args.getString(BEFORE_LOGCAT_DURATION_SECS) != null) {

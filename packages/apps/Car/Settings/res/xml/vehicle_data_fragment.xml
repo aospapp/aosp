@@ -21,13 +21,13 @@
     android:title="@string/privacy_vehicle_data_title"
     android:key="@string/psk_vehicle_data">
 
-    <com.android.car.settings.common.ClickableWhileDisabledPreference
+    <Preference
         android:key="@string/pk_vehicle_data_delete_profile"
         android:title="@string/vehicle_data_delete_user_title"
         android:summary="@string/vehicle_data_delete_user_summary"
         settings:controller="com.android.car.settings.privacy.DeleteUserPreferenceController"/>
 
-    <com.android.car.settings.common.ClickableWhileDisabledPreference
+    <Preference
         android:fragment="com.android.car.settings.system.FactoryResetFragment"
         android:key="@string/pk_factory_reset"
         android:title="@string/factory_reset_title"

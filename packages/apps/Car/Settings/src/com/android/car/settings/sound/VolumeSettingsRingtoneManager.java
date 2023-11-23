@@ -93,13 +93,15 @@ public class VolumeSettingsRingtoneManager {
 
         mUiHandler.removeCallbacksAndMessages(null);
         mCurrentRingtone = nextRingtone;
-        mCurrentRingtone.play();
-        mUiHandler.postDelayed(() -> {
-            if (mCurrentRingtone.isPlaying()) {
-                mCurrentRingtone.stop();
-                mCurrentRingtone = null;
-            }
-        }, AUDIO_FEEDBACK_DURATION_MS);
+        if (mCurrentRingtone != null) {
+            mCurrentRingtone.play();
+            mUiHandler.postDelayed(() -> {
+                if (mCurrentRingtone.isPlaying()) {
+                    mCurrentRingtone.stop();
+                    mCurrentRingtone = null;
+                }
+            }, AUDIO_FEEDBACK_DURATION_MS);
+        }
     }
 
     /** Stop playing the current ringtone. */
@@ -113,6 +115,9 @@ public class VolumeSettingsRingtoneManager {
     private Ringtone lazyLoadRingtone(int group, int usage) {
         if (!mGroupToRingtoneMap.containsKey(group)) {
             Ringtone ringtone = RingtoneManager.getRingtone(mContext, getRingtoneUri(usage));
+            if (ringtone == null) {
+                return null;
+            }
             ringtone.setAudioAttributes(new AudioAttributes.Builder().setUsage(usage).build());
             mGroupToRingtoneMap.put(group, ringtone);
         }

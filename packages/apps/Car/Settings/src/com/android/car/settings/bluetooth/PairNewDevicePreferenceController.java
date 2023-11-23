@@ -19,6 +19,9 @@ package com.android.car.settings.bluetooth;
 import static android.os.UserManager.DISALLOW_BLUETOOTH;
 import static android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
 
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+
 import android.bluetooth.BluetoothAdapter;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.BroadcastReceiver;
@@ -34,6 +37,7 @@ import androidx.preference.Preference;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 
 /**
  * Controls a preference that, when clicked, launches the page for pairing new Bluetooth devices.
@@ -44,7 +48,6 @@ import com.android.car.settings.common.PreferenceController;
 public class PairNewDevicePreferenceController extends PreferenceController<Preference> implements
         LifecycleObserver {
 
-    private final UserManager mUserManager;
     private final IntentFilter mIntentFilter = new IntentFilter(
             BluetoothAdapter.ACTION_STATE_CHANGED);
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -53,6 +56,7 @@ public class PairNewDevicePreferenceController extends PreferenceController<Pref
             refreshUi();
         }
     };
+    private final UserManager mUserManager;
 
     public PairNewDevicePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -63,6 +67,23 @@ public class PairNewDevicePreferenceController extends PreferenceController<Pref
     @Override
     protected Class<Preference> getPreferenceType() {
         return Preference.class;
+    }
+
+    @Override
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> {
+            if (getAvailabilityStatus() == AVAILABLE_FOR_VIEWING) {
+                showActionDisabledByAdminDialog();
+            }
+        });
+    }
+
+    private void showActionDisabledByAdminDialog() {
+        getFragmentController().showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(getContext(),
+                        DISALLOW_CONFIG_BLUETOOTH),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
     }
 
     @Override
@@ -77,6 +98,9 @@ public class PairNewDevicePreferenceController extends PreferenceController<Pref
     protected int getAvailabilityStatus() {
         if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) {
             return UNSUPPORTED_ON_DEVICE;
+        }
+        if (hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_BLUETOOTH)) {
+            return AVAILABLE_FOR_VIEWING;
         }
         return isUserRestricted() ? DISABLED_FOR_PROFILE : AVAILABLE;
     }

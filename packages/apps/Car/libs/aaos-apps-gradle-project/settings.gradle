@@ -1,0 +1,79 @@
+/*
+ * Copyright (C) 2019 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+rootProject.name='AAOS Apps'
+
+gradle.ext.aaosLatestSDK = 31
+gradle.ext.aaosTargetSDK = 31
+
+gradle.ext.lib_car_system_stubs = rootDir.absolutePath + "../../../../../../prebuilts/sdk/" + gradle.ext.aaosLatestSDK + "/system/android.car-system-stubs.jar"
+gradle.ext.lib_system_stubs = rootDir.absolutePath + "../../../../../../prebuilts/sdk/" + gradle.ext.aaosLatestSDK + "/system/android.jar"
+
+//TODO: find something that works
+//def repoRootFolder = settingsDir.getParentFile().getParentFile().getParentFile().getParentFile().getParentFile()
+//gradle.ext.aaosBuildDir = new File(repoRootFolder, "/out/aaos-apps-gradle-project.build/")
+//gradle.ext.aaosBuildDir = new File('../../../../../out/aaos-apps-gradle-project.build/').getParentFile()
+
+
+include ':car-ui-lib'
+project(':car-ui-lib').projectDir = new File('../car-ui-lib/car-ui-lib')
+include ':PaintBooth'
+project(':PaintBooth').projectDir = new File('../car-ui-lib/paintbooth')
+include ':oem-apis'
+project(':oem-apis').projectDir = new File('../car-ui-lib/oem-apis')
+include ':plugin'
+project(':plugin').projectDir = new File('../car-ui-lib/referencedesign/plugin')
+include ':car-rotary-lib'
+project(':car-rotary-lib').projectDir = new File('../car-ui-lib/car-rotary-lib')
+
+include ':car-apps-common'
+project(':car-apps-common').projectDir = new File('../car-apps-common')
+
+include ':car-media-common'
+project(':car-media-common').projectDir = new File('../car-media-common')
+
+include ':car-uxr-client-lib'
+project(':car-uxr-client-lib').projectDir = new File('../car-uxr-client-lib')
+
+include ':car-telephony-common'
+project(':car-telephony-common').projectDir = new File('../car-telephony-common')
+
+include ':car-assist-lib'
+project(':car-assist-lib').projectDir = new File('../car-assist-lib')
+
+include ':car-messenger-common'
+project(':car-messenger-common').projectDir = new File('../car-messenger-common')
+include ':car-messenger-common:model'
+
+include ':car-media-app'
+project(':car-media-app').projectDir = new File('../../Media')
+
+include ':test-media-app'
+project(':test-media-app').projectDir = new File('../../tests/TestMediaApp')
+
+include ':test-rotary-playground'
+project(':test-rotary-playground').projectDir = new File('../../tests/RotaryPlayground')
+
+include ':test-rotary-ime'
+project(':test-rotary-ime').projectDir = new File('../../tests/RotaryIME')
+
+include ':car-dialer-app'
+project(':car-dialer-app').projectDir = new File('../../Dialer')
+include ':car-dialer-app:testing'
+include ':car-dialer-app:framework'
+
+include ':car-messenger-app'
+project(':car-messenger-app').projectDir = new File('../../Messenger')

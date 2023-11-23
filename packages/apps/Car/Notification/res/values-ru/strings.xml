@@ -18,6 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assist_action_play_label" msgid="6278705468288338172">"Прослушать"</string>
+    <string name="assist_action_reply_label" msgid="6946087036560525072">"Ответить"</string>
     <string name="action_mute_short" msgid="5239851786101022633">"Отключить звук"</string>
     <string name="action_mute_long" msgid="6846675719189989477">"Отключить уведомления"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"Включить звук"</string>
@@ -31,15 +32,25 @@
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
     <string name="show_more" msgid="7291378544926443344">"Ещё"</string>
     <string name="notification_header" msgid="324550431063568049">"Уведомления"</string>
+    <string name="notification_recents" msgid="5855769440781958546">"Недавние уведомления"</string>
+    <string name="notification_older" msgid="8162161020296499690">"Старые уведомления"</string>
     <string name="empty_notification_header" msgid="4928379791607839720">"Уведомлений нет"</string>
-    <string name="show_less" msgid="7342677676229302829">"Скрыть"</string>
+    <string name="collapse_group" msgid="4923097735600949715">"Свернуть группу"</string>
+    <string name="show_more_from_app" msgid="4270626118092846628">"Ещё <xliff:g id="COUNT">%1$d</xliff:g> от приложения \"<xliff:g id="APP">%2$s</xliff:g>\""</string>
     <string name="show_count_more" msgid="480555295700318609">"Показать ещё <xliff:g id="COUNT">%d</xliff:g>"</string>
-    <string name="message_unshown_count" msgid="2234421277246741233">"и ещё <xliff:g id="COUNT">%d</xliff:g>"</string>
-    <plurals name="restricted_message_text" formatted="false" msgid="507312322886633308">
-      <item quantity="one"><xliff:g id="COUNT">%d</xliff:g> новое сообщение</item>
-      <item quantity="few"><xliff:g id="COUNT">%d</xliff:g> новых сообщения</item>
-      <item quantity="many"><xliff:g id="COUNT">%d</xliff:g> новых сообщений</item>
-      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> нового сообщения</item>
+    <plurals name="message_unshown_count" formatted="false" msgid="2454776257150137504">
+      <item quantity="one">Ещё <xliff:g id="COUNT_1">%d</xliff:g> сообщение</item>
+      <item quantity="few">Ещё <xliff:g id="COUNT_1">%d</xliff:g> сообщения</item>
+      <item quantity="many">Ещё <xliff:g id="COUNT_1">%d</xliff:g> сообщений</item>
+      <item quantity="other">Ещё <xliff:g id="COUNT_1">%d</xliff:g> сообщения</item>
     </plurals>
+    <plurals name="restricted_numbered_message_content" formatted="false" msgid="232398073855919710">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> новое сообщение</item>
+      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> новых сообщения</item>
+      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> новых сообщений</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> новых сообщения</item>
+    </plurals>
+    <string name="see_more_message" msgid="6343183827924395955">"Развернуть"</string>
+    <string name="restricted_hun_message_content" msgid="631111937988857716">"Новое сообщение"</string>
     <string name="manage_text" msgid="4225197445283791757">"Настроить"</string>
 </resources>

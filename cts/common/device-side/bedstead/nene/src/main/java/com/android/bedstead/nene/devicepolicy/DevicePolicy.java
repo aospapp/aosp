@@ -16,9 +16,9 @@
 
 package com.android.bedstead.nene.devicepolicy;
 
+import static android.Manifest.permission.CREATE_USERS;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS_FULL;
-import static android.Manifest.permission.WRITE_SECURE_SETTINGS;
 import static android.os.Build.VERSION.SDK_INT;
 
 import static com.android.bedstead.nene.permissions.Permissions.MANAGE_DEVICE_ADMINS;
@@ -30,7 +30,6 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
-import android.provider.Settings;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -40,9 +39,8 @@ import com.android.bedstead.nene.annotations.Experimental;
 import com.android.bedstead.nene.exceptions.AdbException;
 import com.android.bedstead.nene.exceptions.AdbParseException;
 import com.android.bedstead.nene.exceptions.NeneException;
-import com.android.bedstead.nene.packages.PackageReference;
+import com.android.bedstead.nene.packages.Package;
 import com.android.bedstead.nene.permissions.PermissionContext;
-import com.android.bedstead.nene.users.User;
 import com.android.bedstead.nene.users.UserReference;
 import com.android.bedstead.nene.utils.ShellCommand;
 import com.android.bedstead.nene.utils.ShellCommandUtils;
@@ -62,23 +60,19 @@ import java.util.Set;
  */
 public final class DevicePolicy {
 
+    public static final DevicePolicy sInstance = new DevicePolicy();
+
     private static final String LOG_TAG = "DevicePolicy";
 
     private static final String USER_SETUP_COMPLETE_KEY = "user_setup_complete";
 
-    private final TestApis mTestApis;
     private final AdbDevicePolicyParser mParser;
 
     private DeviceOwner mCachedDeviceOwner;
     private Map<UserReference, ProfileOwner> mCachedProfileOwners;
 
-    public DevicePolicy(TestApis testApis) {
-        if (testApis == null) {
-            throw new NullPointerException();
-        }
-
-        mTestApis = testApis;
-        mParser = AdbDevicePolicyParser.get(mTestApis, SDK_INT);
+    private DevicePolicy() {
+        mParser = AdbDevicePolicyParser.get(SDK_INT);
     }
 
     /**
@@ -100,9 +94,10 @@ public final class DevicePolicy {
         retryIfNotTerminal(
                 () -> command.executeOrThrowNeneException("Could not set profile owner for user "
                         + user + " component " + profileOwnerComponent),
-                () -> checkForTerminalProfileOwnerFailures(user, profileOwnerComponent));
-        return new ProfileOwner(mTestApis, user,
-                mTestApis.packages().find(
+                () -> checkForTerminalProfileOwnerFailures(user, profileOwnerComponent),
+                NeneException.class);
+        return new ProfileOwner(user,
+                TestApis.packages().find(
                         profileOwnerComponent.getPackageName()), profileOwnerComponent);
     }
 
@@ -118,9 +113,9 @@ public final class DevicePolicy {
                             + " as a profile owner is already set: " + profileOwner);
         }
 
-        PackageReference pkg = mTestApis.packages().find(
+        Package pkg = TestApis.packages().find(
                 profileOwnerComponent.getPackageName());
-        if (!mTestApis.packages().installedForUser(user).contains(pkg)) {
+        if (!TestApis.packages().installedForUser(user).contains(pkg)) {
             throw new NeneException(
                     "Could not set profile owner for user " + user
                             + " as the package " + pkg + " is not installed");
@@ -130,6 +125,13 @@ public final class DevicePolicy {
             throw new NeneException("Could not set profile owner for user "
                     + user + " as component " + profileOwnerComponent + " is not valid");
         }
+    }
+
+    /**
+     * Get the profile owner for the instrumented user..
+     */
+    public ProfileOwner getProfileOwner() {
+        return getProfileOwner(TestApis.users().instrumented());
     }
 
     /**
@@ -146,28 +148,30 @@ public final class DevicePolicy {
     /**
      * Set the device owner.
      */
-    public DeviceOwner setDeviceOwner(UserReference user, ComponentName deviceOwnerComponent) {
-        if (user == null || deviceOwnerComponent == null) {
+    public DeviceOwner setDeviceOwner(ComponentName deviceOwnerComponent) {
+        if (deviceOwnerComponent == null) {
             throw new NullPointerException();
         }
 
         if (!Versions.meetsMinimumSdkVersionRequirement(Build.VERSION_CODES.S)) {
-            return setDeviceOwnerPreS(user, deviceOwnerComponent);
+            return setDeviceOwnerPreS(deviceOwnerComponent);
         }
 
         DevicePolicyManager devicePolicyManager =
-                mTestApis.context().instrumentedContext()
+                TestApis.context().instrumentedContext()
                         .getSystemService(DevicePolicyManager.class);
+        UserReference user = TestApis.users().system();
 
-        boolean userSetupComplete = getUserSetupComplete();
+        boolean dpmUserSetupComplete = getUserSetupComplete(user);
+        Boolean currentUserSetupComplete = null;
 
         try {
-            setUserSetupComplete(false);
+            setUserSetupComplete(user, false);
 
             try (PermissionContext p =
-                         mTestApis.permissions().withPermission(
+                         TestApis.permissions().withPermission(
                                  MANAGE_PROFILE_AND_DEVICE_OWNERS, MANAGE_DEVICE_ADMINS,
-                                 INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS)) {
+                                 INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS)) {
                 devicePolicyManager.setActiveAdmin(deviceOwnerComponent,
                         /* refreshing= */ true, user.id());
 
@@ -175,20 +179,55 @@ public final class DevicePolicy {
                 //  we retry because if the DO/PO was recently removed, it can take some time
                 //  to be allowed to set it again
                 retryIfNotTerminal(
-                        () -> devicePolicyManager.setDeviceOwner(
+                        () -> setDeviceOwnerOnly(devicePolicyManager,
                                 deviceOwnerComponent, "Nene", user.id()),
                         () -> checkForTerminalDeviceOwnerFailures(
-                                user, deviceOwnerComponent, /* allowAdditionalUsers= */ true));
+                                user, deviceOwnerComponent, /* allowAdditionalUsers= */ true),
+                        NeneException.class);
             } catch (IllegalArgumentException | IllegalStateException | SecurityException e) {
                 throw new NeneException("Error setting device owner", e);
             }
         } finally {
-            setUserSetupComplete(userSetupComplete);
+            setUserSetupComplete(user, dpmUserSetupComplete);
+            if (currentUserSetupComplete != null) {
+                setUserSetupComplete(TestApis.users().current(), currentUserSetupComplete);
+            }
         }
 
-        return new DeviceOwner(mTestApis, user,
-                mTestApis.packages().find(
-                        deviceOwnerComponent.getPackageName()), deviceOwnerComponent);
+        Package deviceOwnerPackage = TestApis.packages().find(
+                deviceOwnerComponent.getPackageName());
+
+        return new DeviceOwner(user, deviceOwnerPackage, deviceOwnerComponent);
+    }
+
+    /**
+     * Set Device Owner without changing any other device state.
+     *
+     * <p>This is used instead of {@link DevicePolicyManager#setDeviceOwner(ComponentName)} directly
+     * because on S_V2 and above, that method can also set profile owners and install packages in
+     * some circumstances.
+     */
+    private void setDeviceOwnerOnly(DevicePolicyManager devicePolicyManager,
+            ComponentName component, String name, int deviceOwnerUserId) {
+        if (Versions.meetsMinimumSdkVersionRequirement(Build.VERSION_CODES.S_V2)) {
+            devicePolicyManager.setDeviceOwnerOnly(component, name, deviceOwnerUserId);
+        } else {
+            devicePolicyManager.setDeviceOwner(component, name, deviceOwnerUserId);
+        }
+    }
+
+    /**
+     * Resets organization ID via @TestApi.
+     * @param user whose organization ID to clear
+     */
+    public void clearOrganizationId(UserReference user) {
+        try (PermissionContext p =
+                     TestApis.permissions().withPermission(MANAGE_PROFILE_AND_DEVICE_OWNERS)) {
+            DevicePolicyManager devicePolicyManager =
+                    TestApis.context().instrumentedContextAsUser(user)
+                            .getSystemService(DevicePolicyManager.class);
+            devicePolicyManager.clearOrganizationId();
+        }
     }
 
     /**
@@ -212,7 +251,7 @@ public final class DevicePolicy {
             terminalCheck.run();
 
             try {
-                PollingCheck.waitFor(30_000, () -> {
+                PollingCheck.waitFor(() -> {
                     try {
                         operation.run();
                         return true;
@@ -230,32 +269,32 @@ public final class DevicePolicy {
     }
 
 
-    private void setUserSetupComplete(boolean complete) {
+    private void setUserSetupComplete(UserReference user, boolean complete) {
         DevicePolicyManager devicePolicyManager =
-                mTestApis.context().instrumentedContext()
+                TestApis.context().androidContextAsUser(user)
                         .getSystemService(DevicePolicyManager.class);
-        try (PermissionContext p = mTestApis.permissions().withPermission(
-                WRITE_SECURE_SETTINGS, MANAGE_PROFILE_AND_DEVICE_OWNERS,
-                INTERACT_ACROSS_USERS_FULL)) {
-            Settings.Secure.putInt(mTestApis.context().androidContextAsUser(
-                    mTestApis.users().system()).getContentResolver(),
-                    USER_SETUP_COMPLETE_KEY, complete ? 1 : 0);
-            devicePolicyManager.forceUpdateUserSetupComplete(mTestApis.users().system().id());
+        TestApis.settings().secure().putInt(user, USER_SETUP_COMPLETE_KEY, complete ? 1 : 0);
+        try (PermissionContext p =
+                     TestApis.permissions().withPermission(MANAGE_PROFILE_AND_DEVICE_OWNERS)) {
+            devicePolicyManager.forceUpdateUserSetupComplete(user.id());
         }
     }
 
-    private boolean getUserSetupComplete() {
-        return Settings.Secure.getInt(
-                mTestApis.context().instrumentedContext().getContentResolver(),
-                USER_SETUP_COMPLETE_KEY, /* def= */ 0) == 1;
+    private boolean getUserSetupComplete(UserReference user) {
+        try (PermissionContext p = TestApis.permissions().withPermission(CREATE_USERS)) {
+            return
+                    TestApis.settings().secure()
+                            .getInt(user, USER_SETUP_COMPLETE_KEY, /* def= */ 0) == 1;
+        }
     }
 
-    private DeviceOwner setDeviceOwnerPreS(UserReference user, ComponentName deviceOwnerComponent) {
+    private DeviceOwner setDeviceOwnerPreS(ComponentName deviceOwnerComponent) {
+        UserReference user = TestApis.users().system();
+
         ShellCommand.Builder command = ShellCommand.builderForUser(
                 user, "dpm set-device-owner")
                 .addOperand(deviceOwnerComponent.flattenToShortString())
                 .validate(ShellCommandUtils::startsWithSuccess);
-
         // TODO(b/187925230): If it fails, we check for terminal failure states - and if not
         //  we retry because if the device owner was recently removed, it can take some time
         //  to be allowed to set it again
@@ -265,8 +304,8 @@ public final class DevicePolicy {
                 () -> checkForTerminalDeviceOwnerFailures(
                     user, deviceOwnerComponent, /* allowAdditionalUsers= */ false));
 
-        return new DeviceOwner(mTestApis, user,
-                mTestApis.packages().find(
+        return new DeviceOwner(user,
+                TestApis.packages().find(
                         deviceOwnerComponent.getPackageName()), deviceOwnerComponent);
     }
 
@@ -282,9 +321,9 @@ public final class DevicePolicy {
                             + " as a device owner is already set: " + deviceOwner);
         }
 
-        PackageReference pkg = mTestApis.packages().find(
+        Package pkg = TestApis.packages().find(
                 deviceOwnerComponent.getPackageName());
-        if (!mTestApis.packages().installedForUser(user).contains(pkg)) {
+        if (!TestApis.packages().installedForUser(user).contains(pkg)) {
             throw new NeneException(
                     "Could not set device owner for user " + user
                             + " as the package " + pkg + " is not installed");
@@ -296,7 +335,7 @@ public final class DevicePolicy {
         }
 
         if (!allowAdditionalUsers) {
-            Collection<User> users = mTestApis.users().all();
+            Collection<UserReference> users = TestApis.users().all();
 
             if (users.size() > 1) {
                 throw new NeneException("Could not set device owner for user "
@@ -309,12 +348,12 @@ public final class DevicePolicy {
 
     private boolean componentCanBeSetAsDeviceAdmin(ComponentName component, UserReference user) {
         PackageManager packageManager =
-                mTestApis.context().instrumentedContext().getPackageManager();
+                TestApis.context().instrumentedContext().getPackageManager();
         Intent intent = new Intent("android.app.action.DEVICE_ADMIN_ENABLED");
         intent.setComponent(component);
 
         try (PermissionContext p =
-                     mTestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
+                     TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
             List<ResolveInfo> r =
                     packageManager.queryBroadcastReceiversAsUser(
                             intent, /* flags= */ 0, user.userHandle());
@@ -342,6 +381,7 @@ public final class DevicePolicy {
 
                 mCachedDeviceOwner = result.mDeviceOwner;
                 mCachedProfileOwners = result.mProfileOwners;
+
                 return;
             } catch (AdbParseException e) {
                 if (e.adbOutput().contains("DUMP TIMEOUT") && retries-- > 0) {
@@ -359,8 +399,8 @@ public final class DevicePolicy {
     /** See {@link android.app.admin.DevicePolicyManager#getPolicyExemptApps()}. */
     @Experimental
     public Set<String> getPolicyExemptApps() {
-        try (PermissionContext p = mTestApis.permissions().withPermission(MANAGE_DEVICE_ADMINS)) {
-            return mTestApis.context()
+        try (PermissionContext p = TestApis.permissions().withPermission(MANAGE_DEVICE_ADMINS)) {
+            return TestApis.context()
                     .instrumentedContext()
                     .getSystemService(DevicePolicyManager.class)
                     .getPolicyExemptApps();

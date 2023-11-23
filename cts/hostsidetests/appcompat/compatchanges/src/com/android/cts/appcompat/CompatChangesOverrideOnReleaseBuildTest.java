@@ -30,8 +30,8 @@ public class CompatChangesOverrideOnReleaseBuildTest extends CompatChangeGatingT
 
     private static final String OVERRIDE_PKG = "com.android.cts.appcompat.preinstalloverride";
 
-    private static final long CTS_CHANGE_ID = 149391281L;
     private static final long CTS_OVERRIDABLE_CHANGE_ID = 174043039L;
+    private static final long UNKNOWN_CHANGEID = 123L;
 
     @Override
     protected void setUp() throws Exception {
@@ -76,6 +76,19 @@ public class CompatChangesOverrideOnReleaseBuildTest extends CompatChangeGatingT
                 .that(ctsChange).isNotNull();
         assertThat(ctsChange.hasRawOverrides).isFalse();
         assertThat(ctsChange.hasOverrides).isFalse();
+    }
+
+    public void testPutPackageOverridesWhenChangeIdUnknown() throws Exception {
+        installPackage("appcompat_preinstall_override_versioncode1_release.apk", false);
+
+        runDeviceCompatTest(TEST_PKG, ".CompatChangesTest",
+                "putPackageOverrides_doesNothingIfChangeIsUnknown",
+                /*enabledChanges*/ImmutableSet.of(),
+                /*disabledChanges*/ ImmutableSet.of());
+
+        Change ctsChange = getOnDeviceChangeIdConfig(UNKNOWN_CHANGEID);
+        assertWithMessage("Unknown change %s is found on device", UNKNOWN_CHANGEID)
+                .that(ctsChange).isNull();
     }
 
     public void testPutPackageOverridesForAllVersions() throws Exception {
@@ -201,6 +214,19 @@ public class CompatChangesOverrideOnReleaseBuildTest extends CompatChangeGatingT
                 .that(ctsChange).isNotNull();
         assertThat(ctsChange.hasRawOverrides).isFalse();
         assertThat(ctsChange.hasOverrides).isFalse();
+    }
+
+    public void testRemovePackageOverridesWhenChangeIdUnknown() throws Exception {
+        installPackage("appcompat_preinstall_override_versioncode1_release.apk", false);
+
+        runDeviceCompatTest(TEST_PKG, ".CompatChangesTest",
+                "removePackageOverrides_doesNothingIfChangeIsUnknown",
+                /*enabledChanges*/ImmutableSet.of(),
+                /*disabledChanges*/ ImmutableSet.of());
+
+        Change ctsChange = getOnDeviceChangeIdConfig(UNKNOWN_CHANGEID);
+        assertWithMessage("Unknown change %s is found on device", UNKNOWN_CHANGEID)
+                .that(ctsChange).isNull();
     }
 
     public void testRemovePackageOverridesWhenOverridePresent() throws Exception {

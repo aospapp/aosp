@@ -16,9 +16,12 @@
 package com.android.car.ui.core;
 
 import static com.android.car.ui.core.BaseLayoutController.getBaseLayoutController;
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
+import android.os.Build.VERSION_CODES;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -28,8 +31,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.android.car.ui.R;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.baselayout.InsetsChangedListener;
+import com.android.car.ui.pluginsupport.PluginFactorySingleton;
 import com.android.car.ui.recyclerview.CarUiListItem;
-import com.android.car.ui.sharedlibrarysupport.SharedLibraryFactorySingleton;
 import com.android.car.ui.toolbar.ToolbarController;
 
 import java.util.List;
@@ -38,20 +41,26 @@ import java.util.Objects;
 /**
  * Public interface for general CarUi static functions.
  */
+@TargetApi(MIN_TARGET_API)
 public class CarUi {
+
+    // Unfortunately, because some of our clients don't have a car specific build we can't set the
+    // minSdk to 28. so we need to enforce minSdk to 28 in the code.
+    public static final int MIN_TARGET_API = VERSION_CODES.P;
+    public static final int TARGET_API_R = VERSION_CODES.R;
 
     /** Prevent instantiating this class */
     private CarUi() {}
 
     /**
-     * Gets a CarUi component, such as {@link com.android.car.ui.button.CarUiButton}, from the
+     * Gets a CarUi component, such as {@link com.android.car.ui.widget.CarUiTextView}, from the
      * view hierarchy. The interfaces for these components don't extend View, so you can't
      * get them through findViewById().
      *
      * @param view The parent view. Its descendants will be searched for the component.
      * @param id The id of the component.
      * @param <T> The resulting type of the component, such as
-     *            {@link com.android.car.ui.button.CarUiButton}
+     *            {@link com.android.car.ui.widget.CarUiTextView}
      * @return The component found, or null.
      */
     @Nullable
@@ -71,6 +80,7 @@ public class CarUi {
      * if the result is null.
      */
     @NonNull
+    @SuppressWarnings("TypeParameterUnusedInFormals")
     public static <T> T requireCarUiComponentById(View view, int id) {
         return Objects.requireNonNull(findCarUiComponentById(view, id));
     }
@@ -96,7 +106,7 @@ public class CarUi {
      */
     public static RecyclerView.Adapter<? extends RecyclerView.ViewHolder> createListItemAdapter(
             Context context, List<? extends CarUiListItem> items) {
-        return SharedLibraryFactorySingleton.get(context).createListItemAdapter(items);
+        return PluginFactorySingleton.get(context).createListItemAdapter(items);
     }
 
 
@@ -217,7 +227,7 @@ public class CarUi {
             InsetsChangedListener insetsChangedListener,
             boolean hasToolbar,
             boolean fullscreen) {
-        return SharedLibraryFactorySingleton.get(view.getContext())
+        return PluginFactorySingleton.get(view.getContext())
                 .installBaseLayoutAround(view, insetsChangedListener, hasToolbar, fullscreen);
     }
 }

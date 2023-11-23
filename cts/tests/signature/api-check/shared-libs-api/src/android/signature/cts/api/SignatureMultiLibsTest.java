@@ -47,7 +47,7 @@ public class SignatureMultiLibsTest extends SignatureTest {
             ApiDocumentParser apiDocumentParser = new ApiDocumentParser(TAG);
 
             parseApiResourcesAsStream(apiDocumentParser,
-                    Stream.concat(Arrays.stream(systemApiFiles), Arrays.stream(previousApiFiles))
+                    Stream.concat(Arrays.stream(expectedApiFiles), Arrays.stream(previousApiFiles))
                     .toArray(String[]::new))
                     .forEach(complianceChecker::checkSignatureCompliance);
 

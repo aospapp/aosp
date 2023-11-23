@@ -159,7 +159,7 @@
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Әкімші қолданбасының параметрлері орнатылуда"</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Бұл құрылғы ұйымға тиесілі."</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Бұл телефонды басқару және бақылау үшін мына қолданба пайдаланылатын болады."</string>
-    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Есептік жазбаңыз басқарылады"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Аккаунтыңыз басқарылады"</string>
     <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Қауіпсіздік саясатының талаптарын іске асыру үшін жүйе әкімшісі мобильдік құрылғыны басқару процесін қолданады."</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Жұмысқа реттеуге дайындалуда…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Алдымен жұмыс профиліңізді реттеп алайық."</string>

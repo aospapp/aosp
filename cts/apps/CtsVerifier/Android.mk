@@ -112,13 +112,8 @@ verifier-zip := $(cts-dir)/$(verifier-zip-name)
 #	$(hide) mkdir -p $(verifier-dir)/power
 #	$(hide) $(ACP) -fp cts/apps/CtsVerifier/assets/scripts/execute_power_tests.py $@
 
-$(verifier-dir)/NOTICE.txt: cts/apps/CtsVerifier/NOTICE.txt | $(ACP)
-	$(hide) $(ACP) -fp cts/apps/CtsVerifier/NOTICE.txt $@
-
 cts : $(verifier-zip)
-CtsVerifier : $(verifier-zip)
 $(verifier-zip) : $(HOST_OUT)/CameraITS/build_stamp
-$(verifier-zip) : $(verifier-dir)/NOTICE.txt
 $(verifier-zip) : $(foreach app,$(apps-to-include),$(call apk-location-for,$(app)))
 $(verifier-zip) : $(call intermediates-dir-for,APPS,CtsVerifier)/package.apk | $(ACP)
 		$(hide) mkdir -p $(verifier-dir)

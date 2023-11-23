@@ -253,11 +253,14 @@ public class CountMetricsTests extends DeviceAtomTestCase {
     public void testPartialBucketCountMetric() throws Exception {
         int matcherId = 1;
         StatsdConfigProto.StatsdConfig.Builder builder = createConfigBuilder();
-        builder.addCountMetric(StatsdConfigProto.CountMetric.newBuilder()
-                .setId(MetricsUtils.COUNT_METRIC_ID)
-                .setBucket(StatsdConfigProto.TimeUnit.ONE_DAY)  // Should ensure partial bucket.
-                .setWhat(matcherId))
-                .addAtomMatcher(MetricsUtils.simpleAtomMatcher(matcherId));
+        builder
+            .addCountMetric(
+                StatsdConfigProto.CountMetric.newBuilder()
+                    .setId(MetricsUtils.COUNT_METRIC_ID)
+                    .setBucket(StatsdConfigProto.TimeUnit.ONE_DAY) // Ensures partial bucket.
+                    .setWhat(matcherId)
+                    .setSplitBucketForAppUpgrade(true))
+            .addAtomMatcher(MetricsUtils.simpleAtomMatcher(matcherId));
         uploadConfig(builder);
 
         doAppBreadcrumbReportedStart(0);

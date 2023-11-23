@@ -22,7 +22,7 @@
     <string name="default_error_message" msgid="4044331619453864482">"Бірдеңе дұрыс емес. Кейінірек қайталап көріңіз."</string>
     <string name="error_code_app_error" msgid="3608680401453743688">"Мұны дәл қазір істеу мүмкін емес."</string>
     <string name="error_code_not_supported" msgid="8004310657548193089">"Бұл қолданба мұны істей алмайды."</string>
-    <string name="error_code_authentication_expired" msgid="1727285213286610186">"Бұл қолданбаны пайдалану үшін есептік жазбаға кіріңіз."</string>
+    <string name="error_code_authentication_expired" msgid="1727285213286610186">"Бұл қолданбаны пайдалану үшін аккаунтқа кіріңіз."</string>
     <string name="error_code_premium_account_required" msgid="2328664287270814966">"Премиум рұқсат қажет."</string>
     <string name="error_code_concurrent_stream_limit" msgid="493048763425570552">"Тым көп құрылғыларда тыңдалып жатыр."</string>
     <string name="error_code_parental_control_restricted" msgid="325145513462419399">"Бұл мазмұнға тыйым салынған."</string>

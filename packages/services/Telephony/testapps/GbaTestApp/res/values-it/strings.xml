@@ -21,7 +21,7 @@
     <string name="request_force_bootstrapping" msgid="206043602616214325">"Forzare il bootstrapping?"</string>
     <string name="request_org" msgid="8416693445448308975">"Codice organizzazione"</string>
     <string name="request_security_protocol" msgid="1444164827561010482">"ID protocollo sicurezza UA"</string>
-    <string name="request_tls_cipher_suite" msgid="6659854717595308404">"ID pacchetto crittografia TLS"</string>
+    <string name="request_tls_cipher_suite" msgid="6659854717595308404">"ID suite di crittografia TLS"</string>
     <string name="response_success" msgid="2469204471244527663">"Autenticazione GBA riuscita?"</string>
     <string name="response_fail_reason" msgid="3401426967253202496">"ID motivo errore"</string>
     <string name="response_key" msgid="8839847772051686309">"Chiave GBA (CK + IK)"</string>

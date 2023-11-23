@@ -16,6 +16,7 @@
 
 import time
 import pprint
+import acts
 
 from acts import asserts
 from acts import signals
@@ -27,6 +28,7 @@ from WifiStaApConcurrencyTest import WifiStaApConcurrencyTest
 import acts_contrib.test_utils.wifi.wifi_test_utils as wutils
 
 WifiEnums = wutils.WifiEnums
+DEFAULT_TIMEOUT = 10
 
 # Channels to configure the AP for various test scenarios.
 WIFI_NETWORK_AP_CHANNEL_2G = 1
@@ -56,12 +58,34 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
                       "test_stress_softap_5G_wifi_connection_2G",
                       "test_stress_softap_2G_wifi_connection_5G",
                       "test_stress_softap_2G_wifi_connection_5G_DFS",
-                      "test_stress_softap_5G_wifi_connection_2G_with_location_scan_on")
+                      "test_stress_softap_5G_wifi_connection_2G_with_location_scan_on",
+                      "test_2g_sta_mode_and_hotspot_5g_on_off_stress_under_airplane_mode")
 
     def setup_class(self):
         super().setup_class()
         opt_param = ["stress_count"]
         self.unpack_userparams(opt_param_names=opt_param)
+
+    def setup_test(self):
+        super().setup_test()
+        for ad in self.android_devices:
+            ad.droid.wakeLockAcquireBright()
+            ad.droid.wakeUpNow()
+        wutils.wifi_toggle_state(self.dut, True)
+
+    def teardown_test(self):
+        super().teardown_test()
+        for ad in self.android_devices:
+            ad.droid.wakeLockRelease()
+            ad.droid.goToSleepNow()
+        if self.dut.droid.wifiIsApEnabled():
+            wutils.stop_wifi_tethering(self.dut)
+        for ad in self.android_devices:
+            wutils.reset_wifi(ad)
+        self.log.debug("Toggling Airplane mode OFF")
+        asserts.assert_true(
+            acts.utils.force_airplane_mode(self.dut, False),
+            "Can not turn airplane mode off: %s" % self.dut.serial)
 
     """Helper Functions"""
     def connect_to_wifi_network_and_verify(self, params):
@@ -254,3 +278,21 @@ class WifiStaApConcurrencyStressTest(WifiStaApConcurrencyTest):
         for count in range(self.stress_count):
             self.log.info("Iteration %d", count+1)
             self.verify_wifi_full_on_off(self.open_2g, softap_config)
+
+    @test_tracker_info(uuid="36c7f847-4b3e-4bb1-a280-cfe2b6afc903")
+    def test_2g_sta_mode_and_hotspot_5g_on_off_stress_under_airplane_mode(self):
+        """Tests connection to 2G network followed by bringing up SoftAp on 5G
+        under airplane mode
+        """
+        self.log.debug("Toggling Airplane mode ON")
+        asserts.assert_true(
+            acts.utils.force_airplane_mode(self.dut, True),
+            "Can not turn on airplane mode on: %s" % self.dut.serial)
+        time.sleep(DEFAULT_TIMEOUT)
+        self.configure_ap(channel_2g=WIFI_NETWORK_AP_CHANNEL_2G)
+        wutils.wifi_toggle_state(self.dut, True)
+        self.connect_to_wifi_network_and_verify((self.open_2g, self.dut))
+        time.sleep(DEFAULT_TIMEOUT)
+        for count in range(self.stress_count):
+            self.log.info("Iteration %d", count+1)
+            self.verify_softap_full_on_off(self.open_2g, WIFI_CONFIG_APBAND_5G)

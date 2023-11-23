@@ -21,6 +21,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
 
     <target_preparer class="com.android.tradefed.targetprep.SwitchUserTargetPreparer">
         <option name="user-type" value="system"/>
@@ -42,9 +43,8 @@
         <option name="test-file-name" value="CtsAdminPackageInstallerTestCases.apk" />
     </target_preparer>
 
-    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-        <option name="run-command" value="dpm set-device-owner --user current 'android.packageinstaller.admin.cts/.BasicAdminReceiver'" />
-        <option name="teardown-command" value="dpm remove-active-admin --user current 'android.packageinstaller.admin.cts/.BasicAdminReceiver'"/>
+    <target_preparer class="com.android.tradefed.targetprep.DeviceOwnerTargetPreparer">
+        <option name="device-owner-component-name" value="android.packageinstaller.admin.cts/.BasicAdminReceiver" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

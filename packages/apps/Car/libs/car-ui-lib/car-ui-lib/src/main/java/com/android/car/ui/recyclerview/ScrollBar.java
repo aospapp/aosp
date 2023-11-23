@@ -15,6 +15,7 @@
  */
 package com.android.car.ui.recyclerview;
 
+import android.content.Context;
 import android.view.View;
 
 import androidx.recyclerview.widget.RecyclerView;
@@ -28,7 +29,7 @@ public interface ScrollBar {
      * The concrete class should implement this method to initialize configuration of a scrollbar
      * view.
      */
-    void initialize(RecyclerView recyclerView, View scrollView);
+    void initialize(Context context, RecyclerView recyclerView, View scrollView);
 
     /**
      * Requests layout of the scrollbar. Should be called when there's been a change that will

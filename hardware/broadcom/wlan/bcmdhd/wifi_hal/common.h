@@ -424,6 +424,7 @@ wifi_error wifi_register_vendor_handler(wifi_handle handle,
             uint32_t id, int subcmd, nl_recvmsg_msg_cb_t func, void *arg);
 
 void wifi_unregister_handler(wifi_handle handle, int cmd);
+void wifi_unregister_vendor_handler_without_lock(wifi_handle handle, uint32_t id, int subcmd);
 void wifi_unregister_vendor_handler(wifi_handle handle, uint32_t id, int subcmd);
 
 wifi_error wifi_register_cmd(wifi_handle handle, int id, WifiCommand *cmd);

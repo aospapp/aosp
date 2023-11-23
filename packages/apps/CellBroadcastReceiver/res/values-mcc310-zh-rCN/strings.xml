@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"接收安全警报系统发出的必需的每月测试消息"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"国家/地区级警报"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"在显示第一条警报（国家/地区级警报除外）后，显示可供用户停用 CMAS 的对话框。"</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"国家级警报"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"国家级警告消息。无法关闭。"</string>
 </resources>

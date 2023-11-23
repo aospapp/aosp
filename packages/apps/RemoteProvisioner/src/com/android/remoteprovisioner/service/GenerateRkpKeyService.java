@@ -55,6 +55,7 @@ public class GenerateRkpKeyService extends Service {
         @Override
         public void generateKey(int securityLevel) {
             try {
+                Log.i(TAG, "generateKey ping for secLevel: " + securityLevel);
                 IRemoteProvisioning binder =
                         IRemoteProvisioning.Stub.asInterface(ServiceManager.getService(SERVICE));
                 checkAndFillPool(binder, securityLevel);
@@ -66,6 +67,7 @@ public class GenerateRkpKeyService extends Service {
         @Override
         public void notifyKeyGenerated(int securityLevel) {
             try {
+                Log.i(TAG, "Notify key generated ping for secLevel: " + securityLevel);
                 IRemoteProvisioning binder =
                         IRemoteProvisioning.Stub.asInterface(ServiceManager.getService(SERVICE));
                 checkAndFillPool(binder, securityLevel);

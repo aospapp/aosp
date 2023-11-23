@@ -36,7 +36,7 @@ import java.util.Set;
 public class BuildVersionTest extends TestCase {
 
     private static final String LOG_TAG = "BuildVersionTest";
-    private static final int EXPECTED_SDK = 31;
+    private static final int EXPECTED_SDK = 32;
     private static final String EXPECTED_BUILD_VARIANT = "user";
     private static final String EXPECTED_KEYS = "release-keys";
     private static final String PLATFORM_RELEASES_FILE = "platform_releases.txt";

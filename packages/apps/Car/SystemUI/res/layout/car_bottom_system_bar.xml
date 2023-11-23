@@ -30,13 +30,14 @@
         android:layout_height="wrap_content"
         android:layoutDirection="ltr">
 
-        <com.android.systemui.car.hvac.AdjustableTemperatureView
+        <com.android.systemui.car.hvac.TemperatureControlView
             android:id="@+id/driver_hvac"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:gravity="center_vertical"
-            systemui:hvacAreaId="49"
-            systemui:hvacTempFormat="%.0f\u00B0" />
+            systemui:hvacAreaId="49">
+            <include layout="@layout/adjustable_temperature_view"/>
+        </com.android.systemui.car.hvac.TemperatureControlView>
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -79,12 +80,11 @@
                 systemui:intent="intent:#Intent;action=com.android.car.carlauncher.ACTION_APP_GRID;package=com.android.car.carlauncher;launchFlags=0x24000000;end"
                 systemui:clearBackStack="true"/>
 
-            <com.android.systemui.car.systembar.CarSystemBarButton
+            <com.android.systemui.car.systembar.HvacButton
                 android:id="@+id/hvac"
                 style="@style/SystemBarButton"
                 systemui:highlightWhenSelected="true"
                 systemui:icon="@drawable/car_ic_hvac"
-                systemui:intent="intent:#Intent;action=android.car.intent.action.TOGGLE_HVAC_CONTROLS;end"
                 systemui:broadcast="true"/>
 
             <com.android.systemui.car.systembar.CarSystemBarButton
@@ -100,14 +100,16 @@
                 android:layout_weight="1"/>
         </LinearLayout>
 
-        <com.android.systemui.car.hvac.AdjustableTemperatureView
+        <com.android.systemui.car.hvac.TemperatureControlView
             android:id="@+id/passenger_hvac"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_alignParentEnd="true"
             android:gravity="center_vertical"
-            systemui:hvacAreaId="68"
-            systemui:hvacTempFormat="%.0f\u00B0" />
+            systemui:hvacAreaId="68">
+            <include layout="@layout/adjustable_temperature_view"/>
+        </com.android.systemui.car.hvac.TemperatureControlView>
+
     </RelativeLayout>
 
     <LinearLayout

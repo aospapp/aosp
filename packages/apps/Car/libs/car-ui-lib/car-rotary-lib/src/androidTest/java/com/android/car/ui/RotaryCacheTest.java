@@ -77,7 +77,7 @@ public class RotaryCacheTest {
     public void testGetCachedFocusArea_inTheCache() {
         int direction = View.FOCUS_LEFT;
         mRotaryCache.saveFocusArea(direction, mFocusArea, 0);
-        FocusArea focusArea = mRotaryCache.getCachedFocusArea(direction, mValidTime);
+        IFocusArea focusArea = mRotaryCache.getCachedFocusArea(direction, mValidTime);
         assertThat(focusArea).isEqualTo(mFocusArea);
     }
 
@@ -86,7 +86,7 @@ public class RotaryCacheTest {
         int direction = View.FOCUS_LEFT;
         mRotaryCache.saveFocusArea(direction, mFocusArea, 0);
 
-        FocusArea focusArea = mRotaryCache.getCachedFocusArea(View.FOCUS_RIGHT, mValidTime);
+        IFocusArea focusArea = mRotaryCache.getCachedFocusArea(View.FOCUS_RIGHT, mValidTime);
         assertThat(focusArea).isNull();
         focusArea = mRotaryCache.getCachedFocusArea(View.FOCUS_UP, mValidTime);
         assertThat(focusArea).isNull();
@@ -96,7 +96,7 @@ public class RotaryCacheTest {
     public void testGetCachedFocusArea_expiredCache() {
         int direction = View.FOCUS_LEFT;
         mRotaryCache.saveFocusArea(direction, mFocusArea, 0);
-        FocusArea focusArea = mRotaryCache.getCachedFocusArea(direction, mExpiredTime);
+        IFocusArea focusArea = mRotaryCache.getCachedFocusArea(direction, mExpiredTime);
         assertThat(focusArea).isNull();
     }
 

@@ -49,6 +49,7 @@ void adb_auth_tls_handshake(atransport* t);
 #else // !ADB_HOST
 
 extern bool auth_required;
+extern bool socket_access_allowed;
 
 void adbd_auth_init(void);
 void adbd_auth_verified(atransport *t);

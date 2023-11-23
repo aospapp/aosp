@@ -21,6 +21,7 @@ mts_modules += \
                art \
                cellbroadcast \
                conscrypt \
+               cronet \
                dnsresolver \
                documentsui \
                extservices \

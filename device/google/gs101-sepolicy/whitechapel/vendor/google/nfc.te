@@ -1,0 +1,2 @@
+allow nfc sysfs_vendor_sched:dir r_dir_perms;
+allow nfc sysfs_vendor_sched:file w_file_perms;

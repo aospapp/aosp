@@ -36,7 +36,7 @@ import com.android.internal.os.StatsdConfigProto.ValueMetric;
 import com.android.os.AtomsProto.AnomalyDetected;
 import com.android.os.AtomsProto.AppBreadcrumbReported;
 import com.android.os.AtomsProto.Atom;
-import com.android.os.AtomsProto.KernelWakelock;
+import com.android.os.AtomsProto.DebugElapsedClock;
 import com.android.os.StatsLog.EventMetricData;
 import com.android.tradefed.log.LogUtil.CLog;
 import java.util.List;
@@ -370,9 +370,9 @@ public class AnomalyDetectionTests extends AtomTestCase {
 
     // Test that anomaly detection for pulled metrics work.
     public void testPulledAnomalyDetection() throws Exception {
-        final int ATOM_ID = Atom.KERNEL_WAKELOCK_FIELD_NUMBER;  // A pulled atom
-        final int SLICE_BY_FIELD = KernelWakelock.NAME_FIELD_NUMBER;
-        final int VALUE_FIELD = KernelWakelock.VERSION_FIELD_NUMBER;  // Something that will be > 0.
+        final int ATOM_ID = Atom.DEBUG_ELAPSED_CLOCK_FIELD_NUMBER; // A pulled atom
+        final int VALUE_FIELD =
+                DebugElapsedClock.ELAPSED_CLOCK_MILLIS_FIELD_NUMBER; // Something that will be > 0.
         final int ATOM_MATCHER_ID = 300;
 
         StatsdConfig.Builder config = getBaseConfig(10, 20, 0 /* threshold: value > 0 */)
@@ -387,11 +387,6 @@ public class AnomalyDetectionTests extends AtomTestCase {
                         .setWhat(ATOM_MATCHER_ID)
                         .setBucket(TimeUnit.CTS)
                         .setSamplingType(GaugeMetric.SamplingType.RANDOM_ONE_SAMPLE)
-                        // Slice by SLICE_BY_FIELD (typical usecase)
-                        .setDimensionsInWhat(FieldMatcher.newBuilder()
-                                .setField(ATOM_ID)
-                                .addChild(FieldMatcher.newBuilder().setField(SLICE_BY_FIELD))
-                        )
                         // Track the VALUE_FIELD (anomaly detection requires exactly one field here)
                         .setGaugeFieldsFilter(
                                 FieldFilter.newBuilder().setFields(FieldMatcher.newBuilder()
@@ -405,8 +400,7 @@ public class AnomalyDetectionTests extends AtomTestCase {
         Thread.sleep(6_000); // Wait long enough to ensure AlarmManager signals >= 1 pull
 
         List<EventMetricData> data = getEventMetricDataList();
-        // There will likely be many anomalies (one for each dimension). There must be at least one.
-        assertThat(data.size()).isAtLeast(1);
+        assertThat(data.size()).isEqualTo(1);
         assertThat(data.get(0).getAtom().getAnomalyDetected().getAlertId()).isEqualTo(ALERT_ID);
     }
 

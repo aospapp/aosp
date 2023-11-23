@@ -63,7 +63,6 @@ class LinkerNamespacesHelper {
         "libmediandk.so",
         "libm.so",
         "libnativewindow.so",
-        "libneuralnetworks.so",
         "libOpenMAXAL.so",
         "libOpenSLES.so",
         "libRS.so",
@@ -78,12 +77,16 @@ class LinkerNamespacesHelper {
       "libclang_rt.hwasan-aarch64-android.so"
     };
 
-    // Libraries listed in public.libraries.android.txt, located in /apex/com.android.art/${LIB}
-    private final static String[] PUBLIC_ART_LIBRARIES = {
+    // Libraries listed in public.libraries.android.txt that are located in APEXes
+    private final static String[] PUBLIC_APEX_LIBRARIES = {
+        // Libraries in /apex/com.android.i18n/${LIB}
+        "libicu.so",
         "libicui18n.so",
         "libicuuc.so",
+        // Libraries in /apex/com.android.art/${LIB}
         "libnativehelper.so",
-        "libsigchain.so"
+        // Libraries in /apex/com.android.neuralnetworks/${LIB}
+        "libneuralnetworks.so",
     };
 
     // The grey-list.
@@ -185,13 +188,13 @@ class LinkerNamespacesHelper {
 
     public static String runAccessibilityTest() throws IOException {
         List<String> systemLibs = new ArrayList<>();
-        List<String> artApexLibs = new ArrayList<>();
+        List<String> apexLibs = new ArrayList<>();
 
         Collections.addAll(systemLibs, PUBLIC_SYSTEM_LIBRARIES);
         Collections.addAll(systemLibs, OPTIONAL_SYSTEM_LIBRARIES);
-	// System path could contain public ART libraries on foreign arch. http://b/149852946
+        // System path could contain public ART libraries on foreign arch. http://b/149852946
         if (isForeignArchitecture()) {
-            Collections.addAll(systemLibs, PUBLIC_ART_LIBRARIES);
+            Collections.addAll(systemLibs, PUBLIC_APEX_LIBRARIES);
         }
 
         if (InstrumentationRegistry.getContext().getPackageManager().
@@ -199,7 +202,7 @@ class LinkerNamespacesHelper {
             systemLibs.add(WEBVIEW_PLAT_SUPPORT_LIB);
         }
 
-        Collections.addAll(artApexLibs, PUBLIC_ART_LIBRARIES);
+        Collections.addAll(apexLibs, PUBLIC_APEX_LIBRARIES);
 
         // Check if /system/etc/public.libraries-company.txt and /product/etc/public.libraries
         // -company.txt files are well-formed. The libraries however are not loaded for test;
@@ -232,11 +235,11 @@ class LinkerNamespacesHelper {
         }
 
         return runAccessibilityTestImpl(systemLibs.toArray(new String[systemLibs.size()]),
-                                        artApexLibs.toArray(new String[artApexLibs.size()]));
+                                        apexLibs.toArray(new String[apexLibs.size()]));
     }
 
     private static native String runAccessibilityTestImpl(String[] publicSystemLibs,
-                                                          String[] publicRuntimeLibs);
+                                                          String[] publicApexLibs);
 
     private static void invokeIncrementGlobal(Class<?> clazz) throws Exception {
         clazz.getMethod("incrementGlobal").invoke(null);
@@ -385,7 +388,7 @@ class LinkerNamespacesHelper {
         String error = null;
         List<String> publicLibs = new ArrayList<>();
         Collections.addAll(publicLibs, PUBLIC_SYSTEM_LIBRARIES);
-        Collections.addAll(publicLibs, PUBLIC_ART_LIBRARIES);
+        Collections.addAll(publicLibs, PUBLIC_APEX_LIBRARIES);
         for (String lib : publicLibs) {
             String result = LinkerNamespacesHelper.tryDlopen(lib);
             if (result != null) {

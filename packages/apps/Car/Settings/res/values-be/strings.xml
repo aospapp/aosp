@@ -27,12 +27,7 @@
     <string name="night_mode_tile_label" msgid="6603597795502131664">"Начны рэжым"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Сетка і інтэрнэт"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Мабільная сетка"</string>
-    <plurals name="mobile_network_summary_count" formatted="false" msgid="6917348330386831454">
-      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карта</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карты</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карт</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карты</item>
-    </plurals>
+    <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM-карта}one{# SIM-карта}few{# SIM-карты}many{# SIM-карт}other{# SIM-карты}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Актывавана / SIM-карта"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Не актывавана / SIM-карта"</string>
     <string name="mobile_network_active_esim" msgid="5864100786496761032">"Актывавана / Спампаваная SIM-карта"</string>
@@ -40,6 +35,8 @@
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"Дадаць яшчэ"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"Мабільная перадача даных"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Доступ да даных па мабільнай сетцы"</string>
+    <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Мабільная сетка"</string>
+    <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Выкарыстоўваць мабільную перадачу даных"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Адключыць мабільную перадачу даных?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Трэба выбраць"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Выкарыстоўваць <xliff:g id="CARRIER">%1$s</xliff:g> для трафіка?"</string>
@@ -55,12 +52,7 @@
     <string name="cell_data_warning" msgid="8997739664336571149">"Папярэджанне перадачы даных: <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_limit" msgid="6862164869877993009">"Абмежаванне трафіка: <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_warning_and_limit" msgid="5003954080814312475">"Папярэджанне перадачы даных: <xliff:g id="ID_1">^1</xliff:g> / Ліміт трафіка: <xliff:g id="ID_2">^2</xliff:g>"</string>
-    <plurals name="billing_cycle_days_left" formatted="false" msgid="9163059632851951402">
-      <item quantity="one">Застаўся %d дзень</item>
-      <item quantity="few">Засталося %d дні</item>
-      <item quantity="many">Засталося %d дзён</item>
-      <item quantity="other">Засталося %d дня</item>
-    </plurals>
+    <string name="billing_cycle_days_left" msgid="1810100330204239102">"{count,plural, =1{Застаўся # дзень}one{Застаўся # дзень}few{Засталося # дні}many{Засталося # дзён}other{Засталося # дня}}"</string>
     <string name="billing_cycle_none_left" msgid="3499893148398931302">"Часу не засталося"</string>
     <string name="billing_cycle_less_than_one_day_left" msgid="8121013296375203759">"Засталося менш за 1 дзень"</string>
     <string name="carrier_and_update_text" msgid="4351043160977741244">"Абноўлена <xliff:g id="ID_2">^2</xliff:g> таму аператарам \"<xliff:g id="ID_1">^1</xliff:g>\""</string>
@@ -75,6 +67,7 @@
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"Задаць"</string>
     <string name="data_warning_limit_title" msgid="4950868241810828601">"Папярэджанне і ліміт трафіка"</string>
     <string name="app_usage_cycle" msgid="8445927080245880296">"Цыкл выкарыстання трафіка праграм"</string>
+    <string name="mobile_data_usage" msgid="8171519864391091861">"Выкарыстанне мабільнай перадачы даных"</string>
     <string name="set_data_warning" msgid="6628236612886588097">"Папярэджваць пра ліміт трафіка"</string>
     <string name="data_warning" msgid="116776633806885370">"Папярэджанне пра ліміт трафіка"</string>
     <string name="set_data_limit" msgid="7136539812414500084">"Задаць ліміт трафіка"</string>
@@ -83,8 +76,14 @@
     <string name="data_usage_limit_dialog_mobile" msgid="3633960011913085089">"Пасля дасягнення вызначанага ліміту трафіка галаўная прылада аўтамабіля выключыць мабільную перадачу даных.\n\nПаколькі метады разліку выкарыстання трафіка галаўной прыладай і аператарам могуць адрознівацца, мы рэкамендуем устанавіць заніжаны ліміт."</string>
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"Усталюйце папярэджанне аб выкарыстанні трафіка"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"Усталюйце ліміт выкарыстання трафіка"</string>
+    <string name="data_usage_settings_footer" msgid="681881387909678237">"Выкарыстанне трафіка вымяраецца прыладай. Гэтыя звесткі могуць адрознівацца ад даных аператара мабільнай сувязі."</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"Задаць"</string>
+    <string name="data_usage_warning_save_title" msgid="2900544287239037695">"Захаваць"</string>
     <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"Сетка OEM"</string>
+    <string name="network_and_internet_vehicle_internet_title" msgid="2518848595673002736">"Інтэрнэт у аўтамабілі"</string>
+    <string name="network_and_internet_oem_network_dialog_description" msgid="4469178879867702066">"Выключэнне інтэрнэту ў аўтамабілі можа заблакіраваць работу пэўных функцый або праграм аўтамабіля.\n\nМінімальны аб\'ём даных, патрэбны для эксплуатацыі аўтамабіля, будзе працягваць перадавацца вытворцу аўтамабіля."</string>
+    <string name="network_and_internet_oem_network_dialog_confirm_label" msgid="2630033932472996255">"Усё роўна выключыць"</string>
+    <string name="network_and_internet_oem_network_disabled_footer" msgid="3529208167627034245">"Інтэрнэту ў аўтамабілі выключаны. Гэта можа заблакіраваць работу пэўных функцый або праграм аўтамабіля. Мінімальны аб\'ём даных, патрэбны для эксплуатацыі аўтамабіля, будзе працягваць перадавацца вытворцу аўтамабіля."</string>
     <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"З %2$s да %3$s выкарыстана %1$s"</string>
     <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"Далучыцца да іншай сеткі"</string>
     <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"Параметры сеткі"</string>
@@ -98,6 +97,7 @@
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"Дадаць сетку"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"Падключыць"</string>
     <string name="wifi_connecting" msgid="1930665730621677960">"Ідзе падключэнне…"</string>
+    <string name="wifi_disconnected" msgid="4485699234859368137">"Не падключана"</string>
     <string name="wifi_not_in_range_message" msgid="2617126307140203787">"Сетка не ў зоне дасягальнасці"</string>
     <string name="wifi_password" msgid="5565632142720292397">"Пароль"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"Паказваць пароль"</string>
@@ -159,6 +159,7 @@
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Выберыце дыяпазон Wi‑Fi:"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"Хот-спот і мадэм"</string>
     <string name="hotspot_settings_title" msgid="8220814387592756713">"Хот-спот"</string>
+    <string name="wifi_hotspot_state_off" msgid="6096709579204322798">"Выключана"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"Аўтаматычна выключаць хот-спот"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"Хот-спот Wi‑Fi выключыцца, калі прылады непадключаныя"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"Уключыце Wi-Fi для праграмы \"<xliff:g id="REQUESTER">%s</xliff:g>\""</string>
@@ -301,10 +302,10 @@
     <string name="force_stop" msgid="2153183697014720520">"Прымусова спыніць"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"Спыніць прымусова?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Прымусовае спыненне дзейнасці праграмы можа прывесці да збою."</string>
-    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"Выключыць абарону прадукцыйнасці?"</string>
-    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"Пасля выключэння праграмнае і апаратнае забеспячэнне таксама могуць перастаць працаваць."</string>
-    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"Не выключаць"</string>
-    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"Выключыць"</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"Уключыць прыярытэт прадукцыйнасці праграмы?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"Уключэнне гэтай налады можа стаць прычынай нестабільнасці сістэмы або мець доўгатэрміновае ўздзеянне на апаратнае забеспячэнне. Працягнуць?"</string>
+    <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"Так"</string>
+    <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"Не, дзякуй"</string>
     <string name="disable_text" msgid="4358165448648990820">"Адключыць"</string>
     <string name="enable_text" msgid="1794971777861881238">"Уключыць"</string>
     <string name="uninstall_text" msgid="277907956072833012">"Выдаліць"</string>
@@ -314,29 +315,30 @@
     <string name="permissions_label" msgid="2701446753515612685">"Дазволы"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Апавяшчэнні"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"Сховішча і кэш"</string>
-    <string name="peak_performance_label" msgid="1592816366516845648">"Забяспечваць максімум прадукцыйнасці"</string>
+    <string name="prioritize_app_performance_label" msgid="7264505023347026606">"Прыярытэт прадукцыйнасці праграмы"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Версія: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Няма дазволаў"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Няма запытаў на дазволы"</string>
     <string name="unused_apps" msgid="648471933781010395">"Праграмы, якія не выкарыстоўваюцца"</string>
-    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> праграма не выкарыстоўваецца</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> праграмы не выкарыстоўваюцца</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> праграм не выкарыстоўваюцца</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> праграмы не выкарыстоўваецца</item>
-    </plurals>
+    <string name="unused_apps_summary" msgid="8257304516038923072">"{count,plural, =1{# праграма не выкарыстоўваецца}one{# праграма не выкарыстоўваецца}few{# праграмы не выкарыстоўваюцца}many{# праграм не выкарыстоўваюцца}other{# праграмы не выкарыстоўваюцца}}"</string>
     <string name="unused_apps_switch" msgid="4433958286200341563">"Выдаліць дазволы і вызваліць месца"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"%s ва ўнутраным сховішчы"</string>
-    <string name="peak_performance_summary" msgid="2450911487290019786">"Можна закрываць праграму, калі неабходна эканоміць рэсурсы"</string>
+    <string name="prioritize_app_performance_summary" msgid="1081874788185691418">"Каб аддаваць прыярытэт прадукцыйнасці праграмы, выкарыстоўваюцца сістэмныя рэсурсы"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Выкарыстанне трафіка"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Выкарыстанне трафіка"</string>
+    <string name="data_usage_usage_history_title" msgid="2386346082501471648">"Выкарыстанне трафіка"</string>
+    <string name="data_usage_all_apps_title" msgid="5956991037518761599">"Усе праграмы"</string>
+    <string name="app_data_usage_title" msgid="6991057296054761322">"Мабільны інтэрнэт і Wi‑Fi"</string>
+    <string name="app_data_usage_usage_history_title" msgid="5861801915345874959">"Выкарыстанне трафіка"</string>
+    <string name="app_data_usage_total_usage" msgid="6166480544992906281">"Усяго выкарыстана"</string>
+    <string name="app_data_usage_foreground" msgid="76513424438149709">"У актыўным рэжыме"</string>
+    <string name="app_data_usage_background" msgid="6972054078770685280">"У фонавым рэжыме"</string>
+    <string name="app_data_usage_allow_data_title" msgid="2713343973040466293">"Дазволіць перадачу даных"</string>
+    <string name="app_data_usage_allow_data_summary" msgid="7431118326573403774">"Дазволіць выкарыстоўваць мабільную перадачу даных"</string>
+    <string name="app_data_usage_restrict_data_title" msgid="7080736007645963633">"Абмежаваць перадачу даных"</string>
+    <string name="app_data_usage_background_data_summary" msgid="4445472217737386826">"Выкарыстоўваць маб. інтэрнэт толькі ў акт. рэжыме"</string>
     <string name="computing_size" msgid="5791407621793083965">"Вылічэнне…"</string>
-    <plurals name="runtime_permissions_additional_count" formatted="false" msgid="3513360187065317613">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> дадатковы дазвол</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> дадатковыя дазволы</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> дадатковых дазволаў</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> дадатковага дазволу</item>
-    </plurals>
+    <string name="runtime_permissions_additional_count" msgid="3920383880473283764">"{count,plural, =1{# дадатковы дазвол}one{# дадатковы дазвол}few{# дадатковыя дазволы}many{# дадатковых дазволаў}other{# дадатковага дазволу}}"</string>
     <string name="direct_boot_unaware_dialog_message_car" msgid="2857599310518724080">"Заўвага! Пасля перазагрузкі гэта праграма не зможа запусціцца, пакуль вы не разблакіруеце аўтамабіль."</string>
     <string name="assist_and_voice_input_settings" msgid="8813195157136637132">"Памочнік і галасавы ўвод"</string>
     <string name="assist_app_settings" msgid="9085261410166776497">"Праграма-памочнік"</string>
@@ -393,12 +395,35 @@
     <string name="wifi_control_description" msgid="6021926850423169261">"Кантроль Wi-Fi дазваляе праграме ўключаць ці выключаць Wi-Fi, шукаць сеткі Wi-Fi і падключацца да іх, дадаваць або выдаляць сеткі ці запускаць лакальны хот-спот."</string>
     <string name="more_special_access_title" msgid="166115485446645971">"Яшчэ"</string>
     <string name="location_settings_title" msgid="901334356682423679">"Месцазнаходжанне"</string>
+    <string name="location_toggle_title" msgid="836779750812064601">"Выкарыстоўваць месцазнаходжанне"</string>
+    <string name="location_toggle_summary" msgid="7977868708102299495">"Даць доступ да геаданых выбраным праграмам"</string>
+    <string name="location_toggle_off_warning" msgid="8396854289251143748">"Калі выключыць гэту наладу, доступ да геаданых будзе выдалены для ўсіх праграм, але не для праграм падтрымкі вадзіцеля."</string>
+    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"Выкарыстоўваць геаданыя для падтрымкі вадзіцеля"</string>
+    <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"Геалакацыя аўтамабіля выключана"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"Праграмы дапамогі вадзіцелю не маюць доступу да геаданых"</string>
+    <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"Змяніць"</string>
+    <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"Даць доступ да геаданых праграмам падтрымкі вадзіцеля"</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"Калі выключыць гэту наладу, праграмы падтрымкі вадзіцеля, для работы якіх патрабуецца інфармацыя аб месцазнаходжанні, будуць выключаны."</string>
+    <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"Усё роўна выключыць"</string>
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Нядаўнія запыты геаданых"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Няма нядаўніх запытаў геаданых"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Дазволы на ўзроўні праграм"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Службы геалакацыі"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"Выкарыстоўваць геалакацыю"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"Для вызначэння месцазнаходжання прылады могуць выкарыстоўвацца даныя GPS, Wi-Fi, мабільных сетак і датчыкаў."</string>
+    <string name="driver_assistance_settings_title" msgid="4915804073177128915">"Падтрымка вадзіцеля"</string>
+    <string name="adas_settings_footer" msgid="5128483877858058534">"Звесткі пра месцазнаходжанне, якія адпраўляюцца праграмам дапамогі вадзіцелю, не змяшчаюць інфармацыі, па якой вас можна ідэнтыфікаваць. Яны захоўваюцца не больш за 2 дні, пасля чаго выдаляюцца."</string>
+    <string name="microphone_settings_title" msgid="7125554350537136922">"Мікрафон"</string>
+    <string name="microphone_toggle_title" msgid="911586035332827275">"Выкарыстоўваць мікрафон"</string>
+    <string name="microphone_toggle_summary" msgid="2682653449849128626">"Даць усім праграмам доступ да мікрафона"</string>
+    <string name="microphone_manage_permissions" msgid="7280905792151988183">"Кіраваць дазволамі мікрафона"</string>
+    <string name="microphone_recently_accessed" msgid="2084292372486026607">"Нядаўна атрымлівалі доступ"</string>
+    <string name="microphone_no_recent_access" msgid="6412908936060990649">"Ніякія праграмы не выкарыстоўвалі нядаўна мікрафон"</string>
+    <string name="microphone_app_permission_summary_microphone_off" msgid="6139321726246115550">"Ні адна праграма не мае доступу"</string>
+    <string name="microphone_app_permission_summary_microphone_on" msgid="7870834777359783838">"{count,plural, =1{У # праграмы з {total_count} ёсць доступ}one{У # праграмы з {total_count} ёсць доступ}few{У # праграм з {total_count} ёсць доступ}many{У # праграм з {total_count} ёсць доступ}other{У # праграмы з {total_count} ёсць доступ}}"</string>
+    <string name="microphone_settings_recent_requests_title" msgid="8154796551134761329">"Нядаўна атрымлівалі доступ"</string>
+    <string name="microphone_settings_recent_requests_view_all_title" msgid="4339820818072842872">"Праглядзець усе"</string>
+    <string name="microphone_settings_loading_app_permission_stats" msgid="4357161201098081615">"Ідзе загрузка…"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Сістэма"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Абнаўленне сістэмы"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"Дадаткова"</string>
@@ -437,12 +462,7 @@
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Ліцэнзіі трэціх бакоў"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Немагчыма загрузіць ліцэнзіі."</string>
     <string name="settings_license_activity_loading" msgid="6163263123009681841">"Загрузка…"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="2968627665608969405">
-      <item quantity="one">Цяпер вы ў <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> кроку ад таго, каб стаць распрацоўшчыкам.</item>
-      <item quantity="few">Цяпер вы ў <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> кроках ад таго, каб стаць распрацоўшчыкам.</item>
-      <item quantity="many">Цяпер вы ў <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> кроках ад таго, каб стаць распрацоўшчыкам.</item>
-      <item quantity="other">Цяпер вы ў <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> кроку ад таго, каб стаць распрацоўшчыкам.</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="7416958516942072383">"{count,plural, =1{Цяпер вы ў # кроку ад таго, каб стаць распрацоўшчыкам.}one{Цяпер вы ў # кроку ад таго, каб стаць распрацоўшчыкам.}few{Цяпер вы ў # кроках ад таго, каб стаць распрацоўшчыкам.}many{Цяпер вы ў # кроках ад таго, каб стаць распрацоўшчыкам.}other{Цяпер вы ў # кроку ад таго, каб стаць распрацоўшчыкам.}}"</string>
     <string name="show_dev_on" msgid="5339077400040834808">"Цяпер вы распрацоўшчык!"</string>
     <string name="show_dev_already" msgid="1678087328973865736">"Не трэба, вы ўжо з\'яўляецеся распрацоўшчыкам."</string>
     <string name="developer_options_settings" msgid="1530739225109118480">"Параметры распрацоўшчыка"</string>
@@ -511,16 +531,11 @@
     <string name="user_add_user_message_setup" msgid="812616230454605159">"Калі вы створыце новы профіль, карыстальніку профілю трэба будзе яго наладзіць."</string>
     <string name="user_add_user_message_update" msgid="3836353291078729240">"З любога профілю можна абнаўляць праграмы для ўсіх іншых профіляў."</string>
     <string name="user_limit_reached_title" msgid="5677729355746623293">"Дасягнуты ліміт колькасці профіляў"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
-      <item quantity="one">Можна стварыць толькі <xliff:g id="COUNT">%d</xliff:g> профіль.</item>
-      <item quantity="few">Можна стварыць толькі <xliff:g id="COUNT">%d</xliff:g> профілі.</item>
-      <item quantity="many">Можна стварыць толькі <xliff:g id="COUNT">%d</xliff:g> профіляў.</item>
-      <item quantity="other">Можна стварыць толькі <xliff:g id="COUNT">%d</xliff:g> профілю.</item>
-    </plurals>
+    <string name="user_limit_reached_message" msgid="2773441357248819721">"{count,plural, =1{Можна стварыць толькі адзін профіль.}one{Можна стварыць толькі # профіль.}few{Можна стварыць толькі # профілі.}many{Можна стварыць толькі # профіляў.}other{Можна стварыць толькі # профілю.}}"</string>
     <string name="add_user_error_title" msgid="7589792057846396341">"Не ўдалося стварыць новы профіль"</string>
     <string name="delete_user_dialog_title" msgid="575517556232943687">"Выдаліць гэты профіль?"</string>
     <string name="delete_user_dialog_message" msgid="3916865958419051299">"Усе праграмы і даныя для гэтага профілю будуць выдалены"</string>
-    <string name="delete_user_error_title" msgid="6422249596301690254">"Не ўдалося выдаліць профіль."</string>
+    <string name="delete_user_error_title" msgid="287249031795906102">"Профіль не выдалены. Перазапусціце прыладу і паўтарыце спробу."</string>
     <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"Пры пераключэнні на іншы профіль або перазапуску аўтамабіля гэты профіль будзе выдалены."</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"Закрыць"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"Паўтарыць"</string>
@@ -633,6 +648,7 @@
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"Як нарысаваць узор разблакіроўкі"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"Памылка захавання ўзору разблакіроўкі"</string>
     <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"Занадта шмат няўдалых спроб. Паспрабуйце яшчэ раз праз <xliff:g id="NUMBER">%d</xliff:g> с."</string>
+    <string name="lockpattern_does_not_support_rotary" msgid="7356367113555659428">"Паваротны рэгулятар не падтрымліваецца, выкарыстайце сэнсарны ўвод"</string>
     <string name="okay" msgid="4589873324439764349">"ОК"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"Зняць блакіроўку экрана?"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"Доступ да вашага ўліковага запісу зможа атрымаць любы чалавек"</string>
@@ -664,42 +680,6 @@
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"IT-адміністратар блакіруе папулярныя PIN-коды. Паспрабуйце іншы PIN-код."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"Выкарыстанне недапушчальных сімвалаў."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"Няправільны пароль. Мінімальная колькасць сімвалаў: 4"</string>
-    <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
-      <item quantity="one">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> літару</item>
-      <item quantity="few">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> літары</item>
-      <item quantity="many">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> літар</item>
-      <item quantity="other">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> літары</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_lowercase" formatted="false" msgid="2267487180744744833">
-      <item quantity="one">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> малую літару</item>
-      <item quantity="few">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> малыя літары</item>
-      <item quantity="many">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> малых літар</item>
-      <item quantity="other">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> малой літары</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_uppercase" formatted="false" msgid="7999264563026517898">
-      <item quantity="one">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> вялікую літару</item>
-      <item quantity="few">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> вялікія літары</item>
-      <item quantity="many">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> вялікіх літар</item>
-      <item quantity="other">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> вялікай літары</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_numeric" formatted="false" msgid="7935079851855168646">
-      <item quantity="one">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> лічбу</item>
-      <item quantity="few">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> лічбы</item>
-      <item quantity="many">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> лічбаў</item>
-      <item quantity="other">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> лічбы</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_symbols" formatted="false" msgid="3994046435150094132">
-      <item quantity="one">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> спецыяльны сімвал</item>
-      <item quantity="few">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> спецыяльныя сімвалы</item>
-      <item quantity="many">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> спецыяльных сімвалаў</item>
-      <item quantity="other">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> спецыяльнага сімвала</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="6878486326748506524">
-      <item quantity="one">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> сімвал, які не з\'яўляецца літарай</item>
-      <item quantity="few">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> сімвалы, якія не з\'яўляюцца літарамі</item>
-      <item quantity="many">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> сімвалаў, якія не з\'яўляюцца літарамі</item>
-      <item quantity="other">Павінен змяшчаць не менш за <xliff:g id="COUNT">%d</xliff:g> сімвала, якія не з\'яўляюцца літарамі</item>
-    </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Адміністратар прылады не дазваляе выкарыстоўваць апошні пароль"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Памылка захавання пароля"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"IT-адміністратар блакіруе папулярныя паролі. Паспрабуйце іншы пароль."</string>
@@ -742,5 +722,66 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"Дадаць профіль"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"Выдаліць гэты профіль"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"Дадаць профіль"</string>
+    <string name="qc_display_brightness" msgid="2939655289816201170">"Яркасць дысплэя"</string>
+    <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"Каб пабачыць прылады, уключыце Bluetooth"</string>
+    <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"Каб спалучыць прыладу, адкрыйце налады Bluetooth"</string>
+    <string name="device_admin_add_title" msgid="1294399588284546811">"Адміністратар інфармацыйна-забаўляльнай сістэмы"</string>
+    <string name="device_admin_activated_apps" msgid="568075063362271751">"Актываваныя праграмы"</string>
+    <string name="device_admin_deactivated_apps" msgid="3797263682500122872">"Адключаныя праграмы"</string>
+    <string name="device_admin_apps_description" msgid="1371935499168453457">"Праграмы з гэтым дазволам маюць доступ да даных аўтамабіля"</string>
+    <string name="device_admin_apps_list_empty" msgid="7634804595645191123">"Няма праграм адміністратара аўтамабіля"</string>
+    <string name="device_admin_status" msgid="4041772636856135168">"Праграма адміністратара інфармацыйна-забаўляльнай сістэмы актыўная і дазваляе праграме \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" выконваць наступныя дзеянні:"</string>
+    <string name="device_admin_warning" msgid="8997805999333600901">"Актывацыя гэтай праграмы інфармацыйна-забаўляльнай сістэмы дазволіць праграме \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" выконваць наступныя дзеянні:"</string>
+    <string name="add_device_admin_msg" msgid="8188888666879499482">"Актываваць гэту праграму?"</string>
+    <string name="add_device_admin" msgid="7674707256074840333">"Актываваць гэту праграму інфармацыйна-забаўляльнай сістэмы"</string>
+    <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Дэактываваць і выдаліць"</string>
+    <string name="remove_device_admin" msgid="3595343390502030723">"Адключыць гэту праграму інфармацыйна-забаўляльнай сістэмы"</string>
+    <string name="admin_support_more_info" msgid="380785608579390750">"Дадатковая інфармацыя"</string>
+    <string name="admin_profile_owner_message" msgid="8361351256802954556">"Менеджар арганізацыі можа адсочваць праграмы і даныя, звязаныя з гэтым профілем (у тым ліку налады, дазволы, параметры карпаратыўнага доступу, дзеянні ў сетцы і месцазнаходжанне аўтамабіля), і кіраваць імі."</string>
+    <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Менеджар арганізацыі можа адсочваць праграмы і даныя, звязаныя з гэтым профілем (у тым ліку налады, дазволы, параметры карпаратыўнага доступу, дзеянні ў сетцы і месцазнаходжанне прылады), і кіраваць імі."</string>
+    <string name="admin_device_owner_message" msgid="896530502350904835">"Менеджар арганізацыі можа адсочваць праграмы і даныя, звязаныя з гэтай інфармацыйна-забаўляльнай сістэмай (у тым ліку налады, дазволы, параметры карпаратыўнага доступу, сеткавую актыўнасць і месцазнаходжанне аўтамабіля) і кіраваць імі."</string>
+    <string name="admin_financed_message" msgid="7357397436233684082">"Менеджар арганізацыі можа мець магчымасць кіраваць праграмамі, мець доступ да даных, звязаных з гэтай інфармацыйна-забаўляльнай сістэмай, і змяняць налады аўтамабіля."</string>
+    <string name="disabled_by_policy_title" msgid="1121694702115232518">"Гэта налада недаступная"</string>
+    <string name="disabled_by_policy_title_adjust_volume" msgid="7002865820552702232">"У гэтым аўтамабілі пад кіраваннем нельга змяняць гучнасць"</string>
+    <string name="disabled_by_policy_title_outgoing_calls" msgid="158752542663419500">"У гэтым аўтамабілі пад кіраваннем нельга рабіць выклікі"</string>
+    <string name="disabled_by_policy_title_sms" msgid="3044491214572494290">"У гэтым аўтамабілі пад кіраваннем нельга адпраўляць SMS"</string>
+    <string name="disabled_by_policy_title_camera" msgid="8929782627587059121">"У гэтым аўтамабілі пад кіраваннем камера недаступная"</string>
+    <string name="disabled_by_policy_title_screen_capture" msgid="4059715943558852466">"У гэтым аўтамабілі пад кіраваннем нельга рабіць здымкі экрана"</string>
+    <string name="disabled_by_policy_title_suspend_packages" msgid="7505332012990359725">"У гэтым аўтамабілі пад кіраваннем нельга адкрываць дадзеную праграму"</string>
+    <string name="disabled_by_policy_title_financed_device" msgid="6005343494788285981">"Заблакіравана кампаніяй-крэдыторам"</string>
+    <string name="default_admin_support_msg" msgid="2986598061733013282">"Арганізацыя абмежавала доступ да пэўных функцый.\n\nКалі ў вас ёсць пытанні, звярніцеся да менеджара арганізацыі."</string>
+    <string name="help_url_action_disabled_by_it_admin" msgid="1479392394986580260"></string>
+    <string name="manage_device_admin" msgid="7087659697154317316">"Праграмы для адміністратара аўтамабіля"</string>
+    <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# актываваная праграма}one{# актываваная праграма}few{# актываваныя праграмы}many{# актываваных праграм}other{# актываванай праграмы}}"</string>
+    <string name="number_of_device_admins_none" msgid="5547493703413973954">"Няма актываваных праграм"</string>
+    <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Палітыка кампаніі \"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>\" адносна транспартных сродкаў"</string>
+    <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Налады, якімі кіруе менеджар арганізацыі"</string>
+    <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Даведацца больш пра сэрвіс \"<xliff:g id="SERVICE">%1$s</xliff:g>\""</string>
+    <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Абагуліць справаздачу пра памылку?"</string>
+    <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Менеджар арганізацыі, якой належыць гэты аўтамабіль, запытаў справаздачу пра памылку, каб выкарыстаць яе для пошуку і выпраўлення непаладак. Ён можа атрымаць доступ да праграм і даных."</string>
+    <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Менеджар арганізацыі, якой належыць гэты аўтамабіль, запытаў справаздачу пра памылку, каб выкарыстаць яе для пошуку і выпраўлення непаладак. Ён можа атрымаць доступ да праграм і даных, а хуткасць работы прылады можа часова знізіцца."</string>
+    <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Гэта справаздача пра памылку абагульваецца з менеджарам арганізацыі, якой належыць гэты аўтамабіль. Каб даведацца больш, звяжыцеся з менеджарам."</string>
+    <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Абагуліць"</string>
+    <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Адхіліць"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Гэту наладу зараз нельга змяніць"</string>
+    <string name="accessibility_settings_title" msgid="2615042088419230347">"Спецыяльныя магчымасці"</string>
+    <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Субцітры"</string>
+    <string name="captions_settings_title" msgid="5738067618097295831">"Налады субцітраў"</string>
+    <string name="captions_settings_off" msgid="7568096968016015626">"Функцыя выключана"</string>
+    <string name="captions_settings_on" msgid="5374984113566914978">"Функцыя ўключана"</string>
+    <string name="screen_reader_settings_title" msgid="4012734340987826872">"Праграма чытання з экрана"</string>
+    <string name="show_captions_toggle_title" msgid="710582308974826311">"Паказваць субцітры"</string>
+    <string name="captions_text_size_title" msgid="1960814652560877963">"Памер тэксту"</string>
+    <string name="captions_settings_style_header" msgid="944591388386054372">"Памер і стыль субцітраў"</string>
+    <string name="captions_settings_text_size_very_small" msgid="7476485317028306502">"Вельмі маленькі"</string>
+    <string name="captions_settings_text_size_small" msgid="1481895299805450566">"Маленькі"</string>
+    <string name="captions_settings_text_size_default" msgid="2227802573224038267">"Стандартна"</string>
+    <string name="captions_settings_text_size_large" msgid="5198207220911360512">"Вялікі"</string>
+    <string name="captions_settings_text_size_very_large" msgid="949511539689307969">"Вельмі вялікі"</string>
+    <string name="captions_text_style_title" msgid="8547777957403577760">"Стыль субцітраў"</string>
+    <string name="captions_settings_text_style_by_app" msgid="7014882290456996444">"Зададзена праграмай"</string>
+    <string name="captions_settings_text_style_white_on_black" msgid="5758084000323596070">"Белы тэкст на чорным фоне"</string>
+    <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Чорны тэкст на белым фоне"</string>
+    <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Жоўты тэкст на чорным фоне"</string>
+    <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Жоўты тэкст на сінім фоне"</string>
 </resources>

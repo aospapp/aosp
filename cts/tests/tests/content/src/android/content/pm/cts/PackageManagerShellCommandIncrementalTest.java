@@ -154,10 +154,17 @@ public class PackageManagerShellCommandIncrementalTest {
     public void testAndroid12RequiresIncFsV2() throws Exception {
         // IncFS is a kernel feature, which is a subject to vendor freeze. That's why
         // the test verifies the vendor API level here, not the system's one.
-        final boolean v2Required = PropertyUtil.isVendorApiLevelNewerThan(30);
+        // Note: vendor API level getter returns either the frozen API level, or the current one for
+        //  non-vendor-freeze devices; need to verify both the system first API level and vendor
+        //  level to make the final decision.
+        final boolean v2ReqdForSystem = PropertyUtil.getFirstApiLevel() > 30;
+        final boolean v2ReqdForVendor = PropertyUtil.isVendorApiLevelNewerThan(30);
+        final boolean v2Required = v2ReqdForSystem && v2ReqdForVendor;
         if (v2Required) {
-            Assert.assertTrue(getPackageManager().hasSystemFeature(
-                    PackageManager.FEATURE_INCREMENTAL_DELIVERY, 2));
+            Assert.assertTrue("Devices launched at API 31+ with a vendor partition of API 31+ need "
+                    + "to support Incremental Delivery version 2 or higher",
+                    getPackageManager().hasSystemFeature(
+                        PackageManager.FEATURE_INCREMENTAL_DELIVERY, 2));
         }
     }
 
@@ -934,10 +941,15 @@ public class PackageManagerShellCommandIncrementalTest {
     }
 
     static boolean isAppInstalled(String packageName) throws IOException {
-        final String commandResult = executeShellCommand("pm list packages");
-        final int prefixLength = "package:".length();
+        return isAppInstalledForUser(packageName, -1);
+    }
+
+    static boolean isAppInstalledForUser(String packageName, int userId) throws IOException {
+        final String command = userId < 0 ? "pm list packages " + packageName :
+                "pm list packages --user " + userId + " " + packageName;
+        final String commandResult = executeShellCommand(command);
         return Arrays.stream(commandResult.split("\\r?\\n"))
-                .anyMatch(line -> line.substring(prefixLength).equals(packageName));
+                .anyMatch(line -> line.equals("package:" + packageName));
     }
 
     private String getSplits(String packageName) throws IOException {

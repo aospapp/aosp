@@ -88,6 +88,11 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
             new ActivityTestRule<>(ImmersiveFullscreenTestActivity.class,
                     false /* initialTouchMode */, false /* launchActivity */);
 
+    @Rule
+    public final ActivityTestRule<NaturalOrientationTestActivity> mNaturalOrientationTestActivity =
+            new ActivityTestRule<>(NaturalOrientationTestActivity.class,
+                    false /* initialTouchMode */, false /* launchActivity */);
+
     @Before
     @Override
     public void setUp() throws Exception {
@@ -124,6 +129,7 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
         assumeTrue("Skipping test: no split multi-window support",
                 supportsSplitScreenMultiWindow());
 
+        launchAndWait(mNaturalOrientationTestActivity);
         mWmState.computeState(new ComponentName[] {});
         final boolean naturalOrientationPortrait =
                 mWmState.getDisplay(DEFAULT_DISPLAY)
@@ -355,5 +361,8 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
                     | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                     | View.SYSTEM_UI_FLAG_FULLSCREEN);
         }
+    }
+
+    public static class NaturalOrientationTestActivity extends TestActivity {
     }
 }

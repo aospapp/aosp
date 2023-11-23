@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="wifiResourcesAppLabel" product="default" msgid="3120115613525263696">"சிஸ்டம் வைஃபை ஆதாரங்கள்"</string>
+    <string name="wifiResourcesAppLabel" product="default" msgid="3120115613525263696">"சிஸ்டம் வைஃபை தொடர்பானவை"</string>
     <string name="wifi_available_title" msgid="3899472737467127635">"திறந்த வைஃபை நெட்வொர்க்குடன் இணைக்கவும்"</string>
     <string name="wifi_available_title_connecting" msgid="7233590022728579868">"வைஃபை நெட்வொர்க்குடன் இணைக்கிறது"</string>
     <string name="wifi_available_title_connected" msgid="6329493859989844201">"வைஃபை நெட்வொர்க்குடன் இணைக்கப்பட்டது"</string>

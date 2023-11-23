@@ -39,9 +39,9 @@ import java.util.Objects;
  * Class to handle Silent Mode and Non-Silent Mode.
  *
  * <p>This monitors {@code /sys/power/pm_silentmode_hw_state} to figure out when to switch to Silent
- * Mode and updates {@code /sys/power/pm_silentmode_kernel} to tell early-init services about Silent
- * Mode change. Also, it handles forced Silent Mode for testing purpose, which is given through
- * reboot reason.
+ * Mode and updates {@code /sys/power/pm_silentmode_kernel_state} to tell early-init services about
+ * Silent Mode change. Also, it handles forced Silent Mode for testing purpose, which is given
+ * through reboot reason.
  */
 final class SilentModeHandler {
     static final String SILENT_MODE_FORCED_SILENT = "forced-silent";
@@ -53,7 +53,7 @@ final class SilentModeHandler {
     private static final String SYSFS_FILENAME_HW_STATE_MONITORING =
             "/sys/power/pm_silentmode_hw_state";
     private static final String SYSFS_FILENAME_KERNEL_SILENTMODE =
-            "/sys/power/pm_silentmode_kernel";
+            "/sys/power/pm_silentmode_kernel_state";
     private static final String VALUE_SILENT_MODE = "1";
     private static final String VALUE_NON_SILENT_MODE = "0";
     private static final String SYSTEM_BOOT_REASON = "sys.boot.reason";

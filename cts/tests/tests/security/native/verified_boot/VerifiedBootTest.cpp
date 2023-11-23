@@ -28,23 +28,14 @@
 // The relevant Android API levels
 constexpr auto S_API_LEVEL = 31;
 
-static int getFirstApiLevel() {
-  int level = android::base::GetIntProperty("ro.product.first_api_level", 0);
-  if (level == 0) {
-    level = android::base::GetIntProperty("ro.build.version.sdk", 0);
-  }
-  if (level == 0) {
-    ADD_FAILURE() << "Failed to determine first API level";
-  }
-  return level;
-}
-
 // As required by CDD, verified boot MUST use verification algorithms as strong
 // as current recommendations from NIST for hashing algorithms (SHA-256).
 // https://source.android.com/compatibility/11/android-11-cdd#9_10_device_integrity
 TEST(VerifiedBootTest, avbHashtreeNotUsingSha1) {
   int first_api_level = getFirstApiLevel();
+  int vendor_api_level = getVendorApiLevel();
   GTEST_LOG_(INFO) << "First API level is " << first_api_level;
+  GTEST_LOG_(INFO) << "Vendor API level is " << vendor_api_level;
   if (first_api_level < S_API_LEVEL) {
     GTEST_LOG_(INFO)
         << "Exempt from avb hash tree test due to old starting API level";
@@ -52,12 +43,16 @@ TEST(VerifiedBootTest, avbHashtreeNotUsingSha1) {
   }
 
   // This feature name check only applies to devices that first shipped with
-  // SC or later. The check above already screens out pre-S devices.
-  if(!deviceSupportsFeature("android.hardware.security.model.compatible")) {
+  // SC or later.
+  int min_api_level = (first_api_level < vendor_api_level) ? first_api_level
+                                                           : vendor_api_level;
+  if (min_api_level >= S_API_LEVEL &&
+      !deviceSupportsFeature("android.hardware.security.model.compatible")) {
       GTEST_SKIP()
           << "Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.";
-    return;
+      return;
   }
+
   android::fs_mgr::Fstab fstab;
   ASSERT_TRUE(ReadDefaultFstab(&fstab)) << "Failed to read default fstab";
 

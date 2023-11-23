@@ -17,5 +17,14 @@
 package android.sensorprivacy.cts
 
 import android.hardware.SensorPrivacyManager.Sensors.CAMERA
+import android.hardware.camera2.CameraManager
+import org.junit.Assume
 
-class SensorPrivacyCameraTest : SensorPrivacyBaseTest(CAMERA, USE_CAM_EXTRA)
+class SensorPrivacyCameraTest : SensorPrivacyBaseTest(CAMERA, USE_CAM_EXTRA) {
+
+    override fun init() {
+        val cameraManager: CameraManager = context.getSystemService(CameraManager::class.java)!!
+        Assume.assumeTrue("No camera available", cameraManager.cameraIdList.isNotEmpty())
+        super.init()
+    }
+}

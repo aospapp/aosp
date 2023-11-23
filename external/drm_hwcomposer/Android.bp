@@ -38,8 +38,8 @@ cc_library_static {
     srcs: ["utils/Worker.cpp"],
 
     include_dirs: [
-        "external/drm_hwcomposer/include",
         "external/drm_hwcomposer",
+        "external/drm_hwcomposer/include",
     ],
 
     cflags: [
@@ -69,8 +69,8 @@ cc_defaults {
     ],
 
     include_dirs: [
-        "external/drm_hwcomposer/include",
         "external/drm_hwcomposer",
+        "external/drm_hwcomposer/include",
     ],
 
     static_libs: ["libdrmhwc_utils"],
@@ -81,8 +81,8 @@ cc_defaults {
     ],
 
     cppflags: [
-        "-DHWC2_USE_CPP11",
         "-DHWC2_INCLUDE_STRINGIFICATION",
+        "-DHWC2_USE_CPP11",
     ],
 
     product_variables: {
@@ -94,6 +94,7 @@ cc_defaults {
     relative_install_path: "hw",
     vendor: true,
 }
+
 cc_library_static {
     name: "drm_hwcomposer",
     defaults: ["hwcomposer.drm_defaults"],
@@ -112,7 +113,7 @@ cc_library_static {
         "drm/DrmDevice.cpp",
         "drm/DrmEncoder.cpp",
         "drm/DrmEventListener.cpp",
-        "drm/DrmGenericImporter.cpp",
+        "drm/DrmFbImporter.cpp",
         "drm/DrmMode.cpp",
         "drm/DrmPlane.cpp",
         "drm/DrmProperty.cpp",
@@ -122,9 +123,9 @@ cc_library_static {
         "utils/autolock.cpp",
         "utils/hwcutils.cpp",
 
-        "backend/BackendManager.cpp",
         "backend/Backend.cpp",
         "backend/BackendClient.cpp",
+        "backend/BackendManager.cpp",
         "backend/BackendRCarDu.cpp",
     ],
 }

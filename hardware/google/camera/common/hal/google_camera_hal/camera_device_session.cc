@@ -37,6 +37,12 @@
 namespace android {
 namespace google_camera_hal {
 
+constexpr char kMeasureBufferAllocationProp[] =
+    "persist.vendor.camera.measure_buffer_allocation";
+
+static constexpr int64_t kNsPerSec = 1000000000;
+static constexpr int64_t kAllocationThreshold = 33000000;  // 33ms
+
 std::vector<CaptureSessionEntryFuncs>
     CameraDeviceSession::kCaptureSessionEntries = {
         {.IsStreamConfigurationSupported =
@@ -399,6 +405,10 @@ status_t CameraDeviceSession::Initialize(
     ALOGE("%s: device_session_hwl cannot be nullptr.", __FUNCTION__);
     return BAD_VALUE;
   }
+  measure_buffer_allocation_time_ =
+      property_get_bool(kMeasureBufferAllocationProp, false);
+  ALOGI("%s: measure buffer allocation time: %d ", __FUNCTION__,
+        measure_buffer_allocation_time_);
 
   camera_id_ = device_session_hwl->GetCameraId();
   device_session_hwl_ = std::move(device_session_hwl);
@@ -1788,9 +1798,32 @@ status_t CameraDeviceSession::RequestStreamBuffers(
 
   BufferRequestStatus status = BufferRequestStatus::kOk;
   {
+    int64_t start_timestamp;
     std::shared_lock lock(session_callback_lock_);
+    if (measure_buffer_allocation_time_) {
+      struct timespec start_time;
+      if (clock_gettime(CLOCK_BOOTTIME, &start_time)) {
+        ALOGE("%s: Getting start_time failed.", __FUNCTION__);
+      } else {
+        start_timestamp = start_time.tv_sec * kNsPerSec + start_time.tv_nsec;
+      }
+    }
     status = session_callback_.request_stream_buffers(buffer_requests,
                                                       &buffer_returns);
+    if (measure_buffer_allocation_time_) {
+      int64_t end_timestamp;
+      struct timespec end_time;
+      if (clock_gettime(CLOCK_BOOTTIME, &end_time)) {
+        ALOGE("%s: Getting end_time failed.", __FUNCTION__);
+      } else {
+        end_timestamp = end_time.tv_sec * kNsPerSec + end_time.tv_nsec;
+        int64_t elapsed_timestamp = end_timestamp - start_timestamp;
+        if (elapsed_timestamp > kAllocationThreshold) {
+          ALOGW("%s: buffer allocation time: %" PRIu64 " ms", __FUNCTION__,
+                elapsed_timestamp / 1000000);
+        }
+      }
+    }
   }
 
   // need this information when status is not kOk

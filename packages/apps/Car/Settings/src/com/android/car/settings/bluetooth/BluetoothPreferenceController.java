@@ -47,7 +47,7 @@ import com.android.settingslib.bluetooth.LocalBluetoothManager;
 public abstract class BluetoothPreferenceController<V extends Preference> extends
         PreferenceController<V> implements BluetoothCallback {
 
-    private final LocalBluetoothManager mBluetoothManager;
+    protected final LocalBluetoothManager mBluetoothManager;
     private final UserManager mUserManager;
 
     public BluetoothPreferenceController(Context context, String preferenceKey,

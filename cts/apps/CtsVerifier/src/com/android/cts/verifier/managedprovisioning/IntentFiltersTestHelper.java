@@ -228,9 +228,7 @@ public class IntentFiltersTestHelper {
         }
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
-            forwardedIntentsFromManaged.addAll(Arrays.asList(
-                    new Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION),
-                    new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)));
+            forwardedIntentsFromManaged.add(new Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION));
         }
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_LOCATION)) {

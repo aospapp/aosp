@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,11 +30,8 @@ import java.util.regex.Pattern;
  * Class encapsulating a version with major, minor, patch and description values. Copied from
  * androidx.window.Version.
  */
-final class Version implements Comparable<Version> {
-    static final Version UNKNOWN = new Version(0, 0, 0, "");
-    static final Version VERSION_0_1 = new Version(0, 1, 0, "");
-    static final Version VERSION_1_0 = new Version(1, 0, 0, "");
-    static final Version CURRENT = VERSION_1_0;
+public final class Version implements Comparable<Version> {
+    public static final Version UNKNOWN = new Version(0, 0, 0, "");
 
     private static final String VERSION_PATTERN_STRING =
             "(\\d+)(?:\\.(\\d+))(?:\\.(\\d+))(?:-(.+))?";
@@ -46,7 +43,7 @@ final class Version implements Comparable<Version> {
     // Cached BigInteger value of the version.
     private BigInteger mBigInteger;
 
-    private Version(int major, int minor, int patch, String description) {
+    public Version(int major, int minor, int patch, String description) {
         mMajor = major;
         mMinor = minor;
         mPatch = patch;
@@ -61,7 +58,7 @@ final class Version implements Comparable<Version> {
      * @return the parsed Version object or {@code null}> if the versionString format is invalid.
      */
     @Nullable
-    static Version parse(String versionString) {
+    public static Version parse(String versionString) {
         if (TextUtils.isEmpty(versionString)) {
             return null;
         }
@@ -79,7 +76,7 @@ final class Version implements Comparable<Version> {
     }
 
     /** Checks whether the version is in the correct format. */
-    static boolean isValidVersion(String versionString) {
+    public static boolean isValidVersion(String versionString) {
         Matcher matcher = Pattern.compile(VERSION_PATTERN_STRING).matcher(versionString);
         return matcher.matches();
     }
@@ -103,7 +100,8 @@ final class Version implements Comparable<Version> {
     @NonNull
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder(getMajor())
+        final StringBuilder sb = new StringBuilder()
+                .append(getMajor())
                 .append(".")
                 .append(getMinor())
                 .append(".")

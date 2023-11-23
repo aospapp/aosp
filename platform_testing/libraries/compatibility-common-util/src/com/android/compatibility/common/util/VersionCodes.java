@@ -49,5 +49,5 @@ public class VersionCodes {
     public static final int Q = 29;
     public static final int R = 30;
     public static final int S = 31;
-
+    public static final int S_V2 = 32;
 }

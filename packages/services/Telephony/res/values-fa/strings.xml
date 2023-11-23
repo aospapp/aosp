@@ -317,7 +317,7 @@
     <string name="throttle_current_usage" msgid="7483859109708658613">"داده‌های مورد استفاده در دوره زمانی فعلی"</string>
     <string name="throttle_time_frame" msgid="1813452485948918791">"مدت زمان مصرف داده"</string>
     <string name="throttle_rate" msgid="7641913901133634905">"قانون نرخ داده"</string>
-    <string name="throttle_help" msgid="2624535757028809735">"بیشتر بیاموزید"</string>
+    <string name="throttle_help" msgid="2624535757028809735">"بیشتر بدانید"</string>
     <string name="throttle_status_subtext" msgid="1110276415078236687">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) از <xliff:g id="USED_2">%3$s</xliff:g> حداکثر مدت زمان\nمدت زمان بعدی در فاصله <xliff:g id="USED_3">%4$d</xliff:g> روز (<xliff:g id="USED_4">%5$s</xliff:g>) شروع می‌شود."</string>
     <string name="throttle_data_usage_subtext" msgid="3185429653996709840">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) از حداکثر مدت زمان <xliff:g id="USED_2">%3$s</xliff:g>"</string>
     <string name="throttle_data_rate_reduced_subtext" msgid="8369839346277847725">"<xliff:g id="USED_0">%1$s</xliff:g> بیش از حداکثر مجاز\nنرخ داده به <xliff:g id="USED_1">%2$d</xliff:g> کیلو بیت در ثانیه کاهش یافت"</string>

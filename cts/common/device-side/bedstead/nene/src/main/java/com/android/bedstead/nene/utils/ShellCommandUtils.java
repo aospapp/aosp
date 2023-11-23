@@ -83,10 +83,7 @@ public final class ShellCommandUtils {
         logCommand(command, allowEmptyOutput, stdInBytes);
 
         if (!Versions.meetsMinimumSdkVersionRequirement(S)) {
-            if (stdInBytes != null && stdInBytes.length > 0) {
-                throw new IllegalStateException("Cannot write to stdIn prior to S");
-            }
-            return executeCommandPreS(command, allowEmptyOutput);
+            return executeCommandPreS(command, allowEmptyOutput, stdInBytes);
         }
 
         // TODO(scottjonathan): Add argument to force errors to stderr
@@ -124,11 +121,7 @@ public final class ShellCommandUtils {
         logCommand(command, /* allowEmptyOutput= */ false, stdInBytes);
 
         if (!Versions.meetsMinimumSdkVersionRequirement(S)) {
-            if (stdInBytes != null && stdInBytes.length > 0) {
-                throw new IllegalStateException("Cannot write to stdIn prior to S");
-            }
-
-            return executeCommandForBytesPreS(command);
+            return executeCommandForBytesPreS(command, stdInBytes);
         }
 
         // TODO(scottjonathan): Add argument to force errors to stderr
@@ -217,10 +210,14 @@ public final class ShellCommandUtils {
     }
 
     private static String executeCommandPreS(
-            String command, boolean allowEmptyOutput) throws AdbException {
-        ParcelFileDescriptor fdOut = uiAutomation().executeShellCommand(command);
+            String command, boolean allowEmptyOutput, byte[] stdIn) throws AdbException {
+        ParcelFileDescriptor[] fds = uiAutomation().executeShellCommandRw(command);
+        ParcelFileDescriptor fdOut = fds[OUT_DESCRIPTOR_INDEX];
+        ParcelFileDescriptor fdIn = fds[IN_DESCRIPTOR_INDEX];
 
         try {
+            writeStdInAndClose(fdIn, stdIn);
+
             try (FileInputStream fis = new ParcelFileDescriptor.AutoCloseInputStream(fdOut)) {
                 String out = new String(FileUtils.readInputStreamFully(fis));
 
@@ -242,10 +239,17 @@ public final class ShellCommandUtils {
         }
     }
 
-    private static byte[] executeCommandForBytesPreS(String command) throws AdbException {
-        ParcelFileDescriptor fdOut = uiAutomation().executeShellCommand(command);
+    // This is warned for executeShellCommandRw which did exist as TestApi
+    @SuppressWarnings("NewApi")
+    private static byte[] executeCommandForBytesPreS(
+            String command, byte[] stdInBytes) throws AdbException {
+        ParcelFileDescriptor[] fds = uiAutomation().executeShellCommandRw(command);
+        ParcelFileDescriptor fdOut = fds[OUT_DESCRIPTOR_INDEX];
+        ParcelFileDescriptor fdIn = fds[IN_DESCRIPTOR_INDEX];
 
         try {
+            writeStdInAndClose(fdIn, stdInBytes);
+
             try (FileInputStream fis = new ParcelFileDescriptor.AutoCloseInputStream(fdOut)) {
                 return FileUtils.readInputStreamFully(fis);
             }

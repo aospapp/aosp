@@ -27,10 +27,10 @@
 #include "realtime_zsl_request_processor.h"
 #include "realtime_zsl_result_processor.h"
 #include "request_processor.h"
-#include "result_dispatcher.h"
 #include "result_processor.h"
 #include "snapshot_request_processor.h"
 #include "snapshot_result_processor.h"
+#include "zsl_result_dispatcher.h"
 
 namespace android {
 namespace google_camera_hal {
@@ -157,7 +157,7 @@ class ZslSnapshotCaptureSession : public CaptureSession {
 
   int32_t additional_stream_id_ = -1;
 
-  std::unique_ptr<ResultDispatcher> result_dispatcher_;
+  std::unique_ptr<ZslResultDispatcher> result_dispatcher_;
 
   std::mutex callback_lock_;
   // The following callbacks must be protected by callback_lock_.

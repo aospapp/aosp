@@ -17,7 +17,7 @@
 package com.android.systemui.wmshell;
 
 import com.android.systemui.dagger.WMComponent;
-import com.android.systemui.dagger.WMSingleton;
+import com.android.wm.shell.dagger.WMSingleton;
 import com.android.wm.shell.RootTaskDisplayAreaOrganizer;
 
 import dagger.Subcomponent;

@@ -67,6 +67,8 @@ class CameraProvider {
       const std::vector<CameraIdAndStreamConfiguration>& configs,
       bool* is_supported);
 
+  status_t NotifyDeviceStateChange(google_camera_hal::DeviceState device_state);
+
  protected:
   CameraProvider() = default;
 

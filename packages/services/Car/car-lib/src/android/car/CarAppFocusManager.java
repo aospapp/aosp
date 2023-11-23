@@ -17,6 +17,7 @@
 package android.car;
 
 import android.annotation.IntDef;
+import android.annotation.Nullable;
 import android.annotation.TestApi;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -28,6 +29,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -217,6 +219,22 @@ public final class CarAppFocusManager extends CarManagerBase {
             return mService.getActiveAppTypes();
         } catch (RemoteException e) {
             return handleRemoteExceptionFromCarService(e, new int[0]);
+        }
+    }
+
+    /**
+     * Returns the package names of the current owner of a given application type, or {@code null}
+     * if there is no owner. This method might return more than one package name if the current
+     * owner uses the "android:sharedUserId" feature.
+     *
+     * @hide
+     */
+    @Nullable
+    public List<String> getAppTypeOwner(@AppFocusType int appType) {
+        try {
+            return mService.getAppTypeOwner(appType);
+        } catch (RemoteException e) {
+            return handleRemoteExceptionFromCarService(e, null);
         }
     }
 

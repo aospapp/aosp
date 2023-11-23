@@ -144,7 +144,7 @@
       <item quantity="other">ဖိုင်<xliff:g id="COUNT_1">%1$d</xliff:g> ဖိုင်ကို ဖျက်နေသည်။</item>
       <item quantity="one">ဖိုင်<xliff:g id="COUNT_0">%1$d</xliff:g> ဖိုင်ကို ဖျက်နေသည်။</item>
     </plurals>
-    <string name="undo" msgid="2902438994196400565">"တစ်ဆင့်နောက်ပြန်ပါ"</string>
+    <string name="undo" msgid="2902438994196400565">"နောက်ပြန်ရန်"</string>
     <string name="copy_preparing" msgid="4759516490222449324">"အသင့်ပြင်နေပါသည်..."</string>
     <string name="compress_preparing" msgid="7401605598969019696">"အသင့်ပြင်နေပါသည်..."</string>
     <string name="extract_preparing" msgid="4796626960061745796">"အသင့်ပြင်နေပါသည်..."</string>

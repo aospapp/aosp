@@ -23,6 +23,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
@@ -39,8 +40,15 @@ public class MoreSpecialAccessPreferenceController extends PreferenceController<
 
     public MoreSpecialAccessPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                context.getPackageManager());
+    }
+
+    @VisibleForTesting
+    MoreSpecialAccessPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            PackageManager packageManager) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        PackageManager packageManager = getContext().getPackageManager();
         String packageName = packageManager.getPermissionControllerPackageName();
         if (packageName != null) {
             Intent intent = new Intent(Intent.ACTION_MANAGE_SPECIAL_APP_ACCESSES).setPackage(

@@ -16,6 +16,7 @@
 
 package com.android.car.ui.paintbooth.caruirecyclerview;
 
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -34,16 +35,18 @@ import java.util.List;
 public class RecyclerViewAdapter extends
         RecyclerView.Adapter<RecyclerViewAdapter.RecyclerViewHolder> {
 
+    private final Context mContext;
     private List<String> mData;
 
-    public RecyclerViewAdapter(List<String> data) {
+    public RecyclerViewAdapter(Context context, List<String> data) {
+        this.mContext = context;
         this.mData = data;
     }
 
     @NonNull
     @Override
     public RecyclerViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        LayoutInflater inflator = LayoutInflater.from(parent.getContext());
+        LayoutInflater inflator = LayoutInflater.from(mContext);
         View view = inflator.inflate(R.layout.car_ui_recycler_view_list_item, parent, false);
         return new RecyclerViewHolder(view);
     }

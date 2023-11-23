@@ -112,10 +112,6 @@ public class AudioOutColdStartLatencyActivity
         return mColdStartlatencyMS;
     }
 
-    protected void stopAudio() {
-        stopAudioTest();
-    }
-
     void startOutTimer() {
         TimerTask task = new TimerTask() {
             public void run() {
@@ -125,16 +121,16 @@ public class AudioOutColdStartLatencyActivity
                         @Override
                         public void run() {
                             calcColdStartLatency(mPullTimestamp);
-                            showColdStartLatency();
                             stopAudioTest();
                             updateTestStateButtons();
+                            showColdStartLatency();
                             calcTestResult();
                         }
                     });
 
                 } else {
                     Log.e(TAG, "NO TIME STAMP");
-                    mResultsTxt.setText("NO TIME STAMP");
+                    mLatencyTxt.setText("NO TIME STAMP");
                 }
 
                 mTimer = null;
@@ -150,6 +146,16 @@ public class AudioOutColdStartLatencyActivity
             mTimer.cancel();
             mTimer = null;
         }
+    }
+
+    @Override
+    int getRequiredTimeMS() {
+        return LATENCY_MS_MUST;
+    }
+
+    @Override
+    int getRecommendedTimeMS() {
+        return LATENCY_MS_RECOMMEND;
     }
 
     //
@@ -177,7 +183,7 @@ public class AudioOutColdStartLatencyActivity
             mIsTestRunning = true;
         } catch (PlayerBuilder.BadStateException badStateException) {
             Log.e(TAG, "BadStateException: " + badStateException);
-            mResultsTxt.setText("Can't Start Player.");
+            mLatencyTxt.setText("Can't Start Player.");
             mIsTestRunning = false;
         }
 
@@ -198,6 +204,8 @@ public class AudioOutColdStartLatencyActivity
         }
 
         mPlayer.stopStream();
+        mPlayer.teardownStream();
+
         mIsTestRunning = false;
 
         stopOutTimer();

@@ -42,7 +42,7 @@
     <string name="permission_needed_allow_access_button_label" msgid="1943133660612924306">"Toegang toestaan"</string>
     <string name="no_backup_image_wallpaper_description" msgid="8303268619408738057">"Service voor interactieve achtergrond met roulerende achtergronden"</string>
     <string name="daily_refresh_tile_title" msgid="3270456074558525091">"Dagelijkse achtergrond"</string>
-    <string name="daily_refresh_tile_subtitle" msgid="3976682014885446443">"Tik om in te schakelen"</string>
+    <string name="daily_refresh_tile_subtitle" msgid="3976682014885446443">"Tik om aan te zetten"</string>
     <string name="start_rotation_dialog_body_live_wallpaper_needed" msgid="5132580257563846082">"De achtergrond wordt automatisch elke dag gewijzigd. Tik op het volgende scherm op &lt;strong&gt;Achtergrond instellen&lt;/strong&gt; om de configuratie te voltooien."</string>
     <string name="start_rotation_dialog_wifi_only_option_message" msgid="3126269859713666225">"Toekomstige achtergronden alleen downloaden via wifi"</string>
     <string name="start_rotation_dialog_continue" msgid="276678987852274872">"Doorgaan"</string>
@@ -52,8 +52,8 @@
     <string name="settings_button_label" msgid="8724734130079207955">"Instellingen"</string>
     <string name="explore" msgid="7468719504199497281">"Bekijken"</string>
     <string name="next_wallpaper" msgid="3911873152952596232">"Volgende achtergrond"</string>
-    <string name="wallpaper_disabled_message" msgid="7309484130562148185">"Het instellen van een achtergrond is uitgeschakeld op dit apparaat"</string>
-    <string name="wallpaper_disabled_by_administrator_message" msgid="1551430406714747884">"Het instellen van een achtergrond is uitgeschakeld door je apparaatbeheerder"</string>
+    <string name="wallpaper_disabled_message" msgid="7309484130562148185">"Het instellen van een achtergrond is uitgezet op dit apparaat"</string>
+    <string name="wallpaper_disabled_by_administrator_message" msgid="1551430406714747884">"Het instellen van een achtergrond is uitgezet door je apparaatbeheerder"</string>
     <string name="wallpaper_set_successfully_message" msgid="2958998799111688578">"Achtergrond is ingesteld"</string>
     <string name="wallpapers_unavailable_offline_message" msgid="8136405438621689532">"Je hebt verbinding met internet nodig om achtergronden te bekijken. Maak verbinding en probeer het opnieuw."</string>
     <string name="currently_set_home_wallpaper_thumbnail" msgid="4022381436821898917">"Thumbnail van momenteel ingestelde achtergrond voor startscherm"</string>
@@ -95,7 +95,14 @@
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Achtergrondvoorbeeld"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"De collectie bestaat niet"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Voorbeeld van UI verbergen"</string>
+    <string name="hint_hide_ui_preview" msgid="4527603797714586070">"UI verborgen in voorbeeld. Dubbeltik om zichtbaar te maken"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Voorbeeld van UI tonen"</string>
+    <string name="hint_show_ui_preview" msgid="2744155435325318349">"UI getoond in voorbeeld. Dubbeltik om te verbergen"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Achtergrond wijzigen"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Voorbeeld achtergrond vergrendelscherm"</string>
+    <string name="apply_btn" msgid="5764555565943538528">"Toepassen"</string>
+    <string name="accessibility_customize_hidden" msgid="6320568529768181691">"Aanpassen verborgen"</string>
+    <string name="accessibility_customize_shown" msgid="590964727831547651">"Aanpassen getoond"</string>
+    <string name="accessibility_info_hidden" msgid="2288603712350168107">"Informatie verborgen"</string>
+    <string name="accessibility_info_shown" msgid="6626025722456105632">"Informatie getoond"</string>
 </resources>

@@ -1,0 +1,3 @@
+# allow access to ALSA MMAP FDs for AAudio API
+allow audioserver audio_device:chr_file r_file_perms;
+allow audioserver audio_service:service_manager find;

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2021 The Android Open Source Project
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+<overlay>
+    <item target="layout/car_ui_alert_dialog_title_with_subtitle" value="@layout/car_ui_alert_dialog_title_with_subtitle"/>
+
+    <item target="id/car_ui_alert_icon" value="@id/car_ui_alert_icon"/>
+    <item target="id/car_ui_alert_title" value="@id/car_ui_alert_title"/>
+    <item target="id/car_ui_alert_subtitle" value="@id/car_ui_alert_subtitle"/>
+
+    <item target="dimen/car_ui_body1_size" value="@dimen/car_ui_body1_size"/>
+    <item target="dimen/car_ui_body3_size" value="@dimen/car_ui_body3_size"/>
+    <item target="dimen/alert_dialog_margin" value="@dimen/alert_dialog_margin"/>
+
+    <item target="drawable/car_ui_recyclerview_ic_up" value="@drawable/car_ui_recyclerview_ic_up" />
+    <item target="drawable/car_ui_recyclerview_ic_down" value="@drawable/car_ui_recyclerview_ic_down" />
+    <item target="drawable/car_ui_recyclerview_scrollbar_thumb" value="@drawable/car_ui_recyclerview_scrollbar_thumb" />
+    <item target="drawable/car_ui_activity_background" value="@drawable/car_ui_activity_background" />
+    <item target="drawable/car_ui_toolbar_menu_item_icon_background" value="@drawable/car_ui_toolbar_menu_item_icon_background" />
+
+    <item target="color/car_ui_text_color_primary" value="@color/car_ui_text_color_primary" />
+    <item target="color/car_ui_text_color_secondary" value="@color/car_ui_text_color_secondary" />
+    <item target="color/car_ui_toolbar_tab_item_selector" value="@color/car_ui_toolbar_tab_item_selector" />
+
+    <item target="drawable/car_ui_toolbar_background" value="@drawable/car_ui_toolbar_background" />
+    <item target="drawable/car_ui_toolbar_menu_item_divider" value="@drawable/car_ui_toolbar_menu_item_divider" />
+    <item target="drawable/car_ui_toolbar_menu_item_icon_ripple" value="@drawable/car_ui_toolbar_menu_item_icon_ripple" />
+    <item target="bool/car_ui_scrollbar_enable" value="@bool/car_ui_scrollbar_enable" />
+
+    <item target="style/TextAppearance_CarUi_AlertDialog_Title" value="@style/TextAppearance_CarUi_AlertDialog_Title" />
+    <item target="style/TextAppearance_CarUi_AlertDialog_Subtitle" value="@style/TextAppearance_CarUi_AlertDialog_Subtitle" />
+    <item target="style/TextAppearance.CarUi.PreferenceCategoryTitle" value="@style/TextAppearance.CarUi.PreferenceCategoryTitle" />
+    <item target="style/TextAppearance.CarUi.PreferenceSummary" value="@style/TextAppearance.CarUi.PreferenceSummary" />
+    <item target="style/TextAppearance.CarUi.PreferenceTitle" value="@style/TextAppearance.CarUi.PreferenceTitle" />
+    <item target="style/TextAppearance.CarUi.Widget" value="@style/TextAppearance.CarUi.Widget" />
+    <item target="style/TextAppearance.CarUi.Widget.Toolbar" value="@style/TextAppearance.CarUi.Widget.Toolbar" />
+    <item target="style/TextAppearance.CarUi.Widget.Toolbar.Title" value="@style/TextAppearance.CarUi.Widget.Toolbar.Title" />
+
+    <item target="attr/state_ux_restricted" value="@attr/state_ux_restricted"/>
+</overlay>

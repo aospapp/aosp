@@ -596,7 +596,7 @@
     <string name="hac_mode_summary" msgid="7774989500136009881">"Slå på kompatibilitet med høreapparater"</string>
     <string name="rtt_mode_title" msgid="3075948111362818043">"Sanntidstekst-anrop (STT)"</string>
     <string name="rtt_mode_summary" msgid="8631541375609989562">"Tillat meldingsutveksling i talesamtaler"</string>
-    <string name="rtt_mode_more_information" msgid="587500128658756318">"STT er til hjelp for brukere som er døve, tunghørte, har talefunksjonshemning eller trenger mer enn bare tale.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Finn ut mer&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; – STT-anrop lagres som meldingstranskripsjoner\n       &lt;br&gt; – STT er ikke tilgjengelig for videoanrop"</string>
+    <string name="rtt_mode_more_information" msgid="587500128658756318">"STT er til hjelp for brukere som er døve, hørselshemmede, har taleproblemer eller trenger mer enn bare tale.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Finn ut mer&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; – STT-anrop lagres som meldingstranskripsjoner\n       &lt;br&gt; – STT er ikke tilgjengelig for videoanrop"</string>
     <string name="no_rtt_when_roaming" msgid="5268008247378355389">"Merk: RTT er ikke tilgjengelig ved roaming"</string>
   <string-array name="tty_mode_entries">
     <item msgid="3238070884803849303">"TTY av"</item>

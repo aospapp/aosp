@@ -42,7 +42,7 @@
             android:gravity="center"
             android:textAppearance="?android:attr/textAppearanceMedium"/>
 
-        <com.android.internal.widget.LockPatternView
+        <com.android.car.settings.security.CarLockPatternView
             android:id="@+id/lockPattern"
             style="@style/LockPattern"
             android:layout_width="@dimen/confirm_pattern_dimension"

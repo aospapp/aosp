@@ -15,8 +15,11 @@
  */
 package com.android.car.ui.toolbar;
 
+import static com.android.car.ui.core.CarUi.TARGET_API_R;
 import static com.android.car.ui.utils.CarUiUtils.requireViewByRefId;
 
+import android.annotation.TargetApi;
+import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.text.Editable;
@@ -35,6 +38,7 @@ import androidx.annotation.NonNull;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.android.car.ui.R;
+import com.android.car.ui.utils.CarUxRestrictionsUtil;
 
 import java.util.Collections;
 import java.util.Set;
@@ -44,17 +48,23 @@ import java.util.function.Consumer;
  * A search view used by {@link Toolbar}.
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(TARGET_API_R)
 public class SearchView extends ConstraintLayout {
 
     private final InputMethodManager mInputMethodManager;
     private final SearchWidescreenController mSearchWidescreenController;
     private final ImageView mIcon;
     private final EditText mSearchText;
+    private CharSequence mSearchHint;
+    private boolean mIsRestricted;
     private final View mCloseIcon;
     private final int mStartPaddingWithoutIcon;
     private final int mStartPadding;
     private final int mEndPadding;
 
+    @NonNull
+    private final CarUxRestrictionsUtil.OnUxRestrictionsChangedListener mListener =
+            new UxRestrictionChangedListener();
     private Set<Consumer<String>> mSearchListeners = Collections.emptySet();
     private Set<Runnable> mSearchCompletedListeners =
             Collections.emptySet();
@@ -150,6 +160,18 @@ public class SearchView extends ConstraintLayout {
         }
     }
 
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        CarUxRestrictionsUtil.getInstance(getContext()).register(mListener);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        CarUxRestrictionsUtil.getInstance(getContext()).unregister(mListener);
+    }
+
     private boolean isEnter(KeyEvent event) {
         boolean result = false;
         if (event != null) {
@@ -223,6 +245,11 @@ public class SearchView extends ConstraintLayout {
      * @param hint A CharSequence of the search hint.
      */
     public void setHint(CharSequence hint) {
+        mSearchHint = hint;
+        if (mIsRestricted) {
+            return;
+        }
+
         mSearchText.setHint(hint);
     }
 
@@ -270,11 +297,49 @@ public class SearchView extends ConstraintLayout {
         }
     }
 
+    private void enableRestriction() {
+        mIsRestricted = true;
+
+        if (mSearchText == null) {
+            return;
+        }
+
+        mSearchText.setHint(mSearchText.getContext().getString(
+                R.string.car_ui_restricted_while_driving));
+        mSearchText.setEnabled(false);
+    }
+
+    private void disableRestriction() {
+        mIsRestricted = false;
+
+        if (mSearchText == null) {
+            return;
+        }
+
+        mSearchText.setHint(mSearchHint);
+        mSearchText.setEnabled(true);
+    }
+
     /**
      * Sets the text being searched.
      */
     public void setSearchQuery(String query) {
         mSearchText.setText(query);
         mSearchText.setSelection(mSearchText.getText().length());
+    }
+
+    private class UxRestrictionChangedListener implements
+            CarUxRestrictionsUtil.OnUxRestrictionsChangedListener {
+
+        @Override
+        public void onRestrictionsChanged(@NonNull CarUxRestrictions carUxRestrictions) {
+            boolean isKeyboardRestricted = (carUxRestrictions.getActiveRestrictions()
+                    & CarUxRestrictions.UX_RESTRICTIONS_NO_KEYBOARD) != 0;
+            if (isKeyboardRestricted) {
+                enableRestriction();
+            } else if (!isKeyboardRestricted) {
+                disableRestriction();
+            }
+        }
     }
 }

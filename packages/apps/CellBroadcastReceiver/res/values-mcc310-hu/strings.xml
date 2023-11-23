@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"A biztonsági figyelmeztető rendszer kötelező havi tesztjeinek fogadása"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Országos riasztás"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Leiratkozási párbeszédpanel megjelenítése az első értesítés után (kivéve országos riasztás esetén)."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Országos értesítések"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Országos figyelmeztető üzenetek. Nem lehet kikapcsolni."</string>
 </resources>

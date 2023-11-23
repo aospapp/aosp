@@ -15,3 +15,6 @@
 /sys/bus/iio/devices/iio:device*    scan_elements/in_anglvel_x_en          0660    system  system
 /sys/bus/iio/devices/iio:device*    scan_elements/in_anglvel_y_en          0660    system  system
 /sys/bus/iio/devices/iio:device*    scan_elements/in_anglvel_z_en          0660    system  system
+
+/dev/video*   0660 system    camera
+/dev/vport*p1 0660 bluetooth bluetooth

@@ -16,18 +16,18 @@
 
 #pragma once
 #include <memory>
-#include <android/hardware/audio/common/6.0/types.h>
-#include <android/hardware/audio/6.0/types.h>
+#include <android/hardware/audio/common/7.0/types.h>
+#include <android/hardware/audio/7.0/types.h>
 #include "iwriter.h"
 
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V6_0 {
+namespace V7_0 {
 namespace implementation {
 
-using namespace ::android::hardware::audio::common::V6_0;
-using namespace ::android::hardware::audio::V6_0;
+using namespace ::android::hardware::audio::common::V7_0;
+using namespace ::android::hardware::audio::V7_0;
 
 struct DevicePortSource {
     virtual ~DevicePortSource() {}
@@ -37,12 +37,14 @@ struct DevicePortSource {
     static std::unique_ptr<DevicePortSource> create(size_t writerBufferSizeHint,
                                                     const DeviceAddress &,
                                                     const AudioConfig &,
-                                                    const hidl_bitfield<AudioOutputFlag> &,
+                                                    const hidl_vec<AudioInOutFlag> &,
                                                     uint64_t &frames);
+
+    static bool validateDeviceAddress(const DeviceAddress &);
 };
 
 }  // namespace implementation
-}  // namespace V6_0
+}  // namespace V7_0
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

@@ -67,9 +67,6 @@ public class BaseCollectionListener<T> extends BaseMetricListener {
         // By default this flag is set to false to collect the metrics on test failure.
         mSkipTestFailureMetrics = "true".equals(args.getString(SKIP_TEST_FAILURE_METRICS));
 
-        // Setup additional args before starting the collection.
-        setupAdditionalArgs();
-
         if (mIsCollectPerRun) {
             mHelper.startCollecting();
         }
@@ -111,14 +108,6 @@ public class BaseCollectionListener<T> extends BaseMetricListener {
             collectMetrics(runData);
             mHelper.stopCollecting();
         }
-    }
-
-    /**
-     * To add listener specific extra args implement this method in the sub class and add the
-     * listener specific args.
-     */
-    public void setupAdditionalArgs() {
-        // NO-OP by default
     }
 
     protected void createHelperInstance(ICollectorHelper helper) {

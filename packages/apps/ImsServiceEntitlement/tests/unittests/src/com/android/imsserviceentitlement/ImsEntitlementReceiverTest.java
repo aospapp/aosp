@@ -16,6 +16,9 @@
 
 package com.android.imsserviceentitlement;
 
+import static android.telephony.TelephonyManager.SIM_STATE_LOADED;
+import static android.telephony.TelephonyManager.SIM_STATE_PIN_REQUIRED;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.never;
@@ -117,6 +120,7 @@ public class ImsEntitlementReceiverTest {
         new EntitlementConfiguration(mContext, SUB_ID).reset();
 
         when(mMockUserManager.isSystemUser()).thenReturn(true);
+        when(mMockTelephonyUtils.getSimApplicationState()).thenReturn(SIM_STATE_LOADED);
 
         setLastSubId(LAST_SUB_ID, 0);
         setupCarrierConfig();
@@ -127,6 +131,29 @@ public class ImsEntitlementReceiverTest {
     public void onReceive_simChanged_dataReset() {
         mReceiver.onReceive(mContext, getCarrierConfigChangedIntent(SUB_ID, /* slotId= */ 0));
 
+        assertThat(
+                new EntitlementConfiguration(mContext, LAST_SUB_ID).getVoWifiStatus()).isEqualTo(2);
+        verify(mMockJobManager, times(1)).queryEntitlementStatusOnceNetworkReady();
+    }
+
+    @Test
+    public void onReceive_simChanged_simPinLockedThenLoaded() {
+        // SIM PIN locked
+        when(mMockTelephonyUtils.getSimApplicationState()).thenReturn(SIM_STATE_PIN_REQUIRED);
+
+        mReceiver.onReceive(mContext, getCarrierConfigChangedIntent(SUB_ID, /* slotId= */ 0));
+
+        // no-op
+        assertThat(
+                new EntitlementConfiguration(mContext, LAST_SUB_ID).getVoWifiStatus()).isEqualTo(1);
+        verify(mMockJobManager, never()).queryEntitlementStatusOnceNetworkReady();
+
+        // SIM LOADED
+        when(mMockTelephonyUtils.getSimApplicationState()).thenReturn(SIM_STATE_LOADED);
+
+        mReceiver.onReceive(mContext, getCarrierConfigChangedIntent(SUB_ID, /* slotId= */ 0));
+
+        // configuration reset and entitlement query scheduled.
         assertThat(
                 new EntitlementConfiguration(mContext, LAST_SUB_ID).getVoWifiStatus()).isEqualTo(2);
         verify(mMockJobManager, times(1)).queryEntitlementStatusOnceNetworkReady();

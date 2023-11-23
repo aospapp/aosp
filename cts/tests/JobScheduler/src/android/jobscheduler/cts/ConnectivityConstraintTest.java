@@ -18,6 +18,7 @@ package android.jobscheduler.cts;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED;
 import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
+import static android.net.NetworkCapabilities.TRANSPORT_ETHERNET;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
 
 import static com.android.compatibility.common.util.TestUtils.waitUntil;
@@ -87,6 +88,8 @@ public class ConnectivityConstraintTest extends BaseJobSchedulerTest {
     private boolean mHasWifi;
     /** Whether the device running these tests supports telephony. */
     private boolean mHasTelephony;
+    /** Whether the device running these tests supports ethernet. */
+    private boolean mHasEthernet;
     /** Track whether WiFi was enabled in case we turn it off. */
     private boolean mInitialWiFiState;
     /** Track initial WiFi metered state. */
@@ -113,6 +116,7 @@ public class ConnectivityConstraintTest extends BaseJobSchedulerTest {
         PackageManager packageManager = mContext.getPackageManager();
         mHasWifi = packageManager.hasSystemFeature(PackageManager.FEATURE_WIFI);
         mHasTelephony = packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY);
+        mHasEthernet = packageManager.hasSystemFeature(PackageManager.FEATURE_ETHERNET);
         mBuilder = new JobInfo.Builder(CONNECTIVITY_JOB_ID, kJobServiceComponent);
 
         if (mHasWifi) {
@@ -267,6 +271,10 @@ public class ConnectivityConstraintTest extends BaseJobSchedulerTest {
      * on a metered wifi connection.
      */
     public void testConnectivityConstraintExecutes_withMeteredWifi() throws Exception {
+        if (hasEthernetConnection()) {
+            Log.d(TAG, "Skipping test since ethernet is connected.");
+            return;
+        }
         if (!mHasWifi) {
             return;
         }
@@ -338,6 +346,10 @@ public class ConnectivityConstraintTest extends BaseJobSchedulerTest {
      * on a mobile data connection.
      */
     public void testConnectivityConstraintExecutes_metered_Wifi() throws Exception {
+        if (hasEthernetConnection()) {
+            Log.d(TAG, "Skipping test since ethernet is connected.");
+            return;
+        }
         if (!mHasWifi) {
             return;
         }
@@ -360,6 +372,10 @@ public class ConnectivityConstraintTest extends BaseJobSchedulerTest {
      * is in the foreground.
      */
     public void testCellularConstraintExecutedAndStopped_Foreground() throws Exception {
+        if (hasEthernetConnection()) {
+            Log.d(TAG, "Skipping test since ethernet is connected.");
+            return;
+        }
         if (mHasWifi) {
             setWifiMeteredState(true);
         } else if (checkDeviceSupportsMobileData()) {
@@ -393,6 +409,11 @@ public class ConnectivityConstraintTest extends BaseJobSchedulerTest {
     public void testExpeditedJobExecutes_IdleApp() throws Exception {
         if (!AppStandbyUtils.isAppStandbyEnabled()) {
             Log.d(TAG, "App standby not enabled");
+            return;
+        }
+        // We're skipping this test because we can't make the ethernet connection metered.
+        if (hasEthernetConnection()) {
+            Log.d(TAG, "Skipping test since ethernet is connected.");
             return;
         }
         if (mHasWifi) {
@@ -460,6 +481,10 @@ public class ConnectivityConstraintTest extends BaseJobSchedulerTest {
      * when Data Saver is on and the device is not connected to WiFi.
      */
     public void testFgExpeditedJobBypassesDataSaver() throws Exception {
+        if (hasEthernetConnection()) {
+            Log.d(TAG, "Skipping test since ethernet is connected.");
+            return;
+        }
         if (mHasWifi) {
             setWifiMeteredState(true);
         } else if (checkDeviceSupportsMobileData()) {
@@ -574,20 +599,22 @@ public class ConnectivityConstraintTest extends BaseJobSchedulerTest {
                         .getNetworkCapabilities(params.getNetwork());
         assertTrue(nr.canBeSatisfiedBy(capabilities));
 
-        // Deadline passed with no network satisfied.
-        setAirplaneMode(true);
-        ji = mBuilder
-                .setRequiredNetwork(nr)
-                .setOverrideDeadline(0)
-                .build();
+        if (!hasEthernetConnection()) {
+            // Deadline passed with no network satisfied.
+            setAirplaneMode(true);
+            ji = mBuilder
+                    .setRequiredNetwork(nr)
+                    .setOverrideDeadline(0)
+                    .build();
 
-        kTestEnvironment.setExpectedExecutions(1);
-        mJobScheduler.schedule(ji);
-        runSatisfiedJob(CONNECTIVITY_JOB_ID);
-        assertTrue("Job didn't fire immediately", kTestEnvironment.awaitExecution());
+            kTestEnvironment.setExpectedExecutions(1);
+            mJobScheduler.schedule(ji);
+            runSatisfiedJob(CONNECTIVITY_JOB_ID);
+            assertTrue("Job didn't fire immediately", kTestEnvironment.awaitExecution());
 
-        params = kTestEnvironment.getLastStartJobParameters();
-        assertNull(params.getNetwork());
+            params = kTestEnvironment.getLastStartJobParameters();
+            assertNull(params.getNetwork());
+        }
 
         // No network requested
         setAirplaneMode(false);
@@ -701,6 +728,10 @@ public class ConnectivityConstraintTest extends BaseJobSchedulerTest {
      * the device is connected to a metered WiFi provider.
      */
     public void testUnmeteredConstraintFails_withMeteredWiFi() throws Exception {
+        if (hasEthernetConnection()) {
+            Log.d(TAG, "Skipping test since ethernet is connected.");
+            return;
+        }
         if (!mHasWifi) {
             Log.d(TAG, "Skipping test that requires the device be WiFi enabled.");
             return;
@@ -746,6 +777,10 @@ public class ConnectivityConstraintTest extends BaseJobSchedulerTest {
      * when Data Saver is on and the device is not connected to WiFi.
      */
     public void testBgExpeditedJobDoesNotBypassDataSaver() throws Exception {
+        if (hasEthernetConnection()) {
+            Log.d(TAG, "Skipping test since ethernet is connected.");
+            return;
+        }
         if (mHasWifi) {
             setWifiMeteredState(true);
         } else if (checkDeviceSupportsMobileData()) {
@@ -829,6 +864,18 @@ public class ConnectivityConstraintTest extends BaseJobSchedulerTest {
             }
         }
         Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+        return false;
+    }
+
+    private boolean hasEthernetConnection() {
+        if (!mHasEthernet) return false;
+        Network[] networks = mCm.getAllNetworks();
+        for (Network network : networks) {
+            if (mCm.getNetworkCapabilities(network)
+                    .hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                return true;
+            }
+        }
         return false;
     }
 

@@ -83,11 +83,9 @@ public class ImsUtils {
     }
 
     /** Changes persistent WFC enabled setting. */
-    public void setWfcSetting(boolean enabled, boolean force) {
+    public void setWfcSetting(boolean enabled) {
         try {
-            if (force) {
-                mImsMmTelManager.setVoWiFiSettingEnabled(enabled);
-            }
+            mImsMmTelManager.setVoWiFiSettingEnabled(enabled);
         } catch (RuntimeException e) {
             // ignore this exception, possible exception should be NullPointerException or
             // RemoteException.
@@ -214,6 +212,6 @@ public class ImsUtils {
 
     /** Disables WFC */
     public void disableWfc() {
-        setWfcSetting(false, false);
+        setWfcSetting(false);
     }
 }

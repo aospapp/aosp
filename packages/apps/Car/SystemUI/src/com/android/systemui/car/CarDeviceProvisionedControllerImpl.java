@@ -22,15 +22,23 @@ import android.car.settings.CarSettings;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.UserHandle;
 
-import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.dagger.SysUISingleton;
+import com.android.systemui.dagger.qualifiers.Background;
 import com.android.systemui.dagger.qualifiers.Main;
+import com.android.systemui.dump.DumpManager;
+import com.android.systemui.settings.UserTracker;
 import com.android.systemui.statusbar.policy.DeviceProvisionedControllerImpl;
 import com.android.systemui.util.settings.GlobalSettings;
 import com.android.systemui.util.settings.SecureSettings;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import javax.inject.Inject;
+
+import kotlin.Unit;
 
 /**
  * A controller that monitors the status of SUW progress for each user in addition to the
@@ -43,12 +51,20 @@ public class CarDeviceProvisionedControllerImpl extends DeviceProvisionedControl
     private final ContentObserver mCarSettingsObserver;
     private final Handler mMainHandler;
     private final SecureSettings mSecureSettings;
+    private final AtomicBoolean mInitted = new AtomicBoolean(false);
 
     @Inject
-    public CarDeviceProvisionedControllerImpl(@Main Handler mainHandler,
-            BroadcastDispatcher broadcastDispatcher, GlobalSettings globalSetting,
-            SecureSettings secureSettings) {
-        super(mainHandler, broadcastDispatcher, globalSetting, secureSettings);
+    public CarDeviceProvisionedControllerImpl(
+            SecureSettings secureSettings,
+            GlobalSettings globalSettings,
+            UserTracker userTracker,
+            DumpManager dumpManager,
+            @Background Handler backgroundHandler,
+            @Main Handler mainHandler,
+            @Main Executor mainExecutor) {
+        super(secureSettings, globalSettings, userTracker, dumpManager, backgroundHandler,
+                mainExecutor);
+
         mMainHandler = mainHandler;
         mSecureSettings = secureSettings;
         mUserSetupInProgressUri = mSecureSettings.getUriFor(
@@ -61,6 +77,17 @@ public class CarDeviceProvisionedControllerImpl extends DeviceProvisionedControl
                 }
             }
         };
+    }
+
+    @Override
+    public void init() {
+        if (!mInitted.compareAndSet(false, true)) {
+            return;
+        }
+        mSecureSettings.registerContentObserverForUser(
+                mUserSetupInProgressUri, /* notifyForDescendants= */ true,
+                mCarSettingsObserver, UserHandle.USER_ALL);
+        super.init();
     }
 
     @Override
@@ -82,38 +109,12 @@ public class CarDeviceProvisionedControllerImpl extends DeviceProvisionedControl
         }
     }
 
-    @Override
-    protected void startListening(int user) {
-        mSecureSettings.registerContentObserverForUser(
-                mUserSetupInProgressUri, /* notifyForDescendants= */ true,
-                mCarSettingsObserver, user);
-        // The SUW Flag observer is registered before super.startListening() so that the observer is
-        // in place before DeviceProvisionedController starts to track user switches which avoids
-        // an edge case where our observer gets registered twice.
-        super.startListening(user);
-    }
-
-    @Override
-    protected void stopListening() {
-        super.stopListening();
-        mSecureSettings.unregisterContentObserver(mCarSettingsObserver);
-    }
-
-    @Override
-    public void onUserSwitched(int newUserId) {
-        super.onUserSwitched(newUserId);
-        mSecureSettings.unregisterContentObserver(mCarSettingsObserver);
-        mSecureSettings.registerContentObserverForUser(
-                mUserSetupInProgressUri, /* notifyForDescendants= */ true,
-                mCarSettingsObserver, newUserId);
-    }
-
     private void notifyUserSetupInProgressChanged() {
-        for (int i = mListeners.size() - 1; i >= 0; --i) {
-            DeviceProvisionedListener listener = mListeners.get(i);
+        dispatchChange(listener -> {
             if (listener instanceof CarDeviceProvisionedListener) {
                 ((CarDeviceProvisionedListener) listener).onUserSetupInProgressChanged();
             }
-        }
+            return Unit.INSTANCE;
+        });
     }
 }

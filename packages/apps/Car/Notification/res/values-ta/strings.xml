@@ -18,6 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assist_action_play_label" msgid="6278705468288338172">"ப்ளே பண்ணு"</string>
+    <string name="assist_action_reply_label" msgid="6946087036560525072">"பதிலளி"</string>
     <string name="action_mute_short" msgid="5239851786101022633">"ஒலியடக்கு"</string>
     <string name="action_mute_long" msgid="6846675719189989477">"உரையாடலை ஒலியடக்கு"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"ஒலி எழுப்பு"</string>
@@ -31,13 +32,21 @@
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
     <string name="show_more" msgid="7291378544926443344">"மேலும் காட்டு"</string>
     <string name="notification_header" msgid="324550431063568049">"அறிவிப்புகள்"</string>
+    <string name="notification_recents" msgid="5855769440781958546">"சமீபத்தியவை"</string>
+    <string name="notification_older" msgid="8162161020296499690">"பழைய அறிவிப்புகள்"</string>
     <string name="empty_notification_header" msgid="4928379791607839720">"அறிவிப்புகள் ஏதுமில்லை"</string>
-    <string name="show_less" msgid="7342677676229302829">"குறைவாகக் காட்டு"</string>
+    <string name="collapse_group" msgid="4923097735600949715">"குழுவைச் சுருக்கு"</string>
+    <string name="show_more_from_app" msgid="4270626118092846628">"<xliff:g id="APP">%2$s</xliff:g> ஆப்ஸில் மேலும் <xliff:g id="COUNT">%1$d</xliff:g> அறிவிப்புகள்"</string>
     <string name="show_count_more" msgid="480555295700318609">"மேலும் <xliff:g id="COUNT">%d</xliff:g> காட்டு"</string>
-    <string name="message_unshown_count" msgid="2234421277246741233">"மேலும்  <xliff:g id="COUNT">%d</xliff:g> "</string>
-    <plurals name="restricted_message_text" formatted="false" msgid="507312322886633308">
-      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> புதிய செய்திகள்</item>
-      <item quantity="one">1 புதிய செய்தி</item>
+    <plurals name="message_unshown_count" formatted="false" msgid="2454776257150137504">
+      <item quantity="other">மேலும் <xliff:g id="COUNT_1">%d</xliff:g> மெசேஜ்கள்</item>
+      <item quantity="one">மேலும் <xliff:g id="COUNT_0">%d</xliff:g> மெசேஜ்</item>
     </plurals>
+    <plurals name="restricted_numbered_message_content" formatted="false" msgid="232398073855919710">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> புதிய மெசேஜ்கள்</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> புதிய மெசேஜ்</item>
+    </plurals>
+    <string name="see_more_message" msgid="6343183827924395955">"மேலும் காட்டு"</string>
+    <string name="restricted_hun_message_content" msgid="631111937988857716">"புதிய மெசேஜ்"</string>
     <string name="manage_text" msgid="4225197445283791757">"நிர்வகிக்கவும்"</string>
 </resources>

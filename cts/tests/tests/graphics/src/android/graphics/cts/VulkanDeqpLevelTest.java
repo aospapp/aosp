@@ -21,6 +21,7 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.pm.FeatureInfo;
 import android.content.pm.PackageManager;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
@@ -40,6 +41,7 @@ import org.junit.runner.RunWith;
  */
 @SmallTest
 @RunWith(AndroidJUnit4.class)
+@AppModeFull(reason = "Instant apps cannot access ro.board.* system properties")
 public class VulkanDeqpLevelTest {
 
     private static final String TAG = VulkanDeqpLevelTest.class.getSimpleName();

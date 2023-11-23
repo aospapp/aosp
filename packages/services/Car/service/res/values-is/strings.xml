@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Stjórna ræsistýringum bíls."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"teikna sniðmát"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Teikna sniðmát."</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"stjórna ræsingu forrita"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Stjórna ræsingu forrita."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Tækið mitt"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Gestur"</string>
     <string name="importance_default" msgid="8587741629268312938">"Sjálfgefið mikilvægi"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"Endurstilla síðar"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"Upplýsinga- og afþreyingarkerfið endurstillist næst þegar bíllinn er ræstur."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"Bíllinn verður að vera kyrr til að endurstilla."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> hefur áhrif á afköst kerfisins"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Slökktu á forriti til að bæta afköst kerfisins. Þú getur kveikt aftur á forritinu í stillingunum."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Forgangsraðaðu forriti til að nota forrit áfram."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Fjarlægðu forrit til að bæta afköst kerfisins."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Slökkva á forriti"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Forgangsraða forriti"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Fjarlægja forrit"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"Slökkt var á <xliff:g id="ID_1">^1</xliff:g>. Þú getur kveikt á því aftur í stillingunum."</string>
 </resources>

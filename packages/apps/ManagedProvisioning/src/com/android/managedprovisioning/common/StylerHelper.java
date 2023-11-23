@@ -70,7 +70,7 @@ public class StylerHelper {
     public void applyHeaderStyling(TextView header, ViewGroup.LayoutParams headerViewParamsCopy) {
         requireNonNull(header);
         SpacingInfo headerSpacing = new SpacingInfo(header, headerViewParamsCopy);
-        HeaderAreaStyler.applyPartnerCustomizationHeaderHeavyStyle(header);
+        HeaderAreaStyler.applyPartnerCustomizationHeaderStyle(header);
         headerSpacing.applySpacingToView(header);
     }
 

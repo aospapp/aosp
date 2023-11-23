@@ -16,19 +16,44 @@
 
 package com.android.car.settings.display;
 
+import static android.os.UserManager.DISALLOW_CONFIG_BRIGHTNESS;
+
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
+
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.database.ContentObserver;
+import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
+import android.widget.Toast;
 
 import androidx.preference.TwoStatePreference;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 
 /** Business logic for controlling the adaptive brightness setting. */
 public class AdaptiveBrightnessTogglePreferenceController extends
         PreferenceController<TwoStatePreference> {
+
+    private static final Logger LOG =
+            new Logger(AdaptiveBrightnessTogglePreferenceController.class);
+    private static final Uri ADAPTIVE_BRIGHTNESS_URI = Settings.System.getUriFor(
+            Settings.System.SCREEN_BRIGHTNESS_MODE);
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private final ContentObserver mAdaptiveBrightnessObserver = new ContentObserver(mHandler) {
+        @Override
+        public void onChange(boolean selfChange) {
+            refreshUi();
+        }
+    };
 
     public AdaptiveBrightnessTogglePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -41,13 +66,48 @@ public class AdaptiveBrightnessTogglePreferenceController extends
     }
 
     @Override
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> {
+            if (hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_BRIGHTNESS)) {
+                showActionDisabledByAdminDialog();
+            } else {
+                Toast.makeText(getContext(),
+                        getContext().getString(R.string.action_unavailable),
+                        Toast.LENGTH_LONG).show();
+                LOG.d(getContext().getString(R.string.action_unavailable));
+            }
+        });
+    }
+
+    @Override
+    protected void onStartInternal() {
+        super.onStartInternal();
+        getContext().getContentResolver().registerContentObserver(ADAPTIVE_BRIGHTNESS_URI,
+                /* notifyForDescendants= */ false, mAdaptiveBrightnessObserver);
+    }
+
+    @Override
+    protected void onStopInternal() {
+        super.onStopInternal();
+        getContext().getContentResolver().unregisterContentObserver(mAdaptiveBrightnessObserver);
+    }
+
+    @Override
     protected void updateState(TwoStatePreference preference) {
         preference.setChecked(isAdaptiveBrightnessChecked());
     }
 
     @Override
     public int getAvailabilityStatus() {
-        return supportsAdaptiveBrightness() ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
+        if (!supportsAdaptiveBrightness()) {
+            return UNSUPPORTED_ON_DEVICE;
+        }
+        if (hasUserRestrictionByUm(getContext(), DISALLOW_CONFIG_BRIGHTNESS)
+                || hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_BRIGHTNESS)) {
+            return AVAILABLE_FOR_VIEWING;
+        }
+        return AVAILABLE;
     }
 
     @Override
@@ -69,5 +129,12 @@ public class AdaptiveBrightnessTogglePreferenceController extends
 
     private boolean supportsAdaptiveBrightness() {
         return getContext().getResources().getBoolean(R.bool.config_automatic_brightness_available);
+    }
+
+    private void showActionDisabledByAdminDialog() {
+        getFragmentController().showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(getContext(),
+                        DISALLOW_CONFIG_BRIGHTNESS),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
     }
 }

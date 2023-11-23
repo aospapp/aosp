@@ -1,0 +1,8 @@
+# Fingerprint (UDFPS) GHBM/LHBM toggle
+persist.fingerprint.ghbm    u:object_r:fingerprint_ghbm_prop:s0    exact    bool
+
+# Boot animation dynamic colors
+persist.bootanim.color1     u:object_r:bootanim_system_prop:s0     exact    int
+persist.bootanim.color2     u:object_r:bootanim_system_prop:s0     exact    int
+persist.bootanim.color3     u:object_r:bootanim_system_prop:s0     exact    int
+persist.bootanim.color4     u:object_r:bootanim_system_prop:s0     exact    int

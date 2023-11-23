@@ -88,7 +88,7 @@ public class ScreenSizeCalculator {
             mPortraitScreenSize = new Point();
         }
         writeDisplaySizeToPoint(display, mPortraitScreenSize);
-        return mPortraitScreenSize;
+        return new Point(mPortraitScreenSize);
     }
 
     private Point getLandscapeScreenSize(Display display) {
@@ -96,7 +96,7 @@ public class ScreenSizeCalculator {
             mLandscapeScreenSize = new Point();
         }
         writeDisplaySizeToPoint(display, mLandscapeScreenSize);
-        return mLandscapeScreenSize;
+        return new Point(mLandscapeScreenSize);
     }
 
     /**

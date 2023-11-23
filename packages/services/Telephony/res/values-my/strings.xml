@@ -674,7 +674,7 @@
     <string name="preference_category_ringtone" msgid="8787281191375434976">"ဖုန်းမြည်သံ &amp; တုန်ခါသံ"</string>
     <string name="pstn_connection_service_label" msgid="9200102709997537069">"တပ်ဆင်ပြီး ဆင်းမ် ကဒ်များ"</string>
     <string name="enable_video_calling_title" msgid="7246600931634161830">"ဗီဒီယို ခေါ်ဆိုမှုများကို ဖွင့်ထားရန်"</string>
-    <string name="enable_video_calling_dialog_msg" msgid="7141478720386203540">"ဗွီဒီယို ခေါ်ဆိုမှု ဖွင့်ရန်၊ မြှင့်ထားသည့် 4G LTE မုဒ်ကို ကွန်ရက် ချိိန်ညှိချက်များတွင် ဖွင့်ပေးရပါမည်။"</string>
+    <string name="enable_video_calling_dialog_msg" msgid="7141478720386203540">"ဗီဒီယိုခေါ်ဆိုမှု ဖွင့်လိုပါက အဆင့်မြှင့်ထားသည့် 4G LTE မုဒ်ကို ကွန်ရက်ဆက်တင်များတွင် ဖွင့်ရပါမည်။"</string>
     <string name="enable_video_calling_dialog_settings" msgid="8697890611305307110">"ကွန်ရက် ဆက်တင်များ"</string>
     <string name="enable_video_calling_dialog_close" msgid="4298929725917045270">"ပိတ်ရန်"</string>
     <string name="sim_label_emergency_calls" msgid="9078241989421522310">"အရေးပေါ်ခေါ်ဆိုမှုများ"</string>

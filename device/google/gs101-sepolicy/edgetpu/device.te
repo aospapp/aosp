@@ -1,0 +1,2 @@
+# EdgeTPU device (DarwiNN)
+type edgetpu_device, dev_type, mlstrustedobject;

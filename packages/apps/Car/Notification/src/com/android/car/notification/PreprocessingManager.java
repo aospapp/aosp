@@ -23,6 +23,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Resources;
+import android.os.Build;
 import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.NotificationListenerService.RankingMap;
@@ -30,8 +32,9 @@ import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.notification.template.MessageNotificationViewHolder;
-import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,10 +61,14 @@ public class PreprocessingManager {
         void onCallStateChanged(boolean isInCall);
     }
 
+    private static final boolean DEBUG = Build.IS_ENG || Build.IS_USERDEBUG;
     private static final String TAG = "PreprocessingManager";
 
-    private final String mEllipsizedString;
+    private final String mEllipsizedSuffix;
     private final Context mContext;
+    private final boolean mShowRecentsAndOlderHeaders;
+    private final boolean mUseLauncherIcon;
+    private final int mMinimumGroupingThreshold;
 
     private static PreprocessingManager sInstance;
 
@@ -69,6 +76,7 @@ public class PreprocessingManager {
     private Map<String, AlertEntry> mOldNotifications;
     private List<NotificationGroup> mOldProcessedNotifications;
     private NotificationListenerService.RankingMap mOldRankingMap;
+    private NotificationDataManager mNotificationDataManager;
 
     private boolean mIsInCall;
     private List<CallStateListener> mCallStateListeners = new ArrayList<>();
@@ -89,8 +97,14 @@ public class PreprocessingManager {
     };
 
     private PreprocessingManager(Context context) {
-        mEllipsizedString = context.getString(R.string.ellipsized_string);
+        mEllipsizedSuffix = context.getString(R.string.ellipsized_string);
         mContext = context;
+        mNotificationDataManager = NotificationDataManager.getInstance();
+
+        Resources resources = mContext.getResources();
+        mShowRecentsAndOlderHeaders = resources.getBoolean(R.bool.config_showRecentAndOldHeaders);
+        mUseLauncherIcon = resources.getBoolean(R.bool.config_useLauncherIcon);
+        mMinimumGroupingThreshold = resources.getInteger(R.integer.config_minimumGroupingThreshold);
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
@@ -102,6 +116,16 @@ public class PreprocessingManager {
             sInstance = new PreprocessingManager(context);
         }
         return sInstance;
+    }
+
+    @VisibleForTesting
+    static void refreshInstance() {
+        sInstance = null;
+    }
+
+    @VisibleForTesting
+    void setNotificationDataManager(NotificationDataManager notificationDataManager) {
+        mNotificationDataManager = notificationDataManager;
     }
 
     /**
@@ -123,11 +147,8 @@ public class PreprocessingManager {
      * @param rankingMap the ranking map for the notifications.
      * @return the processed notifications in a new list.
      */
-    public List<NotificationGroup> process(
-            boolean showLessImportantNotifications,
-            Map<String, AlertEntry> notifications,
-            RankingMap rankingMap) {
-
+    public List<NotificationGroup> process(boolean showLessImportantNotifications,
+            Map<String, AlertEntry> notifications, RankingMap rankingMap) {
         return new ArrayList<>(
                 rank(group(optimizeForDriving(
                         filter(showLessImportantNotifications,
@@ -149,27 +170,21 @@ public class PreprocessingManager {
             int updateType,
             RankingMap newRankingMap) {
 
-        if (updateType == CarNotificationListener.NOTIFY_NOTIFICATION_REMOVED) {
-            // removal of a notification is the same as a normal preprocessing
-            mOldNotifications.remove(alertEntry.getKey());
-            mOldProcessedNotifications =
-                    process(showLessImportantNotifications, mOldNotifications, mOldRankingMap);
-        }
-
-        if (updateType == CarNotificationListener.NOTIFY_NOTIFICATION_POSTED) {
-            AlertEntry notification = optimizeForDriving(alertEntry);
-            boolean isUpdate = mOldNotifications.containsKey(notification.getKey());
-            if (isUpdate) {
-                // if is an update of the previous notification
+        switch (updateType) {
+            case CarNotificationListener.NOTIFY_NOTIFICATION_REMOVED:
+                // removal of a notification is the same as a normal preprocessing
+                mOldNotifications.remove(alertEntry.getKey());
+                mOldProcessedNotifications =
+                        process(showLessImportantNotifications, mOldNotifications, mOldRankingMap);
+                break;
+            case CarNotificationListener.NOTIFY_NOTIFICATION_POSTED:
+                AlertEntry notification = optimizeForDriving(alertEntry);
+                boolean isUpdate = mOldNotifications.containsKey(notification.getKey());
                 mOldNotifications.put(notification.getKey(), notification);
-                mOldProcessedNotifications = process(showLessImportantNotifications,
-                        mOldNotifications, mOldRankingMap);
-            } else {
                 // insert a new notification into the list
-                mOldNotifications.put(notification.getKey(), notification);
                 mOldProcessedNotifications = new ArrayList<>(
-                        additionalGroupAndRank((alertEntry), newRankingMap));
-            }
+                        additionalGroupAndRank((alertEntry), newRankingMap, isUpdate));
+                break;
         }
 
         return mOldProcessedNotifications;
@@ -216,6 +231,10 @@ public class PreprocessingManager {
         notifications.removeIf(alertEntry -> Notification.CATEGORY_CALL.equals(
                 alertEntry.getNotification().category));
 
+        if (DEBUG) {
+            Log.d(TAG, "Filtered notifications: " + notifications);
+        }
+
         return notifications;
     }
 
@@ -226,6 +245,7 @@ public class PreprocessingManager {
                         & Notification.FLAG_FOREGROUND_SERVICE) != 0;
 
         if (!isForeground) {
+            Log.d(TAG, alertEntry + " is not a foreground notification.");
             return false;
         }
 
@@ -236,14 +256,36 @@ public class PreprocessingManager {
             importance = ranking.getImportance();
         }
 
+        if (DEBUG) {
+            if (importance < NotificationManager.IMPORTANCE_DEFAULT) {
+                Log.d(TAG, alertEntry + " importance is insufficient to show in notification "
+                        + "center");
+            } else {
+                Log.d(TAG, alertEntry + " importance is sufficient to show in notification "
+                        + "center");
+            }
+
+            if (NotificationUtils.isSystemPrivilegedOrPlatformKey(mContext, alertEntry)) {
+                Log.d(TAG, alertEntry + " application is system privileged or signed with "
+                        + "platform key");
+            } else {
+                Log.d(TAG, alertEntry + " application is neither system privileged nor signed "
+                        + "with platform key");
+            }
+        }
+
         return importance < NotificationManager.IMPORTANCE_DEFAULT
                 && NotificationUtils.isSystemPrivilegedOrPlatformKey(mContext, alertEntry);
     }
 
     private boolean isMediaOrNavigationNotification(AlertEntry alertEntry) {
         Notification notification = alertEntry.getNotification();
-        return notification.isMediaNotification()
+        boolean mediaOrNav = notification.isMediaNotification()
                 || Notification.CATEGORY_NAVIGATION.equals(notification.category);
+        if (DEBUG) {
+            Log.d(TAG, alertEntry + " category: " + notification.category);
+        }
+        return mediaOrNav;
     }
 
     /**
@@ -297,8 +339,15 @@ public class PreprocessingManager {
         if (TextUtils.isEmpty(text) || text.length() < mMaxStringLength) {
             return text;
         }
-        int maxLength = mMaxStringLength - mEllipsizedString.length();
-        return text.toString().substring(0, maxLength).concat(mEllipsizedString);
+        int maxLength = mMaxStringLength - mEllipsizedSuffix.length();
+        return text.toString().substring(0, maxLength) + mEllipsizedSuffix;
+    }
+
+    /**
+     * @return the maximum numbers of characters allowed by the {@link CarUxRestrictionsManager}
+     */
+    public int getMaximumStringLength() {
+        return mMaxStringLength;
     }
 
     /**
@@ -341,6 +390,10 @@ public class PreprocessingManager {
                 groupedNotifications.get(groupKey).addNotification(alertEntry);
             }
         }
+        if (DEBUG) {
+            Log.d(TAG, "(First pass) Grouped notifications according to groupKey: "
+                    + groupedNotifications);
+        }
 
         // Second pass: remove automatically generated group summary if it contains no child
         // notifications. This can happen if a notification group only contains less important
@@ -355,29 +408,117 @@ public class PreprocessingManager {
                             && summaryNotification.getStatusBarNotification().getOverrideGroupKey()
                             != null;
                 });
+        if (DEBUG) {
+            Log.d(TAG, "(Second pass) Remove automatically generated group summaries: "
+                    + groupList);
+        }
 
-        // Third pass: a notification group without a group summary should be restored back into
-        // individual notifications.
+        if (mShowRecentsAndOlderHeaders) {
+            mNotificationDataManager.updateUnseenNotificationGroups(groupList);
+        }
+
+
+        // Third Pass: If a notification group has seen and unseen notifications, we need to split
+        // up the group into its seen and unseen constituents.
+        List<NotificationGroup> tempGroupList = new ArrayList<>();
+        groupList.forEach(notificationGroup -> {
+            AlertEntry groupSummary = notificationGroup.getGroupSummaryNotification();
+            if (groupSummary == null || !mShowRecentsAndOlderHeaders) {
+                boolean isNotificationSeen = mNotificationDataManager
+                        .isNotificationSeen(notificationGroup.getSingleNotification());
+                notificationGroup.setSeen(isNotificationSeen);
+                tempGroupList.add(notificationGroup);
+                return;
+            }
+
+            NotificationGroup seenNotificationGroup = new NotificationGroup();
+            seenNotificationGroup.setSeen(true);
+            seenNotificationGroup.setGroupSummaryNotification(groupSummary);
+            NotificationGroup unseenNotificationGroup = new NotificationGroup();
+            unseenNotificationGroup.setGroupSummaryNotification(groupSummary);
+            unseenNotificationGroup.setSeen(false);
+
+            notificationGroup.getChildNotifications().forEach(alertEntry -> {
+                if (mNotificationDataManager.isNotificationSeen(alertEntry)) {
+                    seenNotificationGroup.addNotification(alertEntry);
+                } else {
+                    unseenNotificationGroup.addNotification(alertEntry);
+                }
+            });
+            tempGroupList.add(unseenNotificationGroup);
+            tempGroupList.add(seenNotificationGroup);
+        });
+        groupList.clear();
+        groupList.addAll(tempGroupList);
+        if (DEBUG) {
+            Log.d(TAG, "(Third pass) Split notification groups by seen and unseen: "
+                    + groupList);
+        }
+
         List<NotificationGroup> validGroupList = new ArrayList<>();
-        groupList.forEach(
-                group -> {
-                    if (group.getChildCount() > 1 && group.getGroupSummaryNotification() == null) {
-                        group.getChildNotifications().forEach(
-                                notification -> {
-                                    NotificationGroup newGroup = new NotificationGroup();
-                                    newGroup.addNotification(notification);
-                                    validGroupList.add(newGroup);
-                                });
-                    } else {
-                        validGroupList.add(group);
-                    }
-                });
+        if (mUseLauncherIcon) {
+            // Fourth pass: since we do not use group summaries when using launcher icon, we can
+            // restore groups into individual notifications that do not meet grouping threshold.
+            groupList.forEach(
+                    group -> {
+                        if (group.getChildCount() < mMinimumGroupingThreshold) {
+                            group.getChildNotifications().forEach(
+                                    notification -> {
+                                        NotificationGroup newGroup = new NotificationGroup();
+                                        newGroup.addNotification(notification);
+                                        newGroup.setSeen(group.isSeen());
+                                        validGroupList.add(newGroup);
+                                    });
+                        } else {
+                            validGroupList.add(group);
+                        }
+                    });
+        } else {
+            // Fourth pass: a notification group without a group summary or a notification group
+            // that do not meet grouping threshold should be restored back into individual
+            // notifications.
+            groupList.forEach(
+                    group -> {
+                        boolean groupWithNoGroupSummary = group.getChildCount() > 1
+                                && group.getGroupSummaryNotification() == null;
+                        boolean groupWithGroupSummaryButNotEnoughNotifs =
+                                group.getChildCount() < mMinimumGroupingThreshold
+                                        && group.getGroupSummaryNotification() != null;
+                        if (groupWithNoGroupSummary || groupWithGroupSummaryButNotEnoughNotifs) {
+                            group.getChildNotifications().forEach(
+                                    notification -> {
+                                        NotificationGroup newGroup = new NotificationGroup();
+                                        newGroup.addNotification(notification);
+                                        newGroup.setSeen(group.isSeen());
+                                        validGroupList.add(newGroup);
+                                    });
+                        } else {
+                            validGroupList.add(group);
+                        }
+                    });
+        }
+        if (DEBUG) {
+            if (mUseLauncherIcon) {
+                Log.d(TAG, "(Fourth pass) Split notification groups that do not meet minimum "
+                        + "grouping threshold of " + mMinimumGroupingThreshold + " : "
+                        + validGroupList);
+            } else {
+                Log.d(TAG, "(Fourth pass) Restore notifications without group summaries and do"
+                        + " not meet minimum grouping threshold of " + mMinimumGroupingThreshold
+                        + " : " + validGroupList);
+            }
+        }
 
-        // Fourth Pass: group notifications with no child notifications should be removed.
+
+        // Fifth Pass: group notifications with no child notifications should be removed.
         validGroupList.removeIf(notificationGroup ->
                 notificationGroup.getChildNotifications().isEmpty());
+        if (DEBUG) {
+            Log.d(TAG, "(Fifth pass) Group notifications without child notifications "
+                    + "are removed: " + validGroupList);
+        }
 
-        // Fifth pass: if a notification is a group notification, update the timestamp if one of
+        // Sixth pass: if a notification is a group notification, update the timestamp if one of
         // the children notifications shows a timestamp.
         validGroupList.forEach(group -> {
             if (!group.isGroup()) {
@@ -401,6 +542,9 @@ public class PreprocessingManager {
                 groupSummaryNotification.getNotification().when = greatestTimestamp;
             }
         });
+        if (DEBUG) {
+            Log.d(TAG, "Grouped notifications: " + validGroupList);
+        }
 
         return validGroupList;
     }
@@ -414,39 +558,54 @@ public class PreprocessingManager {
      */
     @VisibleForTesting
     protected List<NotificationGroup> additionalGroupAndRank(AlertEntry newNotification,
-            RankingMap newRankingMap) {
+            RankingMap newRankingMap, boolean isUpdate) {
         Notification notification = newNotification.getNotification();
+        NotificationGroup newGroup = new NotificationGroup();
+        newGroup.setSeen(false);
 
         if (notification.isGroupSummary()) {
-            // if child notifications already exist, ignore this insertion
-            for (String key : mOldNotifications.keySet()) {
-                if (hasSameGroupKey(mOldNotifications.get(key), newNotification)) {
+            // If child notifications already exist, update group summary
+            for (NotificationGroup oldGroup: mOldProcessedNotifications) {
+                if (hasSameGroupKey(oldGroup.getSingleNotification(), newNotification)) {
+                    oldGroup.setGroupSummaryNotification(newNotification);
                     return mOldProcessedNotifications;
                 }
             }
-            // if child notifications do not exist, insert the summary as a new notification
-            NotificationGroup newGroup = new NotificationGroup();
+            // If child notifications do not exist, insert the summary as a new notification
             newGroup.setGroupSummaryNotification(newNotification);
             insertRankedNotification(newGroup, newRankingMap);
             return mOldProcessedNotifications;
         } else {
+            newGroup.addNotification(newNotification);
             for (int i = 0; i < mOldProcessedNotifications.size(); i++) {
                 NotificationGroup oldGroup = mOldProcessedNotifications.get(i);
-                // if a group already exists
                 if (TextUtils.equals(oldGroup.getGroupKey(),
-                        newNotification.getStatusBarNotification().getGroupKey())) {
-                    // if a standalone group summary exists, replace the group summary notification
+                        newNotification.getStatusBarNotification().getGroupKey())
+                        && (!mShowRecentsAndOlderHeaders || !oldGroup.isSeen())) {
+                    // If an unseen group already exists
                     if (oldGroup.getChildCount() == 0) {
-                        mOldProcessedNotifications.add(i, new NotificationGroup(newNotification));
+                        // If a standalone group summary exists
+                        if (isUpdate) {
+                            // This is an update; replace the group summary notification
+                            mOldProcessedNotifications.set(i, newGroup);
+                        } else {
+                            // Adding new notification; add to existing group
+                            oldGroup.addNotification(newNotification);
+                            mOldProcessedNotifications.set(i, oldGroup);
+                        }
                         return mOldProcessedNotifications;
                     }
-                    // if a group already exist with multiple children, insert outside of the group
-                    mOldProcessedNotifications.add(new NotificationGroup(newNotification));
+                    // If a group already exist with multiple children, insert outside of the group
+                    if (isUpdate) {
+                        oldGroup.removeNotification(newNotification);
+                    }
+                    oldGroup.addNotification(newNotification);
+                    mOldProcessedNotifications.set(i, oldGroup);
                     return mOldProcessedNotifications;
                 }
             }
-            // if it is a new notification, insert directly
-            insertRankedNotification(new NotificationGroup(newNotification), newRankingMap);
+            // If it is a new notification, insert directly
+            insertRankedNotification(newGroup, newRankingMap);
             return mOldProcessedNotifications;
         }
     }
@@ -461,6 +620,11 @@ public class PreprocessingManager {
             NotificationListenerService.Ranking ranking = new NotificationListenerService.Ranking();
             newRankingMap.getRanking(mOldProcessedNotifications.get(
                     i).getNotificationForSorting().getKey(), ranking);
+            if (mShowRecentsAndOlderHeaders && group.isSeen()
+                    && !mOldProcessedNotifications.get(i).isSeen()) {
+                mOldProcessedNotifications.add(i, group);
+                return;
+            }
 
             if(newRanking.getRank() < ranking.getRank()) {
                 mOldProcessedNotifications.add(i, group);
@@ -558,6 +722,14 @@ public class PreprocessingManager {
 
         @Override
         public int compare(NotificationGroup left, NotificationGroup right) {
+            if (mShowRecentsAndOlderHeaders) {
+                if (left.isSeen() && !right.isSeen()) {
+                    return -1;
+                } else if (!left.isSeen() && right.isSeen()) {
+                    return 1;
+                }
+            }
+
             NotificationListenerService.Ranking leftRanking =
                     new NotificationListenerService.Ranking();
             mRankingMap.getRanking(left.getNotificationForSorting().getKey(), leftRanking);

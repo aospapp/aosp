@@ -55,8 +55,11 @@ import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
+import android.os.Parcelable;
 import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.DisplayMetrics;
+import android.util.SizeF;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
@@ -101,6 +104,7 @@ import com.android.compatibility.common.util.ThrowingRunnable;
 import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -112,6 +116,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 /**
  * Test {@link RemoteViews}.
@@ -499,12 +508,9 @@ public class RemoteViewsTest {
     public void testWriteToParcel() {
         mRemoteViews.setTextViewText(R.id.remoteView_text, "This is content");
         mRemoteViews.setViewVisibility(R.id.remoteView_frame, View.GONE);
-        Parcel p = Parcel.obtain();
-        mRemoteViews.writeToParcel(p, 0);
-        p.setDataPosition(0);
 
         // the package and layout are successfully written into parcel
-        mRemoteViews = RemoteViews.CREATOR.createFromParcel(p);
+        mRemoteViews = parcelAndUnparcel(mRemoteViews);
         View result = mRemoteViews.apply(mContext, null);
         assertEquals(PACKAGE_NAME, mRemoteViews.getPackage());
         assertEquals(R.layout.remoteviews_good, mRemoteViews.getLayoutId());
@@ -512,12 +518,8 @@ public class RemoteViewsTest {
                 .getText().toString());
         assertEquals(View.GONE, result.findViewById(R.id.remoteView_frame).getVisibility());
 
-        p = Parcel.obtain();
-
         // currently the flag is not used
-        mRemoteViews.writeToParcel(p, -1);
-
-        p.recycle();
+        parcelAndUnparcel(mRemoteViews, /* flags= */ -1);
 
         RemoteViews[] remote = RemoteViews.CREATOR.newArray(1);
         assertNotNull(remote);
@@ -527,6 +529,51 @@ public class RemoteViewsTest {
     @Test(expected=NullPointerException.class)
     public void testWriteNullToParcel() {
         mRemoteViews.writeToParcel(null, 0);
+    }
+
+    @Test
+    public void testWriteToParcel_landscapePortrait() {
+        RemoteViews landscape = new RemoteViews(PACKAGE_NAME, R.layout.remoteviews_good);
+        landscape.setTextViewText(R.id.remoteView_text, "Hello world");
+        RemoteViews portrait = new RemoteViews(PACKAGE_NAME, R.layout.remoteviews_good);
+        portrait.setTextViewText(R.id.remoteView_text, "Hello world");
+        int landscapeParcelledSize = getParcelledSize(landscape);
+        mRemoteViews = new RemoteViews(landscape, portrait);
+
+        mRemoteViews = parcelAndUnparcel(mRemoteViews);
+        assertEquals(PACKAGE_NAME, mRemoteViews.getPackage());
+        View result = mRemoteViews.apply(mContext, null);
+        assertEquals("Hello world", ((TextView) result.findViewById(R.id.remoteView_text))
+                .getText().toString());
+
+        // The ApplicationInfo should only have been written once, so this should be much smaller
+        // than twice the size of parcelling one RemoteViews.
+        assertLessThan(landscapeParcelledSize * 2, getParcelledSize(mRemoteViews));
+    }
+
+    @Test
+    public void testWriteToParcel_sizeMap() {
+        List<SizeF> sizes =
+                Arrays.asList(new SizeF(50, 50), new SizeF(100, 100), new SizeF(100, 200));
+        Map<SizeF, RemoteViews> sizeMap = new ArrayMap<>();
+        int singelParcelledSize = 0;
+        for (SizeF size : sizes) {
+            RemoteViews views = new RemoteViews(PACKAGE_NAME, R.layout.remoteviews_good);
+            views.setTextViewText(R.id.remoteView_text, "Hello world");
+            sizeMap.put(size, views);
+            singelParcelledSize = getParcelledSize(views);
+        }
+        mRemoteViews = new RemoteViews(sizeMap);
+
+        mRemoteViews = parcelAndUnparcel(mRemoteViews);
+        assertEquals(PACKAGE_NAME, mRemoteViews.getPackage());
+        View result = mRemoteViews.apply(mContext, null);
+        assertEquals("Hello world", ((TextView) result.findViewById(R.id.remoteView_text))
+                .getText().toString());
+
+        // The ApplicationInfo should only have been written once, so this should be much smaller
+        // than thrice the size of parcelling one RemoteViews.
+        assertLessThan(singelParcelledSize * 3, getParcelledSize(mRemoteViews));
     }
 
     @Test(expected=NegativeArraySizeException.class)
@@ -548,6 +595,23 @@ public class RemoteViewsTest {
 
         mRemoteViews.setImageViewBitmap(R.id.remoteView_absolute, bitmap);
         assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetImageViewBitmap_afterCopying() throws Throwable {
+        Bitmap bitmap =
+                BitmapFactory.decodeResource(mContext.getResources(), R.drawable.testimage);
+        RemoteViews original =
+                new RemoteViews(mContext.getPackageName(), R.layout.remoteviews_good);
+        original.setImageViewBitmap(R.id.remoteView_image, bitmap);
+        RemoteViews copy = new RemoteViews(original);
+
+        AtomicReference<View> view = new AtomicReference<>();
+        mActivityRule.runOnUiThread(() -> view.set(copy.apply(mContext, null)));
+
+        ImageView image = view.get().findViewById(R.id.remoteView_image);
+        assertNotNull(image.getDrawable());
+        WidgetTestUtils.assertEquals(bitmap, ((BitmapDrawable) image.getDrawable()).getBitmap());
     }
 
     @Test
@@ -1939,5 +2003,42 @@ public class RemoteViewsTest {
         String previousMode = nightModeSplit[1].trim();
         runShellCommand("cmd uimode night " + (nightMode ? "yes" : "no"));
         return previousMode;
+    }
+
+    private static RemoteViews parcelAndUnparcel(RemoteViews views) {
+        return parcelAndUnparcel(views, /* flags= */ 0);
+    }
+
+    /**
+     * Returns the result of writing {@code views} to a {@link Parcel} and then creating a new
+     * {@link RemoteViews} from the parcel.
+     */
+    private static RemoteViews parcelAndUnparcel(RemoteViews views, int flags) {
+        return parcelAndRun(views, flags, RemoteViews.CREATOR::createFromParcel);
+    }
+
+    /** Returns the data size from writing {@code parcelable} to a {@link Parcel}. */
+    private static int getParcelledSize(Parcelable parcelable) {
+        return parcelAndRun(parcelable, /* flags= */ 0, Parcel::dataSize);
+    }
+
+    private static <T> T parcelAndRun(
+            Parcelable parcelable,
+            int flags,
+            Function<Parcel, T> function) {
+        Parcel parcel = Parcel.obtain();
+        parcelable.writeToParcel(parcel, flags);
+        parcel.setDataPosition(0);
+        try {
+            return function.apply(parcel);
+        } finally {
+            parcel.recycle();
+        }
+    }
+
+    private static void assertLessThan(int expected, int actual) {
+        if (actual >= expected) {
+            Assert.fail("Expected to be less than " + expected + ", but was " + actual);
+        }
     }
 }

@@ -59,6 +59,13 @@ public class TimeZonePickerScreenPreferenceController extends
     }
 
     @Override
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p ->
+                DatetimeUtils.runClickableWhileDisabled(getContext(), getFragmentController()));
+    }
+
+    @Override
     protected void updateState(PreferenceGroup preferenceGroup) {
         if (mZonesList == null) {
             constructTimeZoneList();
@@ -66,6 +73,11 @@ public class TimeZonePickerScreenPreferenceController extends
         for (Preference zonePreference : mZonesList) {
             preferenceGroup.addPreference(zonePreference);
         }
+    }
+
+    @Override
+    public int getAvailabilityStatus() {
+        return DatetimeUtils.getAvailabilityStatus(getContext());
     }
 
     private void constructTimeZoneList() {

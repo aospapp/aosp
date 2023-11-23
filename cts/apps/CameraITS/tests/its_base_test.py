@@ -32,8 +32,8 @@ SCROLLER_TIMEOUT_MS = 3000
 VALID_NUM_DEVICES = (1, 2)
 NOT_YET_MANDATED_ALL = 100
 
-# Not yet mandated tests ['test', first_api_level mandatory]
-# ie. ['test_test_patterns', 30] is MANDATED for first_api_level >= 30
+# Not yet mandated tests ['test', first_api_level not yet mandatory]
+# ie. ['test_test_patterns', 30] is MANDATED for first_api_level > 30
 NOT_YET_MANDATED = {
     'scene0': [['test_test_patterns', 30],
                ['test_tonemap_curve', 30]],
@@ -160,6 +160,7 @@ class ItsBaseTest(base_test.BaseTestClass):
     self.tablet.adb.shell('am force-stop com.google.android.apps.docs')
     self.tablet.adb.shell('am force-stop com.google.android.apps.photos')
     self.tablet.adb.shell('am force-stop com.android.gallery3d')
+    self.tablet.adb.shell('am force-stop com.sec.android.gallery3d')
 
   def set_tablet_landscape_orientation(self):
     """Sets the screen orientation to landscape.
@@ -210,10 +211,10 @@ class ItsBaseTest(base_test.BaseTestClass):
 
     # Determine which test are not yet mandated for first api level.
     tests = NOT_YET_MANDATED[scene]
-    for [test, first_api_level_mandated] in tests:
-      logging.debug('First API level %s MANDATED: %d',
-                    test, first_api_level_mandated)
-      if first_api_level < first_api_level_mandated:
+    for [test, first_api_level_not_mandated] in tests:
+      logging.debug('First API level %s NOT MANDATED: %d',
+                    test, first_api_level_not_mandated)
+      if first_api_level <= first_api_level_not_mandated:
         not_yet_mandated[scene].append(test)
     return not_yet_mandated
 

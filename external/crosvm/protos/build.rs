@@ -29,15 +29,7 @@ struct ExternalProto {
 
 // Rustfmt bug: https://github.com/rust-lang/rustfmt/issues/3498
 #[rustfmt::skip]
-static EXTERNAL_PROTOS: &[ExternalProto] = &[
-    #[cfg(feature = "trunks")]
-    ExternalProto {
-        dir_relative_to_sysroot: "usr/include/chromeos/dbus/trunks",
-        dir_relative_to_us: "../../../platform2/trunks",
-        proto_file_name: "interface.proto",
-        module: "trunks",
-    },
-];
+static EXTERNAL_PROTOS: &[ExternalProto] = &[];
 
 struct LocalProto {
     // Corresponding to the input file src/$module.proto.
@@ -92,12 +84,12 @@ fn protoc<P: AsRef<Path>>(module: &str, input_path: P, mut out: &File) -> Result
     fs::create_dir_all(&out_dir)?;
 
     // Invoke protobuf compiler.
-    protoc_rust::run(protoc_rust::Args {
-        out_dir: &out_dir,
-        includes: &[input_dir.as_os_str().to_str().unwrap()],
-        input: &[input_path.as_os_str().to_str().unwrap()],
-        ..Default::default()
-    })?;
+    protoc_rust::Codegen::new()
+        .input(input_path.as_os_str().to_str().unwrap())
+        .include(input_dir.as_os_str().to_str().unwrap())
+        .out_dir(&out_dir)
+        .run()
+        .expect("protoc");
 
     // Write out a `mod` that refers to the generated module.
     //

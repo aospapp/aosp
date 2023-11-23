@@ -58,6 +58,11 @@ public abstract class InCallServiceProxy extends InCallService {
         mMockCallManager.endCall(id);
     }
 
+    /** Answers the incoming call with given id. */
+    public void answerCall(String id) {
+        mMockCallManager.answerCall(id);
+    }
+
     /**
      * Merges current ongoing calls into a conference
      */

@@ -16,7 +16,6 @@
 
 package android.view.inputmethod.cts;
 
-import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.editorMatcher;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectCommand;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
@@ -24,26 +23,18 @@ import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import android.content.ComponentName;
-import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AppModeInstant;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
-import android.view.inputmethod.cts.util.TestUtils;
+import android.view.inputmethod.cts.util.MockTestActivityUtil;
 import android.view.inputmethod.cts.util.UnlockScreenRule;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
-import androidx.test.uiautomator.By;
-import androidx.test.uiautomator.UiDevice;
-import androidx.test.uiautomator.Until;
 
 import com.android.cts.mockime.ImeCommand;
 import com.android.cts.mockime.ImeEvent;
@@ -55,7 +46,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.security.InvalidParameterException;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @MediumTest
@@ -66,81 +57,11 @@ public final class PackageVisibilityTest extends EndToEndImeTestBase {
     @Rule
     public final UnlockScreenRule mUnlockScreenRule = new UnlockScreenRule();
 
-    private static final ComponentName TEST_ACTIVITY = new ComponentName(
-            "android.view.inputmethod.ctstestapp",
-            "android.view.inputmethod.ctstestapp.MainActivity");
-
-    private static final Uri TEST_ACTIVITY_URI =
-            Uri.parse("https://example.com/android/view/inputmethod/ctstestapp");
-
-    private static final String EXTRA_KEY_PRIVATE_IME_OPTIONS =
-            "android.view.inputmethod.ctstestapp.EXTRA_KEY_PRIVATE_IME_OPTIONS";
-
     private static final String TEST_MARKER_PREFIX =
             "android.view.inputmethod.cts.PackageVisibilityTest";
 
     private static String getTestMarker() {
         return TEST_MARKER_PREFIX + "/"  + SystemClock.elapsedRealtimeNanos();
-    }
-
-    @NonNull
-    private static Uri formatStringIntentParam(@NonNull Uri uri, @NonNull String key,
-            @Nullable String value) {
-        if (value == null) {
-            return uri;
-        }
-        return uri.buildUpon().appendQueryParameter(key, value).build();
-    }
-
-    @NonNull
-    private static String formatStringIntentParam(@NonNull String key, @Nullable String value) {
-        if (key.matches("[ \"']")) {
-            throw new InvalidParameterException("Unsupported character(s) in key=" + key);
-        }
-        if (value.matches("[ \"']")) {
-            throw new InvalidParameterException("Unsupported character(s) in value=" + value);
-        }
-        return value != null ? String.format(" --es %s %s", key, value) : "";
-    }
-
-    /**
-     * Launch the standalone version of the test {@link android.app.Activity} then wait for
-     * completions of launch.
-     *
-     * <p>Note: this method does not use
-     * {@link android.app.Instrumentation#startActivitySync(Intent)} because it does not work when
-     * both the calling process and the target process run under the instant app mode. Instead this
-     * method relies on adb command {@code adb shell am start} to work around that limitation.</p>
-     *
-     * @param instant {@code true} if the caller and the target is installed as instant apps.
-     * @param privateImeOptions If not {@code null},
-     *                          {@link android.view.inputmethod.EditorInfo#privateImeOptions} will
-     *                          in the test {@link android.app.Activity} will be set to this value.
-     * @param timeout timeout in milliseconds.
-     */
-    private AutoCloseable launchTestActivity(boolean instant, @Nullable String privateImeOptions,
-            long timeout) {
-        final String command;
-        if (instant) {
-            // Override app-links domain verification.
-            runShellCommand(
-                    String.format("pm set-app-links-user-selection --user cur --package %s true %s",
-                            TEST_ACTIVITY.getPackageName(), TEST_ACTIVITY_URI.getHost()));
-            final Uri uri = formatStringIntentParam(
-                    TEST_ACTIVITY_URI, EXTRA_KEY_PRIVATE_IME_OPTIONS, privateImeOptions);
-            command = String.format("am start -a %s -c %s %s",
-                    Intent.ACTION_VIEW, Intent.CATEGORY_BROWSABLE, uri.toString());
-        } else {
-            command = String.format("am start -n %s",
-                    TEST_ACTIVITY.flattenToShortString())
-                    + formatStringIntentParam(EXTRA_KEY_PRIVATE_IME_OPTIONS, privateImeOptions);
-        }
-        runShellCommand(command);
-        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-                .wait(Until.hasObject(By.pkg(TEST_ACTIVITY.getPackageName()).depth(0)), timeout);
-
-        // Make sure to stop package after test finished for resource reclaim.
-        return () -> TestUtils.forceStopPackage(TEST_ACTIVITY.getPackageName());
     }
 
     @AppModeFull
@@ -163,11 +84,12 @@ public final class PackageVisibilityTest extends EndToEndImeTestBase {
             final ImeEventStream stream = imeSession.openEventStream();
 
             final String marker = getTestMarker();
-            try (AutoCloseable closeable = launchTestActivity(instant, marker, TIMEOUT)) {
+            try (AutoCloseable closeable = MockTestActivityUtil.launchSync(instant,
+                    TIMEOUT, Map.of(MockTestActivityUtil.EXTRA_KEY_PRIVATE_IME_OPTIONS, marker))) {
                 expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
 
                 final ImeCommand command = imeSession.callGetApplicationInfo(
-                        TEST_ACTIVITY.getPackageName(), PackageManager.GET_META_DATA);
+                        MockTestActivityUtil.getPackageName(), PackageManager.GET_META_DATA);
                 final ImeEvent event = expectCommand(stream, command, TIMEOUT);
 
                 if (event.isNullReturnValue()) {
@@ -178,7 +100,8 @@ public final class PackageVisibilityTest extends EndToEndImeTestBase {
                     fail(exception.toString());
                 }
                 final ApplicationInfo applicationInfoFromIme = event.getReturnParcelableValue();
-                assertEquals(TEST_ACTIVITY.getPackageName(), applicationInfoFromIme.packageName);
+                assertEquals(MockTestActivityUtil.getPackageName(),
+                        applicationInfoFromIme.packageName);
             }
         }
     }

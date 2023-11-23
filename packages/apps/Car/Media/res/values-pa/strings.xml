@@ -24,7 +24,7 @@
     <string name="unknown_error" msgid="6146463797752964372">"ਕੋਈ ਗੜਬੜ ਹੋਈ"</string>
     <string name="media_browse_more" msgid="6330295386693311592">"ਹੋਰ…"</string>
     <string name="media_app_title" msgid="94717597743776797">"ਮੀਡੀਆ"</string>
-    <string name="search_hint" msgid="5401750426238148416">"ਗੀਤ, ਕਲਾਕਾਰ ਖੋਜੋ, ਹੋਰ"</string>
+    <string name="search_hint" msgid="5401750426238148416">"ਗੀਤ, ਕਲਾਕਾਰ ਤੇ ਹੋਰ ਖੋਜੋ"</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"ਹੁਣੇ ਚੱਲ ਰਿਹਾ ਹੈ"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"ਮੀਡੀਆ ਨਾਲ ਕਨੈਕਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"ਧੁਨੀ ਸੈਟਿੰਗਾਂ"</string>

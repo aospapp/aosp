@@ -70,6 +70,9 @@ LOCAL_SHARED_LIBRARIES += \
 LOCAL_CFLAGS += $(GNSS_CFLAGS)
 LOCAL_STATIC_LIBRARIES := liblocbatterylistener
 LOCAL_STATIC_LIBRARIES += libhealthhalutils
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
+LOCAL_LICENSE_CONDITIONS := by_exception_only not_allowed notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -113,4 +116,7 @@ ifneq ($(LOC_HIDL_VERSION),)
 LOCAL_CFLAGS += -DLOC_HIDL_VERSION='"$(LOC_HIDL_VERSION)"'
 endif
 
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
+LOCAL_LICENSE_CONDITIONS := by_exception_only not_allowed notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 include $(BUILD_EXECUTABLE)

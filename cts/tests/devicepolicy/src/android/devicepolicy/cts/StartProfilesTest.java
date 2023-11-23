@@ -26,14 +26,12 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.testng.Assert.assertThrows;
 
 import android.app.ActivityManager;
-import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.UserManager;
 
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
@@ -42,10 +40,10 @@ import com.android.bedstead.harrier.annotations.EnsureHasPermission;
 import com.android.bedstead.harrier.annotations.EnsureHasSecondaryUser;
 import com.android.bedstead.harrier.annotations.EnsureHasTvProfile;
 import com.android.bedstead.harrier.annotations.EnsureHasWorkProfile;
+import com.android.bedstead.harrier.annotations.Postsubmit;
 import com.android.bedstead.harrier.annotations.RequireFeature;
 import com.android.bedstead.harrier.annotations.RequireRunOnPrimaryUser;
-import com.android.bedstead.harrier.annotations.Postsubmit;
-import com.android.bedstead.nene.TestApis;
+import com.android.bedstead.harrier.annotations.SlowApiTest;
 import com.android.bedstead.nene.users.UserReference;
 import com.android.compatibility.common.util.BlockingBroadcastReceiver;
 
@@ -63,9 +61,7 @@ public final class StartProfilesTest {
     private static final ActivityManager sActivityManager =
             sContext.getSystemService(ActivityManager.class);
 
-    private UiAutomation mUiAutomation =
-            InstrumentationRegistry.getInstrumentation().getUiAutomation();
-    private final TestApis mTestApis = new TestApis();
+    private static final int START_PROFILE_BROADCAST_TIMEOUT = 480_000; // 8 minutes
 
     @ClassRule @Rule
     public static final DeviceState sDeviceState = new DeviceState();
@@ -90,6 +86,7 @@ public final class StartProfilesTest {
     @RequireRunOnPrimaryUser
     @EnsureHasWorkProfile
     @EnsureHasPermission({INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS})
+    @SlowApiTest("Start profile broadcasts can take a long time")
     public void startProfile_broadcastIsReceived_profileIsStarted() {
         sDeviceState.workProfile().stop();
         BlockingBroadcastReceiver broadcastReceiver = sDeviceState.registerBroadcastReceiver(
@@ -97,7 +94,7 @@ public final class StartProfilesTest {
                 userIsEqual(sDeviceState.workProfile()));
         sActivityManager.startProfile(sDeviceState.workProfile().userHandle());
 
-        broadcastReceiver.awaitForBroadcastOrFail();
+        broadcastReceiver.awaitForBroadcastOrFail(START_PROFILE_BROADCAST_TIMEOUT);
 
         assertThat(sUserManager.isUserRunning(sDeviceState.workProfile().userHandle())).isTrue();
     }
@@ -106,7 +103,7 @@ public final class StartProfilesTest {
     @RequireFeature(PackageManager.FEATURE_MANAGED_USERS)
     @RequireRunOnPrimaryUser
     @EnsureHasWorkProfile
-    @Postsubmit(reason="b/181207615 flaky")
+    @Postsubmit(reason = "b/181207615 flaky")
     @EnsureHasPermission({INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS})
     public void stopProfile_returnsTrue() {
         assertThat(sActivityManager.stopProfile(sDeviceState.workProfile().userHandle())).isTrue();
@@ -116,7 +113,7 @@ public final class StartProfilesTest {
     @RequireFeature(PackageManager.FEATURE_MANAGED_USERS)
     @RequireRunOnPrimaryUser
     @EnsureHasWorkProfile
-    @Postsubmit(reason="b/181207615 flaky")
+    @Postsubmit(reason = "b/181207615 flaky")
     @EnsureHasPermission({INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS})
     public void stopProfile_profileIsStopped() {
         BlockingBroadcastReceiver broadcastReceiver = sDeviceState.registerBroadcastReceiver(
@@ -133,7 +130,7 @@ public final class StartProfilesTest {
     @RequireFeature(PackageManager.FEATURE_MANAGED_USERS)
     @RequireRunOnPrimaryUser
     @EnsureHasWorkProfile
-    @Postsubmit(reason="b/181207615 flaky")
+    @Postsubmit(reason = "b/181207615 flaky")
     @EnsureHasPermission({INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS})
     public void startUser_immediatelyAfterStopped_profileIsStarted() {
         try (BlockingBroadcastReceiver broadcastReceiver = sDeviceState.registerBroadcastReceiver(
@@ -158,7 +155,7 @@ public final class StartProfilesTest {
     @RequireFeature(PackageManager.FEATURE_MANAGED_USERS)
     @RequireRunOnPrimaryUser
     @EnsureHasWorkProfile
-    @Postsubmit(reason="b/181207615 flaky")
+    @Postsubmit(reason = "b/181207615 flaky")
     @EnsureHasPermission({INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS})
     public void startUser_userIsStopping_profileIsStarted() {
         sDeviceState.workProfile().start();
@@ -175,7 +172,7 @@ public final class StartProfilesTest {
     @RequireRunOnPrimaryUser
     @EnsureHasWorkProfile
     @EnsureDoesNotHavePermission({INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS})
-    @Postsubmit(reason="b/181207615 flaky")
+    @Postsubmit(reason = "b/181207615 flaky")
     public void startProfile_withoutPermission_throwsException() {
         assertThrows(SecurityException.class,
                 () -> sActivityManager.startProfile(sDeviceState.workProfile().userHandle()));
@@ -186,6 +183,7 @@ public final class StartProfilesTest {
     @RequireRunOnPrimaryUser
     @EnsureHasWorkProfile
     @EnsureDoesNotHavePermission({INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS})
+    @Postsubmit(reason = "b/181207615 flaky")
     public void stopProfile_withoutPermission_throwsException() {
         assertThrows(SecurityException.class,
                 () -> sActivityManager.stopProfile(sDeviceState.workProfile().userHandle()));
@@ -194,7 +192,7 @@ public final class StartProfilesTest {
     @Test
     @RequireRunOnPrimaryUser
     @EnsureHasSecondaryUser
-    @Postsubmit(reason="b/181207615 flaky")
+    @Postsubmit(reason = "b/181207615 flaky")
     @EnsureHasPermission({INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS})
     public void startProfile_startingFullUser_throwsException() {
         assertThrows(IllegalArgumentException.class,
@@ -205,6 +203,7 @@ public final class StartProfilesTest {
     @RequireRunOnPrimaryUser
     @EnsureHasSecondaryUser
     @EnsureHasPermission({INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS})
+    @Postsubmit(reason = "b/181207615 flaky")
     public void stopProfile_stoppingFullUser_throwsException() {
         assertThrows(IllegalArgumentException.class,
                 () -> sActivityManager.stopProfile(sDeviceState.secondaryUser().userHandle()));
@@ -214,6 +213,7 @@ public final class StartProfilesTest {
     @RequireRunOnPrimaryUser
     @EnsureHasTvProfile
     @EnsureHasPermission({INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS})
+    @Postsubmit(reason = "b/181207615 flaky")
     public void startProfile_tvProfile_profileIsStarted() {
         sDeviceState.tvProfile().stop();
 
@@ -231,6 +231,7 @@ public final class StartProfilesTest {
     @RequireRunOnPrimaryUser
     @EnsureHasTvProfile
     @EnsureHasPermission({INTERACT_ACROSS_USERS_FULL, INTERACT_ACROSS_USERS, CREATE_USERS})
+    @Postsubmit(reason = "b/181207615 flaky")
     public void stopProfile_tvProfile_profileIsStopped() {
         BlockingBroadcastReceiver broadcastReceiver = sDeviceState.registerBroadcastReceiver(
                 Intent.ACTION_PROFILE_INACCESSIBLE, userIsEqual(sDeviceState.tvProfile()));

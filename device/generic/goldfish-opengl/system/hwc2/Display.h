@@ -17,8 +17,10 @@
 #ifndef ANDROID_HWC_DISPLAY_H
 #define ANDROID_HWC_DISPLAY_H
 
-#include <utils/Thread.h>
+#include <android/hardware/graphics/common/1.0/types.h>
 
+#include <array>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <thread>
@@ -27,17 +29,25 @@
 
 #include "Common.h"
 #include "Composer.h"
+#include "DisplayConfig.h"
+#include "DisplayFinder.h"
 #include "FencedBuffer.h"
 #include "Layer.h"
+#include "VsyncThread.h"
 
 namespace android {
 
 class Composer;
 class Device;
 
+struct ColorTransformWithMatrix {
+  android::hardware::graphics::common::V1_0::ColorTransform transformType;
+  std::optional<std::array<float, 16>> transformMatrixOpt;
+};
+
 class Display {
  public:
-  Display(Device& device, Composer* composer, hwc2_display_t id);
+  Display(Composer* composer, hwc2_display_t id);
   ~Display();
 
   Display(const Display& display) = delete;
@@ -46,14 +56,14 @@ class Display {
   Display(Display&& display) = delete;
   Display& operator=(Display&& display) = delete;
 
-  HWC2::Error init(uint32_t width, uint32_t height, uint32_t dpiX,
-                   uint32_t dpiY, uint32_t refreshRateHz,
-                   const std::optional<std::vector<uint8_t>>& edid = std::nullopt);
+  HWC2::Error init(
+      const std::vector<DisplayConfig>& configs, hwc2_config_t activeConfigId,
+      const std::optional<std::vector<uint8_t>>& edid = std::nullopt);
 
-  HWC2::Error updateParameters(uint32_t width, uint32_t height, uint32_t dpiX,
-                               uint32_t dpiY, uint32_t refreshRateHz,
-                               const std::optional<std::vector<uint8_t>>& edid
-                                   = std::nullopt);
+  HWC2::Error updateParameters(
+      uint32_t width, uint32_t height, uint32_t dpiX, uint32_t dpiY,
+      uint32_t refreshRateHz,
+      const std::optional<std::vector<uint8_t>>& edid = std::nullopt);
 
   hwc2_display_t getId() const { return mId; }
 
@@ -97,16 +107,34 @@ class Display {
   HWC2::Error setClientTarget(buffer_handle_t target, int32_t acquireFence,
                               int32_t dataspace, hwc_region_t damage);
   HWC2::Error setColorMode(int32_t mode);
-  HWC2::Error setColorTransform(const float* matrix, int32_t hint);
-  bool hasColorTransform() const { return mSetColorTransform; }
+  HWC2::Error setColorTransform(const float* matrix, int transform);
+  HWC2::Error setColorTransformEnum(
+      const float* matrix,
+      android::hardware::graphics::common::V1_0::ColorTransform transform);
+  bool hasColorTransform() const { return mColorTransform.has_value(); }
+  ColorTransformWithMatrix getColorTransform() const {
+    return *mColorTransform;
+  }
+
   HWC2::Error setOutputBuffer(buffer_handle_t buffer, int32_t releaseFence);
   HWC2::Error setPowerMode(int32_t mode);
   HWC2::Error setVsyncEnabled(int32_t enabled);
-  HWC2::Error setVsyncPeriod(uint32_t period);
+  HWC2::Error setVsyncCallback(HWC2_PFN_VSYNC callback,
+                               hwc2_callback_data_t data);
+  HWC2::Error setVsync24Callback(HWC2_PFN_VSYNC_2_4 callback,
+                                 hwc2_callback_data_t data);
+  HWC2::Error getDisplayVsyncPeriod(hwc2_vsync_period_t* outVsyncPeriod);
+  HWC2::Error setActiveConfigWithConstraints(
+      hwc2_config_t config,
+      hwc_vsync_period_change_constraints_t* vsyncPeriodChangeConstraints,
+      hwc_vsync_period_change_timeline_t* timeline);
+  HWC2::Error getDisplayConnectionType(uint32_t* outType);
+
   HWC2::Error validate(uint32_t* outNumTypes, uint32_t* outNumRequests);
   HWC2::Error updateLayerZ(hwc2_layer_t layerId, uint32_t z);
   HWC2::Error getClientTargetSupport(uint32_t width, uint32_t height,
                                      int32_t format, int32_t dataspace);
+  HWC2::Error setEdid(std::vector<uint8_t> edid);
   HWC2::Error getDisplayIdentificationData(uint8_t* outPort,
                                            uint32_t* outDataSize,
                                            uint8_t* outData);
@@ -114,33 +142,15 @@ class Display {
                                      uint32_t* outCapabilities);
   HWC2::Error getDisplayBrightnessSupport(bool* out_support);
   HWC2::Error setDisplayBrightness(float brightness);
+  HWC2::Error setAutoLowLatencyMode(bool on);
+  HWC2::Error getSupportedContentTypes(
+      uint32_t* outNumSupportedContentTypes,
+      const uint32_t* outSupportedContentTypes);
+  HWC2::Error setContentType(int32_t contentType);
   void lock() { mStateMutex.lock(); }
   void unlock() { mStateMutex.unlock(); }
 
  private:
-  class Config {
-   public:
-    Config(hwc2_config_t configId) : mId(configId) {}
-
-    Config(const Config& display) = default;
-    Config& operator=(const Config& display) = default;
-
-    Config(Config&& display) = default;
-    Config& operator=(Config&& display) = default;
-
-    hwc2_config_t getId() const { return mId; }
-    void setId(hwc2_config_t id) { mId = id; }
-
-    int32_t getAttribute(HWC2::Attribute attribute) const;
-    void setAttribute(HWC2::Attribute attribute, int32_t value);
-
-    std::string toString() const;
-
-   private:
-    hwc2_config_t mId;
-    std::unordered_map<HWC2::Attribute, int32_t> mAttributes;
-  };
-
   // Stores changes requested from the device upon calling prepare().
   // Handles change request to:
   //   - Layer composition type.
@@ -180,23 +190,6 @@ class Display {
     std::unordered_map<hwc2_layer_t, HWC2::LayerRequest> mLayerRequests;
   };
 
-  // Generate sw vsync signal
-  class VsyncThread : public Thread {
-   public:
-    VsyncThread(Display& display) : mDisplay(display) {}
-    virtual ~VsyncThread() {}
-
-    VsyncThread(const VsyncThread&) = default;
-    VsyncThread& operator=(const VsyncThread&) = default;
-
-    VsyncThread(VsyncThread&&) = default;
-    VsyncThread& operator=(VsyncThread&&) = default;
-
-   private:
-    Display& mDisplay;
-    bool threadLoop() final;
-  };
-
  private:
   // The state of this display should only be modified from
   // SurfaceFlinger's main loop, with the exception of when dump is
@@ -204,14 +197,11 @@ class Display {
   // call, all public calls into Display must acquire this mutex.
   mutable std::recursive_mutex mStateMutex;
 
-  Device& mDevice;
   Composer* mComposer = nullptr;
   const hwc2_display_t mId;
   std::string mName;
   HWC2::DisplayType mType = HWC2::DisplayType::Physical;
   HWC2::PowerMode mPowerMode = HWC2::PowerMode::Off;
-  HWC2::Vsync mVsyncEnabled = HWC2::Vsync::Invalid;
-  uint32_t mVsyncPeriod;
   sp<VsyncThread> mVsyncThread;
   FencedBuffer mClientTarget;
   // Will only be non-null after the Display has been validated and
@@ -225,10 +215,10 @@ class Display {
   std::vector<hwc2_display_t> mReleaseLayerIds;
   std::vector<int32_t> mReleaseFences;
   std::optional<hwc2_config_t> mActiveConfigId;
-  std::unordered_map<hwc2_config_t, Config> mConfigs;
-  std::set<android_color_mode_t> mColorModes;
-  android_color_mode_t mActiveColorMode;
-  bool mSetColorTransform = false;
+  std::unordered_map<hwc2_config_t, DisplayConfig> mConfigs;
+  std::set<android_color_mode_t> mColorModes = {HAL_COLOR_MODE_NATIVE};
+  android_color_mode_t mActiveColorMode = HAL_COLOR_MODE_NATIVE;
+  std::optional<ColorTransformWithMatrix> mColorTransform;
   std::optional<std::vector<uint8_t>> mEdid;
 };
 

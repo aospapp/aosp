@@ -83,10 +83,6 @@
             android:finishOnTaskLaunch="true"
             android:windowSoftInputMode="adjustPan"
             android:exported="true">
-            <intent-filter android:priority="1">
-                <action android:name="android.settings.NIGHT_DISPLAY_SETTINGS" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
             <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
@@ -360,6 +356,8 @@
             <intent-filter android:priority="100">
                 <action android:name="android.settings.DATA_ROAMING_SETTINGS" />
                 <action android:name="android.settings.NETWORK_OPERATOR_SETTINGS" />
+                <action android:name="android.settings.DATA_USAGE_SETTINGS" />
+                <action android:name="android.settings.MOBILE_DATA_USAGE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
@@ -373,20 +371,6 @@
             android:exported="true">
             <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
                        android:value="@string/hk_MobileNetworkListActivity" />
-            <meta-data android:name="distractionOptimized" android:value="true"/>
-        </activity>
-
-        <activity
-            android:name=".common.CarSettingActivities$DataUsageActivity"
-            android:windowSoftInputMode="adjustPan"
-            android:exported="true">
-            <intent-filter android:priority="100">
-                <action android:name="android.settings.DATA_USAGE_SETTINGS" />
-                <action android:name="android.settings.MOBILE_DATA_USAGE" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
-                       android:value="@string/hk_DataUsageActivity" />
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
@@ -794,7 +778,7 @@
 
         <activity
             android:name=".security.ChooseLockPasswordActivity"
-            android:windowSoftInputMode="adjustPan"
+            android:windowSoftInputMode="adjustResize"
             android:noHistory="true"
             android:exported="false">
             <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
@@ -910,6 +894,23 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".enterprise.EnterprisePrivacySettingsActivity"
+            android:exported="true">
+            <meta-data android:name="com.android.car.settings.SINGLE_PANE" android:value="true"/>
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+            <intent-filter>
+                <action android:name="android.settings.ENTERPRISE_PRIVACY_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".notifications.NotificationAccessConfirmationActivity"
+            android:exported="true"
+            android:taskAffinity="com.android.car.settings.notifications.NotificationAccessConfirmationActivity"
+            android:theme="@style/ActionDialogTheme"
+            />
+
         <activity android:name=".enterprise.ActionDisabledByAdminActivity"
                 android:theme="@style/ActionDialogTheme"
                 android:taskAffinity=".enterprise"
@@ -919,6 +920,34 @@
                 <action android:name="android.settings.SHOW_ADMIN_SUPPORT_DETAILS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".common.CarSettingActivities$AccessibilityActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.settings.ACCESSIBILITY_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_AccessibilitySettingsActivity" />
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
+
+        <activity
+            android:name=".common.CarSettingActivities$CaptionsActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:windowSoftInputMode="adjustPan"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.settings.CAPTIONING_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data android:name="com.android.car.settings.TOP_LEVEL_HEADER_KEY"
+                       android:value="@string/hk_CaptionsSettingsActivity" />
+            <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
         <service android:name=".bluetooth.BluetoothPairingService" />
@@ -962,6 +991,19 @@
                 <action android:name="android.content.action.SEARCH_INDEXABLES_PROVIDER" />
             </intent-filter>
         </provider>
+
+        <provider android:name=".qc.SettingsQCProvider"
+                  android:authorities="com.android.car.settings.qc"
+                  android:grantUriPermissions="true"
+                  android:exported="true">
+        </provider>
+
+        <!-- For security purposes, only intents created by the CarSettings application should be
+        able to call this receiver. Therefore, it should not be exported. -->
+        <receiver
+            android:name=".qc.SettingsQCBroadcastReceiver"
+            android:exported="false">
+        </receiver>
 
     </application>
 </manifest>

@@ -17,6 +17,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:tag="CarUiBaseLayoutToolbar">
@@ -63,6 +64,8 @@
                 app:layout_constraintLeft_toLeftOf="parent"
                 app:layout_constraintTop_toTopOf="parent">
 
+                <!-- we need to use android:tint instead of app:tint, because we're
+                    not using classes from androidx/appcompat such as AppCompatImageView -->
                 <ImageView
                     android:id="@+id/car_ui_toolbar_nav_icon"
                     style="@style/Widget.CarUi.Toolbar.NavIcon"
@@ -70,7 +73,8 @@
                     android:layout_width="@dimen/car_ui_toolbar_nav_icon_size"
                     android:layout_height="@dimen/car_ui_toolbar_nav_icon_size"
                     android:layout_gravity="center"
-                    android:scaleType="fitXY" />
+                    android:scaleType="fitXY"
+                    tools:ignore="UseAppTint" />
 
                 <ImageView
                     android:id="@+id/car_ui_toolbar_logo"

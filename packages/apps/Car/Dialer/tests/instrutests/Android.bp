@@ -10,6 +10,10 @@ package {
 android_test {
     name: "CarDialerInstruTests",
 
+    min_sdk_version: "29",
+
+    target_sdk_version: "31",
+
     srcs: ["src/**/*.java"],
 
     test_suites:["device-tests"],
@@ -21,8 +25,10 @@ android_test {
         "androidx.test.espresso.core",
         "androidx.test.espresso.contrib",
         "androidx.test.espresso.intents",
+        "androidx.test.uiautomator_uiautomator",
         "hilt_android_testing",
         "mockito-target-extended",
+        "truth-prebuilt",
     ],
 
     jni_libs: ["libstaticjvmtiagent"],

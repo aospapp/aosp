@@ -42,6 +42,17 @@ public final class NotificationHelper {
 
     static final int NEW_USER_DISCLAIMER_NOTIFICATION_ID = 108;
 
+     /*
+      * NOTE: IDs in the range {@code [RESOURCE_OVERUSE_NOTIFICATION_BASE_ID,
+      * RESOURCE_OVERUSE_NOTIFICATION_BASE_ID + RESOURCE_OVERUSE_NOTIFICATION_MAX_OFFSET)} are
+      * reserved for car watchdog's resource overuse notifications.
+      */
+    /** Base notification id for car watchdog's resource overuse notifications. */
+    public static final int RESOURCE_OVERUSE_NOTIFICATION_BASE_ID = 150;
+
+    /** Maximum notification offset for car watchdog's resource overuse notifications. */
+    public static final int RESOURCE_OVERUSE_NOTIFICATION_MAX_OFFSET = 20;
+
     @VisibleForTesting
     static final String CHANNEL_ID_DEFAULT = "channel_id_default";
     @VisibleForTesting

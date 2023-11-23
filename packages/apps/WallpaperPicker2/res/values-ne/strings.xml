@@ -95,7 +95,14 @@
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"वालपेपरको प्रिभ्यु"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"यो सङ्ग्रह छैन"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"UI प्रिभ्यू लुकाइयोस्"</string>
+    <string name="hint_hide_ui_preview" msgid="4527603797714586070">"प्रिभ्यूमा UI लुकाइएको छ। नलुकाउन डबल ट्याप गर्नुहोस्"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"UI प्रिभ्यू देखाइयोस्"</string>
+    <string name="hint_show_ui_preview" msgid="2744155435325318349">"प्रिभ्यूमा UI देखाइएको छ। लुकाउन डबल ट्याप गर्नुहोस्"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"वालपेपर बदल्नुहोस्"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"लकस्क्रिनमा देखिने वालपेपरको प्रिभ्यू"</string>
+    <string name="apply_btn" msgid="5764555565943538528">"लागू गर्नुहोस्"</string>
+    <string name="accessibility_customize_hidden" msgid="6320568529768181691">"कस्टमाइज गर्नेसम्बन्धी प्यानल लुकाइएको छ"</string>
+    <string name="accessibility_customize_shown" msgid="590964727831547651">"कस्टमाइज गर्नेसम्बन्धी प्यानल देखाइएको छ"</string>
+    <string name="accessibility_info_hidden" msgid="2288603712350168107">"जानकारीसम्बन्धी प्यानल लुकाइएको छ"</string>
+    <string name="accessibility_info_shown" msgid="6626025722456105632">"जानकारीसम्बन्धी प्यानल देखाइएको छ"</string>
 </resources>

@@ -241,6 +241,9 @@ class WifiRequestManager : public NonCopyable {
   //! Helps ensure we don't get stuck if platform isn't behaving as expected
   Nanoseconds mRangingResponseTimeout;
 
+  //! System time when the last WiFi scan event was received.
+  Milliseconds mLastScanEventTime;
+
   /**
    * @return true if the scan monitor is enabled by any nanoapps.
    */

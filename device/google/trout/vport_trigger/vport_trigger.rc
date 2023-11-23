@@ -1,0 +1,7 @@
+
+on fs
+    start vport_trigger
+
+
+service vport_trigger /vendor/bin/vport_trigger
+    oneshot

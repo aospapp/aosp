@@ -71,8 +71,8 @@ public class IconMixin implements Mixin {
         context.obtainStyledAttributes(
             attrs, R.styleable.SudIconMixin, defStyleAttr, /* defStyleRes= */ 0);
 
-    final @DrawableRes int icon =
-        a.getResourceId(R.styleable.SudIconMixin_android_icon, /* defValue= */ 0);
+    @DrawableRes
+    final int icon = a.getResourceId(R.styleable.SudIconMixin_android_icon, /* defValue= */ 0);
     if (icon != 0) {
       setIcon(icon);
     }
@@ -81,8 +81,8 @@ public class IconMixin implements Mixin {
         a.getBoolean(R.styleable.SudIconMixin_sudUpscaleIcon, /* defValue= */ false);
     setUpscaleIcon(upscaleIcon);
 
-    final @ColorInt int iconTint =
-        a.getColor(R.styleable.SudIconMixin_sudIconTint, Color.TRANSPARENT);
+    @ColorInt
+    final int iconTint = a.getColor(R.styleable.SudIconMixin_sudIconTint, Color.TRANSPARENT);
     if (iconTint != Color.TRANSPARENT) {
       setIconTint(iconTint);
     }
@@ -92,12 +92,9 @@ public class IconMixin implements Mixin {
 
   /** Tries to apply the partner customization to the header icon. */
   public void tryApplyPartnerCustomizationStyle() {
-    if (PartnerStyleHelper.isPartnerHeavyThemeLayout(templateLayout)) {
-      // apply partner heavy configs
+    // apply partner configs for icon
+    if (PartnerStyleHelper.shouldApplyPartnerResource(templateLayout)) {
       HeaderAreaStyler.applyPartnerCustomizationIconStyle(getView(), getContainerView());
-    } else if (PartnerStyleHelper.isPartnerLightThemeLayout(templateLayout)) {
-      // apply partner light configs
-      HeaderAreaStyler.applyPartnerCustomizationIconStyle(getView());
     }
   }
 
@@ -117,6 +114,7 @@ public class IconMixin implements Mixin {
       iconView.setImageDrawable(icon);
       iconView.setVisibility(icon != null ? View.VISIBLE : View.GONE);
       setIconContainerVisibility(iconView.getVisibility());
+      tryApplyPartnerCustomizationStyle();
     }
   }
 

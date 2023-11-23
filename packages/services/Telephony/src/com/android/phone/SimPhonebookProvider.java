@@ -16,8 +16,8 @@
 
 package com.android.phone;
 
-import static com.android.internal.telephony.IccProvider.STR_NEW_TAG;
 import static com.android.internal.telephony.IccProvider.STR_NEW_NUMBER;
+import static com.android.internal.telephony.IccProvider.STR_NEW_TAG;
 
 import android.Manifest;
 import android.annotation.TestApi;
@@ -97,6 +97,8 @@ public class SimPhonebookProvider extends ContentProvider {
     private static final String TAG = "SimPhonebookProvider";
     private static final Set<String> ELEMENTARY_FILES_COLUMNS_SET =
             ImmutableSet.copyOf(ELEMENTARY_FILES_ALL_COLUMNS);
+    private static final Set<String> SIM_RECORDS_COLUMNS_SET =
+            ImmutableSet.copyOf(SIM_RECORDS_ALL_COLUMNS);
     private static final Set<String> SIM_RECORDS_WRITABLE_COLUMNS = ImmutableSet.of(
             SimRecords.NAME, SimRecords.PHONE_NUMBER
     );
@@ -305,8 +307,10 @@ public class SimPhonebookProvider extends ContentProvider {
 
         MatrixCursor result = new MatrixCursor(projection);
         try {
-            addEfToCursor(
-                    result, getActiveSubscriptionInfo(args.subscriptionId), args.efType);
+            SubscriptionInfo info = getActiveSubscriptionInfo(args.subscriptionId);
+            if (info != null) {
+                addEfToCursor(result, info, args.efType);
+            }
         } catch (RemoteException e) {
             // Return an empty cursor. If service to access it is throwing remote
             // exceptions then it's basically the same as not having a SIM.
@@ -353,6 +357,7 @@ public class SimPhonebookProvider extends ContentProvider {
     }
 
     private Cursor querySimRecords(PhonebookArgs args, String[] projection) {
+        validateProjection(SIM_RECORDS_COLUMNS_SET, projection);
         validateSubscriptionAndEf(args);
         if (projection == null) {
             projection = SIM_RECORDS_ALL_COLUMNS;
@@ -407,6 +412,7 @@ public class SimPhonebookProvider extends ContentProvider {
     }
 
     private Cursor querySimRecordsItem(PhonebookArgs args, String[] projection) {
+        validateProjection(SIM_RECORDS_COLUMNS_SET, projection);
         if (projection == null) {
             projection = SIM_RECORDS_ALL_COLUMNS;
         }
@@ -734,6 +740,7 @@ public class SimPhonebookProvider extends ContentProvider {
         }
     }
 
+    @Nullable
     private SubscriptionInfo getActiveSubscriptionInfo(int subId) {
         // Getting the SubscriptionInfo requires READ_PHONE_STATE.
         CallingIdentity identity = clearCallingIdentity();

@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"Ruhusa za programu"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Programu zisizotumika"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Hakuna programu zisizotumika"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"Hakuna programu zisizotumika"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Zima programu"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Ukizima programu hii, huenda Android na programu zingine zikakosa kufanya kazi tena kama zilivyokusudiwa. Kumbuka, huwezi kufuta programu hii kwa kuwa ilisakinishwa mapema kwenye kifaa chako. Kwa kuizima, unazima programu hii na kuificha kwenye kifaa chako."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Kidhibiti cha ruhusa"</string>
@@ -473,7 +474,7 @@
     <string name="permgroupupgraderequest_microphone" msgid="1362781696161233341">"Ungependa kubadilisha ruhusa za &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; za kufikia maikrofoni?"</string>
     <string name="permgroupupgraderequestdetail_microphone" msgid="2870497719571464239">"Programu hii inataka kurekodi sauti kila wakati, hata wakati huitumii."<annotation id="link">"Ruhusu katika mipangilio."</annotation></string>
     <string name="permgrouprequest_activityRecognition" msgid="5415121592794230330">"Ungependa kuruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ifikie shughuli zako za kimwili?"</string>
-    <string name="permgrouprequest_camera" msgid="5123097035410002594">"Ungependa kuruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ipige picha na irekodi video?"</string>
+    <string name="permgrouprequest_camera" msgid="5123097035410002594">"Ungependa kuruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; kupiga picha na kurekodi video?"</string>
     <string name="permgrouprequestdetail_camera" msgid="9085323239764667883">"Programu itaweza kupiga picha na kurekodi video unapoitumia tu"</string>
     <string name="permgroupbackgroundrequest_camera" msgid="1274286575704213875">"Ungependa kuiruhusu &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; ipige picha na kurekodi video?"</string>
     <string name="permgroupbackgroundrequestdetail_camera" msgid="4458783509089859078">"Huenda programu hii ikataka kupiga picha na kurekodi video kila wakati, hata wakati huitumii."<annotation id="link">"Ruhusu katika mipangilio."</annotation></string>

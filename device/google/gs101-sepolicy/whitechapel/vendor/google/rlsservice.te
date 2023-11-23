@@ -1,0 +1,34 @@
+type rlsservice, domain;
+type rlsservice_exec, exec_type, vendor_file_type, file_type;
+
+init_daemon_domain(rlsservice)
+
+vndbinder_use(rlsservice)
+
+add_service(rlsservice, rls_service)
+
+# access rainbow sensor calibration files
+allow rlsservice persist_file:dir search;
+allow rlsservice persist_camera_file:dir search;
+allow rlsservice persist_camera_file:file r_file_perms;
+allow rlsservice mnt_vendor_file:dir search;
+
+# access device files
+allow rlsservice rls_device:chr_file rw_file_perms;
+
+binder_call(rlsservice, hal_sensors_default)
+binder_call(rlsservice, hal_camera_default)
+
+# Allow access to always-on compute device node
+allow rlsservice device:dir { read watch };
+allow rlsservice aoc_device:chr_file rw_file_perms;
+
+# Allow access to display backlight information
+allow rlsservice sysfs_leds:dir search;
+allow rlsservice sysfs_leds:file r_file_perms;
+
+# Allow use of the USF low latency transport
+usf_low_latency_transport(rlsservice)
+
+# For observing apex file changes
+allow rlsservice apex_info_file:file r_file_perms;

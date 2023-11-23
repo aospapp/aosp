@@ -21,6 +21,8 @@ package {
 android_library {
     name: "car-messenger-common",
 
+    manifest: "AndroidManifest-unbundled.xml",
+
     srcs: ["src/**/*.java"],
 
     optimize: {
@@ -28,22 +30,26 @@ android_library {
     },
 
     sdk_version: "system_current",
+
     min_sdk_version: "28",
+
+    target_sdk_version: "31",
 
     libs: ["android.car-system-stubs",],
 
-    resource_dirs: ["res"],
-
     static_libs: [
-        "car-apps-common",
-        "car-messenger-protos",
+        "androidx.legacy_legacy-support-v4",
+        "androidx.annotation_annotation",
+        "car-assist-lib",
         "car-telephony-common",
-        "libphonenumber",
     ],
 }
+
 // Car Messaging Models, Unbundled
 android_library {
     name: "car-messaging-models",
+
+    manifest: "AndroidManifest-unbundled.xml",
 
     srcs: [
       "src/com/android/car/messenger/common/Conversation.java",
@@ -54,6 +60,10 @@ android_library {
     },
 
     sdk_version: "current",
+
+    min_sdk_version: "28",
+
+    target_sdk_version: "31",
 
     static_libs: [
         "androidx.legacy_legacy-support-v4",

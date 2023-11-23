@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,12 @@ import java.util.regex.Pattern;
 public class ThermalHelper implements ICollectorHelper<StringBuilder> {
     private static final String LOG_TAG = ThermalHelper.class.getSimpleName();
 
+    @VisibleForTesting static final String DUMP_THERMALSERVICE_CMD = "dumpsys thermalservice";
+    private static final String METRIC_KEY_TEMPERATURE = "temperature";
+    private static final String METRIC_KEY_VALUE = "value";
+    private static final String METRIC_KEY_TYPE = "type";
+    private static final String METRIC_KEY_STATUS = "status";
+
     private static final int UNDEFINED_SEVERITY = -1;
     private static final Pattern SEVERITY_DUMPSYS_PATTERN =
             Pattern.compile("Thermal Status: (\\d+)");
@@ -63,7 +69,7 @@ public class ThermalHelper implements ICollectorHelper<StringBuilder> {
         // Add an initial value because this only detects changes.
         mInitialSeverity = UNDEFINED_SEVERITY;
         try {
-            String[] output = getDevice().executeShellCommand("dumpsys thermalservice").split("\n");
+            String[] output = getDevice().executeShellCommand(DUMP_THERMALSERVICE_CMD).split("\n");
             for (String line : output) {
                 Matcher severityMatcher = SEVERITY_DUMPSYS_PATTERN.matcher(line);
                 if (severityMatcher.matches()) {
@@ -115,24 +121,36 @@ public class ThermalHelper implements ICollectorHelper<StringBuilder> {
             }
         }
 
+        updateTemperatureMetrics(results);
+
+        return results;
+    }
+
+    /** Collect temperature metrics into result map. */
+    private void updateTemperatureMetrics(Map<String, StringBuilder> results) {
+
         try {
-            String[] output = getDevice().executeShellCommand("dumpsys thermalservice").split("\n");
+            String output = getDevice().executeShellCommand(DUMP_THERMALSERVICE_CMD);
+            String[] lines = output.split("\n");
             boolean inCurrentTempSection = false;
-            for (String line : output) {
+            for (String line : lines) {
                 Matcher temperatureMatcher = TEMPERATURE_DUMPSYS_PATTERN.matcher(line);
                 if (inCurrentTempSection && temperatureMatcher.matches()) {
                     Log.v(LOG_TAG, "Matched " + line);
                     String name = temperatureMatcher.group(3);
                     MetricUtility.addMetric(
-                            MetricUtility.constructKey("temperature", name, "value"),
+                            MetricUtility.constructKey(
+                                    METRIC_KEY_TEMPERATURE, name, METRIC_KEY_VALUE),
                             Double.parseDouble(temperatureMatcher.group(1)), // value group
                             results);
                     MetricUtility.addMetric(
-                            MetricUtility.constructKey("temperature", name, "type"),
+                            MetricUtility.constructKey(
+                                    METRIC_KEY_TEMPERATURE, name, METRIC_KEY_TYPE),
                             Integer.parseInt(temperatureMatcher.group(2)), // type group
                             results);
                     MetricUtility.addMetric(
-                            MetricUtility.constructKey("temperature", name, "status"),
+                            MetricUtility.constructKey(
+                                    METRIC_KEY_TEMPERATURE, name, METRIC_KEY_STATUS),
                             Integer.parseInt(temperatureMatcher.group(4)), // status group
                             results);
                 }
@@ -151,8 +169,27 @@ public class ThermalHelper implements ICollectorHelper<StringBuilder> {
         } catch (IOException ioe) {
             Log.e(LOG_TAG, String.format("Failed to query thermalservice. Error: %s", ioe));
         }
+    }
 
-        return results;
+    /**
+     * Get latest temperature value for needed name. Return temperature value is in unit of degree
+     * Celsius
+     */
+    public double getTemperature(String name) {
+        Map<String, StringBuilder> results = new HashMap<>();
+        updateTemperatureMetrics(results);
+        String temperatureKey =
+                MetricUtility.constructKey(METRIC_KEY_TEMPERATURE, name, METRIC_KEY_VALUE);
+        List<Double> values = MetricUtility.getMetricDoubles(temperatureKey, results);
+        if (values.size() > 0) {
+            double value =
+                    values.get(values.size() - 1).doubleValue(); // last value is the latest value.
+            Log.v(LOG_TAG, String.format("Got temperature of %s: %,.6f", name, value));
+            return value;
+        } else {
+            throw new IllegalArgumentException(
+                    String.format("Failed to get temperature of %s", name));
+        }
     }
 
     /** Remove the statsd config used to track thermal events. */

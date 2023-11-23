@@ -286,6 +286,12 @@
   <!-- Text to show a dialog with single choice items and no default button [CHAR_LIMIT=200] -->
   <string name="dialog_show_list_items_without_default_button">Show with single choice items and no default button</string>
 
+  <!-- Text to show a dialog with unfocusable items [CHAR_LIMIT=200] -->
+  <string name="dialog_show_unfocusable_list_items">Show with unfocusable items</string>
+
+  <!-- Text to show a dialog with an empty list [CHAR_LIMIT=200] -->
+  <string name="dialog_show_empty_list_items">Show with empty list</string>
+
   <!-- Text to show a permission Dialog [CHAR_LIMIT=50] -->
   <string name="dialog_show_permission_dialog">Show permission dialog</string>
 

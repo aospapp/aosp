@@ -15,6 +15,8 @@
  */
 package com.android.wallpaper.picker;
 
+import static com.android.wallpaper.util.ActivityUtils.startActivityForResultSafely;
+
 import android.Manifest.permission;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -32,8 +34,11 @@ import com.android.wallpaper.R;
 import com.android.wallpaper.model.ImageWallpaperInfo;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.InjectorProvider;
+import com.android.wallpaper.module.LargeScreenMultiPanesChecker;
+import com.android.wallpaper.module.MultiPanesChecker;
 import com.android.wallpaper.module.UserEventLogger;
 import com.android.wallpaper.picker.AppbarFragment.AppbarFragmentHost;
+import com.android.wallpaper.util.ActivityUtils;
 
 /**
  * Activity that displays a preview of a specific wallpaper and provides the ability to set the
@@ -42,6 +47,7 @@ import com.android.wallpaper.picker.AppbarFragment.AppbarFragmentHost;
  */
 public class StandalonePreviewActivity extends BasePreviewActivity implements AppbarFragmentHost {
     private static final String TAG = "StandalonePreview";
+    private static final String KEY_UP_ARROW = "up_arrow";
     private static final int READ_EXTERNAL_STORAGE_PERMISSION_REQUEST_CODE = 1;
 
     private UserEventLogger mUserEventLogger;
@@ -50,6 +56,9 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_preview);
+
+        // Trampoline for the multi-pane.
+        launchMultiPanesIfNeeded();
 
         enableFullScreen();
 
@@ -114,15 +123,18 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
         }
     }
 
+    // TODO(b/182972395): It should go back to WallpaperPicker.
     @Override
     public void onUpArrowPressed() {
-        // TODO(b/182972395): It should go back to WallpaperPicker.
+        // Enable back functions for multi-pane.
+        onBackPressed();
     }
 
+    // TODO(b/182972395): It should go back to WallpaperPicker.
     @Override
     public boolean isUpArrowSupported() {
-        // TODO(b/182972395): It should go back to WallpaperPicker.
-        return false;
+        // Show up arrow for multi-pane.
+        return getIntent().getBooleanExtra(KEY_UP_ARROW, false);
     }
 
     @Override
@@ -131,6 +143,42 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
         getWindow().setFlags(
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+    }
+
+    /**
+     * Launches multi-pane when it is enabled, for non-Settings' trampoline launch case will
+     * retrieve EXTRA_STREAM's image URI and assign back its intent by calling setData().
+     */
+    private void launchMultiPanesIfNeeded() {
+        MultiPanesChecker checker = new LargeScreenMultiPanesChecker();
+        if (checker.isMultiPanesEnabled(/* context= */ this)) {
+            Intent intent = getIntent();
+            if (!ActivityUtils.isLaunchedFromSettingsTrampoline(intent)
+                    && !ActivityUtils.isLaunchedFromSettingsRelated(intent)) {
+                Uri uri = intent.getData();
+                if (uri != null) {
+                    // Grant URI permission for next launching activity.
+                    grantUriPermission(getPackageName(), uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                }
+
+                Intent previewLaunch = checker.getMultiPanesIntent(intent);
+                previewLaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        // Put image URI and back arrow condition to separate extras.
+                        .putExtra(Intent.EXTRA_STREAM, intent.getData())
+                        .putExtra(KEY_UP_ARROW, true);
+
+                startActivityForResultSafely(/* activity= */ this, previewLaunch, /* requestCode= */
+                        0);
+                finish();
+            } else {
+                Uri uri = intent.hasExtra(Intent.EXTRA_STREAM) ? intent.getParcelableExtra(
+                        Intent.EXTRA_STREAM) : null;
+                if (uri != null) {
+                    intent.setData(uri);
+                }
+            }
+        }
     }
 
     /**
@@ -147,6 +195,7 @@ public class StandalonePreviewActivity extends BasePreviewActivity implements Ap
                 wallpaper,
                 PreviewFragment.MODE_CROP_AND_SET_WALLPAPER,
                 /* viewAsHome= */ true,
+                /* viewFullScreen= */ false,
                 testingModeEnabled);
         getSupportFragmentManager().beginTransaction()
                 .add(R.id.fragment_container, fragment)

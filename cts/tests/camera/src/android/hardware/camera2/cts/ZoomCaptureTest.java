@@ -28,6 +28,7 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.os.Build;
 import android.os.ConditionVariable;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Size;
 
@@ -69,6 +70,7 @@ public class ZoomCaptureTest extends Camera2AndroidTestCase {
     }
 
     @Test
+    @AppModeFull(reason = "Instant apps can't access Test API")
     public void testJpegZoomCapture() throws Exception {
         for (String id : mCameraIdsUnderTest) {
             try {
@@ -82,6 +84,7 @@ public class ZoomCaptureTest extends Camera2AndroidTestCase {
     }
 
     @Test
+    @AppModeFull(reason = "Instant apps can't access Test API")
     public void testRawZoomCapture() throws Exception {
         for (String id : mCameraIdsUnderTest) {
             try {

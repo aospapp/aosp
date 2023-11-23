@@ -21,6 +21,6 @@
     <string name="notification_channel_name_network_venue_info" msgid="6526543187249265733">"Maklumat tempat rangkaian"</string>
     <string name="notification_channel_description_network_venue_info" msgid="5131499595382733605">"Pemberitahuan dipaparkan untuk menunjukkan rangkaian mempunyai halaman maklumat tempat"</string>
     <string name="connected" msgid="4563643884927480998">"Disambungkan"</string>
-    <string name="tap_for_info" msgid="6849746325626883711">"Disambungkan / Ketik untuk melihat tapak web"</string>
+    <string name="tap_for_info" msgid="6849746325626883711">"Disambungkan / Ketik untuk melihat laman web"</string>
     <string name="application_label" msgid="1322847171305285454">"Pengurus rangkaian"</string>
 </resources>

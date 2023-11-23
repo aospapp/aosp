@@ -54,8 +54,6 @@ UsbOverheatEvent::UsbOverheatEvent(const ZoneInfo &monitored_zone,
     : monitored_zone_(monitored_zone),
       queried_zones_(queried_zones),
       monitor_interval_sec_(monitor_interval_sec),
-      lock_(),
-      cv_(),
       monitor_() {
     int fd = timerfd_create(CLOCK_BOOTTIME_ALARM, 0);
     if (fd < 0) {
@@ -129,16 +127,11 @@ void *UsbOverheatEvent::monitorThread(void *param) {
     UsbOverheatEvent *overheatEvent = (UsbOverheatEvent *)param;
     struct epoll_event events[kEpollEvents];
     struct itimerspec delay = itimerspec();
-    std::unique_lock<std::mutex> lk(overheatEvent->lock_);
-
-    delay.it_value.tv_sec = overheatEvent->monitor_interval_sec_;
 
     while (true) {
         uint64_t fired;
         float temperature = 0;
         string status;
-
-        overheatEvent->cv_.wait(lk, [] { return monitorTemperature; });
 
         for (vector<ZoneInfo>::size_type i = 0; i < overheatEvent->queried_zones_.size(); i++) {
             if (overheatEvent->getCurrentTemperature(overheatEvent->queried_zones_[i].name_,
@@ -154,10 +147,11 @@ void *UsbOverheatEvent::monitorThread(void *param) {
         }
         ALOGW("%s", status.c_str());
 
+        delay.it_value.tv_sec = monitorTemperature ? overheatEvent->monitor_interval_sec_ : 0;
         int ret = timerfd_settime(overheatEvent->timer_fd_, 0, &delay, NULL);
         if (ret < 0) {
-            ALOGE("timerfd_settime failed. err:%d", errno);
-            return NULL;
+            ALOGE("timerfd_settime failed. err:%d tv_sec:%ld", errno, delay.it_value.tv_sec);
+            continue;
         }
 
         wakeLockRelease();
@@ -172,6 +166,7 @@ void *UsbOverheatEvent::monitorThread(void *param) {
             ALOGV("event=%u on fd=%d\n", events[i].events, events[i].data.fd);
 
             if (events[i].data.fd == overheatEvent->timer_fd_) {
+                ALOGI("Wake up caused by timer fd");
                 int numRead = read(overheatEvent->timer_fd_, &fired, sizeof(fired));
                 if (numRead != sizeof(fired)) {
                     ALOGV("numRead incorrect");
@@ -180,6 +175,7 @@ void *UsbOverheatEvent::monitorThread(void *param) {
                     ALOGV("Fired not set to 1");
                 }
             } else {
+                ALOGI("Wake up caused by event fd");
                 read(overheatEvent->event_fd_, &fired, sizeof(fired));
             }
         }
@@ -204,25 +200,37 @@ bool UsbOverheatEvent::registerListener() {
     return false;
 }
 
+void UsbOverheatEvent::wakeupMonitor() {
+    // <flag> value does not have any significance here
+    uint64_t flag = 100;
+
+    unsigned long ret = TEMP_FAILURE_RETRY(write(event_fd_, &flag, sizeof(flag)));
+    if (ret < 0) {
+        ALOGE("Error writing eventfd errno=%d", errno);
+    }
+}
+
 bool UsbOverheatEvent::startRecording() {
-    lock_guard<mutex> lock(lock_);
+    ALOGI("Start recording. monitorTemperature:%d", monitorTemperature ? 1 : 0);
+    // Bail out if temperature was being monitored previously
+    if (monitorTemperature)
+        return true;
+
     wakeLockAcquire();
     monitorTemperature = true;
-    cv_.notify_all();
+    wakeupMonitor();
     return true;
 }
 
 bool UsbOverheatEvent::stopRecording() {
-    // <flag> value does not have any significance here
-    uint64_t flag = 100;
-    unsigned long ret;
+    ALOGI("Stop recording. monitorTemperature:%d", monitorTemperature ? 1 : 0);
+    // Bail out if temperature was not being monitored previously
+    if (!monitorTemperature)
+        return true;
 
     wakeLockRelease();
     monitorTemperature = false;
-    ret = TEMP_FAILURE_RETRY(write(event_fd_, &flag, sizeof(flag)));
-    if (ret < 0) {
-        ALOGE("Error writing eventfd errno=%d", errno);
-    }
+    wakeupMonitor();
 
     return true;
 }

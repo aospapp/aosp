@@ -224,6 +224,33 @@ bool RebalanceIrqs(const list<pair<string, list<string>>>& action_to_irqs) {
   return true;
 }
 
+void ChownIrqAffinity() {
+    std::unique_ptr<DIR, decltype(&closedir)> irq_dir(opendir(PROC_IRQDIR), closedir);
+    if (!irq_dir) {
+        PLOG(ERROR) << "opening dir " PROC_IRQDIR;
+        return;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(irq_dir.get()))) {
+        // If the directory entry isn't a parsable number, skip it.
+        // . and .. get skipped here.
+        unsigned throwaway;
+        if (!ParseUint(entry->d_name, &throwaway))
+            continue;
+
+        string affinity_path(PROC_IRQDIR "/");
+        affinity_path += entry->d_name;
+        affinity_path += "/smp_affinity";
+        chown(affinity_path.c_str(), 1000, 1000);
+
+        string affinity_list_path(PROC_IRQDIR "/");
+        affinity_list_path += entry->d_name;
+        affinity_list_path += "/smp_affinity_list";
+        chown(affinity_list_path.c_str(), 1000, 1000);
+    }
+}
+
 int main(int /* argc */, char* /* argv */[]) {
   map<string, list<string>> irq_mapping;
   list<pair<string, list<string>>> action_to_irqs;
@@ -237,6 +264,10 @@ int main(int /* argc */, char* /* argv */[]) {
     LOG(ERROR) << "Unable to read IRQ mappings.  Are you root?";
     return 1;
   }
+
+  // Change ownership of smp_affinity and smp_affinity_list handles
+  // from root to system.
+  ChownIrqAffinity();
 
   // Some IRQs are already assigned to a subset of cores, usually for
   // good reason (like some drivers have an IRQ per core, for per-core

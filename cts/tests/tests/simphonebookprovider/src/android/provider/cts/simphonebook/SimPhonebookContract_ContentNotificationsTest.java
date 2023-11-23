@@ -22,6 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.hamcrest.Matchers.oneOf;
 import static org.junit.Assume.assumeThat;
+import static org.junit.Assume.assumeTrue;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -30,6 +31,7 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Handler;
@@ -155,6 +157,10 @@ public class SimPhonebookContract_ContentNotificationsTest {
 
     @Test
     public void subscriptionsChange_notifiesObserver() throws Exception {
+        Resources resources = ApplicationProvider.getApplicationContext().getResources();
+        int id = resources.getIdentifier("config_hotswapCapable", "bool", "android");
+        boolean hotswapCapable = resources.getBoolean(id);
+        assumeTrue("Device does not support SIM hot swap", hotswapCapable);
         assumeThat(mSubscriptionInfo, Matchers.notNullValue());
         try {
             setSimPower(0);

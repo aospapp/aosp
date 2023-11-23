@@ -24,13 +24,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.dialer.R;
 import com.android.car.dialer.log.L;
 import com.android.car.dialer.ui.common.DialerListBaseFragment;
 import com.android.car.dialer.ui.contact.ContactDetailsFragment;
 import com.android.car.telephony.common.Contact;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.toolbar.Toolbar;
 import com.android.car.ui.toolbar.ToolbarController;
 import com.android.car.uxr.LifeCycleObserverUxrContentLimiter;
@@ -69,7 +69,7 @@ public class ContactResultsFragment extends Hilt_ContactResultsFragment implemen
     private final ContactResultsAdapter mAdapter = new ContactResultsAdapter(
             contactResult -> onShowContactDetail(contactResult.getContact()));
 
-    private RecyclerView.OnScrollListener mOnScrollChangeListener;
+    private CarUiRecyclerView.OnScrollListener mOnScrollChangeListener;
     private ToolbarController mToolbar;
 
     private LifeCycleObserverUxrContentLimiter mUxrContentLimiter;
@@ -101,13 +101,14 @@ public class ContactResultsFragment extends Hilt_ContactResultsFragment implemen
                 new UxrContentLimiterImpl(getContext(), R.xml.uxr_config));
         getLifecycle().addObserver(mUxrContentLimiter);
 
-        mOnScrollChangeListener = new RecyclerView.OnScrollListener() {
+        mOnScrollChangeListener = new CarUiRecyclerView.OnScrollListener() {
             @Override
-            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+            public void onScrollStateChanged(@NonNull CarUiRecyclerView recyclerView,
+                                                      int newState) {
             }
 
             @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+            public void onScrolled(@NonNull CarUiRecyclerView recyclerView, int dx, int dy) {
                 if (dy != 0) {
                     // Clear the focus to dismiss the keyboard in touch mode.
                     View focusedView = getActivity().getCurrentFocus();
@@ -129,7 +130,9 @@ public class ContactResultsFragment extends Hilt_ContactResultsFragment implemen
     @Override
     public void onDestroyView() {
         getRecyclerView().removeOnScrollListener(mOnScrollChangeListener);
-        mToolbar.unregisterOnSearchListener(this);
+        if (mToolbar != null) {
+            mToolbar.unregisterOnSearchListener(this);
+        }
         super.onDestroyView();
     }
 
@@ -142,7 +145,7 @@ public class ContactResultsFragment extends Hilt_ContactResultsFragment implemen
         setSearchQuery(mContactResultsViewModel.getSearchQuery());
 
         if (mToolbar.canShowSearchResultsView()) {
-            mToolbar.setSearchResultsView(getRecyclerView());
+            mToolbar.setSearchResultsView(getRecyclerView().getView());
         } else {
             // Widescreen IME list should not set the scroll listener to dismiss the keyboard.
             getRecyclerView().addOnScrollListener(mOnScrollChangeListener);

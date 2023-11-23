@@ -28,6 +28,7 @@ import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.development.DevelopmentSettingsUtil;
+import com.android.settingslib.utils.StringUtil;
 
 /** Updates the build number entry summary with the build number. */
 public class BuildNumberPreferenceController extends PreferenceController<Preference> {
@@ -80,9 +81,8 @@ public class BuildNumberPreferenceController extends PreferenceController<Prefer
                 DevelopmentSettingsUtil.setDevelopmentSettingsEnabled(getContext(), true);
                 showToast(getContext().getString(R.string.show_dev_on), Toast.LENGTH_LONG);
             } else if (mDevHitCountdown <= getTapsToBecomeDeveloper() - getTapsToShowToast()) {
-                showToast(getContext().getResources().getQuantityString(
-                        R.plurals.show_dev_countdown, mDevHitCountdown, mDevHitCountdown),
-                        Toast.LENGTH_SHORT);
+                showToast(StringUtil.getIcuPluralsString(getContext(), mDevHitCountdown,
+                        R.string.show_dev_countdown), Toast.LENGTH_SHORT);
             }
         } else if (mDevHitCountdown < 0) {
             showToast(getContext().getString(R.string.show_dev_already), Toast.LENGTH_LONG);

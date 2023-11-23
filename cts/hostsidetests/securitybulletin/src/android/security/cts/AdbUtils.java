@@ -36,6 +36,7 @@ import java.io.OutputStream;
 import java.util.concurrent.TimeoutException;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.concurrent.TimeUnit;
 import java.util.Scanner;
@@ -59,6 +60,12 @@ public class AdbUtils {
     final static String TMP_PATH = "/data/local/tmp/";
     final static int TIMEOUT_SEC = 9 * 60;
     final static String RESOURCE_ROOT = "/";
+
+    final static String regexSpecialChars = "<([{\\^-=$!|]})?*+.>";
+    @SuppressWarnings("InvalidPatternSyntax") // the errorprone test is incorrect for the following
+    final static String regexSpecialCharsEscaped = regexSpecialChars.replaceAll(".", "\\\\$0");
+    final static Pattern regexSpecialCharsEscapedPattern =
+            Pattern.compile("[" + regexSpecialCharsEscaped + "]");
 
     public static class pocConfig {
         String binaryName;
@@ -485,7 +492,7 @@ public class AdbUtils {
      */
     public static void runPocAssertExitStatusNotVulnerable(String pocName, String arguments,
             ITestDevice device, int timeout) throws Exception {
-              runPocGetExitStatus(pocName, arguments, null, device, timeout);
+        runPocAssertExitStatusNotVulnerable(pocName, arguments, null, device, timeout);
     }
 
     /**
@@ -750,5 +757,17 @@ public class AdbUtils {
 
     public static void assumeHasNfc(ITestDevice device) throws DeviceNotAvailableException {
         assumeTrue("nfc not available on device", device.hasFeature("android.hardware.nfc"));
+    }
+
+    /**
+     * Escapes regex special characters in the given string
+     *
+     * @param testString string for which special characters need to be escaped
+     *
+     * @return string with escaped special charcters
+     */
+    public static String escapeRegexSpecialChars(String testString) {
+        Matcher m = regexSpecialCharsEscapedPattern.matcher(testString);
+        return m.replaceAll("\\\\$0");
     }
 }

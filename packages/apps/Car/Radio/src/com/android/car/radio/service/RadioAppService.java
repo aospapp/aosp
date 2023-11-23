@@ -18,6 +18,8 @@ package com.android.car.radio.service;
 
 import static com.android.car.radio.util.Remote.tryExec;
 
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.hardware.radio.ProgramList;
 import android.hardware.radio.ProgramSelector;
@@ -67,6 +69,11 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
 
     public static String ACTION_APP_SERVICE = "com.android.car.radio.ACTION_APP_SERVICE";
     private static final long PROGRAM_LIST_RATE_LIMITING = 1000;
+
+    /** Returns the {@link ComponentName} that represents this {@link MediaBrowserService}. */
+    public static @NonNull ComponentName getMediaSourceComp(Context context) {
+        return new ComponentName(context, RadioAppService.class);
+    }
 
     private final Object mLock = new Object();
     private final LifecycleRegistry mLifecycleRegistry = new LifecycleRegistry(this);
@@ -195,6 +202,7 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
     }
 
     private void onProgramListChanged() {
+        if (mProgramList == null) return;
         synchronized (mLock) {
             if (SystemClock.elapsedRealtime() - mLastProgramListPush > PROGRAM_LIST_RATE_LIMITING) {
                 pushProgramListUpdate();
@@ -203,6 +211,7 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
     }
 
     private void pushProgramListUpdate() {
+        if (mProgramList == null) return;
         List<ProgramInfo> plist = mProgramList.toList();
 
         synchronized (mLock) {
@@ -244,8 +253,9 @@ public class RadioAppService extends MediaBrowserService implements LifecycleOwn
                 mAudioStreamController = null;
             }
             if (mProgramList != null) {
-                mProgramList.close();
+                ProgramList oldList = mProgramList;
                 mProgramList = null;
+                oldList.close();
             }
             if (mRadioTuner != null) {
                 mRadioTuner.close();

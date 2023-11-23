@@ -1,10 +1,9 @@
 use armv4t_emu::{reg, Memory};
 
-use gdbstub::arch;
 use gdbstub::common::Tid;
 use gdbstub::target;
 use gdbstub::target::ext::base::multithread::{
-    Actions, MultiThreadOps, ResumeAction, ThreadStopReason,
+    GdbInterrupt, MultiThreadOps, ResumeAction, ThreadStopReason,
 };
 use gdbstub::target::ext::breakpoints::WatchKind;
 use gdbstub::target::{Target, TargetError, TargetResult};
@@ -14,7 +13,7 @@ use crate::emu::{CpuId, Emu, Event};
 fn event_to_stopreason(e: Event, id: CpuId) -> ThreadStopReason<u32> {
     let tid = cpuid_to_tid(id);
     match e {
-        Event::Halted => ThreadStopReason::Halted,
+        Event::Halted => ThreadStopReason::Terminated(19), // SIGSTOP
         Event::Break => ThreadStopReason::SwBreak(tid),
         Event::WatchWrite(addr) => ThreadStopReason::Watch {
             tid,
@@ -45,18 +44,16 @@ fn tid_to_cpuid(tid: Tid) -> Result<CpuId, &'static str> {
 }
 
 impl Target for Emu {
-    type Arch = arch::arm::Armv4t;
+    type Arch = gdbstub_arch::arm::Armv4t;
     type Error = &'static str;
 
+    #[inline(always)]
     fn base_ops(&mut self) -> target::ext::base::BaseOps<Self::Arch, Self::Error> {
         target::ext::base::BaseOps::MultiThread(self)
     }
 
-    fn sw_breakpoint(&mut self) -> Option<target::ext::breakpoints::SwBreakpointOps<Self>> {
-        Some(self)
-    }
-
-    fn hw_watchpoint(&mut self) -> Option<target::ext::breakpoints::HwWatchpointOps<Self>> {
+    #[inline(always)]
+    fn breakpoints(&mut self) -> Option<target::ext::breakpoints::BreakpointsOps<Self>> {
         Some(self)
     }
 }
@@ -64,32 +61,34 @@ impl Target for Emu {
 impl MultiThreadOps for Emu {
     fn resume(
         &mut self,
-        actions: Actions,
-        check_gdb_interrupt: &mut dyn FnMut() -> bool,
+        default_resume_action: ResumeAction,
+        gdb_interrupt: GdbInterrupt<'_>,
     ) -> Result<ThreadStopReason<u32>, Self::Error> {
-        // in this emulator, each core runs in lock-step, so we can ignore the
-        // TidSelector associated with each action, and only care if GDB
-        // requests execution to start / stop.
-        //
         // In general, the behavior of multi-threaded systems during debugging is
         // determined by the system scheduler. On certain systems, this behavior can be
         // configured using the GDB command `set scheduler-locking _mode_`, but at the
         // moment, `gdbstub` doesn't plumb-through that configuration command.
 
-        // FIXME: properly handle multiple actions...
-        let actions = actions.collect::<Vec<_>>();
-        let (_, action) = actions[0];
+        let default_resume_action_is_step = match default_resume_action {
+            ResumeAction::Step => true,
+            ResumeAction::Continue => false,
+            _ => return Err("no support for resuming with signal"),
+        };
 
-        match action {
-            ResumeAction::Step => match self.step() {
+        match self
+            .resume_action_is_step
+            .unwrap_or(default_resume_action_is_step)
+        {
+            true => match self.step() {
                 Some((event, id)) => Ok(event_to_stopreason(event, id)),
                 None => Ok(ThreadStopReason::DoneStep),
             },
-            ResumeAction::Continue => {
+            false => {
+                let mut gdb_interrupt = gdb_interrupt.no_async();
                 let mut cycles: usize = 0;
                 loop {
                     // check for GDB interrupt every 1024 instructions
-                    if cycles % 1024 == 0 && check_gdb_interrupt() {
+                    if cycles % 1024 == 0 && gdb_interrupt.pending() {
                         return Ok(ThreadStopReason::GdbInterrupt);
                     }
                     cycles += 1;
@@ -102,9 +101,33 @@ impl MultiThreadOps for Emu {
         }
     }
 
+    // FIXME: properly handle multiple actions
+    fn clear_resume_actions(&mut self) -> Result<(), Self::Error> {
+        self.resume_action_is_step = None;
+        Ok(())
+    }
+
+    // FIXME: properly handle multiple actions
+    fn set_resume_action(&mut self, _tid: Tid, action: ResumeAction) -> Result<(), Self::Error> {
+        // in this emulator, each core runs in lock-step, so we don't actually care
+        // about the specific tid. In real integrations, you very much should!
+
+        if self.resume_action_is_step.is_some() {
+            return Ok(());
+        }
+
+        self.resume_action_is_step = match action {
+            ResumeAction::Step => Some(true),
+            ResumeAction::Continue => Some(false),
+            _ => return Err("no support for resuming with signal"),
+        };
+
+        Ok(())
+    }
+
     fn read_registers(
         &mut self,
-        regs: &mut arch::arm::reg::ArmCoreRegs,
+        regs: &mut gdbstub_arch::arm::reg::ArmCoreRegs,
         tid: Tid,
     ) -> TargetResult<(), Self> {
         let cpu = match tid_to_cpuid(tid).map_err(TargetError::Fatal)? {
@@ -127,7 +150,7 @@ impl MultiThreadOps for Emu {
 
     fn write_registers(
         &mut self,
-        regs: &arch::arm::reg::ArmCoreRegs,
+        regs: &gdbstub_arch::arm::reg::ArmCoreRegs,
         tid: Tid,
     ) -> TargetResult<(), Self> {
         let cpu = match tid_to_cpuid(tid).map_err(TargetError::Fatal)? {
@@ -182,13 +205,31 @@ impl MultiThreadOps for Emu {
     }
 }
 
+impl target::ext::breakpoints::Breakpoints for Emu {
+    fn sw_breakpoint(&mut self) -> Option<target::ext::breakpoints::SwBreakpointOps<Self>> {
+        Some(self)
+    }
+
+    fn hw_watchpoint(&mut self) -> Option<target::ext::breakpoints::HwWatchpointOps<Self>> {
+        Some(self)
+    }
+}
+
 impl target::ext::breakpoints::SwBreakpoint for Emu {
-    fn add_sw_breakpoint(&mut self, addr: u32) -> TargetResult<bool, Self> {
+    fn add_sw_breakpoint(
+        &mut self,
+        addr: u32,
+        _kind: gdbstub_arch::arm::ArmBreakpointKind,
+    ) -> TargetResult<bool, Self> {
         self.breakpoints.push(addr);
         Ok(true)
     }
 
-    fn remove_sw_breakpoint(&mut self, addr: u32) -> TargetResult<bool, Self> {
+    fn remove_sw_breakpoint(
+        &mut self,
+        addr: u32,
+        _kind: gdbstub_arch::arm::ArmBreakpointKind,
+    ) -> TargetResult<bool, Self> {
         match self.breakpoints.iter().position(|x| *x == addr) {
             None => return Ok(false),
             Some(pos) => self.breakpoints.remove(pos),

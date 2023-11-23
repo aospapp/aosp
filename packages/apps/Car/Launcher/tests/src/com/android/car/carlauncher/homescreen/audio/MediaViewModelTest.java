@@ -30,7 +30,7 @@ import android.graphics.drawable.Drawable;
 import androidx.lifecycle.MutableLiveData;
 import androidx.test.core.app.ApplicationProvider;
 
-import com.android.car.arch.common.testing.InstantTaskExecutorRule;
+import com.android.car.apps.common.testutils.InstantTaskExecutorRule;
 import com.android.car.carlauncher.homescreen.HomeCardInterface;
 import com.android.car.carlauncher.homescreen.ui.CardHeader;
 import com.android.car.carlauncher.homescreen.ui.DescriptiveTextWithControlsView;

@@ -16,7 +16,6 @@
 package com.android.car.notification.template;
 
 import android.app.Notification;
-import android.graphics.drawable.Icon;
 import android.os.Bundle;
 import android.view.View;
 
@@ -63,7 +62,9 @@ public class InboxNotificationViewHolder extends CarNotificationBaseViewHolder {
         Bundle extraData = notification.extras;
         CharSequence title = extraData.getCharSequence(Notification.EXTRA_TITLE_BIG);
         CharSequence text = extraData.getCharSequence(Notification.EXTRA_SUMMARY_TEXT);
-        Icon icon = notification.getLargeIcon();
-        mBodyView.bind(title, text, icon);
+
+        mBodyView.bind(title, text, loadAppLauncherIcon(alertEntry.getStatusBarNotification()),
+                notification.getLargeIcon(), /* titleIcon= */ null, /* countText= */ null,
+                notification.showsTime() ? notification.when : null);
     }
 }

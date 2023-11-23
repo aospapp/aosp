@@ -1,0 +1,31 @@
+# EdgeTPU vendor service.
+type edgetpu_vendor_server, domain;
+type edgetpu_vendor_server_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(edgetpu_vendor_server)
+
+# The vendor service will use binder calls.
+binder_use(edgetpu_vendor_server);
+
+# The vendor service will serve a binder service.
+binder_service(edgetpu_vendor_server);
+
+# EdgeTPU vendor service to register the service to service_manager.
+add_service(edgetpu_vendor_server, edgetpu_vendor_service);
+
+# Allow communications between other vendor services.
+allow edgetpu_vendor_server vndbinder_device:chr_file { read write open ioctl map };
+
+# Allow EdgeTPU vendor service to access its data files.
+allow edgetpu_vendor_server edgetpu_vendor_service_data_file:file create_file_perms;
+allow edgetpu_vendor_server edgetpu_vendor_service_data_file:dir create_dir_perms;
+
+# Allow EdgeTPU vendor service to access Android shared memory allocated
+# by the camera hal for on-device compilation.
+allow edgetpu_vendor_server hal_camera_default:fd use;
+
+# Allow EdgeTPU vendor service to read the kernel version.
+# This is done inside the InitGoogle.
+allow edgetpu_vendor_server proc_version:file r_file_perms;
+
+# Allow EdgeTPU vendor service to read the overcommit_memory info.
+allow edgetpu_vendor_server proc_overcommit_memory:file r_file_perms;

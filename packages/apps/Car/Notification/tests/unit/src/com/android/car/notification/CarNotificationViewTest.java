@@ -98,10 +98,8 @@ public class CarNotificationViewTest {
     @Test
     public void onClickClearAllButton_callsFactoryClearNotificationsWithDismissibleNotifications() {
         Button clearAllButton = mCarNotificationView.findViewById(R.id.clear_all_button);
-        NotificationGroup dismissible =
-                getNotificationGroup(/* isDismissible= */ true);
-        NotificationGroup notDismissible =
-                getNotificationGroup(/* isDismissible= */ false);
+        NotificationGroup dismissible = getNotificationGroup(/* isDismissible= */ true);
+        NotificationGroup notDismissible = getNotificationGroup(/* isDismissible= */ false);
         List<NotificationGroup> notifications = new ArrayList<>();
         notifications.add(dismissible);
         notifications.add(notDismissible);
@@ -150,10 +148,8 @@ public class CarNotificationViewTest {
 
     @Test
     public void setNotifications_notEmpty_listViewIsVisible() {
-        NotificationGroup dismissible =
-                getNotificationGroup(/* isDismissible= */ true);
-        NotificationGroup notDismissible =
-                getNotificationGroup(/* isDismissible= */ false);
+        NotificationGroup dismissible = getNotificationGroup(/* isDismissible= */ true);
+        NotificationGroup notDismissible = getNotificationGroup(/* isDismissible= */ false);
         List<NotificationGroup> notifications = new ArrayList<>();
         notifications.add(dismissible);
         notifications.add(notDismissible);
@@ -166,10 +162,8 @@ public class CarNotificationViewTest {
 
     @Test
     public void setNotifications_notEmpty_emptyNotificationTextViewIsGone() {
-        NotificationGroup dismissible =
-                getNotificationGroup(/* isDismissible= */ true);
-        NotificationGroup notDismissible =
-                getNotificationGroup(/* isDismissible= */ false);
+        NotificationGroup dismissible = getNotificationGroup(/* isDismissible= */ true);
+        NotificationGroup notDismissible = getNotificationGroup(/* isDismissible= */ false);
         List<NotificationGroup> notifications = new ArrayList<>();
         notifications.add(dismissible);
         notifications.add(notDismissible);
@@ -224,6 +218,48 @@ public class CarNotificationViewTest {
 
         assertThat(mCarNotificationView.findViewById(R.id.manage_button).getVisibility())
                 .isEqualTo(View.VISIBLE);
+    }
+
+    @Test
+    public void removeNotification_notificationNotRemoved() {
+        NotificationGroup dismissible = getNotificationGroup(/* isDismissible= */ true);
+        NotificationGroup notDismissible = getNotificationGroup(/* isDismissible= */ false);
+        List<NotificationGroup> notifications = new ArrayList<>();
+        notifications.add(dismissible);
+        mCarNotificationView.setNotifications(notifications);
+
+        mCarNotificationView.removeNotification(notDismissible.getSingleNotification());
+
+        assertThat(mCarNotificationView.getNotifications()).isEqualTo(notifications);
+    }
+
+    @Test
+    public void removeNotification_notificationRemoved_wholeGroupRemoved() {
+        NotificationGroup dismissible = getNotificationGroup(/* isDismissible= */ true);
+        NotificationGroup notDismissible = getNotificationGroup(/* isDismissible= */ false);
+        List<NotificationGroup> notifications = new ArrayList<>();
+        notifications.add(dismissible);
+        notifications.add(notDismissible);
+        mCarNotificationView.setNotifications(notifications);
+
+        mCarNotificationView.removeNotification(dismissible.getSingleNotification());
+
+        assertThat(mCarNotificationView.getNotifications()).isEqualTo(List.of(notDismissible));
+    }
+
+    @Test
+    public void removeNotification_notificationRemoved_partOfGroupRemoved() {
+        NotificationGroup dismissible = getNotificationGroup(/* isDismissible= */ true);
+        NotificationGroup notDismissible = getNotificationGroup(/* isDismissible= */ false);
+        dismissible.addNotification(notDismissible.getSingleNotification());
+        List<NotificationGroup> notifications = new ArrayList<>();
+        notifications.add(dismissible);
+        mCarNotificationView.setNotifications(notifications);
+
+        mCarNotificationView.removeNotification(dismissible.getSingleNotification());
+
+        assertThat(mCarNotificationView.getNotifications().toString())
+                .isEqualTo(List.of(notDismissible).toString());
     }
 
     private NotificationGroup getNotificationGroup(boolean isDismissible) {

@@ -331,6 +331,9 @@ SchemaStore::SetSchema(SchemaProto&& new_schema,
   if (absl_ports::IsNotFound(schema_proto_or.status())) {
     // We don't have a pre-existing schema, so anything is valid.
     result.success = true;
+    for (const SchemaTypeConfigProto& type_config : new_schema.types()) {
+      result.schema_types_new_by_name.insert(type_config.schema_type());
+    }
   } else if (!schema_proto_or.ok()) {
     // Real error
     return schema_proto_or.status();
@@ -351,8 +354,11 @@ SchemaStore::SetSchema(SchemaProto&& new_schema,
         SchemaUtil::ComputeCompatibilityDelta(old_schema, new_schema,
                                               new_dependency_map);
 
-    // An incompatible index is fine, we can just reindex
-    result.index_incompatible = schema_delta.index_incompatible;
+    result.schema_types_new_by_name = std::move(schema_delta.schema_types_new);
+    result.schema_types_changed_fully_compatible_by_name =
+        std::move(schema_delta.schema_types_changed_fully_compatible);
+    result.schema_types_index_incompatible_by_name =
+        std::move(schema_delta.schema_types_index_incompatible);
 
     for (const auto& schema_type : schema_delta.schema_types_deleted) {
       // We currently don't support deletions, so mark this as not possible.

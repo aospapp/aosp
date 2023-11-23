@@ -22,7 +22,7 @@
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V6_0 {
+namespace V7_0 {
 namespace implementation {
 
 using ::android::hardware::Void;
@@ -30,16 +30,16 @@ using ::android::hardware::Void;
 StreamCommon::StreamCommon(int32_t ioHandle,
                            const DeviceAddress& device,
                            const AudioConfig& config,
-                           hidl_bitfield<AudioInputFlag> flags)
+                           hidl_vec<AudioInOutFlag> flags)
         : m_ioHandle(ioHandle)
         , m_device(device)
         , m_config(config)
-        , m_flags(flags)
+        , m_flags(std::move(flags))
 {}
 
 uint64_t StreamCommon::getFrameSize() const {
-    return util::countChannels(m_config.channelMask)
-           * util::getBytesPerSample(m_config.format);
+    return util::countChannels(m_config.base.channelMask)
+           * util::getBytesPerSample(m_config.base.format);
 }
 
 uint64_t StreamCommon::getFrameCount() const {
@@ -51,47 +51,21 @@ uint64_t StreamCommon::getBufferSize() const {
 }
 
 uint32_t StreamCommon::getSampleRate() const {
-    return m_config.sampleRateHz;
+    return m_config.base.sampleRateHz;
 }
 
-void StreamCommon::getSupportedSampleRates(AudioFormat format,
-                                           IStream::getSupportedSampleRates_cb _hidl_cb) const {
-    if (m_config.format == format) {
-        _hidl_cb(Result::OK, {m_config.sampleRateHz});
-    } else {
-        _hidl_cb(Result::OK, {});
-    }
-}
+void StreamCommon::getSupportedProfiles(const IStream::getSupportedProfiles_cb &_hidl_cb) const {
+    AudioProfile profile;
 
-Result StreamCommon::setSampleRate(uint32_t sampleRateHz) const {
-    (void)sampleRateHz;
-    return FAILURE(Result::NOT_SUPPORTED);
-}
+    profile.format = m_config.base.format;
+    profile.sampleRates = { m_config.base.sampleRateHz };
+    profile.channelMasks = { m_config.base.channelMask };
 
-hidl_bitfield<AudioChannelMask> StreamCommon::getChannelMask() const {
-    return m_config.channelMask;
-}
-
-void StreamCommon::getSupportedChannelMasks(AudioFormat format,
-                                            IStream::getSupportedChannelMasks_cb _hidl_cb) const {
-    if (m_config.format == format) {
-        _hidl_cb(Result::OK, {m_config.channelMask});
-    } else {
-        _hidl_cb(Result::OK, {});
-    }
-}
-
-Result StreamCommon::setChannelMask(hidl_bitfield<AudioChannelMask> mask) const {
-    (void)mask;
-    return FAILURE(Result::NOT_SUPPORTED);
+    _hidl_cb(Result::OK, {profile});
 }
 
 AudioFormat StreamCommon::getFormat() const {
-    return m_config.format;
-}
-
-void StreamCommon::getSupportedFormats(IStream::getSupportedFormats_cb _hidl_cb) const {
-    _hidl_cb(Result::OK, {m_config.format});
+    return m_config.base.format;
 }
 
 Result StreamCommon::setFormat(AudioFormat format) const {
@@ -99,11 +73,11 @@ Result StreamCommon::setFormat(AudioFormat format) const {
     return FAILURE(Result::NOT_SUPPORTED);
 }
 
-void StreamCommon::getAudioProperties(IStream::getAudioProperties_cb _hidl_cb) const {
-    _hidl_cb(m_config.sampleRateHz, m_config.channelMask, m_config.format);
+void StreamCommon::getAudioProperties(const IStream::getAudioProperties_cb &_hidl_cb) const {
+    _hidl_cb(Result::OK, m_config.base);
 }
 
-void StreamCommon::getDevices(IStream::getDevices_cb _hidl_cb) const {
+void StreamCommon::getDevices(const IStream::getDevices_cb &_hidl_cb) const {
     _hidl_cb(Result::OK, {m_device});
 }
 
@@ -113,7 +87,7 @@ Result StreamCommon::setDevices(const hidl_vec<DeviceAddress>& devices) const {
 }
 
 }  // namespace implementation
-}  // namespace V6_0
+}  // namespace V7_0
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

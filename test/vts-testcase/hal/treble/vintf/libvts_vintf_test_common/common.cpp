@@ -46,6 +46,7 @@ static const std::map<uint64_t /* Shipping API Level */,
         {29, Level::Q},
         {30, Level::R},
         {31, Level::S},
+        {32, Level::S},  // subject to change, placeholder value
     }};
 
 android::base::Result<void> TestTargetFcmVersion(Level shipping_fcm_version,

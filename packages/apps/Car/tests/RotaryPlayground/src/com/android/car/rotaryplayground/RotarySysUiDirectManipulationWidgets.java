@@ -38,7 +38,7 @@ public class RotarySysUiDirectManipulationWidgets extends Fragment {
 
         View directManipulationSupportedSeekBar = view.findViewById(
                 R.id.direct_manipulation_supported_seek_bar);
-        DirectManipulationHelper.setSupportsDirectManipulation(
+        DirectManipulationHelper.setSupportsRotateDirectly(
                 directManipulationSupportedSeekBar, true);
 
         View directManipulationUnsupportedSeekBar = view.findViewById(
@@ -48,7 +48,7 @@ public class RotarySysUiDirectManipulationWidgets extends Fragment {
 
         View directManipulationSupportedRadialTimePickerView = view.findViewById(
                 R.id.direct_manipulation_supported_radial_time_picker);
-        DirectManipulationHelper.setSupportsDirectManipulation(
+        DirectManipulationHelper.setSupportsRotateDirectly(
                 directManipulationSupportedRadialTimePickerView, true);
 
         View directManipulationUnsupportedRadialTimePickerView = view.findViewById(

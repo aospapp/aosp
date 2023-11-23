@@ -21,4 +21,10 @@
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_add_account"
         settings:controller="com.android.car.settings.accounts.ChooseAccountPreferenceController"/>
+
+    <com.android.settingslib.widget.FooterPreference
+        android:key="@string/pk_add_account_enterprise_disclosure_footer"
+        android:selectable="false"
+        settings:searchable="false"
+        settings:controller="com.android.car.settings.enterprise.EnterpriseDisclosurePreferenceController"/>
 </PreferenceScreen>

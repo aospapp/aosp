@@ -32,6 +32,7 @@ import android.app.NotificationManager;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
 import android.content.Context;
+import android.os.Build;
 import android.service.notification.NotificationListenerService;
 import android.util.Log;
 import android.util.Pair;
@@ -47,9 +48,11 @@ import com.android.car.notification.template.MessageNotificationViewHolder;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Notification Manager for heads-up notifications in car.
@@ -68,6 +71,7 @@ public class CarHeadsUpNotificationManager
         void onStateChange(AlertEntry alertEntry, boolean isHeadsUp);
     }
 
+    private static final boolean DEBUG = Build.IS_ENG || Build.IS_USERDEBUG;
     private static final String TAG = CarHeadsUpNotificationManager.class.getSimpleName();
 
     private final Beeper mBeeper;
@@ -95,16 +99,16 @@ public class CarHeadsUpNotificationManager
     private NotificationClickHandlerFactory mClickHandlerFactory;
     private NotificationDataManager mNotificationDataManager;
 
+    private Set<String> mAlertEntryKeyToRemove = new HashSet<>();
 
     public CarHeadsUpNotificationManager(Context context,
             NotificationClickHandlerFactory clickHandlerFactory,
-            NotificationDataManager notificationDataManager,
             CarHeadsUpNotificationContainer hunContainer) {
         mContext = context.getApplicationContext();
         mEnableNavigationHeadsup =
                 context.getResources().getBoolean(R.bool.config_showNavigationHeadsup);
         mClickHandlerFactory = clickHandlerFactory;
-        mNotificationDataManager = notificationDataManager;
+        mNotificationDataManager = NotificationDataManager.getInstance();
         mBeeper = new Beeper(mContext);
         mDuration = mContext.getResources().getInteger(R.integer.headsup_notification_duration_ms);
         mNotificationHeadsUpCardMarginTop = (int) mContext.getResources().getDimension(
@@ -119,6 +123,11 @@ public class CarHeadsUpNotificationManager
         mClickHandlerFactory.registerClickListener(
                 (launchResult, alertEntry) -> dismissHun(alertEntry));
         mHunContainer = hunContainer;
+    }
+
+    @VisibleForTesting
+    void setNotificationDataManager(NotificationDataManager notificationDataManager) {
+        mNotificationDataManager = notificationDataManager;
     }
 
     private HeadsUpNotificationAnimationHelper getAnimationHelper() {
@@ -148,6 +157,9 @@ public class CarHeadsUpNotificationManager
             HeadsUpEntry currentActiveHeadsUpNotification = mActiveHeadsUpNotifications.get(
                     alertEntry.getKey());
             if (currentActiveHeadsUpNotification == null) {
+                if (DEBUG) {
+                    Log.d(TAG, alertEntry + " is not an active heads up notification");
+                }
                 return false;
             }
             if (CarNotificationDiff.sameNotificationKey(currentActiveHeadsUpNotification,
@@ -157,8 +169,15 @@ public class CarHeadsUpNotificationManager
             }
             return false;
         }
-        if (!activeNotifications.containsKey(alertEntry.getKey()) || canUpdate(alertEntry)
-                || alertAgain(alertEntry.getNotification())) {
+        boolean containsKeyFlag = !activeNotifications.containsKey(alertEntry.getKey());
+        boolean canUpdateFlag = canUpdate(alertEntry);
+        boolean alertAgainFlag = alertAgain(alertEntry.getNotification());
+        if (DEBUG) {
+            Log.d(TAG, alertEntry + " is an active notification: " + containsKeyFlag);
+            Log.d(TAG, alertEntry + " is an updatable notification: " + canUpdateFlag);
+            Log.d(TAG, alertEntry + " is not an alert once notification: " + alertAgainFlag);
+        }
+        if (containsKeyFlag || canUpdateFlag || alertAgainFlag) {
             showHeadsUp(mPreprocessingManager.optimizeForDriving(alertEntry),
                     rankingMap);
             return true;
@@ -172,6 +191,7 @@ public class CarHeadsUpNotificationManager
     public void maybeRemoveHeadsUp(AlertEntry alertEntry) {
         HeadsUpEntry currentActiveHeadsUpNotification = mActiveHeadsUpNotifications.get(
                 alertEntry.getKey());
+        mAlertEntryKeyToRemove.add(alertEntry.getKey());
         // if the heads up notification is already removed do nothing.
         if (currentActiveHeadsUpNotification == null) {
             return;
@@ -214,6 +234,17 @@ public class CarHeadsUpNotificationManager
      * OnHeadsUpNotificationStateChange}s array.
      */
     private void handleHeadsUpNotificationStateChanged(AlertEntry alertEntry, boolean isHeadsUp) {
+        String alertEntryKey = alertEntry.getKey();
+        // TODO(b/203784760): Implement a proper why to remove notification by user clicks.
+        boolean scheduledToBeRemoved = mAlertEntryKeyToRemove.contains(alertEntryKey);
+        if (scheduledToBeRemoved) {
+            mAlertEntryKeyToRemove.remove(alertEntryKey);
+            if (!isHeadsUp) {
+                // Skip creation of notification center notification.
+                return;
+            }
+        }
+
         mNotificationStateChangeListeners.forEach(
                 listener -> listener.onStateChange(alertEntry, isHeadsUp));
     }
@@ -413,10 +444,10 @@ public class CarHeadsUpNotificationManager
         cardView.getLocationInWindow(mTmpTwoArray);
         int minX = mTmpTwoArray[0];
         int maxX = mTmpTwoArray[0] + cardView.getWidth();
-        int height = cardView.getHeight();
+        int minY = mTmpTwoArray[1] + mNotificationHeadsUpCardMarginTop;
+        int maxY = mTmpTwoArray[1] + mNotificationHeadsUpCardMarginTop + cardView.getHeight();
         info.setTouchableInsets(InternalInsetsInfo.TOUCHABLE_INSETS_REGION);
-        info.touchableRegion.set(minX, mNotificationHeadsUpCardMarginTop, maxX,
-                height + mNotificationHeadsUpCardMarginTop);
+        info.touchableRegion.set(minX, minY, maxX, maxY);
     }
 
     private void playSound(AlertEntry alertEntry,
@@ -470,7 +501,7 @@ public class CarHeadsUpNotificationManager
         // active notification maps and cancel all other call backs if any.
         HeadsUpEntry currentHeadsUpNotification = mActiveHeadsUpNotifications.get(
                 alertEntry.getKey());
-        // view can also be removed when swipped away.
+        // view can also be removed when swiped away.
         if (currentHeadsUpNotification == null) {
             return;
         }
@@ -550,6 +581,9 @@ public class CarHeadsUpNotificationManager
             AlertEntry alertEntry,
             NotificationListenerService.RankingMap rankingMap) {
         if (mKeyguardManager.isKeyguardLocked()) {
+            if (DEBUG) {
+                Log.d(TAG, "Unable to show as HUN: Keyguard is locked");
+            }
             return false;
         }
         Notification notification = alertEntry.getNotification();
@@ -557,14 +591,23 @@ public class CarHeadsUpNotificationManager
         // Navigation notification configured by OEM
         if (!mEnableNavigationHeadsup && Notification.CATEGORY_NAVIGATION.equals(
                 notification.category)) {
+            if (DEBUG) {
+                Log.d(TAG, "Unable to show as HUN: OEM has disabled navigation HUN");
+            }
             return false;
         }
         // Group alert behavior
         if (notification.suppressAlertingDueToGrouping()) {
+            if (DEBUG) {
+                Log.d(TAG, "Unable to show as HUN: Grouping notification");
+            }
             return false;
         }
         // Messaging notification muted by user.
         if (mNotificationDataManager.isMessageNotificationMuted(alertEntry)) {
+            if (DEBUG) {
+                Log.d(TAG, "Unable to show as HUN: Messaging notification is muted by user");
+            }
             return false;
         }
 
@@ -572,22 +615,36 @@ public class CarHeadsUpNotificationManager
         NotificationListenerService.Ranking ranking = getRanking();
         if (rankingMap.getRanking(alertEntry.getKey(), ranking)) {
             if (ranking.getImportance() < NotificationManager.IMPORTANCE_HIGH) {
+                if (DEBUG) {
+                    Log.d(TAG, "Unable to show as HUN: importance is not sufficient");
+                }
                 return false;
             }
         }
 
         if (NotificationUtils.isSystemPrivilegedOrPlatformKey(mContext, alertEntry)) {
+            if (DEBUG) {
+                Log.d(TAG, "Show as HUN: application is system privileged or signed with "
+                        + "platform key");
+            }
             return true;
         }
 
         // Allow car messaging type.
         if (isCarCompatibleMessagingNotification(alertEntry.getStatusBarNotification())) {
+            if (DEBUG) {
+                Log.d(TAG, "Show as HUN: car messaging type notification");
+            }
             return true;
         }
 
         if (notification.category == null) {
             Log.d(TAG, "category not set for: "
                     + alertEntry.getStatusBarNotification().getPackageName());
+        }
+
+        if (DEBUG) {
+            Log.d(TAG, "Notification category: " + notification.category);
         }
 
         // Allow for Call, and nav TBT categories.

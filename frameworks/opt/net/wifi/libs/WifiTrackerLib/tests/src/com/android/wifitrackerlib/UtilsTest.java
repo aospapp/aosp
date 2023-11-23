@@ -37,12 +37,18 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import android.content.ContentResolver;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.net.NetworkInfo;
 import android.net.NetworkScoreManager;
@@ -79,6 +85,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 @Config(shadows = {ShadowSystem.class})
 public class UtilsTest {
@@ -94,10 +101,15 @@ public class UtilsTest {
 
     private static final String TEST_CARRIER_NAME = "carrierName";
 
+    @Mock private WifiTrackerInjector mMockInjector;
     @Mock private Context mMockContext;
     @Mock private Resources mMockResources;
+    @Mock private PackageManager mPackageManager;
+    @Mock private ApplicationInfo mApplicationInfo;
+    @Mock private ContentResolver mContentResolver;
     @Mock private NetworkScoreManager mMockNetworkScoreManager;
     @Mock private WifiNetworkScoreCache mMockScoreCache;
+    @Mock private WifiManager mMockWifiManager;
     @Mock private SubscriptionManager mSubscriptionManager;
     @Mock private TelephonyManager mTelephonyManager;
     @Mock private CarrierConfigManager mCarrierConfigManager;
@@ -106,7 +118,7 @@ public class UtilsTest {
     private Handler mTestHandler;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
 
         TestLooper testLooper = new TestLooper();
@@ -114,6 +126,7 @@ public class UtilsTest {
         when(mMockContext.getResources()).thenReturn(mMockResources);
         when(mMockContext.getSystemService(Context.NETWORK_SCORE_SERVICE))
                 .thenReturn(mMockNetworkScoreManager);
+        when(mMockContext.getString(R.string.wifitrackerlib_summary_separator)).thenReturn("/");
         when(mMockContext.getSystemService(Context.CARRIER_CONFIG_SERVICE))
                 .thenReturn(mCarrierConfigManager);
         when(mMockContext.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE))
@@ -121,6 +134,12 @@ public class UtilsTest {
         when(mMockContext.getSystemService(Context.TELEPHONY_SERVICE))
                 .thenReturn(mTelephonyManager);
         when(mTelephonyManager.createForSubscriptionId(TEST_CARRIER_ID)).thenReturn(mSpecifiedTm);
+        when(mMockContext.getPackageManager()).thenReturn(mPackageManager);
+        when(mPackageManager.getApplicationInfo(anyString(), anyInt()))
+                .thenReturn(mApplicationInfo);
+        when(mMockContext.getContentResolver()).thenReturn(mContentResolver);
+        when(mContentResolver.getUserId()).thenReturn(0);
+        when(mMockInjector.getNoAttributionAnnotationPackages()).thenReturn(Collections.emptySet());
     }
 
     @Test
@@ -270,6 +289,16 @@ public class UtilsTest {
         subscriptionInfoList.add(subscriptionInfo);
         when(mSubscriptionManager.getActiveSubscriptionInfoList()).thenReturn(subscriptionInfoList);
         assertTrue(isSimPresent(mMockContext, TEST_CARRIER_ID));
+    }
+
+    @Test
+    public void testCheckSimPresentWithUnknownCarrierId() {
+        List<SubscriptionInfo> subscriptionInfoList = new ArrayList<>();
+        SubscriptionInfo subscriptionInfo = mock(SubscriptionInfo.class);
+        when(subscriptionInfo.getCarrierId()).thenReturn(TEST_CARRIER_ID);
+        subscriptionInfoList.add(subscriptionInfo);
+        when(mSubscriptionManager.getActiveSubscriptionInfoList()).thenReturn(subscriptionInfoList);
+        assertTrue(isSimPresent(mMockContext, TelephonyManager.UNKNOWN_CARRIER_ID));
     }
 
     @Test
@@ -490,12 +519,36 @@ public class UtilsTest {
                 WifiInfo.SECURITY_TYPE_WAPI_CERT);
     }
 
+    @Test
+    public void testDisconnectedDescription_noAttributionAnnotationPackage_returnsEmpty() {
+        String savedByAppLabel = "Saved by app label";
+        String appLabel = "app label";
+        when(mApplicationInfo.loadLabel(any())).thenReturn(appLabel);
+        when(mMockContext.getString(R.string.wifitrackerlib_saved_network, appLabel))
+                .thenReturn(savedByAppLabel);
+        String normalPackage = "normalPackage";
+        String noAttributionPackage = "noAttributionPackage";
+        when(mMockInjector.getNoAttributionAnnotationPackages())
+                .thenReturn(Set.of(noAttributionPackage));
+
+        // Normal package should display the summary "Saved by <app label>" in Saved Networks
+        WifiConfiguration normalConfig = new WifiConfiguration();
+        normalConfig.creatorName = normalPackage;
+        assertThat(Utils.getDisconnectedDescription(
+                mMockInjector, mMockContext, normalConfig, true, false)).isEqualTo(
+                        savedByAppLabel);
+
+        // No-attribution package should display a blank summary in Saved Networks
+        WifiConfiguration noAttributionConfig = new WifiConfiguration();
+        noAttributionConfig.creatorName = noAttributionPackage;
+        assertThat(Utils.getDisconnectedDescription(
+                mMockInjector, mMockContext, noAttributionConfig, true, false)).isEmpty();
+    }
 
     private StandardWifiEntry getStandardWifiEntry(WifiConfiguration config) {
-        final WifiManager mockWifiManager = mock(WifiManager.class);
-        final StandardWifiEntry entry = new StandardWifiEntry(mMockContext, mTestHandler,
-                new StandardWifiEntryKey(config), Collections.singletonList(config),
-                null, mockWifiManager, mMockScoreCache, false /* forSavedNetworksPage */);
+        final StandardWifiEntry entry = new StandardWifiEntry(mMockInjector, mMockContext,
+                mTestHandler, new StandardWifiEntryKey(config), Collections.singletonList(config),
+                null, mMockWifiManager, mMockScoreCache, false /* forSavedNetworksPage */);
         final WifiInfo mockWifiInfo = mock(WifiInfo.class);
         final NetworkInfo mockNetworkInfo = mock(NetworkInfo.class);
 

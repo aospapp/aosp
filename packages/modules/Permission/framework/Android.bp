@@ -44,6 +44,9 @@ java_sdk_library {
         "com.android.permission",
         "test_com.android.permission",
     ],
+    lint: {
+        strict_updatability_linting: true,
+    },
     min_sdk_version: "30",
     permitted_packages: [
         "android.permission",

@@ -334,8 +334,11 @@ public final class VehiclePropertyIds {
      *  <li>Long[4] = rear left ticks
      * </ul>
      *
-     * <p>configArray is used to indicate the micrometers-per-wheel-tick value and
-     * which wheels are supported. configArray is set as follows:
+     * <p>configArray is used to indicate the micrometers-per-wheel-tick values and
+     * which wheels are supported. Each micrometers-per-wheel-tick value is static (i.e. will not
+     * update based on wheel's status) and a best approximation. For example, if a vehicle has
+     * multiple rim/tire size options, the micrometers-per-wheel-tick values are set to those for
+     * the typically expected rim/tire size. configArray is set as follows:
      *
      * <ul>
      *  <li>configArray[0], bits [0:3] = supported wheels.  Uses {@link VehicleAreaWheel}.
@@ -697,8 +700,16 @@ public final class VehiclePropertyIds {
     /**
      * Vehicle's ignition state.
      *
-     * <p>See {@link android.hardware.automotive.vehicle.V2_0.VehicleIgnitionState} for possible
-     * values.
+     * <p>The property value can be one of:
+     * <ul>
+     *     <li>{@code 0}: Steering wheel is locked.
+     *     <li>{@code 1}: Steering wheel is not locked, engine and all accessories are OFF.
+     *     <li>{@code 2}: Typically in this state accessories become available (e.g. radio).
+     *     Instrument cluster and engine are turned off
+     *     <li>{@code 3}: Ignition is in state ON. Accessories and instrument cluster available,
+     *     engine might be running or ready to be started.
+     *     <li>{@code 4}: Typically in this state engine is starting (cranking).
+     * </>
      *
      * <p>Property Config:
      * <ul>
@@ -956,12 +967,12 @@ public final class VehiclePropertyIds {
      *
      * <p>Indicates which units the car is using to display distances to the user.
      *
-     * <p>configArray represents the list of supported {@link VehicleUnit}s for {@code
+     * <p>configArray represents the list of supported units for {@code
      * DISTANCE_DISPLAY_UNITS}. Here is an example configArray:
      * <ul>
-     *  <li>configArray[0] = {@link VehicleUnit#METER}
-     *  <li>configArray[1] = {@link VehicleUnit#KILOMETER}
-     *  <li>configArray[1] = {@link VehicleUnit#MILE}
+     *  <li>configArray[0] = {@code 33 //VehicleUnit#METER}
+     *  <li>configArray[1] = {@code 35 //VehicleUnit#KILOMETER}
+     *  <li>configArray[1] = {@code 36 //VehicleUnit#MILE}
      * </ul>
      *
      * <p>Property Config:
@@ -988,11 +999,11 @@ public final class VehiclePropertyIds {
      *
      * <p>Indicates which units the car is using to display fuel volume to the user.
      *
-     * <p>configArray represents the list of supported {@link VehicleUnit}s for {@code
+     * <p>configArray represents the list of supported units for {@code
      * FUEL_VOLUME_DISPLAY_UNITS}. Here is an example configArray:
      * <ul>
-     *  <li>configArray[0] = {@link VehicleUnit#LITER}
-     *  <li>configArray[1] = {@link VehicleUnit#US_GALLON}
+     *  <li>configArray[0] = {@code 65 //VehicleUnit#LITER}
+     *  <li>configArray[1] = {@code 66 //VehicleUnit#US_GALLON}
      * </ul>
      *
      * <p>Property Config:
@@ -1019,12 +1030,12 @@ public final class VehiclePropertyIds {
      *
      * <p>Indicates which units the car is using to display tire pressure to the user.
      *
-     * <p>configArray represents the list of supported {@link VehicleUnit}s for {@code
+     * <p>configArray represents the list of supported units for {@code
      * TIRE_PRESSURE_DISPLAY_UNITS}. Here is an example configArray:
      * <ul>
-     *  <li>configArray[0] = {@link VehicleUnit#KILOPASCAL}
-     *  <li>configArray[1] = {@link VehicleUnit#PSI}
-     *  <li>configArray[2] = {@link VehicleUnit#BAR}
+     *  <li>configArray[0] = {@code 112 //VehicleUnit#KILOPASCAL}
+     *  <li>configArray[1] = {@code 113 //VehicleUnit#PSI}
+     *  <li>configArray[2] = {@code 114 //VehicleUnit#BAR}
      * </ul>
      *
      * <p>Property Config:
@@ -1051,12 +1062,12 @@ public final class VehiclePropertyIds {
      *
      * <p>Indicates which units the vehicle is using to display EV battery information to the user.
      *
-     * <p>configArray represents the list of supported {@link VehicleUnit}s for {@code
+     * <p>configArray represents the list of supported units for {@code
      * EV_BATTERY_DISPLAY_UNITS}. Here is an example configArray:
      * <ul>
-     *  <li>configArray[0] = {@link VehicleUnit#WATT_HOUR}
-     *  <li>configArray[1] = {@link VehicleUnit#AMPERE_HOURS}
-     *  <li>configArray[2] = {@link VehicleUnit#KILOWATT_HOUR}
+     *  <li>configArray[0] = {@code 96 //VehicleUnit#WATT_HOUR}
+     *  <li>configArray[1] = {@code 100 //VehicleUnit#AMPERE_HOURS}
+     *  <li>configArray[2] = {@code 101 //VehicleUnit#KILOWATT_HOUR}
      * </ul>
      *
      * <p>Property Config:
@@ -1083,12 +1094,12 @@ public final class VehiclePropertyIds {
      *
      * <p>Indicates type of units the vehicle is using to display speed to user.
      *
-     * <p>configArray represents the list of supported {@link VehicleUnit}s for {@code
+     * <p>configArray represents the list of supported units for {@code
      * VEHICLE_SPEED_DISPLAY_UNITS}. Here is an example configArray:
      * <ul>
-     *  <li>configArray[0] = {@link VehicleUnit#METER_PER_SEC}
-     *  <li>configArray[1] = {@link VehicleUnit#MILES_PER_HOUR}
-     *  <li>configArray[2] = {@link VehicleUnit#KILOMETERS_PER_HOUR}
+     *  <li>configArray[0] = {@code 1 //VehicleUnit#METER_PER_SEC}
+     *  <li>configArray[1] = {@code 114 //VehicleUnit#MILES_PER_HOUR}
+     *  <li>configArray[2] = {@code 115 //VehicleUnit#KILOMETERS_PER_HOUR}
      * </ul>
      *
      * <p>Property Config:

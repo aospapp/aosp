@@ -98,6 +98,79 @@ public class AudioHelper {
     }
 
     /**
+     * Returns a consecutive bit mask starting from the 0th bit indicating which channels
+     * are active, used for maskArray below.
+     *
+     * @param channelMask the channel mask for audio data.
+     * @param validMask the valid channels to permit (should be a subset of channelMask) but
+     *                  not checked.
+     * @return an integer whose consecutive bits are set for the channels that are permitted.
+     */
+    private static int packMask(int channelMask, int validMask) {
+        final int channels = Integer.bitCount(channelMask);
+        if (channels == 0) {
+            throw new IllegalArgumentException("invalid channel mask " + channelMask);
+        }
+        int packMask = 0;
+        for (int i = 0; i < channels; ++i) {
+            final int lowbit = channelMask & -channelMask;
+            packMask |= (validMask & lowbit) != 0 ? (1 << i) : 0;
+            channelMask -= lowbit;
+        }
+        return packMask;
+    }
+
+    /**
+     * Zeroes out channels in an array of audio data for testing.
+     *
+     * @param array of audio data.
+     * @param channelMask representation for the audio data.
+     * @param validMask which channels are valid (other channels will be zeroed out).  A subset
+     *                  of channelMask.
+     */
+    public static void maskArray(byte[] array, int channelMask, int validMask) {
+        final int packMask = packMask(channelMask, validMask);
+        final int channels = Integer.bitCount(channelMask);
+        int j = 0;
+        for (int i = 0; i < array.length; ++i) {
+            if ((packMask & (1 << j)) == 0) {
+                array[i] = 0;
+            }
+            if (++j >= channels) {
+                j = 0;
+            }
+        }
+    }
+
+    public static void maskArray(short[] array, int channelMask, int validMask) {
+        final int packMask = packMask(channelMask, validMask);
+        final int channels = Integer.bitCount(channelMask);
+        int j = 0;
+        for (int i = 0; i < array.length; ++i) {
+            if ((packMask & (1 << j)) == 0) {
+                array[i] = 0;
+            }
+            if (++j >= channels) {
+                j = 0;
+            }
+        }
+    }
+
+    public static void maskArray(float[] array, int channelMask, int validMask) {
+        final int packMask = packMask(channelMask, validMask);
+        final int channels = Integer.bitCount(channelMask);
+        int j = 0;
+        for (int i = 0; i < array.length; ++i) {
+            if ((packMask & (1 << j)) == 0) {
+                array[i] = 0;
+            }
+            if (++j >= channels) {
+                j = 0;
+            }
+        }
+    }
+
+    /**
      * Create and fill a short array with complete sine waves so we can
      * hear buffer underruns more easily.
      */

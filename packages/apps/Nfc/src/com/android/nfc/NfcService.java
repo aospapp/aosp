@@ -2440,6 +2440,22 @@ public class NfcService implements DeviceHostListener {
         mHandler.sendMessage(msg);
     }
 
+    /**
+     * Send require device unlock for NFC intent to system UI.
+     */
+    public void sendRequireUnlockIntent() {
+        if (!mIsRequestUnlockShowed && mKeyguard.isKeyguardLocked()) {
+            if (DBG) Log.d(TAG, "Request unlock");
+            mIsRequestUnlockShowed = true;
+            mRequireUnlockWakeLock.acquire();
+            Intent requireUnlockIntent =
+                    new Intent(NfcAdapter.ACTION_REQUIRE_UNLOCK_FOR_NFC);
+            requireUnlockIntent.setPackage(SYSTEM_UI);
+            mContext.sendBroadcast(requireUnlockIntent);
+            mRequireUnlockWakeLock.release();
+        }
+    }
+
     final class NfcServiceHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
@@ -2664,16 +2680,8 @@ public class NfcService implements DeviceHostListener {
                 case MSG_RF_FIELD_ACTIVATED:
                     Intent fieldOnIntent = new Intent(ACTION_RF_FIELD_ON_DETECTED);
                     sendNfcPermissionProtectedBroadcast(fieldOnIntent);
-                    if (!mIsRequestUnlockShowed
-                            && mIsSecureNfcEnabled && mKeyguard.isKeyguardLocked()) {
-                        if (DBG) Log.d(TAG, "Request unlock");
-                        mIsRequestUnlockShowed = true;
-                        mRequireUnlockWakeLock.acquire();
-                        Intent requireUnlockIntent =
-                                new Intent(NfcAdapter.ACTION_REQUIRE_UNLOCK_FOR_NFC);
-                        requireUnlockIntent.setPackage(SYSTEM_UI);
-                        mContext.sendBroadcast(requireUnlockIntent);
-                        mRequireUnlockWakeLock.release();
+                    if (mIsSecureNfcEnabled) {
+                        sendRequireUnlockIntent();
                     }
                     break;
                 case MSG_RF_FIELD_DEACTIVATED:
@@ -3152,7 +3160,9 @@ public class NfcService implements DeviceHostListener {
                 if (nci_version != NCI_VERSION_2_0) {
                     new ApplyRoutingTask().execute(Integer.valueOf(screenState));
                 }
-                sendMessage(NfcService.MSG_APPLY_SCREEN_STATE, screenState);
+                if (mScreenState != screenState){
+                    sendMessage(NfcService.MSG_APPLY_SCREEN_STATE, screenState);
+                }
             } else if (action.equals(Intent.ACTION_USER_SWITCHED)) {
                 int userId = intent.getIntExtra(Intent.EXTRA_USER_HANDLE, 0);
                 mUserId = userId;

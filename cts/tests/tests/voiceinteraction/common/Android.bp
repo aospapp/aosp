@@ -19,5 +19,6 @@ package {
 java_library {
     name: "CtsVoiceInteractionCommon",
     srcs: ["src/**/*.java"],
-    sdk_version: "current",
+    static_libs: ["compatibility-device-util-axt"],
+    sdk_version: "test_current",
 }

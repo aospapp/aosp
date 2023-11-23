@@ -33,8 +33,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ActivityDestroyedEventTest {
 
-    private static final TestApis sTestApis = new TestApis();
-    private static final Context sContext = sTestApis.context().instrumentedContext();
+    private static final Context sContext = TestApis.context().instrumentedContext();
 
     private static final String ACTIVITY_CLASS_NAME = ActivityContext.class.getName();
     private static final ActivityInfo ACTIVITY_INFO = new ActivityInfo();

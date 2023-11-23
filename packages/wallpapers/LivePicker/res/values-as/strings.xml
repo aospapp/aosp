@@ -23,7 +23,7 @@
     <string name="live_wallpaper_picker_title" msgid="6152733341691314608">"লাইভ ৱালপেপাৰ বাছনি কৰক"</string>
     <string name="live_wallpaper_picker_label" msgid="295628316836042825">"লাইভ ৱালপেপাৰসমূহ"</string>
     <string name="live_wallpaper_preview_title" msgid="908570871421455329">"লাইভ ৱালপেপাৰৰ পূৰ্বদৰ্শন"</string>
-    <string name="configure_wallpaper" msgid="4308477548538487192">"ছেটিংসমূহ…"</string>
+    <string name="configure_wallpaper" msgid="4308477548538487192">"ছেটিং…"</string>
     <string name="delete_live_wallpaper" msgid="2401799265848069389">"মচক"</string>
     <string name="preview" msgid="1067744492020029129">"পূৰ্বদৰ্শন"</string>
     <string name="wallpaper_instructions" msgid="6112878742140691445">"ৱালপেপাৰ ছেট কৰক"</string>
@@ -31,8 +31,8 @@
     <string name="set_live_wallpaper" msgid="764007409845174475">"ৱালপেপাৰ ছেট কৰক"</string>
     <string name="wallpaper_title_and_author" msgid="7606029050779779421">"<xliff:g id="AUTHOR">%2$s</xliff:g>ৰ <xliff:g id="TITLE">%1$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="7218845906181560315">"লাইভ ৱালপেপাৰ ল\'ড কৰি থকা হৈছে…"</string>
-    <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"গৃহ স্ক্ৰীণ"</string>
-    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="1650093303691767601">"গৃহ স্ক্ৰীণ আৰু লক স্ক্ৰীণ"</string>
+    <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"গৃহ স্ক্ৰীন"</string>
+    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="1650093303691767601">"গৃহ স্ক্ৰীন আৰু লক স্ক্ৰীন"</string>
     <string name="explore_further" msgid="489032063223099244">"অন্বেষণ কৰক"</string>
     <string name="tab_info" msgid="5501369870701932475">"তথ্য"</string>
     <string name="tab_customize" msgid="9007237541087328909">"কাষ্টমাইজ কৰক"</string>

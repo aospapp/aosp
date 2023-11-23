@@ -27,15 +27,16 @@ import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static com.android.car.ui.actions.ViewActions.waitForView;
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.matchers.ViewMatchers.doesNotExistOrIsNotDisplayed;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.hamcrest.core.IsNot.not;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import android.annotation.TargetApi;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.view.View;
@@ -47,7 +48,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.car.ui.core.CarUi;
 import com.android.car.ui.matchers.ViewMatchers;
-import com.android.car.ui.sharedlibrarysupport.SharedLibraryFactorySingleton;
+import com.android.car.ui.pluginsupport.PluginFactorySingleton;
 import com.android.car.ui.test.R;
 
 import org.hamcrest.Matcher;
@@ -66,19 +67,17 @@ import java.util.function.Consumer;
 
 @SuppressWarnings("AndroidJdkLibsChecker")
 @RunWith(Parameterized.class)
+@TargetApi(MIN_TARGET_API)
 public class ToolbarMenuItemsTest {
     @Parameterized.Parameters
     public static Object[] data() {
-        // It's important to do no shared library first, so that the shared library will
+        // It's important to do no plugin first, so that the plugin will
         // still be enabled when this test finishes
         return new Object[] { false, true };
     }
 
-    private final boolean mSharedLibEnabled;
-
-    public ToolbarMenuItemsTest(boolean sharedLibEnabled) {
-        mSharedLibEnabled = sharedLibEnabled;
-        SharedLibraryFactorySingleton.setSharedLibEnabled(sharedLibEnabled);
+    public ToolbarMenuItemsTest(boolean pluginEnabled) {
+        PluginFactorySingleton.setPluginEnabledForTesting(pluginEnabled);
     }
 
     @Rule
@@ -239,14 +238,25 @@ public class ToolbarMenuItemsTest {
         onView(withText("Test title!")).perform(click());
         verify(callback).onClick(menuItem[0]);
 
-        // TODO(b/188925810): this currently isn't supported in the referencedesign shared library.
-        if (!mSharedLibEnabled) {
-            // Open overflow menu, change MenuItem's title, then click on the MenuItem
-            onView(withContentDescription("Overflow")).perform(click());
-            runWithToolbar(toolbar -> menuItem[0].setTitle("Test title 2!"));
-            onView(withText("Test title 2!")).perform(click());
-            verify(callback, times(2)).onClick(menuItem[0]);
-        }
+        // Open overflow menu, change MenuItem's title, then click on the MenuItem
+        onView(withContentDescription("Overflow")).perform(click());
+        runWithToolbar(toolbar -> menuItem[0].setTitle("Test title 2!"));
+        onView(withText("Test title 2!")).perform(click());
+        verify(callback, times(2)).onClick(menuItem[0]);
+    }
+
+    @Test
+    public void menuItems_noOverflow_buttonDoesntExist() {
+        runWithActivityAndToolbar((activity, toolbar) -> {
+            MenuItem menuItem = MenuItem.builder(activity)
+                    .setTitle("Test title!")
+                    .build();
+            toolbar.setMenuItems(Collections.singletonList(menuItem));
+        });
+
+        // Wait for regular MenuItem to show up, then check that the overflow button doesn't exist.
+        onView(isRoot()).perform(waitForView(withText("Test title!")));
+        onView(withContentDescription("Overflow")).check(doesNotExistOrIsNotDisplayed());
     }
 
     @Test
@@ -269,6 +279,37 @@ public class ToolbarMenuItemsTest {
         onView(withText("Test title!")).perform(click());
 
         verify(callback).onClick(menuItem[0]);
+    }
+
+    @Test
+    public void menuItems_overflow2To1_shouldWork() {
+        MenuItem[] menuItem = new MenuItem[] { null, null };
+        runWithActivityAndToolbar((activity, toolbar) -> {
+            menuItem[0] = MenuItem.builder(activity)
+                    .setTitle("Overflow MenuItem 1!")
+                    .setDisplayBehavior(MenuItem.DisplayBehavior.NEVER)
+                    .setOnClickListener(i -> {})
+                    .build();
+            menuItem[1] = MenuItem.builder(activity)
+                    .setTitle("Overflow MenuItem 2!")
+                    .setDisplayBehavior(MenuItem.DisplayBehavior.NEVER)
+                    .setOnClickListener(i -> {})
+                    .build();
+            toolbar.setMenuItems(Arrays.asList(menuItem));
+        });
+
+        onView(isRoot()).perform(waitForView(withContentDescription("Overflow")));
+        onView(withContentDescription("Overflow")).perform(click());
+        onView(withText("Overflow MenuItem 1!")).check(matches(isDisplayed()));
+        onView(withText("Overflow MenuItem 2!")).check(matches(isDisplayed()));
+        onView(withText("Overflow MenuItem 1!")).perform(click());
+
+        runWithToolbar(toolbar -> toolbar.setMenuItems(Collections.singletonList(menuItem[0])));
+
+        onView(isRoot()).perform(waitForView(withContentDescription("Overflow")));
+        onView(withContentDescription("Overflow")).perform(click());
+        onView(withText("Overflow MenuItem 1!")).check(matches(isDisplayed()));
+        onView(withText("Overflow MenuItem 2!")).check(doesNotExistOrIsNotDisplayed());
     }
 
     @Test
@@ -332,7 +373,7 @@ public class ToolbarMenuItemsTest {
 
         runWithToolbar((toolbar) -> menuItem[0].setVisible(false));
 
-        onView(withText("Button!")).check(matches(not(isDisplayed())));
+        onView(withText("Button!")).check(doesNotExistOrIsNotDisplayed());
     }
 
     @Test

@@ -65,7 +65,7 @@ import androidx.slice.widget.SliceView;
 
 import com.android.wallpaper.R;
 import com.android.wallpaper.compat.BuildCompat;
-import com.android.wallpaper.module.WallpaperPersister.SetWallpaperCallback;
+import com.android.wallpaper.model.SetWallpaperViewModel;
 import com.android.wallpaper.util.FullScreenAnimation;
 import com.android.wallpaper.util.ResourceUtils;
 import com.android.wallpaper.util.ScreenSizeCalculator;
@@ -118,6 +118,7 @@ public class LivePreviewFragment extends PreviewFragment implements
     private TouchForwardingLayout mTouchForwardingLayout;
     private SurfaceView mWallpaperSurface;
     private Future<Integer> mPlaceholderColorFuture;
+    private WallpaperColors mWallpaperColors;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -166,6 +167,11 @@ public class LivePreviewFragment extends PreviewFragment implements
                 activity.getWindowManager().getDefaultDisplay());
         mPreviewContainer = view.findViewById(R.id.live_wallpaper_preview);
         mTouchForwardingLayout = view.findViewById(R.id.touch_forwarding_layout);
+
+        // Update preview header color which covers toolbar and status bar area.
+        View previewHeader = view.findViewById(R.id.preview_header);
+        previewHeader.setBackgroundColor(activity.getColor(R.color.settingslib_colorSurfaceHeader));
+
         // Set aspect ratio on the preview card.
         ConstraintSet set = new ConstraintSet();
         set.clone((ConstraintLayout) mPreviewContainer);
@@ -179,7 +185,12 @@ public class LivePreviewFragment extends PreviewFragment implements
                 mLockPreviewContainer);
         mLockScreenPreviewer.setDateViewVisibility(!mFullScreenAnimation.isFullScreen());
         mFullScreenAnimation.setFullScreenStatusListener(
-                isFullScreen -> mLockScreenPreviewer.setDateViewVisibility(!isFullScreen));
+                isFullScreen -> {
+                    mLockScreenPreviewer.setDateViewVisibility(!isFullScreen);
+                    if (!isFullScreen) {
+                        mBottomActionBar.focusAccessibilityAction(EDIT);
+                    }
+                });
         mWallpaperSurface = mHomePreviewCard.findViewById(R.id.wallpaper_surface);
         mTouchForwardingLayout.setTargetView(mHomePreviewCard);
         mTouchForwardingLayout.setForwardingEnabled(true);
@@ -187,7 +198,13 @@ public class LivePreviewFragment extends PreviewFragment implements
 
         mWorkspaceSurfaceCallback = createWorkspaceSurfaceCallback(mWorkspaceSurface);
         mWallpaperSurfaceCallback = new WallpaperSurfaceCallback(getContext(),
-                mHomePreviewCard, mWallpaperSurface, mPlaceholderColorFuture, null);
+                mHomePreviewCard, mWallpaperSurface, mPlaceholderColorFuture,
+                new WallpaperSurfaceCallback.SurfaceListener() {
+                    @Override
+                    public void onSurfaceCreated() {
+                        previewLiveWallpaper(null);
+                    }
+                });
 
         setUpTabs(view.findViewById(R.id.separated_tabs));
 
@@ -326,7 +343,7 @@ public class LivePreviewFragment extends PreviewFragment implements
             WallpaperColorsLoader.getWallpaperColors(
                     activity,
                     homeWallpaper.getThumbAsset(activity),
-                    mLockScreenPreviewer::setColor);
+                    colors -> onWallpaperColorsChanged(colors, 0));
         }
         if (mWallpaperConnection != null && !mWallpaperConnection.connect()) {
             mWallpaperConnection = null;
@@ -414,6 +431,7 @@ public class LivePreviewFragment extends PreviewFragment implements
 
     @Override
     public void onWallpaperColorsChanged(WallpaperColors colors, int displayId) {
+        mWallpaperColors = colors;
         mLockScreenPreviewer.setColor(colors);
 
         mFullScreenAnimation.setFullScreenTextColor(
@@ -444,17 +462,8 @@ public class LivePreviewFragment extends PreviewFragment implements
     @Override
     protected void setCurrentWallpaper(int destination) {
         mWallpaperSetter.setCurrentWallpaper(getActivity(), mWallpaper, null,
-                destination, 0, null, new SetWallpaperCallback() {
-                    @Override
-                    public void onSuccess(com.android.wallpaper.model.WallpaperInfo wallpaperInfo) {
-                        finishActivity(/* success= */ true);
-                    }
-
-                    @Override
-                    public void onError(@Nullable Throwable throwable) {
-                        showSetWallpaperErrorDialog(destination);
-                    }
-                });
+                destination, 0, null, mWallpaperColors,
+                SetWallpaperViewModel.getCallback(mViewModelProvider));
     }
 
     @Nullable
@@ -478,12 +487,6 @@ public class LivePreviewFragment extends PreviewFragment implements
             return metaData.getString(KEY_ACTION_DELETE_LIVE_WALLPAPER);
         }
         return null;
-    }
-
-    @Override
-    public void onStart() {
-        super.onStart();
-        previewLiveWallpaper(null);
     }
 
     @Override

@@ -42,6 +42,8 @@
     <bool name="config_show_contact_details_action_bar_view">false</bool>
     <!-- A config determines if to show the action bar avatar in the contact details page.-->
     <bool name="config_show_contact_details_action_bar_avatar">true</bool>
+    <!-- A config determines whether to show the send message button in the contact details page.-->
+    <bool name="config_show_contact_details_send_message_button">true</bool>
 
     <!-- Use app name as toolbar title. Supported value see @attr/toolbarTitleMode -->
     <integer name="config_toolbar_title_mode">0</integer>
@@ -75,4 +77,14 @@
     <!-- Maximum number of unrestricted items in Dialpad typedown list when UXR is not enforced.
      Any negative value is unlimited. -->
     <integer name="config_type_down_list_limit">-1</integer>
+
+    <!-- Maximum number of phone call log loaded to show -->
+    <integer name="config_phone_call_log_limit">100</integer>
+
+    <!-- A config to determine if the dialpad should always been shown in ongoing call screen.   -->
+    <bool name="config_always_show_incall_dialpad">false</bool>
+
+    <!-- Config if dialogs should allow a default dismiss button-->
+    <bool name="config_dialog_allow_dismiss_button">false</bool>
+
 </resources>

@@ -18,6 +18,7 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <fcntl.h>
 #include <hidl/Status.h>
@@ -70,8 +71,8 @@ static std::vector<std::string> readWakeupReasons(int fd) {
     std::string reasonlines;
 
     lseek(fd, 0, SEEK_SET);
-    if (!ReadFdToString(fd, &reasonlines)) {
-        LOG(ERROR) << "failed to read wakeup reasons";
+    if (!ReadFdToString(fd, &reasonlines) || reasonlines.empty()) {
+        PLOG(ERROR) << "failed to read wakeup reasons";
         // Return unknown wakeup reason if we fail to read
         return {kUnknownWakeup};
     }
@@ -236,6 +237,17 @@ void SystemSuspend::decSuspendCounter(const string& name) {
     }
 }
 
+unique_fd SystemSuspend::reopenFileUsingFd(const int fd, const int permission) {
+    string filePath = android::base::StringPrintf("/proc/self/fd/%d", fd);
+
+    unique_fd tempFd{TEMP_FAILURE_RETRY(open(filePath.c_str(), permission))};
+    if (tempFd < 0) {
+        PLOG(ERROR) << "SystemSuspend: Error opening file, using path: " << filePath;
+        return unique_fd(-1);
+    }
+    return tempFd;
+}
+
 void SystemSuspend::initAutosuspend() {
     std::thread autosuspendThread([this] {
         while (true) {
@@ -268,6 +280,12 @@ void SystemSuspend::initAutosuspend() {
             updateSleepTime(success, suspendTime);
 
             std::vector<std::string> wakeupReasons = readWakeupReasons(mWakeupReasonsFd);
+            if (wakeupReasons == std::vector<std::string>({kUnknownWakeup})) {
+                LOG(INFO) << "Unknown/empty wakeup reason. Re-opening wakeup_reason file.";
+
+                mWakeupReasonsFd =
+                    std::move(reopenFileUsingFd(mWakeupReasonsFd.get(), O_CLOEXEC | O_RDONLY));
+            }
             mWakeupList.update(wakeupReasons);
 
             mControlService->notifyWakeup(success, wakeupReasons);

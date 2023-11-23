@@ -16,16 +16,28 @@
 
 package com.android.car.settings.profiles;
 
+import static android.os.UserManager.DISALLOW_REMOVE_USER;
+
+import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
+
 import android.content.Context;
 import android.content.pm.UserInfo;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.widget.Toast;
 
 import androidx.annotation.VisibleForTesting;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.ErrorDialog;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 
 /**
  * Consolidates profile removal logic into one handler so we can have consistent logic across
@@ -100,9 +112,42 @@ public class RemoveProfileHandler {
      * @return True if the profile can be deleted by the current active profile. False otherwise.
      */
     public boolean canRemoveProfile(UserInfo userInfo) {
-        return !mUserManager.hasUserRestriction(UserManager.DISALLOW_REMOVE_USER)
-                && userInfo.id != UserHandle.USER_SYSTEM
-                && !mUserManager.isDemoUser();
+        return !mUserManager.hasUserRestriction(DISALLOW_REMOVE_USER)
+                && !isSystemOrDemoUser(userInfo);
+    }
+
+    /**
+     * Checks to see if the current active profile is {@code USER_SYSTEM} or has user type
+     * {@code USER_TYPE_FULL_DEMO}
+     */
+    public boolean isSystemOrDemoUser(UserInfo userInfo) {
+        return userInfo.id == UserHandle.USER_SYSTEM
+                || mUserManager.isDemoUser();
+    }
+
+    /**
+     * Returns {@code PreferenceController.AVAILABLE} when preference should be available,
+     * {@code PreferenceController.DISABLED_FOR_PROFILE} when preference should be unavailable,
+     * {@code PreferenceController.AVAILABLE_FOR_VIEWING} when preference is visible but
+     * disabled.
+     *
+     * @param context to get user restriction
+     * @param userInfo target user to check
+     * @param availableForCurrentProcessUser when true, only available for current user process.
+     * When false, disabled for current user process.
+     */
+    public int getAvailabilityStatus(Context context, UserInfo userInfo,
+            boolean availableForCurrentProcessUser) {
+        boolean allowCurrentProcess =
+                !(availableForCurrentProcessUser ^ mProfileHelper.isCurrentProcessUser(userInfo));
+        if (canRemoveProfile(userInfo) && allowCurrentProcess) {
+            return AVAILABLE;
+        }
+        if (!allowCurrentProcess || isSystemOrDemoUser(userInfo)
+                || hasUserRestrictionByUm(context, DISALLOW_REMOVE_USER)) {
+            return DISABLED_FOR_PROFILE;
+        }
+        return AVAILABLE_FOR_VIEWING;
     }
 
     /**
@@ -129,4 +174,24 @@ public class RemoveProfileHandler {
         mFragmentController.showDialog(dialogFragment, REMOVE_PROFILE_DIALOG_TAG);
     }
 
+    /**
+     * When the Preference is disabled while still visible, {@code ActionDisabledByAdminDialog}
+     * should be shown when the action is disallowed by a device owner or a profile owner.
+     * Otherwise, a {@code Toast} will be shown to inform the user that the action is disabled.
+     */
+    public void runClickableWhileDisabled() {
+        if (hasUserRestrictionByDpm(mContext, DISALLOW_REMOVE_USER)) {
+            showActionDisabledByAdminDialog();
+        } else {
+            Toast.makeText(mContext, mContext.getString(R.string.action_unavailable),
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void showActionDisabledByAdminDialog() {
+        mFragmentController.showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(mContext,
+                        DISALLOW_REMOVE_USER),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
+    }
 }

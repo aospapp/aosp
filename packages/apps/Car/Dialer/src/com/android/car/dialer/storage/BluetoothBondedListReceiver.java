@@ -16,13 +16,16 @@
 
 package com.android.car.dialer.storage;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 
 import java.util.Collections;
 import java.util.Set;
@@ -44,6 +47,10 @@ public class BluetoothBondedListReceiver extends Hilt_BluetoothBondedListReceive
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
         if (intent.getAction() != BluetoothDevice.ACTION_BOND_STATE_CHANGED) {
+            return;
+        }
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED) {
             return;
         }
 

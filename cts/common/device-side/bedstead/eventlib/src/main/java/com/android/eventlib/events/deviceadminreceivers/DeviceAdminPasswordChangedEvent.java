@@ -40,7 +40,9 @@ import com.android.queryable.util.SerializableParcelWrapper;
  */
 public final class DeviceAdminPasswordChangedEvent extends Event {
 
-    /** Begin a query for {@link DeviceAdminPasswordChangedEvent} events. */
+    private static final long serialVersionUID = 1;
+
+    /** Begins a query for {@link DeviceAdminPasswordChangedEvent} events. */
     public static DeviceAdminPasswordChangedEventQuery queryPackage(String packageName) {
         return new DeviceAdminPasswordChangedEventQuery(packageName);
     }
@@ -49,19 +51,22 @@ public final class DeviceAdminPasswordChangedEvent extends Event {
     public static final class DeviceAdminPasswordChangedEventQuery
             extends EventLogsQuery<DeviceAdminPasswordChangedEvent,
             DeviceAdminPasswordChangedEventQuery> {
+
+        private static final long serialVersionUID = 1;
+
         DeviceAdminReceiverQueryHelper<DeviceAdminPasswordChangedEventQuery> mDeviceAdminReceiver =
                 new DeviceAdminReceiverQueryHelper<>(this);
         IntentQueryHelper<DeviceAdminPasswordChangedEventQuery> mIntent =
                 new IntentQueryHelper<>(this);
         UserHandleQueryHelper<DeviceAdminPasswordChangedEventQuery> mUserHandle =
-                new UserHandleQueryHelper<DeviceAdminPasswordChangedEventQuery>(this);
+                new UserHandleQueryHelper<>(this);
 
         private DeviceAdminPasswordChangedEventQuery(String packageName) {
             super(DeviceAdminPasswordChangedEvent.class, packageName);
         }
 
         /**
-         * Query {@link Intent} passed into
+         * Queries {@link Intent} passed into
          * {@link DeviceAdminReceiver#onPasswordChanged(Context, Intent)}.
          */
         @CheckResult
@@ -69,14 +74,14 @@ public final class DeviceAdminPasswordChangedEvent extends Event {
             return mIntent;
         }
 
-        /** Query {@link DeviceAdminReceiver}. */
+        /** Queries {@link DeviceAdminReceiver}. */
         @CheckResult
         public DeviceAdminReceiverQuery<DeviceAdminPasswordChangedEventQuery>
                 whereDeviceAdminReceiver() {
             return mDeviceAdminReceiver;
         }
 
-        /** Query {@link UserHandle} passed into
+        /** Queries {@link UserHandle} passed into
          * {@link DeviceAdminReceiver#onPasswordChanged(Context, Intent, UserHandle)}.
          */
         @CheckResult
@@ -97,9 +102,18 @@ public final class DeviceAdminPasswordChangedEvent extends Event {
             }
             return true;
         }
+
+        @Override
+        public String describeQuery(String fieldName) {
+            return toStringBuilder(DeviceAdminPasswordChangedEvent.class, this)
+                    .field("intent", mIntent)
+                    .field("deviceAdminReceiver", mDeviceAdminReceiver)
+                    .field("userHandle", mUserHandle)
+                    .toString();
+        }
     }
 
-    /** Begin logging a {@link DeviceAdminPasswordChangedEvent}. */
+    /** Begins logging a {@link DeviceAdminPasswordChangedEvent}. */
     public static DeviceAdminPasswordChangedEventLogger logger(
             DeviceAdminReceiver deviceAdminReceiver, Context context, Intent intent) {
         return new DeviceAdminPasswordChangedEventLogger(deviceAdminReceiver, context, intent);
@@ -115,34 +129,34 @@ public final class DeviceAdminPasswordChangedEvent extends Event {
             setDeviceAdminReceiver(deviceAdminReceiver);
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminPasswordChangedEventLogger setDeviceAdminReceiver(
                 DeviceAdminReceiver deviceAdminReceiver) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiver);
             return this;
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminPasswordChangedEventLogger setDeviceAdminReceiver(
                 Class<? extends DeviceAdminReceiver> deviceAdminReceiverClass) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiverClass);
             return this;
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminPasswordChangedEventLogger setDeviceAdminReceiver(
                 String deviceAdminReceiverClassName) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiverClassName);
             return this;
         }
 
-        /** Set the {@link Intent} which was received. */
+        /** Sets the {@link Intent} which was received. */
         public DeviceAdminPasswordChangedEventLogger setIntent(Intent intent) {
             mEvent.mIntent = new SerializableParcelWrapper<>(intent);
             return this;
         }
 
-        /** Set the {@link UserHandle}. */
+        /** Sets the {@link UserHandle}. */
         public DeviceAdminPasswordChangedEventLogger setUserHandle(UserHandle userHandle) {
             mEvent.mUserHandle = new SerializableParcelWrapper<>(userHandle);
             return this;

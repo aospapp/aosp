@@ -24,3 +24,7 @@ class OpenWrtWifiSecurity:
   WPA2_PSK_CCMP = "psk2+ccmp"
   WPA2_PSK_TKIP = "psk2+tkip"
   WPA2_PSK_TKIP_AND_CCMP = "psk2+tkip+ccmp"
+
+class OpenWrtWifiSetting:
+  IFACE_2G = 2
+  IFACE_5G = 3

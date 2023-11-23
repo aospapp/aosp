@@ -16,6 +16,9 @@
 
 package com.android.car.ui.imewidescreen;
 
+import static com.android.car.ui.core.CarUi.TARGET_API_R;
+
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.inputmethodservice.ExtractEditText;
 import android.os.Bundle;
@@ -30,6 +33,7 @@ import com.android.car.ui.test.R;
 /**
  * An {@link Activity} that mimics a wide screen IME and displays the template for testing.
  */
+@TargetApi(TARGET_API_R)
 public class CarUiImeWideScreenTestActivity extends Activity {
     public static CarUiImeWideScreenController sCarUiImeWideScreenController;
 

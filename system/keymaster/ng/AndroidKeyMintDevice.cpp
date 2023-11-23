@@ -121,6 +121,7 @@ vector<KeyCharacteristics> convertKeyCharacteristics(SecurityLevel keyMintSecuri
         case KM_TAG_CONFIRMATION_TOKEN:
         case KM_TAG_DEVICE_UNIQUE_ATTESTATION:
         case KM_TAG_IDENTITY_CREDENTIAL_KEY:
+        case KM_TAG_INCLUDE_UNIQUE_ID:
         case KM_TAG_MAC_LENGTH:
         case KM_TAG_NONCE:
         case KM_TAG_RESET_SINCE_ID_ROTATION:
@@ -140,7 +141,6 @@ vector<KeyCharacteristics> convertKeyCharacteristics(SecurityLevel keyMintSecuri
         case KM_TAG_EARLY_BOOT_ONLY:
         case KM_TAG_EC_CURVE:
         case KM_TAG_EXPORTABLE:
-        case KM_TAG_INCLUDE_UNIQUE_ID:
         case KM_TAG_KEY_SIZE:
         case KM_TAG_MAX_USES_PER_BOOT:
         case KM_TAG_MIN_MAC_LENGTH:

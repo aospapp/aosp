@@ -17,9 +17,11 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools"
           package="com.android.bedstead.harrier">
 
     <application>
     </application>
-    <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="27"/>
+    <!-- TODO(b/194670711): Drop overrideLibrary when we bump version to 28 -->
+    <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="27" tools:overrideLibrary="com.android.bedstead.remotedpc, com.android.bedstead.testapp.library, com.android.bedstead.testapp.testapps" />
 </manifest>

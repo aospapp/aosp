@@ -19,4 +19,5 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="owner_name" msgid="3416113395996003764">"운전자"</string>
     <string name="permlab_accessCoarseLocation" msgid="2494909511737161237">"포그라운드에서만 대략적인 위치에 액세스"</string>
+    <string name="sensor_privacy_start_use_dialog_turn_on_button" msgid="2297855099350562159">"마이크 사용 설정"</string>
 </resources>

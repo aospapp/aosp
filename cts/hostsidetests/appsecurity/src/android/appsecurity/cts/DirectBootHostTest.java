@@ -18,6 +18,9 @@ package android.appsecurity.cts;
 
 import static android.appsecurity.cts.Utils.waitForBootCompleted;
 
+import static com.android.compatibility.common.util.PropertyUtil.getFirstApiLevel;
+import static com.android.compatibility.common.util.PropertyUtil.getVendorApiLevel;
+
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
@@ -25,7 +28,6 @@ import static org.junit.Assume.assumeTrue;
 
 import android.platform.test.annotations.RequiresDevice;
 
-import com.android.compatibility.common.util.PropertyUtil;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
@@ -49,7 +51,7 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
     private static final String CLASS = PKG + ".EncryptionAppTest";
     private static final String APK = "CtsEncryptionApp.apk";
 
-    private static final String OTHER_APK = "CtsSplitApp.apk";
+    private static final String OTHER_APK = "CtsSplitApp29.apk";
     private static final String OTHER_PKG = "com.android.cts.splitapp";
 
     private static final String MODE_NATIVE = "native";
@@ -205,7 +207,9 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
                 getDevice().hasFeature(FEATURE_SECURE_LOCK_SCREEN));
         // This feature name check only applies to devices that first shipped with
         // SC or later.
-        if (PropertyUtil.getFirstApiLevel(getDevice()) >= 31) {
+        final int firstApiLevel =
+                Math.min(getFirstApiLevel(getDevice()), getVendorApiLevel(getDevice()));
+        if (firstApiLevel >= 31) {
             assumeTrue("Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.",
                     getDevice().hasFeature("feature:android.hardware.security.model.compatible"));
         }

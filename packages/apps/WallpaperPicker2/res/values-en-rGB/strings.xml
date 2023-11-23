@@ -95,7 +95,14 @@
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Wallpaper preview"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"The collection doesn\'t exist"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Hide UI preview"</string>
+    <string name="hint_hide_ui_preview" msgid="4527603797714586070">"UI is hidden in preview. Double-tap to unhide"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Show UI preview"</string>
+    <string name="hint_show_ui_preview" msgid="2744155435325318349">"UI is displayed in preview. Double-tap to hide"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Change wallpaper"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Lockscreen wallpaper preview"</string>
+    <string name="apply_btn" msgid="5764555565943538528">"Apply"</string>
+    <string name="accessibility_customize_hidden" msgid="6320568529768181691">"Customise hidden"</string>
+    <string name="accessibility_customize_shown" msgid="590964727831547651">"Customise shown"</string>
+    <string name="accessibility_info_hidden" msgid="2288603712350168107">"Info hidden"</string>
+    <string name="accessibility_info_shown" msgid="6626025722456105632">"Info shown"</string>
 </resources>

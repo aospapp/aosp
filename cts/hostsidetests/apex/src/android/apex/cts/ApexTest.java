@@ -46,7 +46,11 @@ public class ApexTest extends BaseHostJUnit4Test {
             || systemProduct.equals("aosp_x86")
             || systemProduct.equals("aosp_x86_64")
             || systemProduct.equals("aosp_tv_arm")
-            || systemProduct.equals("aosp_tv_arm64"));
+            || systemProduct.equals("aosp_tv_arm64")
+            || systemProduct.equals("aosp_car_arm")
+            || systemProduct.equals("aosp_car_arm64")
+            || systemProduct.equals("aosp_car_x86")
+            || systemProduct.equals("aosp_car_x86_64"));
   }
 
   /**

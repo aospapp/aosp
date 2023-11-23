@@ -17,8 +17,8 @@ package com.android.car.media;
 
 import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_BROWSE;
 
+import static com.android.car.apps.common.util.LiveDataFunctions.dataOf;
 import static com.android.car.apps.common.util.VectorMath.EPSILON;
-import static com.android.car.arch.common.LiveDataFunctions.dataOf;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
@@ -27,6 +27,8 @@ import android.app.PendingIntent;
 import android.car.Car;
 import android.car.content.pm.CarPackageManager;
 import android.car.drivingstate.CarUxRestrictions;
+import android.car.media.CarMediaIntents;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -51,15 +53,16 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModelProviders;
 
 import com.android.car.apps.common.util.CarPackageManagerUtils;
+import com.android.car.apps.common.util.FutureData;
 import com.android.car.apps.common.util.VectorMath;
 import com.android.car.apps.common.util.ViewUtils;
-import com.android.car.arch.common.FutureData;
 import com.android.car.media.common.MediaItemMetadata;
 import com.android.car.media.common.MinimizedPlaybackControlBar;
 import com.android.car.media.common.PlaybackErrorsHelper;
 import com.android.car.media.common.browse.MediaItemsRepository;
 import com.android.car.media.common.playback.PlaybackViewModel;
 import com.android.car.media.common.source.MediaSource;
+import com.android.car.media.common.source.MediaTrampolineHelper;
 import com.android.car.ui.AlertDialogBuilder;
 import com.android.car.ui.utils.CarUxRestrictionsUtil;
 
@@ -105,16 +108,11 @@ public class MediaActivity extends FragmentActivity implements MediaActivityCont
     private float mCloseVectorY;
     private float mCloseVectorNorm;
 
-    private CarUxRestrictionsUtil mCarUxRestrictionsUtil;
-    private CarUxRestrictions mActiveCarUxRestrictions;
-    @CarUxRestrictions.CarUxRestrictionsInfo
-    private int mRestrictions;
-    private final CarUxRestrictionsUtil.OnUxRestrictionsChangedListener mListener =
-            (carUxRestrictions) -> mActiveCarUxRestrictions = carUxRestrictions;
-
 
     private PlaybackFragment.PlaybackFragmentListener mPlaybackFragmentListener =
             () -> changeMode(Mode.BROWSING);
+
+    private MediaTrampolineHelper mMediaTrampoline;
 
     /**
      * Possible modes of the application UI
@@ -155,6 +153,8 @@ public class MediaActivity extends FragmentActivity implements MediaActivityCont
 
         localViewModel.getBrowsedMediaSource().observe(this, this::onMediaSourceChanged);
 
+        mMediaTrampoline = new MediaTrampolineHelper(this);
+
         mPlaybackFragment = new PlaybackFragment();
         mPlaybackFragment.setListener(mPlaybackFragmentListener);
 
@@ -172,9 +172,6 @@ public class MediaActivity extends FragmentActivity implements MediaActivityCont
                 .replace(R.id.playback_container, mPlaybackFragment)
                 .commit();
 
-        mMediaActivityController = new MediaActivityController(this, getMediaItemsRepository(),
-                mCarPackageManager, mBrowseContainer);
-
         playbackViewModel.getPlaybackController().observe(this,
                 playbackController -> {
                     if (playbackController != null) playbackController.prepare();
@@ -187,23 +184,60 @@ public class MediaActivity extends FragmentActivity implements MediaActivityCont
         mCar = Car.createCar(this);
         mCarPackageManager = (CarPackageManager) mCar.getCarManager(Car.PACKAGE_SERVICE);
 
-        mCarUxRestrictionsUtil = CarUxRestrictionsUtil.getInstance(this);
-        mRestrictions = CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP;
-        mCarUxRestrictionsUtil.register(mListener);
+        mMediaActivityController = new MediaActivityController(this, getMediaItemsRepository(),
+                mCarPackageManager, mBrowseContainer);
 
         mPlaybackContainer.setOnTouchListener(new ClosePlaybackDetector(this));
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent); // getIntent() should always return the most recent
+
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "onNewIntent: " + intent);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        Intent intent = getIntent();
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "onResume intent: " + intent);
+        }
+
+        if (intent != null) {
+            String compName = getIntent().getStringExtra(CarMediaIntents.EXTRA_MEDIA_COMPONENT);
+            ComponentName launchedSourceComp = (compName == null) ? null :
+                    ComponentName.unflattenFromString(compName);
+
+            if (launchedSourceComp == null) {
+                // Might happen if there's no media source at all on the system as the
+                // MediaDispatcherActivity always specifies the component otherwise.
+                Log.w(TAG, "launchedSourceComp should almost never be null: " + compName);
+            }
+
+            mMediaTrampoline.setLaunchedMediaSource(launchedSourceComp);
+
+            // Mark the intent as consumed so that coming back from the media app selector doesn't
+            // set the source again.
+            setIntent(null);
+        }
+    }
+
+    @Override
     protected void onDestroy() {
-        mCarUxRestrictionsUtil.unregister(mListener);
         mCar.disconnect();
         mMediaActivityController.onDestroy();
         super.onDestroy();
     }
 
     private boolean isUxRestricted() {
-        return CarUxRestrictionsUtil.isRestricted(mRestrictions, mActiveCarUxRestrictions);
+        return CarUxRestrictionsUtil.isRestricted(CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP,
+                CarUxRestrictionsUtil.getInstance(this).getCurrentRestrictions());
     }
 
     private void handlePlaybackState(PlaybackViewModel.PlaybackStateWrapper state,
@@ -349,12 +383,7 @@ public class MediaActivity extends FragmentActivity implements MediaActivityCont
                 // state that can be displayed (and some send a displayable state after sending a
                 // non displayable one...).
                 changeModeInternal(Mode.BROWSING, false);
-
-                // Always go through the trampoline activity to keep the dispatching logic there.
-                startActivity(new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE));
             }
-        } else {
-            startActivity(new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE));
         }
     }
 
@@ -588,6 +617,11 @@ public class MediaActivity extends FragmentActivity implements MediaActivityCont
         }
 
         void saveBrowsedMediaSource(MediaSource mediaSource) {
+            Resources res = getApplication().getResources();
+            if (MediaDispatcherActivity.isCustomMediaSource(res, mediaSource)) {
+                Log.i(TAG, "Ignoring custom media source: " + mediaSource);
+                return;
+            }
             MediaSource oldSource = getMediaSourceValue();
             if (Log.isLoggable(TAG, Log.INFO)) {
                 Log.i(TAG, "MediaSource changed from " + oldSource + " to " + mediaSource);

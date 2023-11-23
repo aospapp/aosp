@@ -21,6 +21,7 @@
 #include <hardware/hwcomposer.h>
 
 #include <map>
+#include <memory>
 #include <vector>
 
 #include "compositor/DrmDisplayComposition.h"
@@ -39,7 +40,6 @@ class Planner {
 
     virtual int ProvisionPlanes(std::vector<DrmCompositionPlane> *composition,
                                 std::map<size_t, DrmHwcLayer *> &layers,
-                                DrmCrtc *crtc,
                                 std::vector<DrmPlane *> *planes) = 0;
 
    protected:
@@ -52,18 +52,16 @@ class Planner {
       return plane;
     }
 
-    static int ValidatePlane(DrmPlane *plane, DrmHwcLayer *layer);
-
     // Inserts the given layer:plane in the composition at the back
     static int Emplace(std::vector<DrmCompositionPlane> *composition,
                        std::vector<DrmPlane *> *planes,
-                       DrmCompositionPlane::Type type, DrmCrtc *crtc,
+                       DrmCompositionPlane::Type type,
                        std::pair<size_t, DrmHwcLayer *> layer) {
       DrmPlane *plane = PopPlane(planes);
       std::vector<DrmPlane *> unused_planes;
       int ret = -ENOENT;
       while (plane) {
-        ret = ValidatePlane(plane, layer.second);
+        ret = plane->IsValidForLayer(layer.second) ? 0 : -EINVAL;
         if (!ret)
           break;
         if (!plane->zpos_property().is_immutable())
@@ -72,7 +70,7 @@ class Planner {
       }
 
       if (!ret) {
-        composition->emplace_back(type, plane, crtc, layer.first);
+        composition->emplace_back(type, plane, layer.first);
         planes->insert(planes->begin(), unused_planes.begin(),
                        unused_planes.end());
       }
@@ -99,7 +97,7 @@ class Planner {
       std::vector<DrmPlane *> *overlay_planes);
 
   template <typename T, typename... A>
-  void AddStage(A &&... args) {
+  void AddStage(A &&...args) {
     stages_.emplace_back(
         std::unique_ptr<PlanStage>(new T(std::forward(args)...)));
   }
@@ -117,7 +115,7 @@ class Planner {
 class PlanStageProtected : public Planner::PlanStage {
  public:
   int ProvisionPlanes(std::vector<DrmCompositionPlane> *composition,
-                      std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
+                      std::map<size_t, DrmHwcLayer *> &layers,
                       std::vector<DrmPlane *> *planes);
 };
 
@@ -127,7 +125,7 @@ class PlanStageProtected : public Planner::PlanStage {
 class PlanStageGreedy : public Planner::PlanStage {
  public:
   int ProvisionPlanes(std::vector<DrmCompositionPlane> *composition,
-                      std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
+                      std::map<size_t, DrmHwcLayer *> &layers,
                       std::vector<DrmPlane *> *planes);
 };
 }  // namespace android

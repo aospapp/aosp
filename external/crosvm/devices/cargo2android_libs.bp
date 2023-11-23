@@ -1,0 +1,1 @@
+shared_libs: ["libgfxstream_backend"]

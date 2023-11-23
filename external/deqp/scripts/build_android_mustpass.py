@@ -129,7 +129,7 @@ MASTER_GLES3_PKG				= Package(module = GLES3_MODULE, configurations = [
 					  required		= True,
 					  filters		= MASTER_GLES3_COMMON_FILTERS,
 					  runtime		= "1h50m",
-					  runByDefault		= False),
+					  runByDefault	= False),
 		Configuration(name			= "master-2020-03-01",
 					  glconfig		= "rgba8888d24s8ms0",
 					  rotation		= "unspecified",
@@ -191,7 +191,7 @@ MASTER_GLES3_PKG				= Package(module = GLES3_MODULE, configurations = [
 		Configuration(name			= "incremental-deqp",
 					  filters		= [include("gles3-incremental-deqp.txt")],
 					  runtime		= "5m",
-                                          runByDefault  = False),
+					  runByDefault	= False),
 	])
 
 MASTER_GLES31_COMMON_FILTERS	= [
@@ -282,7 +282,7 @@ MASTER_VULKAN_PKG				= Package(module = VULKAN_MODULE, configurations = [
 		Configuration(name			= "master",
 					  filters		= MASTER_VULKAN_FILTERS,
 					  runtime		= "2h39m",
-					  runByDefault		= False),
+					  runByDefault	= False),
 		Configuration(name			= "master-2019-03-01",
 					  filters		= [include("vk-master-2019-03-01.txt")],
 					  runtime		= "2h29m"),
@@ -295,7 +295,7 @@ MASTER_VULKAN_PKG				= Package(module = VULKAN_MODULE, configurations = [
 		Configuration(name			= "incremental-deqp",
 					  filters		= [include("vk-incremental-deqp.txt")],
 					  runtime		= "5m",
-					  runByDefault		= False),
+					  runByDefault	= False),
 	])
 
 MUSTPASS_LISTS				= [

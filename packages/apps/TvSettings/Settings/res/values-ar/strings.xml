@@ -113,7 +113,7 @@
     <string name="all_apps_installed" msgid="8217778476185598971">"التطبيقات المثبَّتة"</string>
     <string name="all_apps_other" msgid="4420174882983813158">"تطبيقات النظام"</string>
     <string name="all_apps_disabled" msgid="2776041242863791053">"التطبيقات التي تم إيقافها"</string>
-    <string name="device_daydream" msgid="2631191946958113220">"شاشة التوقف"</string>
+    <string name="device_daydream" msgid="2631191946958113220">"شاشة الاستراحة"</string>
     <string name="device_display" msgid="244634591698925025">"العرض"</string>
     <string name="device_display_sound" msgid="7399153506435649193">"العرض والصوت"</string>
     <string name="device_sound" msgid="8616320533559404963">"الصوت"</string>
@@ -993,7 +993,7 @@
     <string name="settings_on" msgid="7734010120323404333">"تفعيل"</string>
     <string name="settings_off" msgid="4060451657850476369">"إيقاف"</string>
     <string name="device_daydreams_none" msgid="3405655350757277348">"إيقاف الشاشة"</string>
-    <string name="device_daydreams_select" msgid="7203264446482623438">"شاشة التوقف"</string>
+    <string name="device_daydreams_select" msgid="7203264446482623438">"شاشة الاستراحة"</string>
     <string name="device_daydreams_test" msgid="7828275397550076567">"البدء الآن"</string>
     <string name="device_daydreams_sleep" msgid="6847770718407377357">"وقت البدء"</string>
     <string name="device_daydreams_sleep_description" msgid="6237610484915504587">"يبدأ عرض شاشة التوقف بعد مرور هذه الفترة من عدم النشاط. فإذا لم يتم اختيار أي شاشة توقف، يتم إيقاف شاشة الجهاز."</string>

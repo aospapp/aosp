@@ -16,43 +16,40 @@
 -->
 <merge xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <Button
+    <com.android.car.notification.template.CarNotificationActionButton
         android:id="@+id/action_1"
         style="@style/NotificationActionButton1"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="@dimen/action_button_height"
+        android:layout_weight="1"
         android:layout_centerVertical="true"
-        android:layout_marginBottom="@dimen/action_button_spacing_bottom"
-        android:layout_marginTop="@dimen/action_button_spacing_top"
         android:minWidth="@dimen/action_button_min_width"
         android:paddingBottom="@dimen/action_button_padding_bottom"
         android:paddingTop="@dimen/action_button_padding_top"
         android:visibility="gone"/>
 
-    <Button
+    <com.android.car.notification.template.CarNotificationActionButton
         android:id="@+id/action_2"
         style="@style/NotificationActionButton2"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="@dimen/action_button_height"
+        android:layout_weight="1"
         android:layout_centerVertical="true"
-        android:layout_marginBottom="@dimen/action_button_spacing_bottom"
         android:layout_marginStart="@dimen/action_button_spacing_start"
-        android:layout_marginTop="@dimen/action_button_spacing_top"
         android:layout_toEndOf="@id/action_1"
         android:minWidth="@dimen/action_button_min_width"
         android:paddingBottom="@dimen/action_button_padding_bottom"
         android:paddingTop="@dimen/action_button_padding_top"
         android:visibility="gone"/>
 
-    <Button
+    <com.android.car.notification.template.CarNotificationActionButton
         android:id="@+id/action_3"
         style="@style/NotificationActionButton3"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="@dimen/action_button_height"
+        android:layout_weight="1"
         android:layout_centerVertical="true"
-        android:layout_marginBottom="@dimen/action_button_spacing_bottom"
         android:layout_marginStart="@dimen/action_button_spacing_start"
-        android:layout_marginTop="@dimen/action_button_spacing_top"
         android:layout_toEndOf="@id/action_2"
         android:minWidth="@dimen/action_button_min_width"
         android:paddingBottom="@dimen/action_button_padding_bottom"

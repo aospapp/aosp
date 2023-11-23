@@ -24,8 +24,8 @@ import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MediatorLiveData;
 
-import com.android.car.arch.common.FutureData;
-import com.android.car.arch.common.LiveDataFunctions;
+import com.android.car.apps.common.util.FutureData;
+import com.android.car.apps.common.util.LiveDataFunctions;
 import com.android.car.dialer.livedata.SharedPreferencesLiveData;
 import com.android.car.dialer.ui.common.DialerListViewModel;
 import com.android.car.dialer.ui.common.entity.ContactSortingInfo;

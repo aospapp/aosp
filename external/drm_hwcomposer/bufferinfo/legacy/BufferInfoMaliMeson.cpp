@@ -18,13 +18,13 @@
 
 #include "BufferInfoMaliMeson.h"
 
-#include <log/log.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
 #include <cinttypes>
 
 #include "gralloc_priv.h"
+#include "utils/log.h"
 
 namespace android {
 
@@ -63,8 +63,7 @@ uint64_t BufferInfoMaliMeson::ConvertGrallocFormatToDrmModifiers(
 
 int BufferInfoMaliMeson::ConvertBoInfo(buffer_handle_t handle,
                                        hwc_drm_bo_t *bo) {
-  private_handle_t const *hnd = reinterpret_cast<private_handle_t const *>(
-      handle);
+  const auto *hnd = (private_handle_t const *)handle;
   if (!hnd)
     return -EINVAL;
 
@@ -86,8 +85,6 @@ int BufferInfoMaliMeson::ConvertBoInfo(buffer_handle_t handle,
   bo->prime_fds[0] = hnd->share_fd;
   bo->pitches[0] = hnd->byte_stride;
   bo->offsets[0] = 0;
-
-  bo->with_modifiers = true;
 
   return 0;
 }

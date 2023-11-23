@@ -16,6 +16,14 @@
 package com.android.car.settings.wifi;
 
 import static android.net.wifi.WifiConfiguration.NetworkSelectionStatus.NETWORK_SELECTION_ENABLED;
+import static android.os.UserManager.DISALLOW_CONFIG_WIFI;
+
+import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
 
 import android.annotation.DrawableRes;
 import android.annotation.Nullable;
@@ -34,13 +42,16 @@ import android.os.Handler;
 import android.os.SimpleClock;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 import androidx.lifecycle.Lifecycle;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 import com.android.wifitrackerlib.NetworkDetailsTracker;
 import com.android.wifitrackerlib.WifiEntry;
 import com.android.wifitrackerlib.WifiPickerTracker;
@@ -111,10 +122,38 @@ public class WifiUtil {
     }
 
     /**
-     * Returns {@Code true} if wifi is available on this device.
+     * Returns {@code true} if wifi is available on this device.
      */
     public static boolean isWifiAvailable(Context context) {
         return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI);
+    }
+
+    /**
+     * Returns {@code true} if configuring wifi is allowed by user manager.
+     */
+    public static boolean isConfigWifiRestrictedByUm(Context context) {
+        return hasUserRestrictionByUm(context, DISALLOW_CONFIG_WIFI);
+    }
+
+    /**
+     * Returns {@code true} if configuring wifi is allowed by device policy manager.
+     */
+    public static boolean isConfigWifiRestrictedByDpm(Context context) {
+        return hasUserRestrictionByDpm(context, DISALLOW_CONFIG_WIFI);
+    }
+
+    /**
+     * Returns Preference's availability status.
+     */
+    public static int getAvailabilityStatus(Context context) {
+        if (!isWifiAvailable(context)) {
+            return UNSUPPORTED_ON_DEVICE;
+        }
+        if (isConfigWifiRestrictedByUm(context)
+                || isConfigWifiRestrictedByDpm(context)) {
+            return AVAILABLE_FOR_VIEWING;
+        }
+        return AVAILABLE;
     }
 
     /**
@@ -384,5 +423,36 @@ public class WifiUtil {
                 mainHandler, workerHandler, ELAPSED_REALTIME_CLOCK,
                 maxScanAgeMillis, scanIntervalMillis,
                 key);
+    }
+
+    /**
+     * Shows {@code ActionDisabledByAdminDialog} when the action is disallowed by
+     * a device owner or a profile owner. Otherwise, a {@code Toast} will be shwon to inform the
+     * user that the action is disabled.
+     */
+    // TODO(b/186905050): add unit tests for this class and {@code PreferenceController} that uses
+    // this method.
+    public static void runClickableWhileDisabled(Context context,
+            FragmentController fragmentController) {
+        if (hasUserRestrictionByDpm(context, DISALLOW_CONFIG_WIFI)) {
+            showActionDisabledByAdminDialog(context, fragmentController);
+        } else {
+            Toast.makeText(context, context.getString(R.string.action_unavailable),
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * Shows ActionDisabledByAdminDialog when there is user restriction set by device policy
+     * manager.
+     */
+    // TODO(b/186905050): add unit tests for this class and {@code PreferenceController} that uses
+    // this method.
+    public static void showActionDisabledByAdminDialog(Context context,
+            FragmentController fragmentController) {
+        fragmentController.showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(context,
+                        DISALLOW_CONFIG_WIFI),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
     }
 }

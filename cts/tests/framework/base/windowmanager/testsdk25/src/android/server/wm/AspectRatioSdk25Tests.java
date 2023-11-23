@@ -47,7 +47,8 @@ public class AspectRatioSdk25Tests extends AspectRatioTestsBase {
 
     @Test
     public void testMaxAspectRatioPreOActivity() {
-        runAspectRatioTest(mSdk25MaxAspectRatioActivity, (actual, displayId, size) -> {
+        runAspectRatioTest(mSdk25MaxAspectRatioActivity,
+                (actual, displayId, activitySize, displaySize) -> {
             assertThat(actual, lessThanOrEqualToInexact(MAX_PRE_O_ASPECT_RATIO));
         });
     }

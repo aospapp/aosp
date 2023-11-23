@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Controlar política de energía del coche."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"renderizar plantillas"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Renderizar plantillas."</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"controla las aplicaciones abiertas"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Controla las aplicaciones abiertas."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Mi dispositivo"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Invitado"</string>
     <string name="importance_default" msgid="8587741629268312938">"Importancia predeterminada"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"Restablecer más tarde"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"El sistema se restablecerá cuando arranques el coche."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"El coche debe estar aparcado para restablecerlo."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> está afectando al rendimiento de tu sistema"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Inhabilita la aplicación para mejorar el rendimiento del sistema. Puedes habilitarla de nuevo en Ajustes."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Prioriza la aplicación para seguir usándola."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Desinstala la aplicación para mejorar el rendimiento del sistema."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Inhabilitar aplicación"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Priorizar aplicación"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Desinstalar aplicación"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> se ha inhabilitado. Puedes habilitarla de nuevo en Ajustes."</string>
 </resources>

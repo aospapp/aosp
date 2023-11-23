@@ -47,7 +47,7 @@
     <string name="cmas_extreme_immediate_likely_alert" msgid="1859702950323471778">"आपातकालीन चेतावनी: बहुत गंभीर"</string>
     <string name="cmas_severe_alert" msgid="4135809475315826913">"आपातकालीन अलर्ट: गंभीर"</string>
     <string name="cmas_amber_alert" msgid="6154867710264778887">"बच्चे का अपहरण (Amber अलर्ट)"</string>
-    <string name="cmas_required_monthly_test" msgid="1890205712251132193">"हर महीने की जाने वाली ज़रूरी जाँच"</string>
+    <string name="cmas_required_monthly_test" msgid="1890205712251132193">"हर महीने की जाने वाली ज़रूरी जांच"</string>
     <string name="cmas_exercise_alert" msgid="2892255514938370321">"आपातकालीन अलर्ट (अभ्‍यास)"</string>
     <string name="cmas_operator_defined_alert" msgid="8755372450810011476">"आपातकालीन अलर्ट (ऑपरेटर)"</string>
     <string name="cb_other_message_identifiers" msgid="5790068194529377210">"प्रसारण संदेश"</string>
@@ -86,7 +86,7 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"राज्य और स्थानीय अधिकारियों से टेस्ट मैसेज पाना"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"इमरजेंसी के समय सूचनाएं"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"ऐसे मामलों के बारे में चेतावनी देना, जिनकी वजह से जान का खतरा हो सकता है"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"जांच करने के लिया भेजी जाने वाली चेतावनियां"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"जांच करने के लिए भेजी जाने वाली चेतावनियां"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"सुरक्षा चेतावनी वाले सिस्टम से हर महीने टेस्ट मैसेज पाएं. साथ ही, मोबाइल कैरियर से टेस्ट मैसेज पाएं"</string>
     <!-- no translation found for enable_exercise_test_alerts_title (6030780598569873865) -->
     <skip />

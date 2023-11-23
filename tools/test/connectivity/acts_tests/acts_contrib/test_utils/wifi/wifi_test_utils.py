@@ -909,13 +909,18 @@ def start_wifi_connection_scan_and_check_for_network(ad,
         True: if network_ssid is found in scan results.
         False: if network_ssid is not found in scan results.
     """
+    start_time = time.time()
     for num_tries in range(max_tries):
         if start_wifi_connection_scan_and_return_status(ad):
             scan_results = ad.droid.wifiGetScanResults()
             match_results = match_networks({WifiEnums.SSID_KEY: network_ssid},
                                            scan_results)
             if len(match_results) > 0:
+                ad.log.debug("Found network in %s seconds." %
+                             (time.time() - start_time))
                 return True
+    ad.log.debug("Did not find network in %s seconds." %
+                 (time.time() - start_time))
     return False
 
 
@@ -1466,11 +1471,9 @@ def ensure_no_disconnect(ad, duration=10):
         ad.droid.wifiStopTrackingStateChange()
 
 
-def connect_to_wifi_network(ad,
-                            network,
-                            assert_on_fail=True,
-                            check_connectivity=True,
-                            hidden=False):
+def connect_to_wifi_network(ad, network, assert_on_fail=True,
+                            check_connectivity=True, hidden=False,
+                            num_of_scan_tries=3, num_of_connect_tries=3):
     """Connection logic for open and psk wifi networks.
 
     Args:
@@ -1479,16 +1482,20 @@ def connect_to_wifi_network(ad,
         assert_on_fail: If true, errors from wifi_connect will raise
                         test failure signals.
         hidden: Is the Wifi network hidden.
+        num_of_scan_tries: The number of times to try scan
+                           interface before declaring failure.
+        num_of_connect_tries: The number of times to try
+                              connect wifi before declaring failure.
     """
     if hidden:
         start_wifi_connection_scan_and_ensure_network_not_found(
-            ad, network[WifiEnums.SSID_KEY])
+            ad, network[WifiEnums.SSID_KEY], max_tries=num_of_scan_tries)
     else:
         start_wifi_connection_scan_and_ensure_network_found(
-            ad, network[WifiEnums.SSID_KEY])
+            ad, network[WifiEnums.SSID_KEY], max_tries=num_of_scan_tries)
     wifi_connect(ad,
                  network,
-                 num_of_tries=3,
+                 num_of_tries=num_of_connect_tries,
                  assert_on_fail=assert_on_fail,
                  check_connectivity=check_connectivity)
 

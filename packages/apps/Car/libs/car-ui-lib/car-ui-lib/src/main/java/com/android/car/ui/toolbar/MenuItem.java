@@ -15,6 +15,9 @@
  */
 package com.android.car.ui.toolbar;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.TargetApi;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
@@ -47,6 +50,7 @@ import java.lang.ref.WeakReference;
  * <p>Some properties can be changed after the creating a MenuItem, but others require being set
  * with a {@link Builder}.
  */
+@TargetApi(MIN_TARGET_API)
 public class MenuItem {
 
     private final Context mContext;

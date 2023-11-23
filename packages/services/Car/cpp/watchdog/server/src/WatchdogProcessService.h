@@ -17,6 +17,7 @@
 #ifndef CPP_WATCHDOG_SERVER_SRC_WATCHDOGPROCESSSERVICE_H_
 #define CPP_WATCHDOG_SERVER_SRC_WATCHDOGPROCESSSERVICE_H_
 
+#include <android-base/chrono_utils.h>
 #include <android-base/result.h>
 #include <android/automotive/watchdog/ICarWatchdogClient.h>
 #include <android/automotive/watchdog/internal/ICarWatchdogMonitor.h>
@@ -79,8 +80,7 @@ public:
                     monitor,
             int32_t pid);
     virtual void setEnabled(bool isEnabled);
-    virtual android::binder::Status notifyUserStateChange(
-            userid_t userId, android::automotive::watchdog::internal::UserState state);
+    virtual void notifyUserStateChange(userid_t userId, bool isStarted);
 
 private:
     enum ClientType {
@@ -244,6 +244,7 @@ private:
             mNotSupportedVhalProperties;
     android::sp<PropertyChangeListener> mPropertyChangeListener;
     HeartBeat mVhalHeartBeat GUARDED_BY(mMutex);
+    std::chrono::milliseconds mVhalHealthCheckWindowMs;
     android::sp<IWatchdogServiceHelper> mWatchdogServiceHelper GUARDED_BY(mMutex);
 };
 

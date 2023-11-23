@@ -30,5 +30,5 @@ android_test {
         "platform-test-options",
     ],
     srcs: ["src/**/*.java"],
-    test_suites: ["catbox"],
+    test_suites: ["catbox","general-tests"],
 }

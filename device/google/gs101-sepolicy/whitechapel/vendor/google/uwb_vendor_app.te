@@ -1,0 +1,24 @@
+type uwb_vendor_app, domain;
+
+app_domain(uwb_vendor_app)
+
+add_service(uwb_vendor_app, uwb_vendor_service)
+
+not_recovery(`
+hal_client_domain(uwb_vendor_app, hal_uwb)
+
+allow uwb_vendor_app app_api_service:service_manager find;
+allow uwb_vendor_app hal_uwb_service:service_manager find;
+allow uwb_vendor_app nfc_service:service_manager find;
+allow uwb_vendor_app radio_service:service_manager find;
+
+allow uwb_vendor_app uwb_vendor_data_file:file create_file_perms;
+allow uwb_vendor_app uwb_vendor_data_file:dir create_dir_perms;
+
+get_prop(uwb_vendor_app, vendor_secure_element_prop)
+
+allow hal_uwb_default self:global_capability_class_set { sys_nice };
+allow hal_uwb_default kernel:process { setsched };
+
+binder_call(uwb_vendor_app, hal_uwb_default)
+')

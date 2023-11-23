@@ -18,8 +18,8 @@ package com.android.queryable.queries;
 
 import com.android.queryable.Queryable;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 /** Query for a {@link java.util.List}. */
 public interface ListQuery<E extends Queryable, F, G extends Query<F>> extends Query<List<F>> {
@@ -30,6 +30,49 @@ public interface ListQuery<E extends Queryable, F, G extends Query<F>> extends Q
 
     IntegerQuery<E> size();
 
+    /**
+     * Used to query whether a list contains certain objects.
+     */
     E contains(G... objects);
+
+    /**
+     * Used to query whether a list contains certain objects.
+     *
+     * <p>There are no bounds on the type for this method and therefore to find matches objects are
+     * compared using {@link Object#equals} If you are not checking for equality use
+     * {@link #contains(Query[])}.
+     */
+    E contains(F... objects);
+
+    /**
+     * Used to query whether a list does not contain certain objects.
+     */
     E doesNotContain(G... objects);
+
+    /**
+     * Used to query whether a list does not contain certain objects.
+     *
+     * <p>There are no bounds on the type for this method and therefore to find matches objects are
+     * compared using {@link Object#equals}. If you are not checking for equality use
+     * {@link #contains(Query[])}.
+     */
+    E doesNotContain(F... objects);
+
+    /**
+     * Used to query whether a list contains all of the elements from a collection.
+     *
+     * <p>There are no bounds on the type for this method and therefore to find matches objects are
+     * compared using {@link Object#equals} If you are not checking for equality use
+     * {@link #contains(Query[])}.
+     */
+    <H extends Collection<F>> E containsAll(H... collection);
+
+    /**
+     * Used to query whether a list does not contain any elements given in a collection.
+     *
+     * <p>There are no bounds on the type for this method and therefore to find matches objects are
+     * compared using {@link Object#equals} If you are not checking for equality use
+     * {@link #contains(Query[])}.
+     */
+    <H extends Collection<F>> E doesNotContainAny(H... collections);
 }

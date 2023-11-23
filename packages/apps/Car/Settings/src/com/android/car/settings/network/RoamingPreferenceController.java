@@ -33,17 +33,15 @@ import androidx.preference.TwoStatePreference;
 import com.android.car.settings.R;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
-import com.android.car.settings.common.PreferenceController;
 
 /** Business logic for toggling the roaming state. */
 // TODO: This preference should be available but unsearchable if subscription id is invalid.
-public class RoamingPreferenceController extends PreferenceController<TwoStatePreference> implements
+public class RoamingPreferenceController extends
+        NetworkBasePreferenceController<TwoStatePreference> implements
         MobileNetworkUpdateManager.MobileNetworkUpdateListener {
 
     private final CarrierConfigManager mCarrierConfigManager;
     private final RoamingStateChangeObserver mRoamingStateChangeObserver;
-    private TelephonyManager mTelephonyManager;
-    private int mSubId;
 
     private final ConfirmationDialogFragment.ConfirmListener mConfirmListener =
             arguments -> setRoamingEnabled(true);
@@ -54,7 +52,6 @@ public class RoamingPreferenceController extends PreferenceController<TwoStatePr
         mCarrierConfigManager = context.getSystemService(CarrierConfigManager.class);
         mRoamingStateChangeObserver = new RoamingStateChangeObserver(
                 new Handler(Looper.getMainLooper()), this::refreshUi);
-        mSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
     }
 
     @Override
@@ -62,15 +59,9 @@ public class RoamingPreferenceController extends PreferenceController<TwoStatePr
         return TwoStatePreference.class;
     }
 
-    /** Set the subscription id for which the roaming toggle should take effect. */
-    public void setSubId(int subId) {
-        mSubId = subId;
-        mTelephonyManager = TelephonyManager.from(getContext()).createForSubscriptionId(mSubId);
-    }
-
     @Override
     protected void onStartInternal() {
-        mRoamingStateChangeObserver.register(getContext(), mSubId);
+        mRoamingStateChangeObserver.register(getContext(), getSubId());
 
         ConfirmationDialogFragment.resetListeners(
                 (ConfirmationDialogFragment) getFragmentController().findDialogByTag(
@@ -87,9 +78,9 @@ public class RoamingPreferenceController extends PreferenceController<TwoStatePr
 
     @Override
     protected void updateState(TwoStatePreference preference) {
-        preference.setEnabled(mSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID);
-        preference.setChecked(
-                mTelephonyManager != null ? mTelephonyManager.isDataRoamingEnabled() : false);
+        preference.setEnabled(getSubId() != SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        preference.setChecked(getTelephonyManager() != null
+                ? getTelephonyManager().isDataRoamingEnabled() : false);
     }
 
     @Override
@@ -107,18 +98,18 @@ public class RoamingPreferenceController extends PreferenceController<TwoStatePr
 
     @Override
     public void onMobileNetworkUpdated(int subId) {
-        setSubId(subId);
+        setFields(subId);
         refreshUi();
     }
 
     private void setRoamingEnabled(boolean enabled) {
-        mTelephonyManager.setDataRoamingEnabled(enabled);
+        getTelephonyManager().setDataRoamingEnabled(enabled);
         refreshUi();
     }
 
     private boolean isDialogNeeded() {
-        boolean isRoamingEnabled = mTelephonyManager.isDataRoamingEnabled();
-        PersistableBundle carrierConfig = mCarrierConfigManager.getConfigForSubId(mSubId);
+        boolean isRoamingEnabled = getTelephonyManager().isDataRoamingEnabled();
+        PersistableBundle carrierConfig = mCarrierConfigManager.getConfigForSubId(getSubId());
 
         // Need dialog if we need to turn on roaming and the roaming charge indication is allowed.
         if (!isRoamingEnabled && (carrierConfig == null || !carrierConfig.getBoolean(

@@ -42,7 +42,7 @@
     <string name="prompt_connect_to_network" msgid="8511683573657516114">"<xliff:g id="NETWORK_SSID">%1$s</xliff:g> নেটৱৰ্কৰ লগত সংযোগ কৰিবনে?"</string>
     <string name="beam_requires_nfc_enabled" msgid="2800366967218600534">"Android বীমে NFC সক্ষম কৰিব লাগিব৷ আপুনি ইয়াক সক্ষম কৰিবলৈ বিচাৰেনে?"</string>
     <string name="android_beam" msgid="1666446406999492763">"Android বীম"</string>
-    <string name="beam_requires_external_storage_permission" msgid="8798337545702206901">"এপ্লিকেশ্বনটোৰ বাহ্যিক সঞ্চয়াগাৰ ব্যৱহাৰ কৰাৰ অনুমতি নাই৷ এই ফাইলটো বীম কৰিবলৈ এয়া প্ৰয়োজন।"</string>
+    <string name="beam_requires_external_storage_permission" msgid="8798337545702206901">"এপ্লিকেশ্বনটোৰ বাহ্যিক ষ্ট’ৰেজ ব্যৱহাৰ কৰাৰ অনুমতি নাই৷ এই ফাইলটো বীম কৰিবলৈ এয়া প্ৰয়োজন।"</string>
     <string name="title_confirm_url_open" msgid="8069968913244794478">"লিংক খুলিবনে?"</string>
     <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"আপোনাৰ টেবলেটে NFC যোগে এই লিংক পাইছে:"</string>
     <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"আপোনাৰ ফ\'নে NFC যোগে এই লিংক পাইছে:"</string>

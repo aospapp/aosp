@@ -23,11 +23,12 @@
 
     <dimen name="common_margin">32dp</dimen>
 
-    <!-- Dimensions for the Buttons in ActivityBlockingActivity -->
+    <!-- Dimensions for NewUserDisclaimerActivity -->
+    <dimen name="activity_content_text_size">@*android:dimen/car_body1_size</dimen>
     <dimen name="action_button_height">76dp</dimen>
     <dimen name="action_button_top_margin">48dp</dimen>
     <dimen name="action_button_corner_radius">38dp</dimen>
-    <dimen name="action_button_max_width">268dp</dimen>
+    <dimen name="action_button_max_width">500dp</dimen>
     <dimen name="action_button_min_width">@*android:dimen/car_button_min_width</dimen>
     <dimen name="action_button_text_size">@*android:dimen/car_body3_size</dimen>
     <dimen name="action_button_padding_horizontal">@*android:dimen/car_padding_4</dimen>

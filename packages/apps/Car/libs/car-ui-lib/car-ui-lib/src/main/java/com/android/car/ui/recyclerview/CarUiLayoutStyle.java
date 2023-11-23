@@ -16,10 +16,13 @@
 package com.android.car.ui.recyclerview;
 
 import android.widget.LinearLayout;
+
 import androidx.annotation.IntDef;
 import androidx.recyclerview.widget.RecyclerView.LayoutManager;
 
 import com.android.car.ui.recyclerview.CarUiRecyclerView.CarUiRecyclerViewLayout;
+import com.android.car.ui.recyclerview.CarUiRecyclerView.Size;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -50,5 +53,6 @@ public interface CarUiLayoutStyle {
     boolean getReverseLayout();
 
     /** Returns CarUiRecyclerView size */
+    @Size
     int getSize();
 }

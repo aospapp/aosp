@@ -22,7 +22,7 @@
     <string name="application_name" msgid="321870838342157591">"ప్రదర్శిత వాల్‌పేపర్ పికెర్"</string>
     <string name="live_wallpaper_picker_title" msgid="6152733341691314608">"ప్రదర్శిత వాల్‌పేపర్‌ను ఎంచుకోండి"</string>
     <string name="live_wallpaper_picker_label" msgid="295628316836042825">"లైవ్ వాల్‌పేపర్‌లు"</string>
-    <string name="live_wallpaper_preview_title" msgid="908570871421455329">"ప్రదర్శిత వాల్‌పేపర్ పరిదృశ్యం"</string>
+    <string name="live_wallpaper_preview_title" msgid="908570871421455329">"ప్రదర్శిత వాల్‌పేపర్ ప్రివ్యూ"</string>
     <string name="configure_wallpaper" msgid="4308477548538487192">"సెట్టింగ్‌లు…"</string>
     <string name="delete_live_wallpaper" msgid="2401799265848069389">"తొలగించు"</string>
     <string name="preview" msgid="1067744492020029129">"ప్రివ్యూ"</string>

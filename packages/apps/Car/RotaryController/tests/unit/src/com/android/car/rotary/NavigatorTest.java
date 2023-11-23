@@ -17,9 +17,13 @@ package com.android.car.rotary;
 
 import static android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION;
 import static android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD;
+import static android.view.accessibility.AccessibilityWindowInfo.TYPE_SYSTEM;
+
+import static com.android.car.ui.utils.RotaryConstants.ROTARY_VERTICALLY_SCROLLABLE;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.app.UiAutomation;
 import android.content.Intent;
@@ -38,8 +42,10 @@ import androidx.test.rule.ActivityTestRule;
 
 import com.android.car.rotary.Navigator.FindRotateTargetResult;
 import com.android.car.rotary.ui.TestRecyclerViewAdapter;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -53,6 +59,7 @@ import java.util.List;
 public class NavigatorTest {
 
     private static UiAutomation sUiAutomoation;
+    private static int sOriginalFlags;
 
     private final List<AccessibilityNodeInfo> mNodes = new ArrayList<>();
 
@@ -67,6 +74,19 @@ public class NavigatorTest {
     @BeforeClass
     public static void oneTimeSetup() {
         sUiAutomoation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+
+        // FLAG_RETRIEVE_INTERACTIVE_WINDOWS is necessary to reliably access the root window.
+        AccessibilityServiceInfo serviceInfo = sUiAutomoation.getServiceInfo();
+        sOriginalFlags = serviceInfo.flags;
+        serviceInfo.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+        sUiAutomoation.setServiceInfo(serviceInfo);
+    }
+
+    @AfterClass
+    public static void oneTimeTearDown() {
+        AccessibilityServiceInfo serviceInfo = sUiAutomoation.getServiceInfo();
+        serviceInfo.flags = sOriginalFlags;
+        sUiAutomoation.setServiceInfo(serviceInfo);
     }
 
     @Before
@@ -79,8 +99,7 @@ public class NavigatorTest {
         // The values of displayWidth and displayHeight don't affect the test, so just use 0.
         mNavigator = new Navigator(/* displayWidth= */ mDisplayBounds.right,
                 /* displayHeight= */ mDisplayBounds.bottom,
-                mHunWindowBounds.left, mHunWindowBounds.right, /* showHunOnBottom= */ false,
-                /* excludedOverlayWindowTitles= */ null);
+                mHunWindowBounds.left, mHunWindowBounds.right, /* showHunOnBottom= */ false);
         mNavigator.setNodeCopier(MockNodeCopierProvider.get());
         mNodeBuilder = new NodeBuilder(new ArrayList<>());
     }
@@ -254,11 +273,11 @@ public class NavigatorTest {
                 R.layout.navigator_find_rotate_target_does_not_skip_offscreen_node_test_activity);
 
         Activity activity = mActivityRule.getActivity();
-        RecyclerView recyclerView = activity.findViewById(R.id.scrollable);
-        recyclerView.post(() -> {
+        CarUiRecyclerView carUiRecyclerView = activity.findViewById(R.id.scrollable);
+        carUiRecyclerView.post(() -> {
             TestRecyclerViewAdapter adapter = new TestRecyclerViewAdapter(activity, 3);
             adapter.setItemsFocusable(true);
-            recyclerView.setAdapter(adapter);
+            carUiRecyclerView.setAdapter(adapter);
         });
 
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -838,14 +857,15 @@ public class NavigatorTest {
     public void test_findNudgeTargetFocusArea_fromScrollableContainer() {
         initActivity(R.layout.navigator_find_nudge_target_focus_area_1_test_activity);
         Activity activity = mActivityRule.getActivity();
-        RecyclerView scrollable = activity.findViewById(R.id.scrollable_container);
-        scrollable.post(() -> {
+        CarUiRecyclerView carUiRecyclerView = activity.findViewById(R.id.scrollable_container);
+        carUiRecyclerView.post(() -> {
             TestRecyclerViewAdapter adapter = new TestRecyclerViewAdapter(activity, 20);
-            scrollable.setAdapter(adapter);
-            scrollable.requestFocus();
+            carUiRecyclerView.setAdapter(adapter);
+            carUiRecyclerView.getView().requestFocus();
         });
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-        assertThat(scrollable.isFocused()).isEqualTo(true);
+        View focusedView = carUiRecyclerView.getView().findFocus();
+        assertThat(focusedView.getContentDescription()).isEqualTo(ROTARY_VERTICALLY_SCROLLABLE);
 
         AccessibilityNodeInfo currentFocusArea = createNode("focus_area1");
 
@@ -1060,6 +1080,199 @@ public class NavigatorTest {
         AccessibilityNodeInfo targetFocusArea =
                 mNavigator.findNudgeTargetFocusArea(windows, key2, focusArea3, View.FOCUS_UP);
         assertThat(targetFocusArea).isEqualTo(focusArea2);
+    }
+
+    /**
+     * Tests {@link Navigator#findNudgeTargetFocusArea} in the following layout:
+     *
+     * <pre>
+     *
+     *    ======System window(focus area1)===========
+     *    =                                         =
+     *    =           .............                 =
+     *    =           .   view1   .                 =
+     *    =           .............                 =
+     *    =                                         =
+     *    ===========================================
+     *
+     *    ===============App window==================
+     *    =                                         =
+     *    =   ===TaskView window(focus area2)====   =
+     *    =   =     ........................    =   =
+     *    =   =     .         view2        .    =   =
+     *    =   =     ........................    =   =
+     *    =   ===================================   =
+     *    =                                         =
+     *    ===========================================
+     *</pre>
+     *
+     */
+    @Test
+    public void testFindNudgeTargetFocusArea4() {
+        // System window.
+        Rect systemWindowBounds = new Rect(0, 0, 1080, 200);
+        AccessibilityNodeInfo systemRoot = mNodeBuilder
+                .setBoundsInScreen(systemWindowBounds)
+                .build();
+        AccessibilityWindowInfo systemWindow = new WindowBuilder()
+                .setRoot(systemRoot)
+                .setType(TYPE_SYSTEM)
+                .setBoundsInScreen(systemWindowBounds)
+                .build();
+        AccessibilityNodeInfo focusArea1 = mNodeBuilder
+                .setBoundsInScreen(systemWindowBounds)
+                .setFocusArea()
+                .setParent(systemRoot)
+                .build();
+        AccessibilityNodeInfo view1 = mNodeBuilder
+                .setParent(focusArea1)
+                .setBoundsInScreen(new Rect(500, 0, 600, 200))
+                .build();
+
+        // App window.
+        final int appTaskId = 10;
+        AccessibilityNodeInfo appRoot = mNodeBuilder
+                .setBoundsInScreen(mDisplayBounds)
+                .build();
+        AccessibilityWindowInfo appWindow = new WindowBuilder()
+                .setRoot(appRoot)
+                .setType(TYPE_APPLICATION)
+                .setBoundsInScreen(mDisplayBounds)
+                .setTaskId(appTaskId)
+                .build();
+
+        // TaskView window.
+        final int taskViewTaskId = 11;
+        Rect taskViewWindowBounds = new Rect(400, 0, 1080, 600);
+        AccessibilityNodeInfo taskViewRoot = mNodeBuilder
+                .setBoundsInScreen(taskViewWindowBounds)
+                .build();
+        AccessibilityWindowInfo taskViewWindow = new WindowBuilder()
+                .setRoot(taskViewRoot)
+                .setType(TYPE_APPLICATION)
+                .setBoundsInScreen(taskViewWindowBounds)
+                .setTaskId(taskViewTaskId)
+                .build();
+        AccessibilityNodeInfo focusArea2 = mNodeBuilder
+                .setBoundsInScreen(taskViewWindowBounds)
+                .setFocusArea()
+                .setParent(taskViewRoot)
+                .build();
+        AccessibilityNodeInfo view2 = mNodeBuilder
+                .setWindow(taskViewWindow)
+                .setParent(focusArea2)
+                .setBoundsInScreen(new Rect(500, 400, 600, 500))
+                .build();
+
+        List<AccessibilityWindowInfo> windows = new ArrayList<>();
+        windows.add(systemWindow);
+        windows.add(appWindow);
+        windows.add(taskViewWindow);
+
+        mNavigator.updateAppWindowTaskId(systemWindow);
+        mNavigator.updateAppWindowTaskId(appWindow);
+        mNavigator.updateAppWindowTaskId(taskViewWindow);
+
+        // Nudge up from view2 in TaskView window, it should focus in focusArea1 in system window.
+        AccessibilityNodeInfo targetFocusArea =
+                mNavigator.findNudgeTargetFocusArea(windows, view2, focusArea2, View.FOCUS_UP);
+        assertThat(targetFocusArea).isEqualTo(focusArea1);
+    }
+
+    /**
+     * Tests {@link Navigator#findNudgeTargetFocusArea} in the following layout:
+     *
+     * <pre>
+     *
+     *    ======System window(focus area1)===========
+     *    =                                         =
+     *    =           .............                 =
+     *    =           .   view1   .                 =
+     *    =           .............                 =
+     *    =                                         =
+     *    ===========================================
+     *
+     *    ===============App window==================
+     *    =                                         =
+     *    =   ====Dialog window(focus area2)=====   =
+     *    =   =     ........................    =   =
+     *    =   =     .         view2        .    =   =
+     *    =   =     ........................    =   =
+     *    =   ===================================   =
+     *    =                                         =
+     *    ===========================================
+     *</pre>
+     *
+     */
+    @Test
+    public void testFindNudgeTargetFocusArea5() {
+        // System window.
+        Rect systemWindowBounds = new Rect(0, 0, 1080, 200);
+        AccessibilityNodeInfo systemRoot = mNodeBuilder
+                .setBoundsInScreen(systemWindowBounds)
+                .build();
+        AccessibilityWindowInfo systemWindow = new WindowBuilder()
+                .setRoot(systemRoot)
+                .setType(TYPE_SYSTEM)
+                .setBoundsInScreen(systemWindowBounds)
+                .build();
+        AccessibilityNodeInfo focusArea1 = mNodeBuilder
+                .setBoundsInScreen(systemWindowBounds)
+                .setFocusArea()
+                .setParent(systemRoot)
+                .build();
+        AccessibilityNodeInfo view1 = mNodeBuilder
+                .setParent(focusArea1)
+                .setBoundsInScreen(new Rect(500, 0, 600, 200))
+                .build();
+
+        // App window.
+        final int appTaskId = 10;
+        AccessibilityNodeInfo appRoot = mNodeBuilder
+                .setBoundsInScreen(mDisplayBounds)
+                .build();
+        AccessibilityWindowInfo appWindow = new WindowBuilder()
+                .setRoot(appRoot)
+                .setType(TYPE_APPLICATION)
+                .setBoundsInScreen(mDisplayBounds)
+                .setTaskId(appTaskId)
+                .build();
+
+        // Dialog window.
+        Rect dialogWindowBounds = new Rect(400, 0, 1080, 600);
+        AccessibilityNodeInfo dialogRoot = mNodeBuilder
+                .setBoundsInScreen(dialogWindowBounds)
+                .build();
+        AccessibilityWindowInfo dialogWindow = new WindowBuilder()
+                .setRoot(dialogRoot)
+                .setType(TYPE_APPLICATION)
+                .setBoundsInScreen(dialogWindowBounds)
+                .setTaskId(appTaskId)
+                .build();
+        AccessibilityNodeInfo focusArea2 = mNodeBuilder
+                .setBoundsInScreen(dialogWindowBounds)
+                .setFocusArea()
+                .setParent(dialogRoot)
+                .build();
+        AccessibilityNodeInfo view2 = mNodeBuilder
+                .setWindow(dialogWindow)
+                .setParent(focusArea2)
+                .setBoundsInScreen(new Rect(500, 400, 600, 500))
+                .build();
+
+        List<AccessibilityWindowInfo> windows = new ArrayList<>();
+        windows.add(systemWindow);
+        windows.add(appWindow);
+        windows.add(dialogWindow);
+
+        mNavigator.updateAppWindowTaskId(systemWindow);
+        mNavigator.updateAppWindowTaskId(appWindow);
+        mNavigator.updateAppWindowTaskId(dialogWindow);
+
+        // Nudge up from view2 in Dialog window, the focus shouldn't move.
+        AccessibilityNodeInfo targetFocusArea =
+                mNavigator.findNudgeTargetFocusArea(windows, view2, focusArea2, View.FOCUS_UP);
+        assertThat(targetFocusArea).isNull();
     }
 
     /**

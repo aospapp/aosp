@@ -38,4 +38,8 @@ android_app {
     // TODO(b/176240706): "org.apache.http.legacy" is used by Settings-core,
     // get rid of this dependency and remove the "uses_libs" property.
     uses_libs: ["org.apache.http.legacy"],
+    optional_uses_libs: [
+        "androidx.window.extensions",
+        "androidx.window.sidecar",
+    ],
 }

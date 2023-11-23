@@ -1,0 +1,58 @@
+# Block Devices
+type efs_block_device, dev_type, bdev_type;
+type fat_block_device, dev_type, bdev_type;
+type modem_block_device, dev_type, bdev_type;
+type modem_userdata_block_device, dev_type, bdev_type;
+type persist_block_device, dev_type, bdev_type;
+type vendor_block_device, dev_type, bdev_type;
+type sda_block_device, dev_type, bdev_type;
+type mfg_data_block_device, dev_type, bdev_type;
+
+# Exynos devices
+type vendor_m2m1shot_device, dev_type;
+type vendor_gnss_device, dev_type;
+type vendor_nanohub_device, dev_type;
+type vendor_secmem_device, dev_type;
+type vendor_toe_device, dev_type;
+type custom_ab_block_device, dev_type, bdev_type;
+type devinfo_block_device, dev_type, bdev_type;
+
+# usbpd
+type logbuffer_device, dev_type;
+
+#cpuctl
+type cpuctl_device, dev_type;
+
+# Bt Wifi Coexistence device
+type wb_coexistence_dev, dev_type;
+
+# LWIS (Lightweight Imaging Subsystem) devices, used by Lyric camera HAL
+type lwis_device, dev_type;
+
+# RLS device
+type rls_device, dev_type;
+
+# sensor direct DMA-BUF heap
+type sensor_direct_heap_device, dmabuf_heap_device_type, dev_type;
+
+#faceauth DMA-BUF heaps
+type faceauth_heap_device, dmabuf_heap_device_type, dev_type;
+
+#vscaler-secure DMA-BUF heap
+type vscaler_heap_device, dmabuf_heap_device_type, dev_type;
+
+# AOC device
+type aoc_device, dev_type;
+
+# Fingerprint device
+type fingerprint_device, dev_type;
+
+# AMCS device
+type amcs_device, dev_type;
+
+# Battery history
+type battery_history_device, dev_type;
+
+# Raw HID device
+type hidraw_device, dev_type;
+

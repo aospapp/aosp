@@ -18,6 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assist_action_play_label" msgid="6278705468288338172">"تشغيل"</string>
+    <string name="assist_action_reply_label" msgid="6946087036560525072">"ردّ"</string>
     <string name="action_mute_short" msgid="5239851786101022633">"تجاهل"</string>
     <string name="action_mute_long" msgid="6846675719189989477">"تجاهل المحادثة"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"إلغاء التجاهل"</string>
@@ -31,17 +32,29 @@
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
     <string name="show_more" msgid="7291378544926443344">"عرض المزيد"</string>
     <string name="notification_header" msgid="324550431063568049">"الإشعارات"</string>
+    <string name="notification_recents" msgid="5855769440781958546">"الإشعارات الحديثة"</string>
+    <string name="notification_older" msgid="8162161020296499690">"الإشعارات الأقدم"</string>
     <string name="empty_notification_header" msgid="4928379791607839720">"ليست هناك أي إشعارات."</string>
-    <string name="show_less" msgid="7342677676229302829">"عرض إشعارات أقل"</string>
+    <string name="collapse_group" msgid="4923097735600949715">"تصغير المجموعة"</string>
+    <string name="show_more_from_app" msgid="4270626118092846628">"عرض <xliff:g id="COUNT">%1$d</xliff:g> إشعار آخر من <xliff:g id="APP">%2$s</xliff:g>"</string>
     <string name="show_count_more" msgid="480555295700318609">"عرض <xliff:g id="COUNT">%d</xliff:g> إشعار آخر"</string>
-    <string name="message_unshown_count" msgid="2234421277246741233">"و<xliff:g id="COUNT">%d</xliff:g> رسالة أخرى"</string>
-    <plurals name="restricted_message_text" formatted="false" msgid="507312322886633308">
-      <item quantity="zero"><xliff:g id="COUNT">%d</xliff:g> رسالة جديدة</item>
-      <item quantity="two">رسالتان (<xliff:g id="COUNT">%d</xliff:g>) جديدتان</item>
-      <item quantity="few"><xliff:g id="COUNT">%d</xliff:g> رسائل جديدة</item>
-      <item quantity="many"><xliff:g id="COUNT">%d</xliff:g> رسالة جديدة</item>
-      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> رسالة جديدة</item>
-      <item quantity="one">رسالة واحدة جديدة</item>
+    <plurals name="message_unshown_count" formatted="false" msgid="2454776257150137504">
+      <item quantity="zero"><xliff:g id="COUNT_1">%d</xliff:g> رسالة أخرى</item>
+      <item quantity="two">رسالتان أخريان (<xliff:g id="COUNT_1">%d</xliff:g>)</item>
+      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> رسائل أخرى</item>
+      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> رسالة أخرى</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> رسالة أخرى</item>
+      <item quantity="one">رسالة واحدة أخرى (<xliff:g id="COUNT_0">%d</xliff:g>)</item>
     </plurals>
+    <plurals name="restricted_numbered_message_content" formatted="false" msgid="232398073855919710">
+      <item quantity="zero"><xliff:g id="COUNT_1">%d</xliff:g> رسالة جديدة</item>
+      <item quantity="two">رسالتان جديدتان (<xliff:g id="COUNT_1">%d</xliff:g>)</item>
+      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> رسائل جديدة</item>
+      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> رسالة جديدة</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> رسالة جديدة</item>
+      <item quantity="one">رسالة واحدة جديدة (<xliff:g id="COUNT_0">%d</xliff:g>)</item>
+    </plurals>
+    <string name="see_more_message" msgid="6343183827924395955">"عرض المزيد"</string>
+    <string name="restricted_hun_message_content" msgid="631111937988857716">"رسالة جديدة"</string>
     <string name="manage_text" msgid="4225197445283791757">"إدارة"</string>
 </resources>

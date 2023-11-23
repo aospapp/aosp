@@ -1,0 +1,3 @@
+type hal_pixel_display_service, service_manager_type, vendor_service;
+type uwb_vendor_service, service_manager_type, vendor_service;
+type hal_uwb_service, service_manager_type, vendor_service;

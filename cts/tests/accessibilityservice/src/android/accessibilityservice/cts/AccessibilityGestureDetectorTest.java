@@ -25,6 +25,7 @@ import static android.accessibilityservice.cts.utils.GestureUtils.longClick;
 import static android.accessibilityservice.cts.utils.GestureUtils.startingAt;
 import static android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.timeout;
@@ -48,6 +49,7 @@ import android.graphics.PointF;
 import android.platform.test.annotations.AppModeFull;
 import android.util.DisplayMetrics;
 import android.view.Display;
+import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 
@@ -101,6 +103,9 @@ public class AccessibilityGestureDetectorTest {
     int mStrokeLenPxY;
     Point mCenter; // Center of screen. Gestures all start from this point.
     PointF mTapLocation;
+    int mScaledTouchSlop;
+    int mMaxAdjustedStrokeLenPxX;
+    int mMaxAdjustedStrokeLenPxY;
     @Mock AccessibilityService.GestureResultCallback mGestureDispatchCallback;
 
     @BeforeClass
@@ -134,9 +139,13 @@ public class AccessibilityGestureDetectorTest {
         windowManager.getDefaultDisplay().getRealMetrics(metrics);
         mCenter = new Point((int) metrics.widthPixels / 2, (int) metrics.heightPixels / 2);
         mTapLocation = new PointF(mCenter);
+        mScaledTouchSlop =
+                ViewConfiguration.get(sInstrumentation.getContext()).getScaledTouchSlop();
         mStrokeLenPxX = (int) (GESTURE_LENGTH_INCHES * metrics.xdpi);
         // The threshold is determined by xdpi.
         mStrokeLenPxY = mStrokeLenPxX;
+        mMaxAdjustedStrokeLenPxX = metrics.heightPixels / 2;
+        mMaxAdjustedStrokeLenPxY = metrics.widthPixels / 2;
         final boolean screenWideEnough = metrics.widthPixels / 2 > mStrokeLenPxX;
         final boolean screenHighEnough =  metrics.heightPixels / 2 > mStrokeLenPxY;
         mScreenBigEnough = screenWideEnough && screenHighEnough;
@@ -621,13 +630,48 @@ public class AccessibilityGestureDetectorTest {
         float fingerOffset = 10f;
         GestureDescription.Builder builder = new GestureDescription.Builder();
         builder.setDisplayId(displayId);
+
+        // MultiFingerSwipe.java scales delta thresholds for multifinger gestures by multiplying
+        // the touch slop with the amount of fingers used in the gesture.
+        // With higher touch slops than default (8dp), the swipe lengths and duration needs to be
+        // adjusted in order for the a11y-service to interpret it as a swipe gesture.
+        float slopAdjustedDx = adjustStrokeDeltaForSlop(fingerCount, dx);
+        float slopAdjustedDy = adjustStrokeDeltaForSlop(fingerCount, dy);
+        long slopAdjustedStrokeDuration = Math.min(
+                adjustStrokeDurationForSlop(STROKE_MS, dx, slopAdjustedDx),
+                adjustStrokeDurationForSlop(STROKE_MS, dy, slopAdjustedDy));
+
         for (int currentFinger = 0; currentFinger < fingerCount; ++currentFinger) {
+            // Make sure adjustments don't take us outside of screen boundaries.
+            assertTrue(slopAdjustedDx + (fingerOffset * currentFinger) < mMaxAdjustedStrokeLenPxX);
+            assertTrue(slopAdjustedDy < mMaxAdjustedStrokeLenPxY);
             builder.addStroke(
                     GestureUtils.swipe(
                             add(mTapLocation, fingerOffset * currentFinger, 0),
-                            add(mTapLocation, dx + (fingerOffset * currentFinger), dy),
-                            STROKE_MS));
+                            add(mTapLocation, slopAdjustedDx + (fingerOffset * currentFinger),
+                                    slopAdjustedDy),
+                            slopAdjustedStrokeDuration));
         }
         return builder.build();
+    }
+
+    private float adjustStrokeDeltaForSlop(int fingerCount, float strokeDelta) {
+        if (strokeDelta > 0.0f) {
+            return strokeDelta + (fingerCount * mScaledTouchSlop);
+        } else if (strokeDelta < 0.0f) {
+            return strokeDelta - (fingerCount * mScaledTouchSlop);
+        }
+        return strokeDelta;
+    }
+
+    private long adjustStrokeDurationForSlop(
+            long strokeDuration, float unadjustedDelta, float adjustedDelta) {
+        if (unadjustedDelta == 0.0f || adjustedDelta == 0.0f) {
+            return strokeDuration;
+        }
+        float absUnadjustedDelta = Math.abs(unadjustedDelta);
+        float absAdjustedDelta = Math.abs(adjustedDelta);
+        // Adjusted delta in this case, has additional delta added due to touch slop.
+        return Math.round((float) strokeDuration * absUnadjustedDelta / absAdjustedDelta);
     }
 }

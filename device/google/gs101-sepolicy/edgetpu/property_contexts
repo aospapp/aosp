@@ -1,0 +1,3 @@
+# for EdgeTPU
+vendor.edgetpu.service.                         u:object_r:vendor_edgetpu_service_prop:s0
+

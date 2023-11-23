@@ -165,6 +165,27 @@ public class AudioAttributesTest extends CtsAndroidTestCase {
         assertEquals(AudioAttributes.USAGE_MEDIA, getSystemUsage(attributes));
     }
 
+    public void testSpatializationAttr() {
+        for (int virtBehavior : new int[] { AudioAttributes.SPATIALIZATION_BEHAVIOR_AUTO,
+                                            AudioAttributes.SPATIALIZATION_BEHAVIOR_NEVER}) {
+            AudioAttributes attributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setSpatializationBehavior(virtBehavior)
+                    .build();
+            assertEquals("Spatialization behavior doesn't match", virtBehavior,
+                    attributes.getSpatializationBehavior());
+        }
+
+        for (boolean isVirtualized : new boolean[] { true, false }) {
+            AudioAttributes attributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setIsContentSpatialized(isVirtualized)
+                    .build();
+            assertEquals("Is content virtualized doesn't match", isVirtualized,
+                    attributes.isContentSpatialized());
+        }
+    }
+
     // -----------------------------------------------------------------
     // Capture policy tests
     // ----------------------------------
@@ -199,6 +220,47 @@ public class AudioAttributesTest extends CtsAndroidTestCase {
         AudioAttributes attr2 = builder2.build();
 
         assertEquals(attr1, attr2);
+    }
+
+    /**
+     * Test AudioAttributes Builder error handling.
+     *
+     * @throws Exception
+     */
+    public void testAudioAttributesBuilderError() throws Exception {
+        final int BIGNUM = Integer.MAX_VALUE;
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            new AudioAttributes.Builder()
+                    .setContentType(BIGNUM)
+                    .build();
+        });
+
+        // TODO(b/207021564): This should throw IAE in AudioAttributes.Builder.
+        //assertThrows(IllegalArgumentException.class, () -> {
+            new AudioAttributes.Builder()
+                    .setFlags(BIGNUM)
+                    .build();
+        //});
+
+        // TODO(b/207016008): This should throw IAE in AudioAttributes.Builder.
+        //assertThrows(IllegalArgumentException.class, () -> {
+            new AudioAttributes.Builder()
+                    .setLegacyStreamType(BIGNUM)
+                    .build();
+        //});
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            new AudioAttributes.Builder()
+                    .setSpatializationBehavior(BIGNUM)
+                    .build();
+        });
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            new AudioAttributes.Builder()
+                    .setUsage(BIGNUM)
+                    .build();
+        });
     }
 
     // -----------------------------------------------------------------

@@ -77,12 +77,6 @@ public class IgnoreBatteryOptimizationsTestActivity extends OrderedTestActivity 
         return true;
     }
 
-    private void openAppInfoPage() {
-        Intent appInfoIntent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-        appInfoIntent.setData(Uri.parse("package:" + getPackageName()));
-        startActivity(appInfoIntent);
-    }
-
     private void openIgnoreBatteryOptimizationsAppList() {
         Intent intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
         startActivity(intent);
@@ -101,7 +95,7 @@ public class IgnoreBatteryOptimizationsTestActivity extends OrderedTestActivity 
         @Override
         protected void onNextClick() {
             if (isExempted()) {
-                openAppInfoPage();
+                openIgnoreBatteryOptimizationsAppList();
             } else {
                 succeed();
             }
@@ -151,7 +145,7 @@ public class IgnoreBatteryOptimizationsTestActivity extends OrderedTestActivity 
         @Override
         protected void onNextClick() {
             if (isExempted()) {
-                openAppInfoPage();
+                openIgnoreBatteryOptimizationsAppList();
             } else {
                 succeed();
             }

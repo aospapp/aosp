@@ -77,8 +77,10 @@ public class AsyncRingtonePlayer {
      *         {@code False} indicates that a haptic track is NOT present on the ringtone;
      *         in this case the default vibration in {@link Ringer} should be trigger if needed.
      */
-    public @NonNull CompletableFuture<Boolean> play(RingtoneFactory factory, Call incomingCall,
-            @Nullable VolumeShaper.Configuration volumeShaperConfig, boolean isVibrationEnabled) {
+    public @NonNull
+    CompletableFuture<Boolean> play(RingtoneFactory factory, Call incomingCall,
+            @Nullable VolumeShaper.Configuration volumeShaperConfig, boolean isRingerAudible,
+            boolean isVibrationEnabled) {
         Log.d(this, "Posting play.");
         if (mHapticsFuture == null) {
             mHapticsFuture = new CompletableFuture<>();
@@ -88,7 +90,8 @@ public class AsyncRingtonePlayer {
         args.arg2 = incomingCall;
         args.arg3 = volumeShaperConfig;
         args.arg4 = isVibrationEnabled;
-        args.arg5 = Log.createSubsession();
+        args.arg5 = isRingerAudible;
+        args.arg6 = Log.createSubsession();
         postMessage(EVENT_PLAY, true /* shouldCreateHandler */, args);
         return mHapticsFuture;
     }
@@ -152,30 +155,33 @@ public class AsyncRingtonePlayer {
         Call incomingCall = (Call) args.arg2;
         VolumeShaper.Configuration volumeShaperConfig = (VolumeShaper.Configuration) args.arg3;
         boolean isVibrationEnabled = (boolean) args.arg4;
-        Session session = (Session) args.arg5;
+        boolean isRingerAudible = (boolean) args.arg5;
+        Session session = (Session) args.arg6;
         args.recycle();
 
         Log.continueSession(session, "ARP.hP");
         try {
             // don't bother with any of this if there is an EVENT_STOP waiting.
             if (mHandler.hasMessages(EVENT_STOP)) {
-                if (mHapticsFuture != null) {
-                    mHapticsFuture.complete(false /* ringtoneHasHaptics */);
-                    mHapticsFuture = null;
-                }
+                completeHapticFuture(false /* ringtoneHasHaptics */);
                 return;
             }
 
-            // If the Ringtone Uri is EMPTY, then the "None" Ringtone has been selected. Do not play
-            // anything.
-            if (Uri.EMPTY.equals(incomingCall.getRingtone())) {
-                mRingtone = null;
-                if (mHapticsFuture != null) {
-                    mHapticsFuture.complete(false /* ringtoneHasHaptics */);
-                    mHapticsFuture = null;
+            // If the Ringtone Uri is EMPTY, then the "None" Ringtone has been selected.
+            // If ringer is not audible for this call, then the phone is in "Vibrate" mode.
+            // Use haptic-only ringtone or do not play anything.
+            if (!isRingerAudible || Uri.EMPTY.equals(incomingCall.getRingtone())) {
+                if (isVibrationEnabled) {
+                    mRingtone = factory.getHapticOnlyRingtone();
+                    if (mRingtone == null) {
+                        completeHapticFuture(false /* ringtoneHasHaptics */);
+                        return;
+                    }
+                } else {
+                    mRingtone = null;
+                    completeHapticFuture(false /* ringtoneHasHaptics */);
+                    return;
                 }
-
-                return;
             }
 
             ThreadUtil.checkNotOnMainThread();
@@ -189,34 +195,30 @@ public class AsyncRingtonePlayer {
                             ringtoneUri.toSafeString();
                     Log.addEvent(null, LogUtils.Events.ERROR_LOG, "Failed to get ringtone from " +
                             "factory. Skipping ringing. Uri was: " + ringtoneUriString);
-                    if (mHapticsFuture != null) {
-                        mHapticsFuture.complete(false /* ringtoneHasHaptics */);
-                        mHapticsFuture = null;
-                    }
+                    completeHapticFuture(false /* ringtoneHasHaptics */);
                     return;
                 }
+            }
 
-                // With the ringtone to play now known, we can determine if it has haptic channels or
-                // not; we will complete the haptics future so the default vibration code in Ringer
-                // can know whether to trigger the vibrator.
-                if (mHapticsFuture != null && !mHapticsFuture.isDone()) {
-                    boolean hasHaptics = factory.hasHapticChannels(mRingtone);
-                    Log.i(this, "handlePlay: hasHaptics=%b, isVibrationEnabled=%b", hasHaptics,
-                            isVibrationEnabled);
-                    SystemSettingsUtil systemSettingsUtil = new SystemSettingsUtil();
-                    if (hasHaptics && (volumeShaperConfig == null
-                            || systemSettingsUtil.enableAudioCoupledVibrationForRampingRinger())) {
-                        AudioAttributes attributes = mRingtone.getAudioAttributes();
-                        Log.d(this, "handlePlay: %s haptic channel",
-                                (isVibrationEnabled ? "unmuting" : "muting"));
-                        mRingtone.setAudioAttributes(
-                                new AudioAttributes.Builder(attributes)
-                                        .setHapticChannelsMuted(!isVibrationEnabled)
-                                        .build());
-                    }
-                    mHapticsFuture.complete(hasHaptics);
-                    mHapticsFuture = null;
+            // With the ringtone to play now known, we can determine if it has haptic channels or
+            // not; we will complete the haptics future so the default vibration code in Ringer can
+            // know whether to trigger the vibrator.
+            if (mHapticsFuture != null && !mHapticsFuture.isDone()) {
+                boolean hasHaptics = factory.hasHapticChannels(mRingtone);
+                Log.i(this, "handlePlay: hasHaptics=%b, isVibrationEnabled=%b", hasHaptics,
+                        isVibrationEnabled);
+                SystemSettingsUtil systemSettingsUtil = new SystemSettingsUtil();
+                if (hasHaptics && (volumeShaperConfig == null
+                        || systemSettingsUtil.enableAudioCoupledVibrationForRampingRinger())) {
+                    AudioAttributes attributes = mRingtone.getAudioAttributes();
+                    Log.d(this, "handlePlay: %s haptic channel",
+                            (isVibrationEnabled ? "unmuting" : "muting"));
+                    mRingtone.setAudioAttributes(
+                            new AudioAttributes.Builder(attributes)
+                                    .setHapticChannelsMuted(!isVibrationEnabled)
+                                    .build());
                 }
+                completeHapticFuture(hasHaptics);
             }
 
             mRingtone.setLooping(true);
@@ -258,5 +260,12 @@ public class AsyncRingtonePlayer {
 
     public boolean isPlaying() {
         return mRingtone != null;
+    }
+
+    private void completeHapticFuture(boolean ringtoneHasHaptics) {
+        if (mHapticsFuture != null) {
+            mHapticsFuture.complete(ringtoneHasHaptics);
+            mHapticsFuture = null;
+        }
     }
 }

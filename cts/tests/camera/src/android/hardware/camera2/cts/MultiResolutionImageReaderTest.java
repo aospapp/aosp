@@ -94,7 +94,7 @@ public class MultiResolutionImageReaderTest extends Camera2AndroidTestCase {
     private SimpleMultiResolutionImageReaderListener mListener;
 
     @Test
-    public void testMultiResolutionCaptureCharacteristics() {
+    public void testMultiResolutionCaptureCharacteristics() throws Exception {
         for (String id : mCameraIdsUnderTest) {
             if (VERBOSE) {
                 Log.v(TAG, "Testing multi-resolution capture characteristics for Camera " + id);
@@ -154,11 +154,8 @@ public class MultiResolutionImageReaderTest extends Camera2AndroidTestCase {
                                 physicalCameraIds.contains(physicalCameraId));
                     }
 
-                    StaticMetadata pInfo = mAllStaticInfo.get(physicalCameraId);
-                    CameraCharacteristics pChar = pInfo.getCharacteristics();
-                    StreamConfigurationMap pConfig = pChar.get(
-                            CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-                    Size[] sizes = pConfig.getOutputSizes(format);
+                    Size[] sizes = CameraTestUtils.getSupportedSizeForFormat(format,
+                            physicalCameraId, mCameraManager);
                     assertTrue(String.format("Camera %s must "
                             + "support at least one output size for output "
                             + "format %d.", physicalCameraId, format),
@@ -166,13 +163,10 @@ public class MultiResolutionImageReaderTest extends Camera2AndroidTestCase {
 
                     List<Size> maxSizes = new ArrayList<Size>();
                     maxSizes.add(CameraTestUtils.getMaxSize(sizes));
-                    StreamConfigurationMap pMaxResConfig = pChar.get(CameraCharacteristics.
-                            SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION);
-                    if (pMaxResConfig != null) {
-                        Size[] maxResSizes = pMaxResConfig.getOutputSizes(format);
-                        if (maxResSizes != null && maxResSizes.length > 0) {
-                            maxSizes.add(CameraTestUtils.getMaxSize(maxResSizes));
-                        }
+                    Size[] maxResSizes = CameraTestUtils.getSupportedSizeForFormat(format,
+                            physicalCameraId, mCameraManager, /*maxResolution*/true);
+                    if (maxResSizes != null && maxResSizes.length > 0) {
+                        maxSizes.add(CameraTestUtils.getMaxSize(maxResSizes));
                     }
 
                     assertTrue(String.format("Camera %s's supported multi-resolution"

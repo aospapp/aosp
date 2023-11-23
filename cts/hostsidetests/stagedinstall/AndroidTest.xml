@@ -19,6 +19,7 @@
     <!-- Instant apps can't have INSTALL_PACKAGES permission. -->
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
 
     <!-- Module reboots the device making it inelligible for running in secondary users. -->
     <!-- TODO: Revisit secondary user eligibility once b/137885984 is resolved. -->

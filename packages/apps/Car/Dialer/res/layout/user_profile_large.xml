@@ -12,6 +12,7 @@ limitations under the License.
 -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:gravity="start|center_vertical"
@@ -24,18 +25,34 @@ limitations under the License.
         android:layout_height="@dimen/in_call_avatar_icon_size"
         android:scaleType="fitCenter"/>
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_height="wrap_content"
-        android:layout_width="fill_parent"
-        android:orientation="vertical"
-        android:paddingStart="@dimen/in_call_margin_between_avatar_and_text">
+        android:layout_width="match_parent">
         <TextView
             android:id="@+id/user_profile_title"
             android:theme="@style/Theme.Dialer.BidiText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textAppearance="@style/TextAppearance.InCallUserTitle"
-            android:singleLine="true"/>
+            android:singleLine="true"
+            android:layout_marginStart="@dimen/in_call_margin_between_avatar_and_text"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"/>
+        <TextView
+            android:id="@+id/user_profile_phone_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:theme="@style/Theme.Dialer.BidiText"
+            android:textAppearance="@style/TextAppearance.InCallUserPhoneNumber"
+            android:singleLine="true"
+            android:layout_marginStart="@dimen/in_call_margin_between_avatar_and_text"
+            android:layout_marginTop="@dimen/in_call_phone_number_margin_top"
+            app:layout_constraintHorizontal_chainStyle="packed"
+            app:layout_constraintHorizontal_bias="0.0"
+            app:layout_constrainedWidth="true"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/user_profile_phone_number"
+            app:layout_constraintTop_toBottomOf="@id/user_profile_title"/>
         <TextView
             android:id="@+id/user_profile_phone_number"
             android:layout_width="wrap_content"
@@ -43,7 +60,12 @@ limitations under the License.
             android:theme="@style/Theme.Dialer.BidiText"
             android:textAppearance="@style/TextAppearance.InCallUserPhoneNumber"
             android:singleLine="true"
-            android:layout_marginTop="@dimen/in_call_phone_number_margin_top"/>
+            android:layout_marginTop="@dimen/in_call_phone_number_margin_top"
+            app:layout_constraintHorizontal_bias="0.0"
+            app:layout_goneMarginStart="@dimen/in_call_margin_between_avatar_and_text"
+            app:layout_constraintStart_toEndOf="@id/user_profile_phone_label"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/user_profile_title"/>
 
         <!-- A textView without a fixed width will call requestLayout() every time its text is changed -->
         <!-- So we have to make this Chronometer match_parent to avoid redrawing the whole screen -->
@@ -53,6 +75,9 @@ limitations under the License.
             android:layout_height="wrap_content"
             android:textAppearance="@style/TextAppearance.InCallState"
             android:singleLine="true"
-            android:layout_marginTop="@dimen/in_call_state_margin_top"/>
-    </LinearLayout>
+            android:layout_marginStart="@dimen/in_call_margin_between_avatar_and_text"
+            android:layout_marginTop="@dimen/in_call_state_margin_top"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/user_profile_phone_number"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </LinearLayout>

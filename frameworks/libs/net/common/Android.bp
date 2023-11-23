@@ -189,7 +189,6 @@ filegroup {
        "device/android/net/NetworkFactoryImpl.java",
        "device/android/net/NetworkFactoryLegacyImpl.java",
        "device/android/net/NetworkFactoryShim.java",
-       "framework/com/android/net/module/util/NetUtils.java",
     ],
     visibility: [
         "//frameworks/opt/net/wifi/service",

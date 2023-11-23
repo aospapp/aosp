@@ -16,13 +16,22 @@
 
 package com.android.car.ui.toolbar;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.widget.ImageView;
 
 import java.util.function.Consumer;
 
+/**
+ * Listener class for setting Drawable for {@link DeprecatedTabWrapper}
+ */
+@SuppressLint("AppCompatCustomView")
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(MIN_TARGET_API)
 public final class ImageViewListener extends ImageView {
 
     private Consumer<Drawable> mImageDrawableListener;

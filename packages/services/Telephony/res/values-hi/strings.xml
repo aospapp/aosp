@@ -890,14 +890,14 @@
     <string name="radio_info_ppp_resets_label" msgid="9131901102339077661">"चालू करने के बाद से पीपीपी रीसेट की संख्या:"</string>
     <string name="radio_info_current_network_label" msgid="3052098695239642450">"मौजूदा नेटवर्क:"</string>
     <string name="radio_info_ppp_received_label" msgid="5753592451640644889">"मिलने वाला डेटा :"</string>
-    <string name="radio_info_gsm_service_label" msgid="6443348321714241328">"Voice की सेवा:"</string>
+    <string name="radio_info_gsm_service_label" msgid="6443348321714241328">"वॉइस सेवा:"</string>
     <string name="radio_info_signal_strength_label" msgid="5545444702102543260">"सिग्नल कितना अच्छा है:"</string>
-    <string name="radio_info_call_status_label" msgid="7693575431923095487">"Voice कॉल की स्थिति:"</string>
+    <string name="radio_info_call_status_label" msgid="7693575431923095487">"वॉइस कॉल की स्थिति:"</string>
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"भेजा गया डेटा :"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"मैसेज वेटिंग:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"फ़ोन नंबर:"</string>
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"रेडियो का बैंड चुनें"</string>
-    <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Voice के नेटवर्क प्रकार:"</string>
+    <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"वॉइस नेटवर्क टाइप:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"डेटा नेटवर्क प्रकार:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"फ़ोन इंडेक्स चुनें"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"पसंदीदा नेटवर्क प्रकार सेट करें:"</string>

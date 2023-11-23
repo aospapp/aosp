@@ -16,6 +16,7 @@
 
 package com.android.cellbroadcastreceiver.unit;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doNothing;
@@ -26,6 +27,7 @@ import static org.mockito.Mockito.verify;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.os.UserManager;
 
 import com.android.cellbroadcastreceiver.CellBroadcastInternalReceiver;
 import com.android.cellbroadcastreceiver.CellBroadcastReceiver;
@@ -38,6 +40,7 @@ import org.mockito.MockitoAnnotations;
 public class CellBroadcastInternalReceiverTest extends CellBroadcastTest {
 
     @Mock Intent mIntent;
+    @Mock UserManager mUserManager;
 
     private Configuration mConfiguration = new Configuration();
     private CellBroadcastInternalReceiver mReceiver;
@@ -49,6 +52,8 @@ public class CellBroadcastInternalReceiverTest extends CellBroadcastTest {
         doReturn(mConfiguration).when(mResources).getConfiguration();
         mReceiver = spy(new CellBroadcastInternalReceiver());
         doReturn(mContext).when(mContext).getApplicationContext();
+        doReturn(mUserManager).when(mContext).getSystemService(Context.USER_SERVICE);
+        doReturn(false).when(mUserManager).isSystemUser();
     }
 
     @Test
@@ -58,6 +63,14 @@ public class CellBroadcastInternalReceiverTest extends CellBroadcastTest {
         mReceiver.onReceive(mContext, mIntent);
         verify(mIntent).getLongExtra(CellBroadcastReceiver.EXTRA_DELIVERY_TIME, -1);
         verify(mReceiver).getCellBroadcastTask(nullable(Context.class), anyLong());
+    }
+
+    @Test
+    public void testOnReceive_cellbroadcastStartConfigAction() {
+        doReturn(CellBroadcastReceiver.CELLBROADCAST_START_CONFIG_ACTION).when(mIntent).getAction();
+        mReceiver.onReceive(mContext, mIntent);
+
+        verify(mReceiver).startConfigServiceToEnableChannels(any());
     }
 
 }

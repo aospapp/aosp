@@ -35,6 +35,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -176,17 +177,17 @@ public class CtsExtractNativeLibsHostTestBase extends BaseHostJUnit4Test {
      * @return an ABI string from AbiUtils.ABI_*
      * @return an ABI string from AbiUtils.ABI_*
      */
-    final String getExpectedLibAbi(String abiSuffix) throws Exception {
-        final String deviceAbi = getDeviceAbi();
-        final String deviceBitness = AbiUtils.getBitness(deviceAbi);
+    final String getExpectedLibAbi(String abiSuffix) {
+        final String testAbi = getAbi().getName();
+        final String testBitness = AbiUtils.getBitness(testAbi);
         final String libBitness;
-        // Use 32-bit native libs if device only supports 32-bit or APK only has 32-libs native libs
-        if (abiSuffix.equals("32") || deviceBitness.equals("32")) {
+        // Use 32-bit native libs if test only supports 32-bit or APK only has 32-libs native libs
+        if (abiSuffix.equals("32") || testBitness.equals("32")) {
             libBitness = "32";
         } else {
             libBitness = "64";
         }
-        final Set<String> libAbis = AbiUtils.getAbisForArch(AbiUtils.getBaseArchForAbi(deviceAbi));
+        final Set<String> libAbis = AbiUtils.getAbisForArch(AbiUtils.getBaseArchForAbi(testAbi));
         for (String libAbi : libAbis) {
             if (AbiUtils.getBitness(libAbi).equals(libBitness)) {
                 return libAbi;
@@ -195,22 +196,26 @@ public class CtsExtractNativeLibsHostTestBase extends BaseHostJUnit4Test {
         return null;
     }
 
+    /**
+     * Get ABIs supported by the test APKs. For example, if the test ABI is "armeabi-v7a", the test
+     * APKs should include native libs for "armeabi-v7a" and/or "arm64-v8a".
+     */
+    final Set<String> getApkAbis() throws Exception {
+        String testApkBaseArch = AbiUtils.getArchForAbi(getAbi().getName());
+        return AbiUtils.getAbisForArch(testApkBaseArch);
+    }
+
     final String getDeviceAbi() throws Exception {
         return getDevice().getProperty("ro.product.cpu.abi");
     }
 
+    /**
+     * Device ABIs might includes native bridge ABIs that are different from base arch (e.g.,
+     * emulators with NDK translations).
+     */
     final Set<String> getDeviceAbis() throws Exception {
-        String[] abiArray = getDevice().getProperty("ro.product.cpu.abilist").split(",");
-        // Ignore native bridge ABIs if they are of different base arch
-        String deviceBaseArch = AbiUtils.getArchForAbi(getDeviceAbi());
-        Set<String> deviceBaseArchSupportedAbis = AbiUtils.getAbisForArch(deviceBaseArch);
-        HashSet<String> deviceSupportedAbis = new HashSet<>();
-        for (String abi : abiArray) {
-            if (deviceBaseArchSupportedAbis.contains(abi)) {
-                deviceSupportedAbis.add(abi);
-            }
-        }
-        return deviceSupportedAbis;
+        String[] deviceAbis = getDevice().getProperty("ro.product.cpu.abilist").split(",");
+        return new HashSet<>(Arrays.asList(deviceAbis));
     }
 
     final Set<String> getDeviceAbiSuffixes() throws Exception {

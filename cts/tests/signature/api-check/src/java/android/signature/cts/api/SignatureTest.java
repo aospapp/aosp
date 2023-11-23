@@ -36,17 +36,23 @@ public class SignatureTest extends AbstractApiTest {
 
     private static final String TAG = SignatureTest.class.getSimpleName();
 
-    protected String[] systemApiFiles;
+    protected String[] expectedApiFiles;
     protected String[] previousApiFiles;
     protected String[] baseApiFiles;
     private String[] unexpectedApiFiles;
 
     @Override
-    protected void initializeFromArgs(Bundle instrumentationArgs) {
-        systemApiFiles = getCommaSeparatedList(instrumentationArgs, "system-api-files");
-        baseApiFiles = getCommaSeparatedList(instrumentationArgs, "base-api-files");
-        unexpectedApiFiles = getCommaSeparatedList(instrumentationArgs, "unexpected-api-files");
-        previousApiFiles = getCommaSeparatedList(instrumentationArgs, "previous-api-files");
+    protected void initializeFromArgs(Bundle instrumentationArgs) throws Exception {
+        expectedApiFiles = getCommaSeparatedListOptional(instrumentationArgs, "expected-api-files");
+        baseApiFiles = getCommaSeparatedListOptional(instrumentationArgs, "base-api-files");
+        unexpectedApiFiles = getCommaSeparatedListOptional(instrumentationArgs, "unexpected-api-files");
+        previousApiFiles = getCommaSeparatedListOptional(instrumentationArgs, "previous-api-files");
+
+        if (expectedApiFiles.length + unexpectedApiFiles.length == 0) {
+            throw new IllegalStateException(
+                    "Expected at least one file to be specified in"
+                            + " 'expected-api-files' or 'unexpected-api-files'");
+        }
     }
 
     /**
@@ -73,7 +79,7 @@ public class SignatureTest extends AbstractApiTest {
             // Load classes from any API files that form the base which the expected APIs extend.
             loadBaseClasses(complianceChecker);
             // Load classes from system API files and check for signature compliance.
-            checkClassesSignatureCompliance(complianceChecker, systemApiFiles, unexpectedClasses,
+            checkClassesSignatureCompliance(complianceChecker, expectedApiFiles, unexpectedClasses,
                     false /* isPreviousApi */);
             // Load classes from previous API files and check for signature compliance.
             checkClassesSignatureCompliance(complianceChecker, previousApiFiles, unexpectedClasses,

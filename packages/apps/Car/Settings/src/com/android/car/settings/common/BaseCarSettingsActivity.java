@@ -464,6 +464,9 @@ public abstract class BaseCarSettingsActivity extends FragmentActivity implement
         mGlobalLayoutListener = new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
+                if (finalFocusArea.isInTouchMode() || finalFocusArea.hasFocus()) {
+                    return;
+                }
                 boolean success = finalFocusArea.performAccessibilityAction(
                         ACTION_FOCUS, /* arguments= */ null);
                 if (success) {

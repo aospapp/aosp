@@ -35,17 +35,17 @@ import com.android.bedstead.nene.exceptions.AdbParseException;
 // TODO(scottjonathan): Replace ADB calls for S with test apis
 public class AdbUserParser31 extends AdbUserParser30 {
 
-    AdbUserParser31(TestApis testApis) {
-        super(testApis);
+    AdbUserParser31() {
+        super();
     }
 
     @Override
-    User.MutableUser parseUser(String userString) throws AdbParseException {
-        User.MutableUser user = super.parseUser(userString);
+    AdbUser.MutableUser parseUser(String userString) throws AdbParseException {
+        AdbUser.MutableUser user = super.parseUser(userString);
 
         if (user.mType.baseType().contains(UserType.BaseType.PROFILE)) {
             try {
-                user.mParent = mTestApis.users().find(
+                user.mParent = TestApis.users().find(
                         Integer.parseInt(userString.split("parentId=")[1].split("[ \n]")[0]));
             } catch (IndexOutOfBoundsException e) {
                 throw new AdbParseException("Error parsing user", userString, e);

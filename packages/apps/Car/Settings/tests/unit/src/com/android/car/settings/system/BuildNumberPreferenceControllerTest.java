@@ -46,6 +46,7 @@ import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.car.settings.development.DevelopmentSettingsUtil;
 import com.android.car.settings.testutils.TestLifecycleOwner;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.settingslib.utils.StringUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -156,8 +157,8 @@ public class BuildNumberPreferenceControllerTest {
         }
 
         int remainingClicks = getTapsToBecomeDeveloper() - getTapsToShowToast();
-        assertToastShown(mContext.getResources().getQuantityString(R.plurals.show_dev_countdown,
-                remainingClicks, remainingClicks));
+        assertToastShown(StringUtil.getIcuPluralsString(mContext, remainingClicks,
+                R.string.show_dev_countdown));
     }
 
     @Test

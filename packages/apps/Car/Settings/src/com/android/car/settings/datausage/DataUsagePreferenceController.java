@@ -18,26 +18,32 @@ package com.android.car.settings.datausage;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.telephony.SubscriptionManager;
 
 import androidx.preference.Preference;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
-import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.network.NetworkBasePreferenceController;
+import com.android.settingslib.net.DataUsageController;
+import com.android.settingslib.utils.StringUtil;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Controller to handle the business logic for AppDataUsage preference on the data usage screen
  */
-public class DataUsagePreferenceController extends PreferenceController<Preference> {
+public class DataUsagePreferenceController extends
+        NetworkBasePreferenceController<Preference> {
 
-    private int mSubId = Integer.MIN_VALUE;
+    private static final long MILLIS_IN_A_DAY = TimeUnit.DAYS.toMillis(1);
+    private static final String STRING_FORMAT = "%s, %s";
 
-    private SubscriptionManager mSubscriptionManager;
+    private final DataUsageController mDataUsageController;
 
     public DataUsagePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mSubscriptionManager = context.getSystemService(SubscriptionManager.class);
+        mDataUsageController = new DataUsageController(context);
     }
 
     @Override
@@ -47,21 +53,35 @@ public class DataUsagePreferenceController extends PreferenceController<Preferen
 
     @Override
     protected boolean handlePreferenceClicked(Preference preference) {
-        int subId = mSubId != Integer.MIN_VALUE ? mSubId : getDefaultSubId();
-        AppDataUsageFragment appDataUsageFragment = AppDataUsageFragment.newInstance(subId);
+        AppDataUsageFragment appDataUsageFragment = AppDataUsageFragment.newInstance(getSubId());
         getFragmentController().launchFragment(appDataUsageFragment);
         return true;
     }
 
-    /**
-     * Sets the subId for which data usage will be loaded. If this is not set then default subId
-     * will be used to load data.
-     */
-    public void setSubId(int subId) {
-        mSubId = subId;
+    @Override
+    protected void updateState(Preference preference) {
+        DataUsageController.DataUsageInfo info = mDataUsageController.getDataUsageInfo(
+                getNetworkTemplate());
+        getPreference().setSummary(String.format(STRING_FORMAT, getUsageText(info),
+                getRemainingBillingCycleTimeText(info)));
     }
 
-    private int getDefaultSubId() {
-        return DataUsageUtils.getDefaultSubscriptionId(mSubscriptionManager);
+    private CharSequence getUsageText(DataUsageController.DataUsageInfo info) {
+        return DataUsageUtils.bytesToIecUnits(getContext(), info.usageLevel);
+    }
+
+    private CharSequence getRemainingBillingCycleTimeText(DataUsageController.DataUsageInfo info) {
+        long millisLeft = info.cycleEnd - System.currentTimeMillis();
+        if (millisLeft <= 0) {
+            return getContext().getString(R.string.billing_cycle_none_left);
+        } else {
+            int daysLeft = (int) (millisLeft / MILLIS_IN_A_DAY);
+            if (daysLeft < 1) {
+                return getContext().getString(R.string.billing_cycle_less_than_one_day_left);
+            } else {
+                return StringUtil.getIcuPluralsString(getContext(), daysLeft,
+                        R.string.billing_cycle_days_left);
+            }
+        }
     }
 }

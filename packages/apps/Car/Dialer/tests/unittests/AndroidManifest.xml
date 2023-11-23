@@ -18,7 +18,6 @@
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.car.dialer.unittests">
-    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="29" />
 
     <application android:testOnly="false"
                  android:debuggable="true">

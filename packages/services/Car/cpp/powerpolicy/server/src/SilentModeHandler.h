@@ -21,7 +21,10 @@
 #include <android-base/unique_fd.h>
 #include <utils/Mutex.h>
 #include <utils/String16.h>
+#include <utils/StrongPointer.h>
 #include <utils/Vector.h>
+
+#include <SysfsMonitor.h>
 
 #include <atomic>
 #include <thread>  // NOLINT(build/c++11)
@@ -47,8 +50,8 @@ class SilentModeHandlerPeer;
 
 /**
  * SilentModeHandler monitors {@code /sys/power/pm_silentmode_hw_state} in sysfs to detect Silent
- * Mode change by a vehicle processor. Also, it updates {@code /sys/power/pm_silentmode_kernel} in
- * sysfs to tell kernel the current Silent Mode.
+ * Mode change by a vehicle processor. Also, it updates
+ * {@code /sys/power/pm_silentmode_kernel_state} in sysfs to tell kernel the current Silent Mode.
  */
 class SilentModeHandler final {
 public:
@@ -80,9 +83,9 @@ private:
     std::string mKernelSilentModeFilename;
     ISilentModeChangeHandler* mSilentModeChangeHandler;
     std::thread mSilentModeMonitoringThread;
-    android::base::unique_fd mFdInotify;
-    int mWdSilentModeHwState = -1;
     std::atomic_bool mIsMonitoring = false;
+    android::sp<android::automotive::SysfsMonitor> mSysfsMonitor;
+    android::base::unique_fd mFdSilentModeHwState;
 
     // For unit tests.
     friend class internal::SilentModeHandlerPeer;

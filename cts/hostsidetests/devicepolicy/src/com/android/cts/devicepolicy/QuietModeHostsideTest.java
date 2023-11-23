@@ -167,6 +167,7 @@ public class QuietModeHostsideTest extends BaseDevicePolicyTest {
 
     private void clearLogcat() throws DeviceNotAvailableException {
         getDevice().executeAdbCommand("logcat", "-c");
+        getDevice().executeAdbCommand("logcat", "-G", "16M");
     }
 
     private void verifyBroadcastSent(String actionName, boolean needPermissions)

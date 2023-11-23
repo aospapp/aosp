@@ -18,16 +18,20 @@ package com.android.queryable.queries;
 
 import android.os.Bundle;
 
-import com.android.queryable.util.SerializableParcelWrapper;
 import com.android.queryable.Queryable;
+import com.android.queryable.util.SerializableParcelWrapper;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Implementation of {@link BundleQuery}. */
 public final class BundleQueryHelper<E extends Queryable> implements BundleQuery<E>,
         Serializable {
+
+    private static final long serialVersionUID = 1;
 
     private final E mQuery;
     private final Map<String, BundleKeyQueryHelper<E>> mKeyQueryHelpers = new HashMap<>();
@@ -68,5 +72,19 @@ public final class BundleQueryHelper<E extends Queryable> implements BundleQuery
         }
 
         return matches(serializableBundle.get());
+    }
+
+    public static boolean matches(BundleQueryHelper<?> bundleQueryHelper, Bundle value) {
+        return bundleQueryHelper.matches(value);
+    }
+
+    @Override
+    public String describeQuery(String fieldName) {
+        List<String> queryStrings = new ArrayList<>();
+        for (Map.Entry<String, BundleKeyQueryHelper<E>> query : mKeyQueryHelpers.entrySet()) {
+            queryStrings.add(query.getValue().describeQuery(fieldName + "." + query.getKey()));
+        }
+
+        return Queryable.joinQueryStrings(queryStrings);
     }
 }

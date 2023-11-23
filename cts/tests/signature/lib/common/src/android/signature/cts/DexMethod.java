@@ -42,6 +42,17 @@ public class DexMethod extends DexMember {
       return mParamTypeList.stream().map(DexMember::dexToJavaType).collect(Collectors.toList());
   }
 
+  public Class<?>[] getJavaParameterClasses() throws ClassNotFoundException {
+    // Ideally we'd use streams, but DexMember.typeToClass throws a checked exception, and that's
+    // tricky to handle.
+    Class<?>[] classes = new Class<?>[mParamTypeList.size()];
+    int i = 0;
+    for (String param : mParamTypeList) {
+        classes[i++] = DexMember.typeToClass(param);
+    }
+    return classes;
+  }
+
   public boolean isConstructor() {
       return "<init>".equals(getName()) && "V".equals(getDexType());
   }

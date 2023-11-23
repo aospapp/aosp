@@ -1,0 +1,2 @@
+# b/190337297
+dontaudit vendor_init vendor_page_pinner_debugfs:file setattr;

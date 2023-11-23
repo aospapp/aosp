@@ -17,11 +17,14 @@
 package com.android.car.settings.system;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -35,14 +38,16 @@ import android.os.UserManager;
 import android.provider.Settings;
 
 import androidx.lifecycle.LifecycleOwner;
-import androidx.preference.Preference;
+import androidx.test.annotation.UiThreadTest;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.car.settings.development.DevelopmentSettingsUtil;
+import com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment;
 import com.android.car.settings.testutils.TestLifecycleOwner;
+import com.android.car.ui.preference.CarUiPreference;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
 import org.junit.After;
@@ -56,9 +61,12 @@ import org.mockito.MockitoSession;
 
 @RunWith(AndroidJUnit4.class)
 public class DeveloperOptionsEntryPreferenceControllerTest {
+    private static final String TEST_RESTRICTION =
+            android.os.UserManager.DISALLOW_DEBUGGING_FEATURES;
+
     private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private LifecycleOwner mLifecycleOwner;
-    private Preference mPreference;
+    private CarUiPreference mPreference;
     private DeveloperOptionsEntryPreferenceController mPreferenceController;
     private CarUxRestrictions mCarUxRestrictions;
     private MockitoSession mSession;
@@ -80,12 +88,11 @@ public class DeveloperOptionsEntryPreferenceControllerTest {
                 .mockStatic(UserManager.class, withSettings().lenient())
                 .startMocking();
         when(UserManager.get(mContext)).thenReturn(mMockUserManager);
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mMockUserManager);
         when(mMockUserManager.isAdminUser()).thenReturn(true);
-        when(mMockUserManager.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES))
-                .thenReturn(false);
         doNothing().when(mContext).startActivity(any());
 
-        mPreference = new Preference(mContext);
+        mPreference = new CarUiPreference(mContext);
         mPreference.setIntent(new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
         mPreferenceController = new DeveloperOptionsEntryPreferenceController(mContext,
                 "key", mFragmentController, mCarUxRestrictions);
@@ -113,12 +120,21 @@ public class DeveloperOptionsEntryPreferenceControllerTest {
     }
 
     @Test
-    public void testGetAvailabilityStatus_devOptionsEnabled_hasUserRestriction_isUnavailable() {
+    public void testGetAvailabilityStatus_devOptionsEnabled_restrictedByUm_isUnavailable() {
         setDeveloperOptionsEnabled(true);
-        when(mMockUserManager.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES))
-                .thenReturn(true);
+        mockUserRestrictionSetByUm(true);
+
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(
                 CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void testGetAvailabilityStatus_devOptionsEnabled_restrictedByDpm_availableForViewing() {
+        setDeveloperOptionsEnabled(true);
+        mockUserRestrictionSetByDpm(true);
+
+        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(
+                AVAILABLE_FOR_VIEWING);
     }
 
     @Test
@@ -134,9 +150,40 @@ public class DeveloperOptionsEntryPreferenceControllerTest {
         assertThat(intent.getAction()).isEqualTo(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
     }
 
+    @Test
+    @UiThreadTest
+    public void disabledClick_restrictedByDpm_dialog() {
+        setDeveloperOptionsEnabled(true);
+        mockUserRestrictionSetByDpm(true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        mPreference.performClick();
+
+        assertShowingDisabledByAdminDialog();
+    }
+
     private void setDeveloperOptionsEnabled(boolean enabled) {
         Settings.Global.putInt(mContext.getContentResolver(),
                 Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, enabled ? 1 : 0);
         DevelopmentSettingsUtil.setDevelopmentSettingsEnabled(mContext, enabled);
+    }
+
+    private void mockUserRestrictionSetByUm(boolean restricted) {
+        when(mMockUserManager.hasBaseUserRestriction(eq(TEST_RESTRICTION), any()))
+                .thenReturn(restricted);
+        if (restricted) {
+            when(mMockUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(restricted);
+        }
+    }
+
+    private void mockUserRestrictionSetByDpm(boolean restricted) {
+        when(mMockUserManager.hasBaseUserRestriction(eq(TEST_RESTRICTION), any()))
+                .thenReturn(false);
+        when(mMockUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(restricted);
+    }
+
+    private void assertShowingDisabledByAdminDialog() {
+        verify(mFragmentController).showDialog(any(ActionDisabledByAdminDialogFragment.class),
+                eq(DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG));
     }
 }

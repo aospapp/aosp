@@ -241,7 +241,13 @@ final class InitialUserSetter {
          */
         @NonNull
         public Builder setUserLocales(@Nullable String userLocales) {
-            mUserLocales = userLocales;
+            // This string can come from a binder IPC call where empty string is the default value
+            // for the auto-generated code. So, need to check for that.
+            if (userLocales != null && userLocales.trim().isEmpty()) {
+                mUserLocales = null;
+            } else {
+                mUserLocales = userLocales;
+            }
             return this;
         }
 

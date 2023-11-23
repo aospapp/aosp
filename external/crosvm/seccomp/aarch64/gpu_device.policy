@@ -42,6 +42,7 @@ set_robust_list: 1
 sigaltstack: 1
 write: 1
 writev: 1
+uname: 1
 
 # Required for perfetto tracing
 getsockopt: 1
@@ -58,6 +59,7 @@ fstat: 1
 newfstatat: 1
 getdents64: 1
 sysinfo: 1
+fstatfs: 1
 
 # 0x6400 == DRM_IOCTL_BASE, 0x8000 = KBASE_IOCTL_TYPE (mali), 0x40086200 = DMA_BUF_IOCTL_SYNC, 0x40087543 == UDMABUF_CREATE_LIST
 ioctl: arg1 & 0x6400 || arg1 & 0x8000 || arg1 == 0x40086200 || arg1 == 0x40087543
@@ -77,7 +79,6 @@ tgkill: 1
 clock_gettime: 1
 
 # Rules specific to Mesa.
-uname: 1
 sched_setscheduler: 1
 sched_setaffinity: 1
 kcmp: 1

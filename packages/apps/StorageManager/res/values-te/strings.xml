@@ -48,10 +48,10 @@
     <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"ఆటోమేటిక్"</string>
     <string name="deletion_helper_manual_title" msgid="3905192395039688529">"మాన్యువల్"</string>
     <string name="deletion_helper_preference_title" msgid="803484286872745892">"ఇప్పుడు స్థలాన్ని ఖాళీ చేయి"</string>
-    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"స్వయంచాలక నిల్వ నిర్వహణ సేవ"</string>
+    <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"ఆటోమేటిక్‌ నిల్వ నిర్వహణ సేవ"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"మీ ఫోన్‌లో తక్కువ నిల్వ స్థలం ఉంది"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"మీ టాబ్లెట్‌లో ఖాళీ స్థలం తక్కువగా ఉంది"</string>
-    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"మీ ఫోన్ నిల్వ మళ్లీ నిండిపోతున్నప్పుడు పాత ఫోటోలు మరియు వీడియోలను ఆటోమేటిక్‌గా తీసివేయడం ద్వారా స్థలాన్ని ఖాళీ చేయడానికి నిల్వ నిర్వాహికిని అనుమతించండి."</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"మీ ఫోన్ స్టోరేజ్ మళ్లీ నిండిపోతున్నప్పుడు పాత ఫోటోలు, వీడియోలను ఆటోమేటిక్‌గా తీసివేయడం ద్వారా స్పేస్‌ను ఖాళీ చేయడానికి స్టోరేజ్ మేనేజర్‌ను అనుమతించండి."</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"వద్దు, ధన్యవాదాలు"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"ఆన్ చేయి"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"బ్యాకప్ చేసిన ఫోటోలు &amp; వీడియోలు"</string>
@@ -62,6 +62,6 @@
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"మీ నిల్వ ఇప్పుడు నిల్వ నిర్వాహికి ద్వారా నిర్వహించబడుతోంది"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"తీసివేయాల్సినవి ఏవీ లేవు"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"ఇటీవలి అంశాలను రివ్యూ చేయండి"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"తీసివేయడానికి పాత ఫైళ్లు ఏవీ లేవు. నిల్వను ఖాళీ చేయాలంటే, ఇటీవలి ఫోటోలు, వీడియోలు మరియు యాప్‌లను తీసివేయండి."</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"తీసివేయడానికి పాత ఫైళ్లు ఏవీ లేవు. స్పేస్‌ను ఖాళీ చేయాలంటే, ఇటీవలి ఫోటోలు, వీడియోలు అలాగే యాప్‌లను తీసివేయండి."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g>కి <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> స్థలం అవసరం"</string>
 </resources>

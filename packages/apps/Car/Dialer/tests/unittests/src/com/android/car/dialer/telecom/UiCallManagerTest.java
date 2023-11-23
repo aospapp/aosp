@@ -61,6 +61,11 @@ import java.util.List;
 public class UiCallManagerTest {
 
     private static final String TEL_SCHEME = "tel";
+    private static final int CALL_AUDIO_STATE_ROUTE_ALL =
+            CallAudioState.ROUTE_EARPIECE
+                    | CallAudioState.ROUTE_BLUETOOTH
+                    | CallAudioState.ROUTE_WIRED_HEADSET
+                    | CallAudioState.ROUTE_SPEAKER;
 
     private UiCallManager mUiCallManager;
 
@@ -95,7 +100,7 @@ public class UiCallManagerTest {
                 mMockBluetoothDevice);
 
         mUiCallManager = new UiCallManager(mMockContext, mMockTelecomManager,
-                mMockPhoneAccountManager);
+                mMockPhoneAccountManager, null);
     }
 
     @Test
@@ -126,7 +131,7 @@ public class UiCallManagerTest {
     @Test
     public void testGetMuted_isMuted() {
         CallAudioState callAudioState = new CallAudioState(true,
-                CallAudioState.ROUTE_BLUETOOTH, CallAudioState.ROUTE_ALL);
+                CallAudioState.ROUTE_BLUETOOTH, CALL_AUDIO_STATE_ROUTE_ALL);
         when(mMockInCallService.getCallAudioState()).thenReturn(callAudioState);
 
         assertThat(mUiCallManager.getMuted()).isTrue();
@@ -143,7 +148,7 @@ public class UiCallManagerTest {
     public void testGetMuted_InCallServiceIsNull() {
         when(mMockIBinder.getService()).thenReturn(null);
         mUiCallManager = new UiCallManager(mMockContext, mMockTelecomManager,
-                mMockPhoneAccountManager);
+                mMockPhoneAccountManager, null);
 
         assertThat(mUiCallManager.getMuted()).isFalse();
     }
@@ -160,18 +165,18 @@ public class UiCallManagerTest {
     @Test
     public void testGetSupportedAudioRouteMask() {
         CallAudioState callAudioState = new CallAudioState(
-                true, CallAudioState.ROUTE_BLUETOOTH, CallAudioState.ROUTE_ALL);
+                true, CallAudioState.ROUTE_BLUETOOTH, CALL_AUDIO_STATE_ROUTE_ALL);
         when(mMockInCallService.getCallAudioState()).thenReturn(callAudioState);
 
-        assertThat(mUiCallManager.getSupportedAudioRouteMask()).isEqualTo(CallAudioState
-                .ROUTE_ALL);
+        assertThat(mUiCallManager.getSupportedAudioRouteMask()).isEqualTo(
+                CALL_AUDIO_STATE_ROUTE_ALL);
     }
 
     @Test
     public void testGetSupportedAudioRouteMask_InCallServiceIsNull() {
         when(mMockIBinder.getService()).thenReturn(null);
         mUiCallManager = new UiCallManager(mMockContext, mMockTelecomManager,
-                mMockPhoneAccountManager);
+                mMockPhoneAccountManager, null);
 
         assertThat(mUiCallManager.getSupportedAudioRouteMask()).isEqualTo(0);
     }
@@ -186,7 +191,7 @@ public class UiCallManagerTest {
     public void testGetSupportedAudioRoute_supportedAudioRouteMaskIsRouteAll() {
         // SupportedAudioRouteMask is CallAudioState.ROUTE_ALL.
         CallAudioState callAudioState = new CallAudioState(
-                true, CallAudioState.ROUTE_BLUETOOTH, CallAudioState.ROUTE_ALL);
+                true, CallAudioState.ROUTE_BLUETOOTH, CALL_AUDIO_STATE_ROUTE_ALL);
         when(mMockInCallService.getCallAudioState()).thenReturn(callAudioState);
 
         List<Integer> audioRoutes = mUiCallManager.getSupportedAudioRoute(null);
@@ -243,7 +248,7 @@ public class UiCallManagerTest {
     @Test
     public void scoStateToAudioRoute() {
         CallAudioState callAudioState = new CallAudioState(
-                true, CallAudioState.ROUTE_SPEAKER, CallAudioState.ROUTE_ALL);
+                true, CallAudioState.ROUTE_SPEAKER, CALL_AUDIO_STATE_ROUTE_ALL);
         when(mMockInCallService.getCallAudioState()).thenReturn(callAudioState);
 
         assertThat(mUiCallManager.getAudioRoute(CallDetail.STATE_AUDIO_CONNECTED)).isEqualTo(

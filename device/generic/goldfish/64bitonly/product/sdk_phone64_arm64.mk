@@ -40,6 +40,9 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/telephony_system_ext.mk)
 #
 $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_product.mk)
 
+PRODUCT_SDK_ADDON_SYS_IMG_SOURCE_PROP := \
+    development/sys-img/images_arm64-v8a_source.prop_template
+
 #
 # All components inherited here go to vendor or vendor_boot image
 #

@@ -16,11 +16,11 @@
 
 package com.android.car.carlauncher;
 
-import android.annotation.Nullable;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.drawable.Drawable;
+
+import androidx.annotation.Nullable;
 
 import java.util.function.Consumer;
 

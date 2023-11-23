@@ -121,7 +121,7 @@ private val PREF_KEY_FIRST_BOOT_TIME = "first_boot_time"
 fun isHibernationEnabled(): Boolean {
     return SdkLevel.isAtLeastS() &&
         DeviceConfig.getBoolean(NAMESPACE_APP_HIBERNATION, Utils.PROPERTY_APP_HIBERNATION_ENABLED,
-            false /* defaultValue */)
+            true /* defaultValue */)
 }
 
 /**
@@ -568,7 +568,8 @@ class HibernationJobService : JobService() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
         val pendingIntent = PendingIntent.getActivity(this, 0, clickIntent,
-                PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_UPDATE_CURRENT)
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_UPDATE_CURRENT or
+            PendingIntent.FLAG_IMMUTABLE)
 
         var notifTitle: String
         var notifContent: String

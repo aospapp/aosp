@@ -238,26 +238,13 @@ class Buffer : public Serializable {
     size_t available_write() const;
     size_t available_read() const;
     size_t buffer_size() const { return buffer_size_; }
+    bool valid_buffer_state() const;
 
     bool write(const uint8_t* src, size_t write_length);
     bool read(uint8_t* dest, size_t read_length);
     const uint8_t* peek_read() const { return buffer_.get() + read_position_; }
-    bool advance_read(int distance) {
-        if (static_cast<size_t>(read_position_ + distance) <= write_position_) {
-            read_position_ += distance;
-            return true;
-        }
-        return false;
-    }
     uint8_t* peek_write() { return buffer_.get() + write_position_; }
-    bool advance_write(int distance) {
-        if (static_cast<size_t>(write_position_ + distance) <= buffer_size_) {
-            write_position_ += distance;
-            return true;
-        }
-        return false;
-    }
-
+    bool advance_write(int distance);
     size_t SerializedSize() const;
     uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const;
     bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end);

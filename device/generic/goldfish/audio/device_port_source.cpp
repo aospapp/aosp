@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <android_audio_policy_configuration_V7_0-enums.h>
+#include <android-base/properties.h>
 #include <cmath>
 #include <chrono>
 #include <thread>
@@ -30,10 +32,16 @@
 #include "util.h"
 #include "debug.h"
 
+using ::android::base::GetBoolProperty;
+
+namespace xsd {
+using namespace ::android::audio::policy::configuration::V7_0;
+}
+
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V6_0 {
+namespace V7_0 {
 namespace implementation {
 
 namespace {
@@ -44,15 +52,15 @@ struct TinyalsaSource : public DevicePortSource {
     TinyalsaSource(unsigned pcmCard, unsigned pcmDevice,
                    const AudioConfig &cfg, uint64_t &frames)
             : mStartNs(systemTime(SYSTEM_TIME_MONOTONIC))
-            , mSampleRateHz(cfg.sampleRateHz)
-            , mFrameSize(util::countChannels(cfg.channelMask) * sizeof(int16_t))
+            , mSampleRateHz(cfg.base.sampleRateHz)
+            , mFrameSize(util::countChannels(cfg.base.channelMask) * sizeof(int16_t))
             , mReadSizeFrames(cfg.frameCount)
             , mFrames(frames)
             , mRingBuffer(mFrameSize * cfg.frameCount * 3)
             , mMixer(pcmCard)
             , mPcm(talsa::pcmOpen(pcmCard, pcmDevice,
-                                  util::countChannels(cfg.channelMask),
-                                  cfg.sampleRateHz,
+                                  util::countChannels(cfg.base.channelMask),
+                                  cfg.base.sampleRateHz,
                                   cfg.frameCount,
                                   false /* isOut */)) {
         mProduceThread = std::thread(&TinyalsaSource::producerThread, this);
@@ -218,8 +226,8 @@ template <class G> struct GeneratedSource : public DevicePortSource {
             : mWriteBuffer(writerBufferSizeHint / sizeof(int16_t))
             , mFrames(frames)
             , mStartNs(systemTime(SYSTEM_TIME_MONOTONIC))
-            , mSampleRateHz(cfg.sampleRateHz)
-            , mNChannels(util::countChannels(cfg.channelMask))
+            , mSampleRateHz(cfg.base.sampleRateHz)
+            , mNChannels(util::countChannels(cfg.base.channelMask))
             , mGenerator(std::move(generator)) {}
 
     Result getCapturePosition(uint64_t &frames, uint64_t &time) override {
@@ -263,18 +271,18 @@ template <class G> struct GeneratedSource : public DevicePortSource {
 
         const unsigned nFrames = std::min(requestedFrames, availableFrames);
         mGenerator(samples, nFrames);
-        const size_t sizeBytes = nFrames * nChannels * sizeof(*samples);
+        const size_t nSamples = nFrames * nChannels;
         if (nChannels > 1) {
             adjust_channels(samples, 1, samples, nChannels,
-                            sizeof(*samples), sizeBytes);
+                            sizeof(*samples), nFrames * sizeof(*samples));
         }
         mSentFrames += nFrames;
 
         aops::multiplyByVolume(volume,
                                mWriteBuffer.data(),
-                               sizeBytes / sizeof(int16_t));
+                               nSamples);
 
-        writer(mWriteBuffer.data(), sizeBytes);
+        writer(mWriteBuffer.data(), nSamples * sizeof(*samples));
         return 0;
     }
 
@@ -398,37 +406,73 @@ std::unique_ptr<DevicePortSource>
 DevicePortSource::create(size_t writerBufferSizeHint,
                          const DeviceAddress &address,
                          const AudioConfig &cfg,
-                         const hidl_bitfield<AudioOutputFlag> &flags,
+                         const hidl_vec<AudioInOutFlag> &flags,
                          uint64_t &frames) {
     (void)flags;
 
-    if (cfg.format != AudioFormat::PCM_16_BIT) {
-        ALOGE("%s:%d Only PCM_16_BIT is supported", __func__, __LINE__);
+    if (xsd::stringToAudioFormat(cfg.base.format) != xsd::AudioFormat::AUDIO_FORMAT_PCM_16_BIT) {
+        ALOGE("%s:%d, unexpected format: '%s'", __func__, __LINE__, cfg.base.format.c_str());
         return FAILURE(nullptr);
     }
 
-    switch (address.device) {
-    case AudioDevice::IN_BUILTIN_MIC:
-        return TinyalsaSource::create(talsa::kPcmCard, talsa::kPcmDevice,
-                                      cfg, writerBufferSizeHint, frames);
+    switch (xsd::stringToAudioDevice(address.deviceType)) {
+    case xsd::AudioDevice::AUDIO_DEVICE_IN_DEFAULT:
+    case xsd::AudioDevice::AUDIO_DEVICE_IN_BUILTIN_MIC:
+        if (GetBoolProperty("ro.boot.audio.tinyalsa.simulate_input", false)) {
+            return createGeneratedSource(
+                cfg, writerBufferSizeHint, frames,
+                RepeatGenerator(generateSinePattern(cfg.base.sampleRateHz, 300.0, 1.0)));
+        } else {
+            auto sourceptr = TinyalsaSource::create(talsa::kPcmCard, talsa::kPcmDevice,
+                                                    cfg, writerBufferSizeHint, frames);
+            if (sourceptr != nullptr) {
+                return sourceptr;
+            } else {
+                ALOGW("%s:%d failed to create alsa source for '%s'; creating a tone source instead.",
+                      __func__, __LINE__, address.deviceType.c_str());
+            }
+        }
+        break;
 
-    case AudioDevice::IN_TELEPHONY_RX:
+    case xsd::AudioDevice::AUDIO_DEVICE_IN_TELEPHONY_RX:
         return createGeneratedSource(cfg, writerBufferSizeHint, frames,
-                                     BusySignalGenerator(cfg.sampleRateHz));
+                                     BusySignalGenerator(cfg.base.sampleRateHz));
 
-    case AudioDevice::IN_FM_TUNER:
+    case xsd::AudioDevice::AUDIO_DEVICE_IN_FM_TUNER:
         return createGeneratedSource(
             cfg, writerBufferSizeHint, frames,
-            RepeatGenerator(generateSinePattern(cfg.sampleRateHz, 440.0, 1.0)));
+            RepeatGenerator(generateSinePattern(cfg.base.sampleRateHz, 440.0, 1.0)));
 
     default:
-        ALOGE("%s:%d unsupported device: %x", __func__, __LINE__, address.device);
-        return FAILURE(nullptr);
+        ALOGW("%s:%d unsupported device: '%s', creating a tone source",
+              __func__, __LINE__, address.deviceType.c_str());
+        break;
     }
+
+    return createGeneratedSource(
+        cfg, writerBufferSizeHint, frames,
+        RepeatGenerator(generateSinePattern(cfg.base.sampleRateHz, 220.0, 1.0)));
+}
+
+bool DevicePortSource::validateDeviceAddress(const DeviceAddress& address) {
+    switch (xsd::stringToAudioDevice(address.deviceType)) {
+    default:
+        ALOGW("%s:%d unsupported device: '%s'", __func__, __LINE__, address.deviceType.c_str());
+        return FAILURE(false);
+
+    case xsd::AudioDevice::AUDIO_DEVICE_IN_DEFAULT:
+    case xsd::AudioDevice::AUDIO_DEVICE_IN_BUILTIN_MIC:
+    case xsd::AudioDevice::AUDIO_DEVICE_IN_TELEPHONY_RX:
+    case xsd::AudioDevice::AUDIO_DEVICE_IN_FM_TUNER:
+    case xsd::AudioDevice::AUDIO_DEVICE_IN_BUS:
+        break;
+    }
+
+    return true;
 }
 
 }  // namespace implementation
-}  // namespace V6_0
+}  // namespace V7_0
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

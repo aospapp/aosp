@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="3836152623003881586">"অৱৰোধ কৰা নম্বৰৰ সঞ্চয়াগাৰ"</string>
+    <string name="app_label" msgid="3836152623003881586">"অৱৰোধ কৰা নম্বৰৰ ষ্ট’ৰেজ"</string>
 </resources>

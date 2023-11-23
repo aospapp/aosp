@@ -27,7 +27,7 @@ import com.android.cts.devicepolicy.DevicePolicySafetyCheckerIntegrationTester;
 public final class DevicePolicySafetyCheckerIntegrationTest extends BaseProfileOwnerTest {
 
     private final DevicePolicySafetyCheckerIntegrationTester mTester =
-            new DevicePolicySafetyCheckerIntegrationTester();
+            new DevicePolicySafetyCheckerIntegrationTester(/* forDeviceOwner= */ false);
 
     /**
      * Tests that all safety-aware operations are properly implemented.

@@ -39,6 +39,7 @@
 #include "osi/include/osi.h"  // UNUSED_ATTR
 #include "osi/include/properties.h"
 #include "stack/include/acl_api.h"
+#include "stack/include/btm_api.h"
 #include "types/hci_role.h"
 
 /*****************************************************************************
@@ -163,6 +164,8 @@ static void bta_av_api_enable(tBTA_AV_DATA* p_data) {
   /* store parameters */
   bta_av_cb.p_cback = p_data->api_enable.p_cback;
   bta_av_cb.features = p_data->api_enable.features;
+  bta_av_cb.offload_start_pending_hndl = 0;
+  bta_av_cb.offload_started_hndl = 0;
 
   tBTA_AV_ENABLE enable;
   enable.features = bta_av_cb.features;
@@ -624,7 +627,8 @@ static void bta_av_api_register(tBTA_AV_DATA* p_data) {
          *
          * We create 1.4 for SINK since we support browsing.
          */
-        if (profile_initialized == UUID_SERVCLASS_AUDIO_SOURCE) {
+        if (profile_initialized == UUID_SERVCLASS_AUDIO_SOURCE &&
+            !is_new_avrcp_enabled()) {
           bta_ar_reg_avrc(UUID_SERVCLASS_AV_REMOTE_CONTROL, NULL, NULL,
                           p_bta_av_cfg->avrc_ct_cat,
                           (bta_av_cb.features & BTA_AV_FEAT_BROWSE),
@@ -1405,6 +1409,9 @@ void bta_debug_av_dump(int fd) {
   dprintf(fd, "  Connected audio channels mask: 0x%x\n", bta_av_cb.conn_audio);
   dprintf(fd, "  Registered audio channels mask: 0x%x\n", bta_av_cb.reg_audio);
   dprintf(fd, "  Connected LCBs mask: 0x%x\n", bta_av_cb.conn_lcb);
+  dprintf(fd, "  Offload start pending handle: %d\n",
+          bta_av_cb.offload_start_pending_hndl);
+  dprintf(fd, "  Offload started handle: %d\n", bta_av_cb.offload_started_hndl);
 
   for (size_t i = 0; i < sizeof(bta_av_cb.lcb) / sizeof(bta_av_cb.lcb[0]);
        i++) {

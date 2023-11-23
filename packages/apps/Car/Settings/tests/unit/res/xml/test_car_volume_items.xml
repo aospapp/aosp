@@ -20,11 +20,18 @@
 <carVolumeItems xmlns:car="http://schemas.android.com/apk/res-auto">
     <item car:usage="voice_communication"
           car:titleText="@string/test_volume_call"
-          car:icon="@drawable/test_icon"/>
+          car:icon="@drawable/test_icon"
+          car:mute_icon="@drawable/test_icon" />
     <item car:usage="voice_communication_signalling"
           car:titleText="@string/test_volume_call"
-          car:icon="@drawable/test_icon"/>
+          car:icon="@drawable/test_icon"
+          car:mute_icon="@drawable/test_icon" />
     <item car:usage="media"
           car:titleText="@string/test_volume_music"
-          car:icon="@drawable/test_icon"/>
+          car:icon="@drawable/test_icon"
+          car:mute_icon="@drawable/test_icon" />
+    <item car:usage="assistance_navigation_guidance"
+          car:titleText="@string/test_volume_navigation"
+          car:icon="@drawable/test_icon"
+          car:mute_icon="@drawable/test_icon" />
 </carVolumeItems>

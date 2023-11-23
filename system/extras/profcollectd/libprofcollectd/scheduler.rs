@@ -16,6 +16,8 @@
 
 //! ProfCollect tracing scheduler.
 
+use std::fs;
+use std::path::Path;
 use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -59,11 +61,13 @@ impl Scheduler {
                     Ok(_) => break,
                     Err(_) => {
                         // Did not receive a termination signal, initiate trace event.
-                        trace_provider.lock().unwrap().trace(
-                            &TRACE_OUTPUT_DIR,
-                            "periodic",
-                            &config.sampling_period,
-                        );
+                        if check_space_limit(*TRACE_OUTPUT_DIR, &config).unwrap() {
+                            trace_provider.lock().unwrap().trace(
+                                &TRACE_OUTPUT_DIR,
+                                "periodic",
+                                &config.sampling_period,
+                            );
+                        }
                     }
                 }
             }
@@ -83,7 +87,9 @@ impl Scheduler {
 
     pub fn one_shot(&self, config: &Config, tag: &str) -> Result<()> {
         let trace_provider = self.trace_provider.clone();
-        trace_provider.lock().unwrap().trace(&TRACE_OUTPUT_DIR, tag, &config.sampling_period);
+        if check_space_limit(*TRACE_OUTPUT_DIR, config)? {
+            trace_provider.lock().unwrap().trace(&TRACE_OUTPUT_DIR, tag, &config.sampling_period);
+        }
         Ok(())
     }
 
@@ -105,4 +111,22 @@ impl Scheduler {
     pub fn get_trace_provider_name(&self) -> &'static str {
         self.trace_provider.lock().unwrap().get_name()
     }
+}
+
+/// Run if space usage is under limit.
+fn check_space_limit(path: &Path, config: &Config) -> Result<bool> {
+    let ret = dir_size(path)? <= config.max_trace_limit;
+    if !ret {
+        log::error!("trace storage exhausted.");
+    }
+    Ok(ret)
+}
+
+/// Returns the size of a directory, non-recursive.
+fn dir_size(path: &Path) -> Result<u64> {
+    fs::read_dir(path)?.try_fold(0, |acc, file| {
+        let metadata = file?.metadata()?;
+        let size = if metadata.is_file() { metadata.len() } else { 0 };
+        Ok(acc + size)
+    })
 }

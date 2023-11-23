@@ -50,6 +50,7 @@ import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 /**
  * Provides common Mockito calls for core Android classes.
@@ -130,6 +131,16 @@ public final class AndroidMockitoHelper {
             @NonNull @UserIdInt int... userIds) {
         List<UserInfo> users = UserTestingHelper.newUsers(userIds);
         when(um.getAliveUsers()).thenReturn(users);
+    }
+
+    /**
+     * Mocks {@code UserManager#getUserHandles()} to return the simple users with the given ids.
+     */
+    public static void mockUmGetUserHandles(@NonNull UserManager um, boolean excludeDying,
+            @NonNull @UserIdInt int... userIds) {
+        List<UserHandle> result = UserTestingHelper.newUsers(userIds).stream().map(
+                UserInfo::getUserHandle).collect(Collectors.toList());
+        when(um.getUserHandles(excludeDying)).thenReturn(result);
     }
 
     /**

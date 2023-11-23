@@ -247,7 +247,7 @@ public class SensorCtsHelper {
             sb.append("(");
         }
         for (int i = 0; i < array.length; i++) {
-            sb.append(String.format("%.2f", array[i]));
+            sb.append(String.format("%.8f", array[i]));
             if (i != array.length - 1) {
                 sb.append(", ");
             }

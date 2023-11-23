@@ -23,6 +23,6 @@ tradefed_binary_host {
     short_name: "CATBOX",
     full_name: "Complete Automotive Test in a Box",
     version: "1.0",
-    static_libs: ["cts-tradefed-harness"],
-    required: ["compatibility-host-util"],
+    static_libs: ["cts-tradefed-harness", "catbox-common"],
+    required: ["compatibility-host-util", "catbox-report-lib"],
 }

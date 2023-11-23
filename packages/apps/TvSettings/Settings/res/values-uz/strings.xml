@@ -160,8 +160,8 @@
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Ilova talab qilsa, ijrodagi kontent kadr almashish tezligi formatini qurilmaning oʻzi avtomatik sozlaydi. Bunday holda video ijrosi boshida yoki tomoshadan keyin ekran qisqa vaqt oʻchishi mumkin."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Hech qachon"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Ilova talab qilsa ham, ijrodagi kontent kadr almashish tezligi formatini qurilmaning oʻzi avtomatik sozlaydi."</string>
-    <string name="font_scale_settings_title" msgid="4114019544800225980">"Matn oʻlchami"</string>
-    <string name="font_scale_item_detail" msgid="1558315053348778805">"<xliff:g id="SCALE">%1$d</xliff:g>%% ga miqyosini oʻzgartirish"</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"Matn hajmi"</string>
+    <string name="font_scale_item_detail" msgid="1558315053348778805">"Masshtab: <xliff:g id="SCALE">%1$d</xliff:g>%% gacha"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"Namunaviy matn"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"Oz mamlakati sehrgari"</string>
     <string name="font_scale_preview_text_subtitle" msgid="677394182922188048">"11-bob: Oz mamlakatining zumrad shahri"</string>

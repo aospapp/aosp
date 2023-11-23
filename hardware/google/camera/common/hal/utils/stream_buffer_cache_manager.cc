@@ -19,8 +19,10 @@
 #define ATRACE_TAG ATRACE_TAG_CAMERA
 
 #include <cutils/native_handle.h>
+#include <cutils/properties.h>
 #include <log/log.h>
 #include <sync/sync.h>
+#include <sys/resource.h>
 #include <utils/Trace.h>
 
 #include <chrono>
@@ -32,6 +34,10 @@ using namespace std::chrono_literals;
 
 namespace android {
 namespace google_camera_hal {
+
+// setprop key for raising buffer allocation priority
+inline constexpr char kRaiseBufAllocationPriority[] =
+    "persist.vendor.camera.raise_buf_allocation_priority";
 
 // For CTS testCameraDeviceCaptureFailure, it holds image buffers and hal hits
 // refill buffer timeout. Large timeout time also results in close session time
@@ -217,6 +223,12 @@ status_t StreamBufferCacheManager::AddStreamBufferCacheLocked(
 }
 
 void StreamBufferCacheManager::WorkloadThreadLoop() {
+  if (property_get_bool(kRaiseBufAllocationPriority, false)) {
+    pid_t tid = gettid();
+    setpriority(PRIO_PROCESS, tid, -20);
+  }
+  // max thread name len = 16
+  pthread_setname_np(pthread_self(), "StreamBufMgr");
   while (1) {
     bool exiting = false;
     {

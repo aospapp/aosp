@@ -73,8 +73,8 @@ public class AssistantStackTests extends ActivityManagerTestBase {
             assistantSession.setVoiceInteractionService(ASSISTANT_VOICE_INTERACTION_SERVICE);
             launchActivityNoWait(LAUNCH_ASSISTANT_ACTIVITY_INTO_STACK);
             waitForValidStateWithActivityType(ASSISTANT_ACTIVITY, ACTIVITY_TYPE_ASSISTANT);
-            WindowManagerState.ActivityTask assistantStack =
-                    mWmState.getStackByActivityType(ACTIVITY_TYPE_ASSISTANT);
+            WindowManagerState.Task assistantStack =
+                    mWmState.getRootTaskByActivityType(ACTIVITY_TYPE_ASSISTANT);
             mAssistantDisplayId = assistantStack.mDisplayId;
             mDefaultWindowingMode = getDefaultDisplayWindowingMode();
         }
@@ -94,7 +94,7 @@ public class AssistantStackTests extends ActivityManagerTestBase {
             // In a multi-window environment the assistant might not be fullscreen
             assumeTrue(mDefaultWindowingMode == WINDOWING_MODE_FULLSCREEN);
             assertTrue("Expected assistant stack to be fullscreen",
-                    mWmState.getStackByActivityType(
+                    mWmState.getRootTaskByActivityType(
                             ACTIVITY_TYPE_ASSISTANT).isFullscreen());
         }
     }
@@ -127,7 +127,7 @@ public class AssistantStackTests extends ActivityManagerTestBase {
 
             mWmState.assertFrontStack("Pinned stack should be on top.",
                     WINDOWING_MODE_PINNED, ACTIVITY_TYPE_STANDARD);
-            mWmState.assertFocusedStack("Assistant stack should be focused.",
+            mWmState.assertFocusedRootTask("Assistant stack should be focused.",
                     WINDOWING_MODE_UNDEFINED, ACTIVITY_TYPE_ASSISTANT);
         }
     }
@@ -172,13 +172,13 @@ public class AssistantStackTests extends ActivityManagerTestBase {
                     "AssistantActivity should be focused", ASSISTANT_ACTIVITY);
             mWmState.assertFrontStackActivityType(
                     "Assistant stack should be on top.", ACTIVITY_TYPE_ASSISTANT);
-            mWmState.assertFocusedStack("Assistant stack should be focused.",
+            mWmState.assertFocusedRootTask("Assistant stack should be focused.",
                     WINDOWING_MODE_UNDEFINED, ACTIVITY_TYPE_ASSISTANT);
         } else {
             mWmState.assertFocusedActivity("TestActivity should be resumed", TEST_ACTIVITY);
             mWmState.assertFrontStack("TestActivity stack should be on top.",
                     expectedWindowingMode, ACTIVITY_TYPE_STANDARD);
-            mWmState.assertFocusedStack("TestActivity stack should be focused.",
+            mWmState.assertFocusedRootTask("TestActivity stack should be focused.",
                     expectedWindowingMode, ACTIVITY_TYPE_STANDARD);
         }
 
@@ -187,7 +187,7 @@ public class AssistantStackTests extends ActivityManagerTestBase {
         mWmState.waitForFocusedStack(WINDOWING_MODE_UNDEFINED, ACTIVITY_TYPE_ASSISTANT);
         mWmState.assertFrontStackActivityType(
                 "Assistant stack should be on top.", ACTIVITY_TYPE_ASSISTANT);
-        mWmState.assertFocusedStack("Assistant stack should be focused.",
+        mWmState.assertFocusedRootTask("Assistant stack should be focused.",
                 WINDOWING_MODE_UNDEFINED, ACTIVITY_TYPE_ASSISTANT);
     }
 
@@ -218,7 +218,7 @@ public class AssistantStackTests extends ActivityManagerTestBase {
         mWmState.assertFocusedActivity("TestActivity should be focused", TEST_ACTIVITY);
         mWmState.assertFrontStack("Fullscreen stack should be on top.",
                 mDefaultWindowingMode, ACTIVITY_TYPE_STANDARD);
-        mWmState.assertFocusedStack("Fullscreen stack should be focused.",
+        mWmState.assertFocusedRootTask("Fullscreen stack should be focused.",
                 mDefaultWindowingMode, ACTIVITY_TYPE_STANDARD);
     }
 
@@ -277,7 +277,7 @@ public class AssistantStackTests extends ActivityManagerTestBase {
                     TEST_ACTIVITY, ACTIVITY_TYPE_STANDARD, mDefaultWindowingMode);
 
             final ComponentName homeActivity = mWmState.getHomeActivityName();
-            int windowingMode = mWmState.getFocusedStackWindowingMode();
+            int windowingMode = mWmState.getFocusedRootTaskWindowingMode();
             // In a multi-window environment the home activity might not be fully covered
             assumeTrue(windowingMode == WINDOWING_MODE_FULLSCREEN);
             mWmState.waitAndAssertVisibilityGone(homeActivity);
@@ -319,10 +319,10 @@ public class AssistantStackTests extends ActivityManagerTestBase {
             waitForValidStateWithActivityType(ASSISTANT_ACTIVITY, ACTIVITY_TYPE_ASSISTANT);
             assertAssistantStackExists();
             mWmState.assertVisibility(ASSISTANT_ACTIVITY, true);
-            mWmState.assertFocusedStack("Expected assistant stack focused",
+            mWmState.assertFocusedRootTask("Expected assistant stack focused",
                     WINDOWING_MODE_UNDEFINED, ACTIVITY_TYPE_ASSISTANT);
             final WindowManagerState amState = mWmState;
-            assertThat(amState.getStackByActivityType(ACTIVITY_TYPE_ASSISTANT).getTasks(),
+            assertThat(amState.getRootTaskByActivityType(ACTIVITY_TYPE_ASSISTANT).getTasks(),
                     hasSize(1));
             final int taskId = mWmState.getTaskByActivity(ASSISTANT_ACTIVITY)
                     .mTaskId;
@@ -345,9 +345,9 @@ public class AssistantStackTests extends ActivityManagerTestBase {
             waitForValidStateWithActivityType(ASSISTANT_ACTIVITY, ACTIVITY_TYPE_ASSISTANT);
             assertAssistantStackExists();
             mWmState.assertVisibility(ASSISTANT_ACTIVITY, true);
-            mWmState.assertFocusedStack("Expected assistant stack focused",
+            mWmState.assertFocusedRootTask("Expected assistant stack focused",
                     WINDOWING_MODE_UNDEFINED, ACTIVITY_TYPE_ASSISTANT);
-            assertThat(amState.getStackByActivityType(ACTIVITY_TYPE_ASSISTANT).getTasks(),
+            assertThat(amState.getRootTaskByActivityType(ACTIVITY_TYPE_ASSISTANT).getTasks(),
                     hasSize(1));
             assertEquals(taskId,
                     mWmState.getTaskByActivity(ASSISTANT_ACTIVITY).mTaskId);

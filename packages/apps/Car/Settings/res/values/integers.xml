@@ -55,8 +55,11 @@
     <!-- Maximum number of networks to be shown in LimitedWifiEntryListPreferenceController -->
     <integer name="limited_wifi_entry_list_count">3</integer>
 
-    <!-- Maximum number of networks to be shown in RecentNotificationsAppsPreferenceController -->
+    <!-- Maximum number of apps to be shown in RecentNotificationsAppsPreferenceController -->
     <integer name="recent_notifications_apps_list_count">3</integer>
+
+    <!-- Maximum number of apps to be shown in MicrophoneRecentAccessesPreferenceController -->
+    <integer name="recent_microphone_access_apps_list_count">2</integer>
 
     <!-- Maximum number of days old for a notification to be shown in
      RecentNotificationsAppsPreferenceController -->

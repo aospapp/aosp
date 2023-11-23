@@ -250,7 +250,7 @@ public class HomeCardFragment extends Fragment implements HomeCardInterface.View
 
     protected final CrossfadeImageView getCardBackgroundImage() {
         if (mCardBackgroundImage == null) {
-            mCardBackgroundImage = getCardBackground().findViewById(R.id.card_background_image);
+            mCardBackgroundImage = getRootView().findViewById(R.id.card_background_image);
         }
         return mCardBackgroundImage;
     }

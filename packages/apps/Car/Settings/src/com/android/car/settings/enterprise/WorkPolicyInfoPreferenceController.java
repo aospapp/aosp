@@ -20,6 +20,7 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.UserHandle;
@@ -29,6 +30,7 @@ import android.provider.Settings;
 import androidx.annotation.Nullable;
 import androidx.preference.Preference;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
@@ -51,6 +53,9 @@ public final class WorkPolicyInfoPreferenceController extends PreferenceControll
     @Nullable
     private Intent mIntent;
 
+    @Nullable
+    private CharSequence mAdminName;
+
     public WorkPolicyInfoPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
@@ -70,43 +75,62 @@ public final class WorkPolicyInfoPreferenceController extends PreferenceControll
 
     @Override
     protected void updateState(Preference preference) {
-        updateIntent();
+        updateState();
 
-        if (mIntent != null) {
-            preference.setIntent(mIntent);
-        }
+        if (mIntent == null || mAdminName == null) return;
+
+        preference.setIntent(mIntent);
+
+        CharSequence title = getContext().getString(R.string.work_policy_privacy_settings,
+                mAdminName);
+        LOG.d("Setting title to " + title);
+        preference.setTitle(title);
     };
 
     @Override
     protected int getAvailabilityStatus() {
         if (!mEnabled) return UNSUPPORTED_ON_DEVICE;
 
-        updateIntent();
+        updateState();
 
-        return mIntent == null ? DISABLED_FOR_PROFILE : AVAILABLE;
+        return (mIntent == null || mAdminName == null) ? DISABLED_FOR_PROFILE : AVAILABLE;
     }
 
-    private void updateIntent() {
-        mIntent = null;
+    private void updateState() {
+        resetState();
 
         ComponentName admin = mDpm.getProfileOwner();
         if (admin == null) {
             LOG.d("no profile owner for user " + MY_USER_ID + ")");
             return;
         }
-
+        String adminPkgName = admin.getPackageName();
         mIntent = new Intent(Settings.ACTION_SHOW_WORK_POLICY_INFO)
-                .setPackage(admin.getPackageName())
+                .setPackage(adminPkgName)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
         List<ResolveInfo> activities = mPm.queryIntentActivities(mIntent, /* flags= */ 0);
         if (activities.isEmpty()) {
             LOG.d(admin.flattenToShortString() + " does not declare "
                     + Settings.ACTION_SHOW_WORK_POLICY_INFO);
-            mIntent = null;
+            resetState();
             return;
         }
 
-        LOG.d("updateIntent(): " + admin.flattenToShortString());
+        try {
+            ApplicationInfo appInfo = mPm.getApplicationInfo(adminPkgName, /* flags= */ 0);
+            mAdminName = appInfo.loadLabel(mPm);
+        } catch (Exception e) {
+            LOG.e("could not get name of app " + adminPkgName, e);
+            resetState();
+            return;
+        }
+
+        LOG.d("updateState(): name=" + mAdminName + ", admin=" + admin.flattenToShortString());
+    }
+
+    private void resetState() {
+        mIntent = null;
+        mAdminName = null;
     }
 }

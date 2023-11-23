@@ -41,6 +41,7 @@ public class SetPolicyActivity extends Activity {
     private static final String EXTRA_ACCOUNT_TYPE = "extra-account-type";
     private static final String EXTRA_PACKAGE_NAME = "extra-package-name";
     private static final String EXTRA_SCOPES_LIST = "extra-scopes-list";
+    private static final String EXTRA_ADMIN_TYPE = "extra-admin-type";
 
     private static final String COMMAND_ADD_USER_RESTRICTION = "add-restriction";
     private static final String COMMAND_CLEAR_USER_RESTRICTION = "clear-restriction";
@@ -65,8 +66,9 @@ public class SetPolicyActivity extends Activity {
     }
 
     private void handleIntent(Intent intent) {
+        boolean isDeviceOwnerTest = "DeviceOwner".equals(intent.getStringExtra(EXTRA_ADMIN_TYPE));
         DevicePolicyManager dpm = TestAppSystemServiceFactory.getDevicePolicyManager(this,
-                BaseDeviceAdminTest.BasicAdminReceiver.class);
+                        BaseDeviceAdminTest.BasicAdminReceiver.class, isDeviceOwnerTest);
         String command = intent.getStringExtra(EXTRA_COMMAND);
         Log.i(TAG, "Command: " + command + " UID: " + Process.myUid() + " DPM: " + dpm);
 

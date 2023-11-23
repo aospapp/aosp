@@ -119,8 +119,8 @@ bool PowerStatsEnergyConsumer::addAttribution(std::unordered_map<int32_t, std::s
     if (paths.count(UID_TIME_IN_STATE)) {
         mEnergyAttribution = PowerStatsEnergyAttribution();
         AttributionStats attrStats = mEnergyAttribution.getAttributionStats(paths);
-        if (attrStats.uidTimeInStats.empty() || attrStats.uidTimeInStateNames.empty()) {
-            LOG(ERROR) << "Missing uid_time_in_state";
+        if (attrStats.uidTimeInStateNames.empty()) {
+            LOG(ERROR) << "Failed to read uid_time_in_state";
             return false;
         }
 
@@ -166,44 +166,43 @@ std::optional<EnergyConsumerResult> PowerStatsEnergyConsumer::getEnergyConsumed(
         if (mWithAttribution) {
             AttributionStats attrStats = mEnergyAttribution.getAttributionStats(mAttrInfoPath);
             if (attrStats.uidTimeInStats.empty() || attrStats.uidTimeInStateNames.empty()) {
-                LOG(ERROR) << "Missing uid_time_in_state";
-                return {};
-            }
-
-            int64_t totalRelativeEnergyUWs = 0;
-            for (const auto &uidTimeInStat : attrStats.uidTimeInStats) {
-                int64_t uidEnergyUWs = 0;
-                for (int id = 0; id < uidTimeInStat.second.size(); id++) {
-                    if (mCoefficients.count(id)) {
-                        int64_t d_time_in_state = uidTimeInStat.second.at(id);
-                        if (mUidTimeInStateSS.count(uidTimeInStat.first)) {
-                            d_time_in_state -= mUidTimeInStateSS.at(uidTimeInStat.first).at(id);
+                LOG(ERROR) << "Failed to read uid_time_in_state for attribution, return default EnergyConsumer";
+            } else {
+                int64_t totalRelativeEnergyUWs = 0;
+                for (const auto &uidTimeInStat : attrStats.uidTimeInStats) {
+                    int64_t uidEnergyUWs = 0;
+                    for (int id = 0; id < uidTimeInStat.second.size(); id++) {
+                        if (mCoefficients.count(id)) {
+                            int64_t d_time_in_state = uidTimeInStat.second.at(id);
+                            if (mUidTimeInStateSS.count(uidTimeInStat.first)) {
+                                d_time_in_state -= mUidTimeInStateSS.at(uidTimeInStat.first).at(id);
+                            }
+                            uidEnergyUWs += mCoefficients.at(id) * d_time_in_state;
                         }
-                        uidEnergyUWs += mCoefficients.at(id) * d_time_in_state;
                     }
+                    totalRelativeEnergyUWs += uidEnergyUWs;
+
+                    EnergyConsumerAttribution attr = {
+                        .uid = uidTimeInStat.first,
+                        .energyUWs = uidEnergyUWs,
+                    };
+                    attribution.emplace_back(attr);
                 }
-                totalRelativeEnergyUWs += uidEnergyUWs;
 
-                EnergyConsumerAttribution attr = {
-                    .uid = uidTimeInStat.first,
-                    .energyUWs = uidEnergyUWs,
-                };
-                attribution.emplace_back(attr);
-            }
+                int64_t d_totalEnergyUWs = totalEnergyUWs - mTotalEnergySS;
+                float powerScale = 0;
+                if (totalRelativeEnergyUWs != 0) {
+                    powerScale = static_cast<float>(d_totalEnergyUWs) / totalRelativeEnergyUWs;
+                }
+                for (auto &attr : attribution) {
+                    attr.energyUWs = (int64_t)(attr.energyUWs * powerScale) +
+                                     (mUidEnergySS.count(attr.uid) ? mUidEnergySS.at(attr.uid) : 0);
+                    mUidEnergySS[attr.uid] = attr.energyUWs;
+                }
 
-            int64_t d_totalEnergyUWs = totalEnergyUWs - mTotalEnergySS;
-            float powerScale = 0;
-            if (totalRelativeEnergyUWs != 0) {
-                powerScale = static_cast<float>(d_totalEnergyUWs) / totalRelativeEnergyUWs;
+                mUidTimeInStateSS = attrStats.uidTimeInStats;
+                mTotalEnergySS = totalEnergyUWs;
             }
-            for (auto &attr : attribution) {
-                attr.energyUWs = (int64_t)(attr.energyUWs * powerScale) +
-                    (mUidEnergySS.count(attr.uid) ? mUidEnergySS.at(attr.uid) : 0);
-                mUidEnergySS[attr.uid] = attr.energyUWs;
-            }
-
-            mUidTimeInStateSS = attrStats.uidTimeInStats;
-            mTotalEnergySS = totalEnergyUWs;
         } else {
             std::vector<StateResidencyResult> results;
             if (mPowerStats->getStateResidency({mPowerEntityId}, &results).isOk()) {

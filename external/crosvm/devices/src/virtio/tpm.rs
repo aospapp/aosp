@@ -81,23 +81,23 @@ impl Device {
 
 impl Worker {
     fn process_queue(&mut self) -> NeedsInterrupt {
-        let avail_desc = match self.queue.pop(&self.mem) {
-            Some(avail_desc) => avail_desc,
-            None => return NeedsInterrupt::No,
-        };
+        let mut needs_interrupt = NeedsInterrupt::No;
+        while let Some(avail_desc) = self.queue.pop(&self.mem) {
+            let index = avail_desc.index;
 
-        let index = avail_desc.index;
+            let len = match self.device.perform_work(&self.mem, avail_desc) {
+                Ok(len) => len,
+                Err(err) => {
+                    error!("{}", err);
+                    0
+                }
+            };
 
-        let len = match self.device.perform_work(&self.mem, avail_desc) {
-            Ok(len) => len,
-            Err(err) => {
-                error!("{}", err);
-                0
-            }
-        };
+            self.queue.add_used(&self.mem, index, len);
+            needs_interrupt = NeedsInterrupt::Yes;
+        }
 
-        self.queue.add_used(&self.mem, index, len);
-        NeedsInterrupt::Yes
+        needs_interrupt
     }
 
     fn run(mut self) {
@@ -154,7 +154,7 @@ impl Worker {
                 }
             }
             if needs_interrupt == NeedsInterrupt::Yes {
-                self.interrupt.signal_used_queue(self.queue.vector);
+                self.queue.trigger_interrupt(&self.mem, &self.interrupt);
             }
         }
     }

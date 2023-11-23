@@ -73,7 +73,8 @@ public final class RemoteRequestBugreportActivity extends FragmentActivity {
         ConfirmationDialogFragment.Builder builder =
                 new ConfirmationDialogFragment.Builder(this);
 
-        ConfirmationDialogFragment.DismissListener dismissListener = arguments -> finish();
+        ConfirmationDialogFragment.DismissListener dismissListener =
+                (arguments, positiveResult) -> finish();
 
         switch (notificationType) {
             case NOTIFICATION_BUGREPORT_ACCEPTED_NOT_FINISHED:

@@ -17,7 +17,7 @@
 package com.android.car.ui.paintbooth;
 
 import static com.android.car.ui.paintbooth.PaintBoothApplication.SHARED_PREFERENCES_FILE;
-import static com.android.car.ui.paintbooth.PaintBoothApplication.SHARED_PREFERENCES_SHARED_LIB_DENYLIST;
+import static com.android.car.ui.paintbooth.PaintBoothApplication.SHARED_PREFERENCES_PLUGIN_DENYLIST;
 
 import android.app.Activity;
 import android.app.ActivityManager;
@@ -78,8 +78,8 @@ public class MainActivity extends Activity implements InsetsChangedListener {
     private final List<ListElement> mActivities = Arrays.asList(
             new ServiceElement("Show foreground activities", CurrentActivityService.class),
             new ServiceElement("Simulate Screen Bounds", VisibleBoundsSimulator.class),
-            new SwitchElement("Enable shared library", this::isSharedLibEnabled,
-                    this::onSharedLibSwitchChanged),
+            new SwitchElement("Add PaintBooth to plugin deny-list", this::isInPluginDenyList,
+                    this::onPluginSwitchChanged),
             new ActivityElement("Dialogs sample", DialogsActivity.class),
             new ActivityElement("App Styled View Modal", AppStyledViewSampleActivity.class),
             new ActivityElement("List sample", CarUiRecyclerViewActivity.class),
@@ -287,16 +287,16 @@ public class MainActivity extends Activity implements InsetsChangedListener {
         startForegroundService(intent);
     }
 
-    private boolean isSharedLibEnabled() {
+    private boolean isInPluginDenyList() {
         return getSharedPreferences(SHARED_PREFERENCES_FILE, Context.MODE_PRIVATE)
-                .getStringSet(SHARED_PREFERENCES_SHARED_LIB_DENYLIST, null) == null;
+                .getStringSet(SHARED_PREFERENCES_PLUGIN_DENYLIST, null) != null;
     }
 
-    private void onSharedLibSwitchChanged(CompoundButton unused, boolean checked) {
+    private void onPluginSwitchChanged(CompoundButton unused, boolean checked) {
         getSharedPreferences(SHARED_PREFERENCES_FILE, Context.MODE_PRIVATE)
                 .edit()
-                .putStringSet(SHARED_PREFERENCES_SHARED_LIB_DENYLIST,
-                        checked ? null : Collections.singleton("com.chassis.car.ui.sharedlibrary"))
+                .putStringSet(SHARED_PREFERENCES_PLUGIN_DENYLIST,
+                        checked ? Collections.singleton("com.chassis.car.ui.plugin") : null)
                 .apply();
         Toast.makeText(this, "Relaunch PaintBooth to see effects", Toast.LENGTH_SHORT).show();
     }

@@ -16,6 +16,7 @@
 -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="match_parent"
     android:focusable="false">
@@ -37,7 +38,8 @@
             android:layout_height="44dp"
             android:layout_gravity="center"
             android:tint="@color/car_ui_toolbar_menu_item_icon_color"
-            android:tintMode="src_in"/>
+            android:tintMode="src_in"
+            tools:ignore="UseAppTint" />
     </FrameLayout>
     <com.android.car.ui.uxr.DrawableStateSwitch
         android:id="@+id/car_ui_toolbar_menu_item_switch"

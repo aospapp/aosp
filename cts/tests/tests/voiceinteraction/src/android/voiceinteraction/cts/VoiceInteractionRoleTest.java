@@ -33,6 +33,8 @@ import android.util.Log;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.compatibility.common.util.PollingCheck;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -40,6 +42,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -109,6 +112,13 @@ public class VoiceInteractionRoleTest {
         }
         assertThat(getAssistRoleHolders()).containsExactly(packageName);
 
+        Callable<Boolean> condition = hasRecognition
+                ? () -> !TextUtils.isEmpty(Settings.Secure.getString(sContext.getContentResolver(),
+                Settings.Secure.VOICE_INTERACTION_SERVICE))
+                : () -> "".equals(Settings.Secure.getString(sContext.getContentResolver(),
+                        Settings.Secure.VOICE_INTERACTION_SERVICE));
+        PollingCheck.check("Make sure that Settings VOICE_INTERACTION_SERVICE "
+                + "becomes available.", 500, condition);
         final String curVoiceInteractionComponentName = Settings.Secure.getString(
                 sContext.getContentResolver(),
                 Settings.Secure.VOICE_INTERACTION_SERVICE);

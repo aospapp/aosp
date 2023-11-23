@@ -16,13 +16,16 @@
 
 package android.server.wm.app;
 
+import static android.server.wm.app.Components.RenderService.BROADCAST_EMBED_CONTENT;
+import static android.server.wm.app.Components.RenderService.EXTRAS_BUNDLE;
+import static android.server.wm.app.Components.RenderService.EXTRAS_DISPLAY_ID;
+import static android.server.wm.app.Components.RenderService.EXTRAS_HOST_TOKEN;
+import static android.server.wm.app.Components.RenderService.EXTRAS_SURFACE_PACKAGE;
 import static android.server.wm.app.Components.UnresponsiveActivity.EXTRA_ON_MOTIONEVENT_DELAY_MS;
-import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION;
 
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -32,18 +35,13 @@ import android.view.Display;
 import android.view.MotionEvent;
 import android.view.SurfaceControlViewHost;
 import android.view.View;
-import android.view.WindowManager;
 import android.widget.Button;
 
-public class RenderService extends Service {
-    static final String EXTRAS_BUNDLE = "INTENT_BUNDLE";
-    static final String EXTRAS_DISPLAY_ID = "hostDisplayId";
-    static final String EXTRAS_HOST_TOKEN = "hostInputToken";
-    static final String BROADCAST_EMBED_CONTENT
-            = "android.server.wm.app.RenderService.EMBED_CONTENT";
-    static final String EXTRAS_SURFACE_PACKAGE = "surfacePackage";
+import java.util.concurrent.CountDownLatch;
 
+public class RenderService extends Service {
     private int mOnMotionEventDelayMs;
+    CountDownLatch mViewDrawnCallbackLatch = new CountDownLatch(1);
 
     private boolean onTouch(View v, MotionEvent event) {
         SystemClock.sleep(mOnMotionEventDelayMs);
@@ -60,7 +58,7 @@ public class RenderService extends Service {
 
         SurfaceControlViewHost surfaceControlViewHost = getSurfaceControlViewHost(hostToken,
                 hostDisplayId);
-        sendSurfacePackage(surfaceControlViewHost.getSurfacePackage());
+        new Thread(()-> sendSurfacePackage(surfaceControlViewHost.getSurfacePackage())).start();
         return null;
     }
 
@@ -71,6 +69,8 @@ public class RenderService extends Service {
 
         View embeddedView = new Button(this);
         embeddedView.setOnTouchListener(this::onTouch);
+        embeddedView.getViewTreeObserver().registerFrameCommitCallback(
+                mViewDrawnCallbackLatch::countDown);
         DisplayMetrics metrics = new DisplayMetrics();
         displayContext.getDisplay().getMetrics(metrics);
         surfaceControlViewHost.setView(embeddedView, metrics.widthPixels, metrics.heightPixels);
@@ -84,8 +84,12 @@ public class RenderService extends Service {
     }
 
     private void sendSurfacePackage(SurfaceControlViewHost.SurfacePackage surfacePackage) {
-        Intent broadcast = new Intent();
-        broadcast.setAction(BROADCAST_EMBED_CONTENT);
+        try {
+            // wait until we commit a frame from the embedded viewrootimpl
+            mViewDrawnCallbackLatch.await();
+        } catch (InterruptedException ignored) {
+        }
+        Intent broadcast = new Intent(BROADCAST_EMBED_CONTENT);
         broadcast.putExtra(EXTRAS_SURFACE_PACKAGE, surfacePackage);
         sendBroadcast(broadcast);
     }

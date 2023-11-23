@@ -33,6 +33,9 @@ import com.android.internal.util.DataClass;
 public final class ResourceOveruseStats implements Parcelable {
     /**
      * Name of the package, whose stats are recorded in the below fields.
+     *
+     * NOTE: For packages that share a UID, the package name will be the shared package name because
+     *       the stats are aggregated for all packages under the shared UID.
      */
     private @NonNull String mPackageName;
 

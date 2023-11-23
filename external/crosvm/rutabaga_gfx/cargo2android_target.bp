@@ -1,0 +1,16 @@
+shared_libs: ["libgfxstream_backend"],
+target: {
+    host: {
+        shared_libs: ["libvirglrenderer"],
+    },
+    android: {
+        shared_libs: [
+            "libdrm",
+        ],
+        static_libs: [
+            "libepoxy",
+            "libgbm",
+            "libvirglrenderer",
+        ],
+    },
+}

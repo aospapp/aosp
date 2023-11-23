@@ -55,6 +55,7 @@ import android.content.res.Resources;
 import android.frameworks.automotive.powerpolicy.internal.ICarPowerPolicySystemNotification;
 import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateReq;
 import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateShutdownParam;
+import android.os.UserManager;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.AtomicFile;
 import android.util.Log;
@@ -114,6 +115,8 @@ public class CarPowerManagerUnitTest extends AbstractExtendedMockitoTestCase {
     private Resources mResources;
     @Mock
     private Car mCar;
+    @Mock
+    private UserManager mUserManager;
     @Mock
     private CarUserService mCarUserService;
     @Mock
@@ -406,7 +409,7 @@ public class CarPowerManagerUnitTest extends AbstractExtendedMockitoTestCase {
         mPowerComponentHandler = new PowerComponentHandler(mContext, mSystemInterface,
                 mVoiceInteractionManagerService, new AtomicFile(mComponentStateFile.getFile()));
         mService = new CarPowerManagementService(mContext, mResources, mPowerHal, mSystemInterface,
-                null, mCarUserService, mPowerPolicyDaemon, mPowerComponentHandler,
+                mUserManager, mCarUserService, mPowerPolicyDaemon, mPowerComponentHandler,
                 /* silentModeHwStatePath= */ null, /* silentModeKernelStatePath= */ null,
                 /* bootReason= */ null);
         mService.init();

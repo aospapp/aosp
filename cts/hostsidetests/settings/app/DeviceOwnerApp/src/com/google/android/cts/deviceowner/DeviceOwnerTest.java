@@ -26,10 +26,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.provider.Settings;
 import android.server.wm.WindowManagerStateHelper;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.support.test.uiautomator.UiScrollable;
+import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
@@ -50,9 +54,9 @@ public final class DeviceOwnerTest extends InstrumentationTestCase {
 
     private static final String TAG = DeviceOwnerTest.class.getSimpleName();
 
-    private static final String WORK_POLICY_INFO_TEXT = "Your work policy info";
-
     public static final int TIMEOUT_MS = 2_000;
+
+    public static final double DEADZONE_PCT = 0.2;
 
     protected Context mContext;
     protected UiDevice mDevice;
@@ -79,6 +83,7 @@ public final class DeviceOwnerTest extends InstrumentationTestCase {
     protected DevicePolicyManager mDevicePolicyManager;
     protected PackageManager mPackageManager;
     protected boolean mIsDeviceOwner;
+    private String mWorkPolicyInfoText;
 
     @Override
     protected void setUp() throws Exception {
@@ -87,7 +92,13 @@ public final class DeviceOwnerTest extends InstrumentationTestCase {
         mDevice = UiDevice.getInstance(getInstrumentation());
         mPackageManager = mContext.getPackageManager();
         mDevicePolicyManager = TestAppSystemServiceFactory.getDevicePolicyManager(mContext,
-                BasicAdminReceiver.class);
+                BasicAdminReceiver.class, /* forDeviceOwner= */ true);
+
+        boolean isAutomotive = mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+
+        mWorkPolicyInfoText = isAutomotive
+                ? "Privacy Settings for Device Owner CTS host side app vehicle policy"
+                : "Your work policy info";
 
         mIsDeviceOwner = mDevicePolicyManager.isDeviceOwnerApp(PACKAGE_NAME);
         Log.d(TAG, "setup(): dpm=" + mDevicePolicyManager + ", isDO: " + mIsDeviceOwner);
@@ -129,21 +140,39 @@ public final class DeviceOwnerTest extends InstrumentationTestCase {
         // Wait for loading permission usage data.
         mDevice.waitForIdle(TIMEOUT_MS);
 
-        Log.d(TAG, "Waiting " + TIMEOUT_MS + "ms for the '" + WORK_POLICY_INFO_TEXT + "' message");
+        Log.d(TAG, "Waiting " + TIMEOUT_MS + "ms for the '" + mWorkPolicyInfoText + "' message");
 
-        return (null != mDevice.wait(Until.findObject(By.text(WORK_POLICY_INFO_TEXT)), TIMEOUT_MS));
+        boolean found = null != mDevice.wait(Until.findObject(By.text(mWorkPolicyInfoText)),
+                TIMEOUT_MS);
+
+        // Try to scroll the list to find the item
+        if (!found) {
+            UiScrollable scroller = new UiScrollable(new UiSelector().scrollable(true));
+            try {
+                // Swipe far away from the edges to avoid triggering navigation gestures
+                scroller.setSwipeDeadZonePercentage(DEADZONE_PCT);
+                found = scroller.scrollTextIntoView(mWorkPolicyInfoText);
+            } catch (UiObjectNotFoundException e) { }
+        }
+
+        Log.d(TAG, "Message found: " + found);
+        return found;
     }
 
     private void launchSettingsPage(Context ctx, String pageName) throws Exception {
         Intent intent = new Intent(pageName);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 
+        Log.d(TAG, "Launching settings page on user " + UserHandle.myUserId() + " using " + intent);
+        ctx.startActivity(intent);
+
         ComponentName componentName =
                 ctx.getPackageManager()
                         .resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
                         .getComponentInfo()
                         .getComponentName();
-        ctx.startActivity(intent);
+
+        Log.d(TAG, "Waiting for STATE_RESUMED on " + componentName);
 
         new WindowManagerStateHelper().waitForActivityState(componentName, STATE_RESUMED);
     }
@@ -157,12 +186,12 @@ public final class DeviceOwnerTest extends InstrumentationTestCase {
     }
 
     private void launchPrivacySettingsAndAssertWorkPolicyInfoIsShowing() throws Exception {
-        assertWithMessage("Work policy info (%s) on settings entry", WORK_POLICY_INFO_TEXT)
+        assertWithMessage("Work policy info (%s) on settings entry", mWorkPolicyInfoText)
                 .that(launchPrivacyAndCheckWorkPolicyInfo()).isTrue();
     }
 
     private void launchPrivacySettingsAndAssertWorkPolicyInfoIsNotShowing() throws Exception {
-        assertWithMessage("Work policy info (%s) on settings entry", WORK_POLICY_INFO_TEXT)
+        assertWithMessage("Work policy info (%s) on settings entry", mWorkPolicyInfoText)
                 .that(launchPrivacyAndCheckWorkPolicyInfo()).isFalse();
     }
 

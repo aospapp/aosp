@@ -82,11 +82,13 @@
     <string name="family_name_first_title" msgid="7721976826282427987">"Фамилиясы"</string>
     <!-- no translation found for sort_order_default_value (5876201942256731358) -->
     <skip />
-    <string name="audio_route_dialog_title" msgid="2904553846970171054">"Төмөнкүгө телефон чалуу:"</string>
+    <string name="audio_route_dialog_title" msgid="2262715267187794363"></string>
     <string name="audio_route_dialog_subtitle" msgid="8780526104805330121"></string>
     <string name="ongoing_conf_title" msgid="4161590966144000887">"Конференция"</string>
     <string name="ongoing_conf_title_format" msgid="7667048745156395220">"%1$s (%2$d) - "</string>
     <string name="dialing_disabled_warning" msgid="8094136040809498594">"Номерди терүү өчүрүлдү"</string>
     <string name="restricted_dialing_mode_label" msgid="2439439835180117206">"Унаа айдап баратканда номер тергичти колдонууга тыюу салынат"</string>
     <string name="comma_delimiter" msgid="7949695553572428165">", "</string>
+    <string name="sms_notification_title" msgid="5980540487139970307">"SMS жөнөтүү"</string>
+    <string name="sms_notification_text" msgid="9193883830187173056">"SMS билдирүү жөнөтүлүүдө"</string>
 </resources>

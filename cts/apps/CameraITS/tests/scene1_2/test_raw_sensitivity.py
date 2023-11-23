@@ -25,7 +25,6 @@ import camera_properties_utils
 import capture_request_utils
 import image_processing_utils
 import its_session_utils
-import opencv_processing_utils
 
 GR_PLANE_IDX = 1  # GR plane index in RGGB data
 IMG_STATS_GRID = 9  # Center 11.11%
@@ -76,19 +75,15 @@ class RawSensitivityTest(its_base_test.ItsBaseTest):
       sens_max = props['android.sensor.maxAnalogSensitivity']
       sens_step = (sens_max - sens_min) // NUM_SENS_STEPS
 
-      # Skip AF if TELE camera
-      if camera_fov <= opencv_processing_utils.FOV_THRESH_TELE:
-        s_ae, e_ae, _, _, _ = cam.do_3a(do_af=False, get_results=True)
-        f_dist = 0
-      else:
-        s_ae, e_ae, _, _, f_dist = cam.do_3a(get_results=True)
+      # Intentionally blur images for noise measurements
+      s_ae, e_ae, _, _, _ = cam.do_3a(do_af=False, get_results=True)
       s_e_prod = s_ae * e_ae
 
       sensitivities = list(range(sens_min, sens_max, sens_step))
       variances = []
       for s in sensitivities:
         e = int(s_e_prod / float(s))
-        req = capture_request_utils.manual_capture_request(s, e, f_dist)
+        req = capture_request_utils.manual_capture_request(s, e, 0)
 
         # Capture in rawStats to reduce test run time
         fmt = define_raw_stats_fmt(props)

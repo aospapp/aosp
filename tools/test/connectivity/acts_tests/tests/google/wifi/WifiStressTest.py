@@ -34,9 +34,10 @@ WifiEnums = wutils.WifiEnums
 
 WAIT_FOR_AUTO_CONNECT = 40
 WAIT_BEFORE_CONNECTION = 30
-
-TIMEOUT = 5
+DEFAULT_TIMEOUT = 10
 PING_ADDR = 'www.google.com'
+BAND_2GHZ = 0
+BAND_5GHZ = 1
 
 class WifiStressTest(WifiBaseTest):
     """WiFi Stress test class.
@@ -96,6 +97,10 @@ class WifiStressTest(WifiBaseTest):
         self.dut.droid.wakeLockRelease()
         self.dut.droid.goToSleepNow()
         wutils.reset_wifi(self.dut)
+        self.log.debug("Toggling Airplane mode OFF")
+        asserts.assert_true(
+            acts.utils.force_airplane_mode(self.dut, False),
+            "Can not turn airplane mode off: %s" % self.dut.serial)
 
     def teardown_class(self):
         wutils.reset_wifi(self.dut)
@@ -533,5 +538,40 @@ class WifiStressTest(WifiBaseTest):
             time.sleep(10)
             self.add_networks(self.dut, networks)
         wutils.set_attns(self.attenuators, "default")
+        raise signals.TestPass(details="", extras={"Iterations":"%d" %
+            self.stress_count, "Pass":"%d" %(count+1)})
+
+    @test_tracker_info(uuid="c880e742-8d20-4134-b717-5b6d45f6c337")
+    def test_2g_sta_wifi_on_off_under_airplane_mode(self):
+        """Toggle WiFi state ON and OFF for N times when airplane mode ON."""
+        self.scan_and_connect_by_ssid(self.dut, self.wpa_2g)
+        self.log.debug("Toggling Airplane mode ON")
+        asserts.assert_true(
+            acts.utils.force_airplane_mode(self.dut, True),
+            "Can not turn on airplane mode on: %s" % self.dut.serial)
+        time.sleep(DEFAULT_TIMEOUT)
+        for count in range(self.stress_count):
+            """Test toggling wifi"""
+            try:
+                self.log.debug("Going from on to off.")
+                wutils.wifi_toggle_state(self.dut, False)
+                self.log.debug("Going from off to on.")
+                startTime = time.time()
+                wutils.wifi_toggle_state(self.dut, True)
+                startup_time = time.time() - startTime
+                self.log.debug("WiFi was enabled on the device in %s s." %
+                    startup_time)
+                time.sleep(DEFAULT_TIMEOUT)
+                # Start IPerf traffic from phone to server.
+                # Upload data for 10s.
+                args = "-p {} -t {}".format(self.iperf_server_port, 10)
+                self.log.info("Running iperf client {}".format(args))
+                result, data = self.dut.run_iperf_client(self.iperf_server_address, args)
+                if not result:
+                    self.log.debug("Error occurred in iPerf traffic.")
+                    self.run_ping(10)
+            except:
+                signals.TestFailure(details="", extras={"Iterations":"%d" %
+                    self.stress_count, "Pass":"%d" %count})
         raise signals.TestPass(details="", extras={"Iterations":"%d" %
             self.stress_count, "Pass":"%d" %(count+1)})

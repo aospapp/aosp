@@ -55,13 +55,6 @@ public class CustomizationPickerFragment extends AppbarFragment implements
     private NestedScrollView mNestedScrollView;
     @Nullable private Bundle mBackStackSavedInstanceState;
 
-    /** Initiates CustomizationPickerFragment instance. */
-    public static CustomizationPickerFragment newInstance(CharSequence title) {
-        CustomizationPickerFragment fragment = new CustomizationPickerFragment();
-        fragment.setArguments(AppbarFragment.createArguments(title));
-        return fragment;
-    }
-
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             @Nullable Bundle savedInstanceState) {
@@ -130,6 +123,16 @@ public class CustomizationPickerFragment extends AppbarFragment implements
     @Override
     protected int getToolbarId() {
         return R.id.action_bar;
+    }
+
+    @Override
+    protected int getToolbarColorId() {
+        return android.R.color.transparent;
+    }
+
+    @Override
+    public CharSequence getDefaultTitle() {
+        return getString(R.string.app_name);
     }
 
     @Override

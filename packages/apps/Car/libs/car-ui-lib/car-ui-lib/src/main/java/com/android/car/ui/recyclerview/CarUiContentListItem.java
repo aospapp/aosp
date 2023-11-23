@@ -127,6 +127,7 @@ public class CarUiContentListItem extends CarUiListItem {
     private OnCheckedChangeListener mOnCheckedChangeListener;
     @Nullable
     private OnClickListener mSupplementalIconOnClickListener;
+    private boolean mIsSecure;
 
     public CarUiContentListItem(@NonNull Action action) {
         mAction = action;
@@ -403,5 +404,23 @@ public class CarUiContentListItem extends CarUiListItem {
     @Nullable
     public OnCheckedChangeListener getOnCheckedChangeListener() {
         return mOnCheckedChangeListener;
+    }
+
+    /**
+     * Sets if the list item is secure or not. If it is secure, it won't sent any
+     * click events if there is a full or partial overlay on the screen when
+     * they're clicked.
+     *
+     * @param secure If the list item is secure or not.
+     */
+    public void setSecure(boolean secure) {
+        mIsSecure = secure;
+    }
+
+    /**
+     * Returns if this is a security-sensitive list item or not. See {@link #setSecure}.
+     */
+    public boolean isSecure() {
+        return mIsSecure;
     }
 }

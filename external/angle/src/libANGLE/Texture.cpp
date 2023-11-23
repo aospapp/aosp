@@ -141,9 +141,11 @@ TextureState::TextureState(TextureType type)
       mMaxLevel(kInitialMaxLevel),
       mDepthStencilTextureMode(GL_DEPTH_COMPONENT),
       mHasBeenBoundAsImage(false),
+      mHasBeenBoundAsAttachment(false),
       mImmutableFormat(false),
       mImmutableLevels(0),
       mUsage(GL_NONE),
+      mHasProtectedContent(false),
       mImageDescs((IMPLEMENTATION_MAX_TEXTURE_LEVELS + 1) * (type == TextureType::CubeMap ? 6 : 1)),
       mCropRect(0, 0, 0, 0),
       mGenerateMipmapHint(GL_FALSE),
@@ -784,7 +786,11 @@ Texture::~Texture()
 void Texture::setLabel(const Context *context, const std::string &label)
 {
     mState.mLabel = label;
-    signalDirtyState(DIRTY_BIT_LABEL);
+
+    if (mTexture)
+    {
+        mTexture->onLabelUpdate();
+    }
 }
 
 const std::string &Texture::getLabel() const
@@ -1063,6 +1069,16 @@ void Texture::setUsage(const Context *context, GLenum usage)
 GLenum Texture::getUsage() const
 {
     return mState.mUsage;
+}
+
+void Texture::setProtectedContent(Context *context, bool hasProtectedContent)
+{
+    mState.mHasProtectedContent = hasProtectedContent;
+}
+
+bool Texture::hasProtectedContent() const
+{
+    return mState.mHasProtectedContent;
 }
 
 const TextureState &Texture::getTextureState() const
@@ -1686,8 +1702,6 @@ angle::Result Texture::generateMipmap(Context *context)
         return angle::Result::Continue;
     }
 
-    ANGLE_TRY(syncState(context, Command::GenerateMipmap));
-
     // Clear the base image(s) immediately if needed
     if (context->isRobustResourceInitEnabled())
     {
@@ -1706,6 +1720,7 @@ angle::Result Texture::generateMipmap(Context *context)
         }
     }
 
+    ANGLE_TRY(syncState(context, Command::GenerateMipmap));
     ANGLE_TRY(mTexture->generateMipmap(context));
 
     // Propagate the format and size of the base mip to the smaller ones. Cube maps are guaranteed
@@ -1735,6 +1750,7 @@ angle::Result Texture::bindTexImageFromSurface(Context *context, egl::Surface *s
     Extents size(surface->getWidth(), surface->getHeight(), 1);
     ImageDesc desc(size, surface->getBindTexImageFormat(), InitState::Initialized);
     mState.setImageDesc(NonCubeTextureTypeToTarget(mState.mType), 0, desc);
+    mState.mHasProtectedContent = surface->hasProtectedContent();
     signalDirtyStorage(InitState::Initialized);
     return angle::Result::Continue;
 }
@@ -1748,6 +1764,7 @@ angle::Result Texture::releaseTexImageFromSurface(const Context *context)
     // Erase the image info for level 0
     ASSERT(mState.mType == TextureType::_2D || mState.mType == TextureType::Rectangle);
     mState.clearImageDesc(NonCubeTextureTypeToTarget(mState.mType), 0);
+    mState.mHasProtectedContent = false;
     signalDirtyStorage(InitState::Initialized);
     return angle::Result::Continue;
 }
@@ -1838,6 +1855,7 @@ angle::Result Texture::setEGLImageTarget(Context *context,
     mState.clearImageDescs();
     mState.setImageDesc(NonCubeTextureTypeToTarget(type), 0,
                         ImageDesc(size, imageTarget->getFormat(), initState));
+    mState.mHasProtectedContent = imageTarget->hasProtectedContent();
     signalDirtyStorage(initState);
 
     return angle::Result::Continue;
@@ -2022,6 +2040,12 @@ void Texture::onAttach(const Context *context, rx::Serial framebufferSerial)
 
     // Duplicates allowed for multiple attachment points. See the comment in the header.
     mBoundFramebufferSerials.push_back(framebufferSerial);
+
+    if (!mState.mHasBeenBoundAsAttachment)
+    {
+        mDirtyBits.set(DIRTY_BIT_BOUND_AS_ATTACHMENT);
+        mState.mHasBeenBoundAsAttachment = true;
+    }
 }
 
 void Texture::onDetach(const Context *context, rx::Serial framebufferSerial)
@@ -2048,6 +2072,7 @@ angle::Result Texture::syncState(const Context *context, Command source)
     ASSERT(hasAnyDirtyBit() || source == Command::GenerateMipmap);
     ANGLE_TRY(mTexture->syncState(context, mDirtyBits, source));
     mDirtyBits.reset();
+    mState.mInitState = InitState::Initialized;
     return angle::Result::Continue;
 }
 
@@ -2161,7 +2186,7 @@ void Texture::setInitState(InitState initState)
 {
     for (ImageDesc &imageDesc : mState.mImageDescs)
     {
-        // Only modifiy defined images, undefined images will remain in the initialized state
+        // Only modify defined images, undefined images will remain in the initialized state
         if (!imageDesc.size.empty())
         {
             imageDesc.initState = initState;
@@ -2269,11 +2294,26 @@ void Texture::onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMess
                 mState.setImageDesc(TextureTarget::Buffer, 0, desc);
             }
             break;
+        case angle::SubjectMessage::StorageReleased:
+            // When the TextureStorage is released, it needs to update the
+            // RenderTargetCache of the Framebuffer attaching this Texture.
+            // This is currently only for D3D back-end. See http://crbug.com/1234829
+            if (index == rx::kTextureImageImplObserverMessageIndex)
+            {
+                onStateChange(angle::SubjectMessage::StorageReleased);
+            }
+            break;
         case angle::SubjectMessage::SubjectMapped:
         case angle::SubjectMessage::SubjectUnmapped:
         case angle::SubjectMessage::BindingChanged:
             ASSERT(index == kBufferSubjectIndex);
             break;
+
+        case angle::SubjectMessage::InitializationComplete:
+            ASSERT(index == rx::kTextureImageImplObserverMessageIndex);
+            setInitState(InitState::Initialized);
+            break;
+
         default:
             UNREACHABLE();
             break;
@@ -2299,9 +2339,10 @@ angle::Result Texture::getTexImage(const Context *context,
                                    GLenum type,
                                    void *pixels)
 {
-    if (hasAnyDirtyBit())
+    // No-op if the image level is empty.
+    if (getExtents(target, level).empty())
     {
-        ANGLE_TRY(syncState(context, Command::Other));
+        return angle::Result::Continue;
     }
 
     return mTexture->getTexImage(context, packState, packBuffer, target, level, format, type,

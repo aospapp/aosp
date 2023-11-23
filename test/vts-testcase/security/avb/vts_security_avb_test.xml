@@ -21,6 +21,7 @@
         <option name="push" value="q-gsi.avbpubkey->/data/local/tmp/q-gsi.avbpubkey" />
         <option name="push" value="r-gsi.avbpubkey->/data/local/tmp/r-gsi.avbpubkey" />
         <option name="push" value="s-gsi.avbpubkey->/data/local/tmp/s-gsi.avbpubkey" />
+        <option name="push" value="t-gsi.avbpubkey->/data/local/tmp/t-gsi.avbpubkey" />
         <option name="push" value="qcar-gsi.avbpubkey->/data/local/tmp/qcar-gsi.avbpubkey" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.GTest" >

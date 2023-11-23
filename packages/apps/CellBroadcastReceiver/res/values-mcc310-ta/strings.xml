@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"தேவைப்படும் மாதாந்திரச் சோதனைகளைப் பாதுகாப்பு விழிப்பூட்டல் அமைப்பிலிருந்து பெறுக"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"தேசிய அளவிலான விழிப்பூட்டல்"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"முதல் விழிப்பூட்டலை (தேசிய அளவிலான எச்சரிக்கையைத் தவிர்த்து) காட்டிய பிறகு விலகல் செய்தியைக் காட்டு."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"தேசிய அளவிலான எச்சரிக்கைகள்"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"தேசிய அளவிலான எச்சரிக்கை மெசேஜ்கள். இவற்றை முடக்க முடியாது."</string>
 </resources>

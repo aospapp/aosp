@@ -16,7 +16,11 @@
 
 package com.android.car.settings.profiles;
 
+import static android.os.UserManager.DISALLOW_ADD_USER;
+
 import static com.android.car.settings.common.ActionButtonsPreference.ActionButtons;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
@@ -126,13 +130,22 @@ public final class ProfileDetailsActionButtonsPreferenceController
         ActionButtonInfo deleteButton = getPreference().getButton(ActionButtons.BUTTON4);
 
         boolean isDemoProfile = mUserManager.isDemoUser();
+        // When DISALLOW_ADD_USER is set by device or profile owner, the button should still be
+        // visible but disabled
         boolean shouldShowAddProfile = mUserManager.isAdminUser()
                 && mProfileHelper.isCurrentProcessUser(getUserInfo())
-                && mAddProfileHandler.canAddProfiles(mUserManager)
+                && !hasUserRestrictionByUm(getContext(), DISALLOW_ADD_USER)
                 && !areThereOtherProfiles();
+        boolean shouldEnableAddProfile = shouldShowAddProfile
+                && !hasUserRestrictionByDpm(getContext(), DISALLOW_ADD_USER);
         boolean shouldShowProfilesButton = isDemoProfile || shouldShowAddProfile
                 || mUserManager.isAdminUser() && mProfileHelper.isCurrentProcessUser(getUserInfo())
                 && areThereOtherProfiles();
+
+        int removeProfileAvailabilityStatus = mRemoveProfileHandler.getAvailabilityStatus(
+                getContext(), getUserInfo(), /* availableForCurrentProcessUser= */ false);
+        boolean shouldShowDeleteProfile = removeProfileAvailabilityStatus != DISABLED_FOR_PROFILE;
+        boolean shouldEnableDeleteProfile = removeProfileAvailabilityStatus == AVAILABLE;
 
         int profileButtonText;
         if (shouldShowAddProfile && isDemoProfile) {
@@ -162,6 +175,8 @@ public final class ProfileDetailsActionButtonsPreferenceController
                 .setOnClickListener(v -> {
                     if (shouldShowAddProfile && isDemoProfile) {
                         mDemoProfileDialogHandler.showExitRetailDialog();
+                    } else if (shouldShowAddProfile && !shouldEnableAddProfile) {
+                        mAddProfileHandler.runClickableWhileDisabled();
                     } else if (shouldShowAddProfile) {
                         mAddProfileHandler.showAddProfileDialog();
                     } else {
@@ -180,9 +195,14 @@ public final class ProfileDetailsActionButtonsPreferenceController
         deleteButton
                 .setText(R.string.delete_button)
                 .setIcon(R.drawable.ic_delete)
-                .setVisible(mRemoveProfileHandler.canRemoveProfile(getUserInfo())
-                        && !mProfileHelper.isCurrentProcessUser(getUserInfo()))
-                .setOnClickListener(v -> mRemoveProfileHandler.showConfirmRemoveProfileDialog());
+                .setVisible(shouldShowDeleteProfile)
+                .setOnClickListener(v -> {
+                    if (shouldEnableDeleteProfile) {
+                        mRemoveProfileHandler.showConfirmRemoveProfileDialog();
+                    } else {
+                        mRemoveProfileHandler.runClickableWhileDisabled();
+                    }
+                });
     }
 
     @Override

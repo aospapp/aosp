@@ -398,11 +398,11 @@
              android:exported="true"/>
 
         <activity android:name=".ShowWhenLockedAttrActivity"
+             android:configChanges="keyboard|keyboardHidden|navigation"
              android:showWhenLocked="true"
              android:exported="true"/>
 
         <activity android:name=".ShowWhenLockedAttrRemoveAttrActivity"
-             android:configChanges="keyboard|keyboardHidden|navigation"
              android:showWhenLocked="true"
              android:exported="true"/>
 
@@ -573,14 +573,9 @@
            </intent-filter>
         </service>
 
-        <activity android:name=".HostActivity"
-             android:exported="true">
-            <intent-filter>
-                <action android:name="android.server.wm.app.HostActivity"/>
-            </intent-filter>
-        </activity>
         <service android:name=".RenderService"
-             android:process=".render_process"/>
+             android:process=".render_process"
+             android:exported="true"/>
         <activity android:name=".ClickableToastActivity"
              android:exported="true"/>
         <activity android:name=".MinimalPostProcessingActivity"
@@ -601,15 +596,19 @@
         <activity android:name=".HideOverlayWindowsActivity" android:exported="true"/>
         <activity android:name=".BackgroundImageActivity"
              android:theme="@style/BackgroundImage"
+             android:colorMode="wideColorGamut"
              android:exported="true"/>
         <activity android:name=".BlurActivity"
              android:exported="true"
+             android:colorMode="wideColorGamut"
              android:theme="@style/TranslucentDialog"/>
         <activity android:name=".BlurAttributesActivity"
              android:exported="true"
+             android:colorMode="wideColorGamut"
              android:theme="@style/BlurryDialog"/>
         <activity android:name=".BadBlurActivity"
              android:exported="true"
+             android:colorMode="wideColorGamut"
              android:theme="@style/BadBlurryDialog"/>
 
         <!-- Splash Screen Test Activities -->
@@ -629,5 +628,52 @@
 
         <service android:name=".OverlayTestService"
                  android:exported="true" />
+
+        <!-- Aspect Ratio Test Activities -->
+        <activity android:name=".MaxAspectRatioActivity"
+                  android:label="MaxAspectRatioActivity"
+                  android:maxAspectRatio="1.0"
+                  android:resizeableActivity="false"
+                  android:exported="true"/>
+        <activity android:name=".MetaDataMaxAspectRatioActivity"
+                  android:label="MetaDataMaxAspectRatioActivity"
+                  android:resizeableActivity="false"
+                  android:exported="true">
+            <meta-data android:name="android.max_aspect"
+                       android:value="1.0"/>
+        </activity>
+        <activity android:name=".MaxAspectRatioResizableActivity"
+                  android:label="MaxAspectRatioResizeableActivity"
+                  android:maxAspectRatio="1.0"
+                  android:resizeableActivity="true"
+                  android:exported="true"/>
+        <activity android:name=".MaxAspectRatioUnsetActivity"
+                  android:label="MaxAspectRatioUnsetActivity"
+                  android:resizeableActivity="false"
+                  android:exported="true"/>
+        <activity android:name=".MinAspectRatioActivity"
+                  android:label="MinAspectRatioActivity"
+                  android:minWidth="1dp"
+                  android:minAspectRatio="3.0"
+                  android:resizeableActivity="false"
+                  android:exported="true"/>
+        <activity android:name=".MinAspectRatioUnsetActivity"
+                  android:label="MinAspectRatioUnsetActivity"
+                  android:resizeableActivity="false"
+                  android:exported="true"/>
+        <activity android:name=".MinAspectRatioLandscapeActivity"
+                  android:label="MinAspectRatioLandscapeActivity"
+                  android:minWidth="1dp"
+                  android:minAspectRatio="3.0"
+                  android:resizeableActivity="false"
+                  android:screenOrientation="landscape"
+                  android:exported="true"/>
+        <activity android:name=".MinAspectRatioPortraitActivity"
+                  android:label="MinAspectRatioPortraitActivity"
+                  android:minWidth="1dp"
+                  android:minAspectRatio="3.0"
+                  android:resizeableActivity="false"
+                  android:screenOrientation="portrait"
+                  android:exported="true"/>
     </application>
 </manifest>

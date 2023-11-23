@@ -15,3 +15,6 @@ unix_socket_send(evs_manager, statsdw, statsd)
 
 # allow to use carservice_app
 binder_call(evs_manager, carservice_app)
+
+# allow to use the graphics allocator
+allow evs_manager hal_graphics_allocator:fd use;

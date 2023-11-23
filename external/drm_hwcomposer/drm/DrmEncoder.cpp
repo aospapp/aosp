@@ -16,19 +16,20 @@
 
 #include "DrmEncoder.h"
 
-#include <stdint.h>
 #include <xf86drmMode.h>
+
+#include <cstdint>
 
 #include "DrmDevice.h"
 
 namespace android {
 
 DrmEncoder::DrmEncoder(drmModeEncoderPtr e, DrmCrtc *current_crtc,
-                       const std::vector<DrmCrtc *> &possible_crtcs)
+                       std::vector<DrmCrtc *> possible_crtcs)
     : id_(e->encoder_id),
       crtc_(current_crtc),
       display_(-1),
-      possible_crtcs_(possible_crtcs) {
+      possible_crtcs_(std::move(possible_crtcs)) {
 }
 
 uint32_t DrmEncoder::id() const {
@@ -39,8 +40,8 @@ DrmCrtc *DrmEncoder::crtc() const {
   return crtc_;
 }
 
-bool DrmEncoder::CanClone(DrmEncoder *possible_clone) {
-  return possible_clones_.find(possible_clone) != possible_clones_.end();
+bool DrmEncoder::CanClone(DrmEncoder *encoder) {
+  return possible_clones_.find(encoder) != possible_clones_.end();
 }
 
 void DrmEncoder::AddPossibleClone(DrmEncoder *possible_clone) {

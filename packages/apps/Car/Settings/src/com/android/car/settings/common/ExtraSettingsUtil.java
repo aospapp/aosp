@@ -34,7 +34,6 @@ import android.text.TextUtils;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 
-import com.android.car.apps.common.util.Themes;
 import com.android.car.settings.R;
 
 import java.util.List;
@@ -84,8 +83,8 @@ public class ExtraSettingsUtil {
             icon = new TopLevelIcon(context, icon, R.dimen.top_level_foreground_icon_inset);
             ((TopLevelIcon) icon).setBackgroundColor(context, metaData, packageName);
         } else if (isIconTintable(metaData)) {
-            // If the icon is tintable, tint it with the default icon color attribute
-            icon.mutate().setTintList(Themes.getAttrColorStateList(context, R.attr.iconColor));
+            // If the icon is tintable, tint it with the default icon color
+            icon.mutate().setTintList(context.getColorStateList(R.color.icon_color_default));
         }
         return icon;
     }

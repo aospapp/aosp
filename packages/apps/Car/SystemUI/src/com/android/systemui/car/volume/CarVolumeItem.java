@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright (C) 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import com.android.systemui.R;
 public class CarVolumeItem {
 
     private Drawable mPrimaryIcon;
+    private Drawable mPrimaryMuteIcon;
     private Drawable mSupplementalIcon;
     private View.OnClickListener mSupplementalIconOnClickListener;
     private boolean mShowSupplementalIconDivider;
@@ -37,6 +38,7 @@ public class CarVolumeItem {
 
     private int mMax;
     private int mProgress;
+    private boolean mIsMuted;
     private SeekBar.OnSeekBarChangeListener mOnSeekBarChangeListener;
 
     /**
@@ -49,6 +51,11 @@ public class CarVolumeItem {
     /** Sets progress of seekbar. */
     public void setProgress(int progress) {
         mProgress = progress;
+    }
+
+    /** Sets mute state of seekbar. */
+    public void setIsMuted(boolean isMuted) {
+        mIsMuted = isMuted;
     }
 
     /** Sets max value of seekbar. */
@@ -64,6 +71,11 @@ public class CarVolumeItem {
     /** Sets the primary icon. */
     public void setPrimaryIcon(Drawable drawable) {
         mPrimaryIcon = drawable;
+    }
+
+    /** Sets the primary mute icon. */
+    public void setPrimaryMuteIcon(Drawable drawable) {
+        mPrimaryMuteIcon = drawable;
     }
 
     /** Sets the supplemental icon and the visibility of the supplemental icon divider. */
@@ -119,7 +131,11 @@ public class CarVolumeItem {
 
             // Primary icon
             mPrimaryIcon.setVisibility(View.VISIBLE);
-            mPrimaryIcon.setImageDrawable(carVolumeItem.mPrimaryIcon);
+            if (carVolumeItem.mIsMuted) {
+                mPrimaryIcon.setImageDrawable(carVolumeItem.mPrimaryMuteIcon);
+            } else {
+                mPrimaryIcon.setImageDrawable(carVolumeItem.mPrimaryIcon);
+            }
 
             // Supplemental icon
             mSupplementalIcon.setVisibility(View.VISIBLE);

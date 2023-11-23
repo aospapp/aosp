@@ -5,8 +5,8 @@
 //! Data structures for commands of virtio video devices.
 
 use std::convert::{TryFrom, TryInto};
-use std::fmt;
 use std::io;
+use thiserror::Error as ThisError;
 
 use base::error;
 use data_model::Le32;
@@ -19,36 +19,20 @@ use crate::virtio::video::protocol::*;
 use crate::virtio::Reader;
 
 /// An error indicating a failure while reading a request from the guest.
-#[derive(Debug)]
+#[derive(Debug, ThisError)]
 pub enum ReadCmdError {
-    /// Failure while reading an object.
-    IoError(io::Error),
-    /// Invalid arguement is passed,
+    /// Failed to read an object.
+    #[error("failed to read object: {0}")]
+    IoError(#[from] io::Error),
+    /// Invalid argument is passed.
+    #[error("invalid argument passed to command")]
     InvalidArgument,
     /// The type of the command was invalid.
+    #[error("invalid command type: {0}")]
     InvalidCmdType(u32),
     /// The type of the requested control was unsupported.
+    #[error("unsupported control type: {0}")]
     UnsupportedCtrlType(u32),
-}
-
-impl fmt::Display for ReadCmdError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::ReadCmdError::*;
-        match self {
-            IoError(e) => write!(f, "failed to read an object: {}", e),
-            InvalidArgument => write!(f, "invalid arguement is passed in command"),
-            InvalidCmdType(t) => write!(f, "invalid command type: {}", t),
-            UnsupportedCtrlType(t) => write!(f, "unsupported control type: {}", t),
-        }
-    }
-}
-
-impl std::error::Error for ReadCmdError {}
-
-impl From<io::Error> for ReadCmdError {
-    fn from(e: io::Error) -> ReadCmdError {
-        ReadCmdError::IoError(e)
-    }
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, N, Clone, Copy, Debug)]
@@ -288,9 +272,12 @@ impl<'a> VideoCmd {
                 let virtio_video_get_control { control, .. } = r.read_obj()?;
                 let ctrl_type = match control.into() {
                     VIRTIO_VIDEO_CONTROL_BITRATE => CtrlType::Bitrate,
+                    VIRTIO_VIDEO_CONTROL_BITRATE_PEAK => CtrlType::BitratePeak,
+                    VIRTIO_VIDEO_CONTROL_BITRATE_MODE => CtrlType::BitrateMode,
                     VIRTIO_VIDEO_CONTROL_PROFILE => CtrlType::Profile,
                     VIRTIO_VIDEO_CONTROL_LEVEL => CtrlType::Level,
                     VIRTIO_VIDEO_CONTROL_FORCE_KEYFRAME => CtrlType::ForceKeyframe,
+                    VIRTIO_VIDEO_CONTROL_PREPEND_SPSPPS_TO_IDR => CtrlType::PrependSpsPpsToIdr,
                     t => {
                         return Err(ReadCmdError::UnsupportedCtrlType(t));
                     }
@@ -308,6 +295,16 @@ impl<'a> VideoCmd {
                             .bitrate
                             .into(),
                     ),
+                    VIRTIO_VIDEO_CONTROL_BITRATE_PEAK => CtrlVal::BitratePeak(
+                        r.read_obj::<virtio_video_control_val_bitrate_peak>()?
+                            .bitrate_peak
+                            .into(),
+                    ),
+                    VIRTIO_VIDEO_CONTROL_BITRATE_MODE => CtrlVal::BitrateMode(
+                        r.read_obj::<virtio_video_control_val_bitrate_mode>()?
+                            .bitrate_mode
+                            .try_into()?,
+                    ),
                     VIRTIO_VIDEO_CONTROL_PROFILE => CtrlVal::Profile(
                         r.read_obj::<virtio_video_control_val_profile>()?
                             .profile
@@ -318,7 +315,12 @@ impl<'a> VideoCmd {
                             .level
                             .try_into()?,
                     ),
-                    VIRTIO_VIDEO_CONTROL_FORCE_KEYFRAME => CtrlVal::ForceKeyframe(),
+                    VIRTIO_VIDEO_CONTROL_FORCE_KEYFRAME => CtrlVal::ForceKeyframe,
+                    VIRTIO_VIDEO_CONTROL_PREPEND_SPSPPS_TO_IDR => CtrlVal::PrependSpsPpsToIdr(
+                        r.read_obj::<virtio_video_control_val_prepend_spspps_to_idr>()?
+                            .prepend_spspps_to_idr
+                            != 0,
+                    ),
                     t => {
                         return Err(ReadCmdError::UnsupportedCtrlType(t));
                     }

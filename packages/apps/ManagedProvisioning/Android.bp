@@ -31,14 +31,11 @@ android_library {
     manifest: "AndroidManifest.xml",
 
     libs: [
-        "android.car",
         "auto_value_annotations",
     ],
 
     static_libs: [
         "androidx.legacy_legacy-support-v4",
-        // TODO(b/183510678) remove AAOS dependency after refactoring
-        "car-ui-lib",
         "setupcompat",
         "setupdesign",
         "devicepolicyprotosnano",
@@ -65,15 +62,12 @@ android_library {
 android_app {
     name: "ManagedProvisioning",
 
-    // TODO(b/183510678) remove AAOS dependency after refactoring
     libs: [
-        "android.car",
         "auto_value_annotations",
     ],
 
     static_libs: [
         "androidx.legacy_legacy-support-v4",
-        "car-ui-lib",
         "setupcompat",
         "setupdesign",
         "devicepolicyprotosnano",

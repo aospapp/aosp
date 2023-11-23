@@ -410,4 +410,22 @@ public class BrowserPlayerWrapperTest {
 
         verify(mMockBrowser).disconnect();
     }
+
+    @Test
+    public void testGetFolderItems_Timeout() {
+        BrowsedPlayerWrapper wrapper =
+                BrowsedPlayerWrapper.wrap(mMockContext, mThread.getLooper(), "test", "test");
+        verify(mMockBrowser).testInit(any(), any(), mBrowserConnCb.capture(), any());
+        MediaBrowser.ConnectionCallback browserConnCb = mBrowserConnCb.getValue();
+
+        wrapper.getFolderItems("test_folder", mBrowseCb);
+
+        browserConnCb.onConnected();
+        verify(mMockBrowser).subscribe(any(), mSubscriptionCb.capture());
+        MediaBrowser.SubscriptionCallback subscriptionCb = mSubscriptionCb.getValue();
+        Handler timeoutHandler = subscriptionCb.getTimeoutHandler();
+
+        timeoutHandler.sendEmptyMessage(BrowsedPlayerWrapper.TimeoutHandler.MSG_TIMEOUT);
+        verify(mMockBrowser, timeout(2000).times(1)).disconnect();
+    }
 }

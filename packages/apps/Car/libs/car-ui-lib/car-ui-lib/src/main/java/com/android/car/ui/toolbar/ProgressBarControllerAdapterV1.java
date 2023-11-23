@@ -18,7 +18,7 @@ package com.android.car.ui.toolbar;
 
 import androidx.annotation.Nullable;
 
-import com.android.car.ui.sharedlibrary.oemapis.toolbar.ProgressBarControllerOEMV1;
+import com.android.car.ui.plugin.oemapis.toolbar.ProgressBarControllerOEMV1;
 
 class ProgressBarControllerAdapterV1 implements ProgressBarController {
 

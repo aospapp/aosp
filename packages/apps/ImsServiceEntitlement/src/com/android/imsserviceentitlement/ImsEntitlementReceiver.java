@@ -16,6 +16,8 @@
 
 package com.android.imsserviceentitlement;
 
+import static android.telephony.TelephonyManager.SIM_STATE_LOADED;
+
 import static com.android.imsserviceentitlement.entitlement.EntitlementConfiguration.ClientBehavior.NEEDS_TO_RESET;
 import static com.android.imsserviceentitlement.entitlement.EntitlementConfiguration.ClientBehavior.VALID_DURING_VALIDITY;
 import static com.android.imsserviceentitlement.entitlement.EntitlementConfiguration.ClientBehavior.VALID_WITHOUT_DURATION;
@@ -68,6 +70,8 @@ public class ImsEntitlementReceiver extends BroadcastReceiver {
                         SubscriptionManager.INVALID_SIM_SLOT_INDEX);
         Dependencies dependencies = createDependency(context, currentSubId);
         if (!dependencies.userManager.isSystemUser()
+                || !SubscriptionManager.isValidSubscriptionId(currentSubId)
+                || dependencies.telephonyUtils.getSimApplicationState() != SIM_STATE_LOADED
                 || !TelephonyUtils.isImsProvisioningRequired(context, currentSubId)) {
             return;
         }
@@ -89,9 +93,6 @@ public class ImsEntitlementReceiver extends BroadcastReceiver {
     private void handleCarrierConfigChanged(
             Context context, int currentSubId, int slotId, JobManager jobManager,
             PendingResult result) {
-        if (!SubscriptionManager.isValidSubscriptionId(currentSubId)) {
-            return;
-        }
         boolean shouldQuery = false;
 
         // Handle device boot up.

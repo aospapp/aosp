@@ -47,7 +47,11 @@ abstract class BaseTestCase {
     }
 
     static DevicePolicyManager getDpm(Context context) {
-        return TestAppSystemServiceFactory.getDevicePolicyManager(context,
-                IpcBroadcastReceiver.class);
+        boolean isDeviceOwnerTest = "DeviceOwner"
+                .equals(InstrumentationRegistry.getArguments().getString("admin_type"));
+        DevicePolicyManager dpm = TestAppSystemServiceFactory.getDevicePolicyManager(context,
+                        IpcBroadcastReceiver.class, isDeviceOwnerTest);
+        Log.v(TAG, "getDpm(): isDeviceOwnerTest=" + isDeviceOwnerTest + ", returning " + dpm);
+        return dpm;
     }
 }

@@ -91,15 +91,18 @@ public class InlineFillEventHistoryTest extends FillEventHistoryCommonTestCase {
         mUiBot.waitForIdle();
         sReplier.getNextFillRequest();
 
+        // Set expected
+        mActivity.expectAutoFill("id", "pass");
+
         // Suggestion strip was shown.
         mUiBot.assertDatasets("Dataset");
         mUiBot.selectDataset("Dataset");
-        mUiBot.waitForIdle();
+
+        // Verify auto filled
+        mActivity.assertAutoFilled();
 
         // Change username and password
-        mActivity.syncRunOnUiThread(() ->  mActivity.onUsername((v) -> v.setText("ID")));
-        mActivity.syncRunOnUiThread(() ->  mActivity.onPassword((v) -> v.setText("PASS")));
-        mUiBot.waitForIdle();
+        mActivity.setTextAndWaitTextChange("ID", "PASS");
 
         // Trigger save UI.
         mActivity.tapSave();

@@ -5,7 +5,7 @@ SET(CMAKE_SYSTEM_PROCESSOR aarch64)
 # AGL sysroot precedence: environment variable TROUT_AGL_SYSROOT > LV AGL sysroot
 IF(DEFINED ENV{LV_BUILD_PATH})
     SET(TROUT_CLANG_PATH $ENV{LV_BUILD_PATH}/tmp-glibc/sysroots-components/x86_64/clang-native)
-    SET(TROUT_AGL_SYSROOT $ENV{LV_BUILD_PATH}/tmp-glibc/sysroots/opsy-sa8155/)
+    SET(TROUT_AGL_SYSROOT $ENV{LV_BUILD_PATH}/tmp-glibc/sysroots/opsy-sa81x5/)
 ENDIF()
 
 IF (DEFINED ENV{TROUT_CLANG_PATH})
@@ -46,6 +46,12 @@ SET(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES
     ${TROUT_AGL_SYSROOT}/usr/include/c++/9.3.0/aarch64-oe-linux
 )
 
+SET(CMAKE_SHARED_LINKER_FLAGS
+    -fuse-ld=lld
+    -B ${TROUT_AGL_SYSROOT}/usr/lib/aarch64-oe-linux/9.3.0
+    -nodefaultlibs
+)
+
 SET(CMAKE_EXE_LINKER_FLAGS
     -fuse-ld=lld
     -B ${TROUT_AGL_SYSROOT}/usr/lib/aarch64-oe-linux/9.3.0
@@ -56,6 +62,7 @@ SET(CMAKE_EXE_LINKER_FLAGS
     -lgcc_s
 )
 STRING(REPLACE ";" " " CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
+STRING(REPLACE ";" " " CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
 
 SET(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 SET(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)

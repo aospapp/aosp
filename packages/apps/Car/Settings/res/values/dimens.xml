@@ -73,9 +73,9 @@
     <dimen name="bluetooth_pin_dialog_text_margin_start">@*android:dimen/car_keyline_3</dimen>
     <dimen name="bluetooth_pin_dialog_text_margin_end">@*android:dimen/car_keyline_3</dimen>
     <dimen name="bluetooth_pin_dialog_subtext_margin_top">@*android:dimen/car_padding_1</dimen>
-    <dimen name="bluetooth_bonded_device_button_size">80dp</dimen>
+    <dimen name="bluetooth_bonded_device_button_size">72dp</dimen>
     <dimen name="bluetooth_bonded_device_button_radius">16dp</dimen>
-    <dimen name="bluetooth_bonded_device_foreground_icon_inset">18dp</dimen>
+    <dimen name="bluetooth_bonded_device_foreground_icon_inset">14dp</dimen>
     <dimen name="bluetooth_bonded_device_border_width">2dp</dimen>
     <dimen name="bluetooth_device_icon_size">44dp</dimen>
     <dimen name="bluetooth_device_foreground_icon_inset">8dp</dimen>
@@ -104,11 +104,11 @@
     <dimen name="profile_switcher_vertical_spacing_between_name_and_avatar">
         @*android:dimen/car_padding_4
     </dimen>
-    <dimen name="profile_switcher_current_profile_circle_width">126dp</dimen>
+    <dimen name="profile_switcher_current_profile_circle_width">150dp</dimen>
     <dimen name="profile_switcher_current_profile_circle_stroke_width">7dp</dimen>
     <dimen name="profile_switcher_margin_bottom">@*android:dimen/car_padding_4</dimen>
     <dimen name="profile_switcher_managed_badge_size">@*android:dimen/car_large_avatar_badge_size</dimen>
-    <dimen name="profile_switcher_managed_badge_margin">1dp</dimen>
+    <dimen name="profile_switcher_managed_badge_margin">3dp</dimen>
 
     <!-- Preferences -->
     <dimen name="two_action_preference_divider_width">1dp</dimen>
@@ -142,7 +142,7 @@
     <dimen name="progress_bar_preference_padding_bottom">@*android:dimen/car_padding_1</dimen>
     <dimen name="multi_action_preference_item_divider_margin_end">12dp</dimen>
     <dimen name="multi_action_preference_item_container_padding">@dimen/car_ui_padding_2</dimen>
-    <dimen name="multi_action_preference_toggle_button_size">80dp</dimen>
+    <dimen name="multi_action_preference_toggle_button_size">72dp</dimen>
     <dimen name="multi_action_preference_toggle_button_radius">11dp</dimen>
     <dimen name="multi_action_preference_toggle_button_margin">12dp</dimen>
 

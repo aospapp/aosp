@@ -27,10 +27,7 @@
     <string name="night_mode_tile_label" msgid="6603597795502131664">"夜间模式"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"网络和互联网"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"移动网络"</string>
-    <plurals name="mobile_network_summary_count" formatted="false" msgid="6917348330386831454">
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> 个 SIM 卡</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> 个 SIM 卡</item>
-    </plurals>
+    <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# 张 SIM 卡}other{# 张 SIM 卡}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"已启用/SIM 卡"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"未启用/SIM 卡"</string>
     <string name="mobile_network_active_esim" msgid="5864100786496761032">"已启用/已下载的 SIM 卡"</string>
@@ -38,6 +35,8 @@
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"添加更多"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"移动数据"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"通过移动网络访问数据"</string>
+    <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"移动网络"</string>
+    <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"使用移动流量"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"要关闭移动数据网络吗？"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"必须选择"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"要使用<xliff:g id="CARRIER">%1$s</xliff:g>的移动数据吗？"</string>
@@ -53,10 +52,7 @@
     <string name="cell_data_warning" msgid="8997739664336571149">"数据流量警告：已使用 <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_limit" msgid="6862164869877993009">"数据流量上限：<xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_warning_and_limit" msgid="5003954080814312475">"数据流量警告：已使用 <xliff:g id="ID_1">^1</xliff:g>/数据流量上限：<xliff:g id="ID_2">^2</xliff:g>"</string>
-    <plurals name="billing_cycle_days_left" formatted="false" msgid="9163059632851951402">
-      <item quantity="other">还剩 %d 天</item>
-      <item quantity="one">还剩 %d 天</item>
-    </plurals>
+    <string name="billing_cycle_days_left" msgid="1810100330204239102">"{count,plural, =1{还剩 # 天}other{还剩 # 天}}"</string>
     <string name="billing_cycle_none_left" msgid="3499893148398931302">"已没有剩余时间"</string>
     <string name="billing_cycle_less_than_one_day_left" msgid="8121013296375203759">"还剩不到 1 天"</string>
     <string name="carrier_and_update_text" msgid="4351043160977741244">"已在 <xliff:g id="ID_2">^2</xliff:g>前由<xliff:g id="ID_1">^1</xliff:g>更新"</string>
@@ -71,6 +67,7 @@
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"设置"</string>
     <string name="data_warning_limit_title" msgid="4950868241810828601">"数据流量警告和上限"</string>
     <string name="app_usage_cycle" msgid="8445927080245880296">"应用流量用量周期"</string>
+    <string name="mobile_data_usage" msgid="8171519864391091861">"移动流量消耗"</string>
     <string name="set_data_warning" msgid="6628236612886588097">"设置数据流量警告"</string>
     <string name="data_warning" msgid="116776633806885370">"数据流量警告"</string>
     <string name="set_data_limit" msgid="7136539812414500084">"设置数据流量上限"</string>
@@ -79,8 +76,14 @@
     <string name="data_usage_limit_dialog_mobile" msgid="3633960011913085089">"当移动数据流量的用量达到您设置的上限时，您汽车的音响主机将关闭移动数据网络。\n\n由于流量用量是由音响主机计算的，而您的运营商对流量用量的计算方式可能有所不同，因此建议您设置一个保守的上限值。"</string>
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"设置流量用量警告"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"设置流量使用上限"</string>
+    <string name="data_usage_settings_footer" msgid="681881387909678237">"流量消耗是由您的设备测得的，可能与移动运营商的数据不同。"</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"设置"</string>
+    <string name="data_usage_warning_save_title" msgid="2900544287239037695">"保存"</string>
     <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"原始设备制造商 (OEM) 网络"</string>
+    <string name="network_and_internet_vehicle_internet_title" msgid="2518848595673002736">"车辆互联网"</string>
+    <string name="network_and_internet_oem_network_dialog_description" msgid="4469178879867702066">"关闭车辆互联网可能会导致部分车辆功能或应用无法使用。\n\n系统会继续与车辆制造商分享操作车辆所需的关键数据。"</string>
+    <string name="network_and_internet_oem_network_dialog_confirm_label" msgid="2630033932472996255">"仍然关闭"</string>
+    <string name="network_and_internet_oem_network_disabled_footer" msgid="3529208167627034245">"车辆互联网已关闭。这可能会导致部分车辆功能或应用无法使用。系统会继续与车辆制造商分享操作车辆所需的关键数据。"</string>
     <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"已使用 %1$s（%2$s - %3$s）"</string>
     <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"加入其他网络"</string>
     <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"网络偏好设置"</string>
@@ -94,6 +97,7 @@
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"添加网络"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"连接"</string>
     <string name="wifi_connecting" msgid="1930665730621677960">"正在连接…"</string>
+    <string name="wifi_disconnected" msgid="4485699234859368137">"未连接"</string>
     <string name="wifi_not_in_range_message" msgid="2617126307140203787">"网络不在范围内"</string>
     <string name="wifi_password" msgid="5565632142720292397">"密码"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"显示密码"</string>
@@ -155,6 +159,7 @@
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"请为 WLAN 热点至少选择一个频段："</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"热点和网络共享"</string>
     <string name="hotspot_settings_title" msgid="8220814387592756713">"热点"</string>
+    <string name="wifi_hotspot_state_off" msgid="6096709579204322798">"已关闭"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"自动关闭热点"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"如果未连接任何设备，WLAN 热点将关闭"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g>请求开启 WLAN"</string>
@@ -297,10 +302,10 @@
     <string name="force_stop" msgid="2153183697014720520">"强行停止"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"要强行停止吗？"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"如果您强行停止某个应用，可能会导致该应用无法正常运行。"</string>
-    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"要关闭性能保护功能吗？"</string>
-    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"如果您停用了该功能，软件和硬件也可能无法正常运作。"</string>
-    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"保持开启状态"</string>
-    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"关闭"</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"要开启“优先保证应用性能”设置吗？"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"开启该设置可能会导致系统不稳定或对硬件产生长期影响。是否继续？"</string>
+    <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"是"</string>
+    <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"不用了"</string>
     <string name="disable_text" msgid="4358165448648990820">"停用"</string>
     <string name="enable_text" msgid="1794971777861881238">"启用"</string>
     <string name="uninstall_text" msgid="277907956072833012">"卸载"</string>
@@ -310,25 +315,30 @@
     <string name="permissions_label" msgid="2701446753515612685">"权限"</string>
     <string name="notifications_label" msgid="6586089149665170731">"通知"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"存储空间和缓存"</string>
-    <string name="peak_performance_label" msgid="1592816366516845648">"确保最佳性能"</string>
+    <string name="prioritize_app_performance_label" msgid="7264505023347026606">"优先保证应用性能"</string>
     <string name="application_version_label" msgid="8556889839783311649">"版本：%1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"未授予任何权限"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"未请求任何权限"</string>
     <string name="unused_apps" msgid="648471933781010395">"未使用的应用"</string>
-    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> 个未使用的应用</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> 个未使用的应用</item>
-    </plurals>
+    <string name="unused_apps_summary" msgid="8257304516038923072">"{count,plural, =1{# 个未使用的应用}other{# 个未使用的应用}}"</string>
     <string name="unused_apps_switch" msgid="4433958286200341563">"撤消权限并释放空间"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"将使用%s的内部存储空间"</string>
-    <string name="peak_performance_summary" msgid="2450911487290019786">"必要时，关闭应用以避免过度使用资源"</string>
+    <string name="prioritize_app_performance_summary" msgid="1081874788185691418">"将系统资源用于优先保证应用性能"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"流量使用情况"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"应用的流量使用情况"</string>
+    <string name="data_usage_usage_history_title" msgid="2386346082501471648">"流量消耗记录"</string>
+    <string name="data_usage_all_apps_title" msgid="5956991037518761599">"所有应用"</string>
+    <string name="app_data_usage_title" msgid="6991057296054761322">"流量和 WLAN 的使用情况"</string>
+    <string name="app_data_usage_usage_history_title" msgid="5861801915345874959">"流量消耗记录"</string>
+    <string name="app_data_usage_total_usage" msgid="6166480544992906281">"流量消耗总量"</string>
+    <string name="app_data_usage_foreground" msgid="76513424438149709">"前台"</string>
+    <string name="app_data_usage_background" msgid="6972054078770685280">"后台"</string>
+    <string name="app_data_usage_allow_data_title" msgid="2713343973040466293">"允许使用流量"</string>
+    <string name="app_data_usage_allow_data_summary" msgid="7431118326573403774">"允许此应用使用移动流量"</string>
+    <string name="app_data_usage_restrict_data_title" msgid="7080736007645963633">"限制使用流量"</string>
+    <string name="app_data_usage_background_data_summary" msgid="4445472217737386826">"仅当应用在前台时才使用移动流量"</string>
     <string name="computing_size" msgid="5791407621793083965">"正在计算…"</string>
-    <plurals name="runtime_permissions_additional_count" formatted="false" msgid="3513360187065317613">
-      <item quantity="other">另外 <xliff:g id="COUNT_1">%d</xliff:g> 项权限</item>
-      <item quantity="one">另外 <xliff:g id="COUNT_0">%d</xliff:g> 项权限</item>
-    </plurals>
+    <string name="runtime_permissions_additional_count" msgid="3920383880473283764">"{count,plural, =1{另外还有 # 项权限}other{另外还有 # 项权限}}"</string>
     <string name="direct_boot_unaware_dialog_message_car" msgid="2857599310518724080">"注意：重新启动后，您必须将车辆解锁，才能运行此应用。"</string>
     <string name="assist_and_voice_input_settings" msgid="8813195157136637132">"助手和语音输入"</string>
     <string name="assist_app_settings" msgid="9085261410166776497">"辅助应用"</string>
@@ -385,12 +395,35 @@
     <string name="wifi_control_description" msgid="6021926850423169261">"向应用授予“WLAN 控制”权限后，应用就能开启或关闭 WLAN、扫描及连接到 WLAN 网络、添加或移除网络，或启动仅限本地的热点。"</string>
     <string name="more_special_access_title" msgid="166115485446645971">"更多"</string>
     <string name="location_settings_title" msgid="901334356682423679">"位置信息"</string>
+    <string name="location_toggle_title" msgid="836779750812064601">"使用位置信息"</string>
+    <string name="location_toggle_summary" msgid="7977868708102299495">"允许您指定的应用获取您的位置信息"</string>
+    <string name="location_toggle_off_warning" msgid="8396854289251143748">"如果您关闭了此设置，所有应用的位置信息获取权限都将被取消。驾驶辅助应用仍可以获取位置信息。"</string>
+    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"使用位置信息提供驾驶辅助功能"</string>
+    <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"车辆位置信息服务已关闭"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"驾驶辅助应用无法获取您的位置信息"</string>
+    <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"更改"</string>
+    <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"允许驾驶辅助应用获取您的位置信息"</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"如果您关闭了此设置，需要使用位置信息的驾驶辅助应用将被停用。"</string>
+    <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"仍然关闭"</string>
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"最近的位置信息请求"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"最近没有任何位置信息请求"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"应用级权限"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"位置信息服务"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"使用位置信息"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"位置信息服务可能会使用 GPS、WLAN、移动网络和传感器等来源协助推测设备所在的位置。"</string>
+    <string name="driver_assistance_settings_title" msgid="4915804073177128915">"驾驶辅助"</string>
+    <string name="adas_settings_footer" msgid="5128483877858058534">"发送到驾驶辅助应用的位置信息不包含可识别您身份的信息。这些信息最多存储 2 天，便会被删除。"</string>
+    <string name="microphone_settings_title" msgid="7125554350537136922">"麦克风"</string>
+    <string name="microphone_toggle_title" msgid="911586035332827275">"使用麦克风"</string>
+    <string name="microphone_toggle_summary" msgid="2682653449849128626">"允许所有应用使用麦克风"</string>
+    <string name="microphone_manage_permissions" msgid="7280905792151988183">"管理麦克风使用权限"</string>
+    <string name="microphone_recently_accessed" msgid="2084292372486026607">"近期使用过"</string>
+    <string name="microphone_no_recent_access" msgid="6412908936060990649">"最近没有应用使用过麦克风"</string>
+    <string name="microphone_app_permission_summary_microphone_off" msgid="6139321726246115550">"任何应用都无法使用麦克风"</string>
+    <string name="microphone_app_permission_summary_microphone_on" msgid="7870834777359783838">"{count,plural, =1{# 个应用（共 {total_count} 个）可以使用麦克风}other{# 个应用（共 {total_count} 个）可以使用麦克风}}"</string>
+    <string name="microphone_settings_recent_requests_title" msgid="8154796551134761329">"近期使用过"</string>
+    <string name="microphone_settings_recent_requests_view_all_title" msgid="4339820818072842872">"查看全部"</string>
+    <string name="microphone_settings_loading_app_permission_stats" msgid="4357161201098081615">"正在加载…"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"系统"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"系统更新"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"高级"</string>
@@ -429,10 +462,7 @@
     <string name="settings_license_activity_title" msgid="8499293744313077709">"第三方许可"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"加载许可时出现问题。"</string>
     <string name="settings_license_activity_loading" msgid="6163263123009681841">"正在加载…"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="2968627665608969405">
-      <item quantity="other">现在只需再执行 <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> 步操作即可进入开发者模式。</item>
-      <item quantity="one">现在只需再执行 <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> 步操作即可进入开发者模式。</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="7416958516942072383">"{count,plural, =1{现在只需再执行 # 步操作，即可进入开发者模式。}other{现在只需再执行 # 步操作，即可进入开发者模式。}}"</string>
     <string name="show_dev_on" msgid="5339077400040834808">"您现在已处于开发者模式！"</string>
     <string name="show_dev_already" msgid="1678087328973865736">"您已处于开发者模式，无需进行此操作。"</string>
     <string name="developer_options_settings" msgid="1530739225109118480">"开发者选项"</string>
@@ -501,14 +531,11 @@
     <string name="user_add_user_message_setup" msgid="812616230454605159">"您创建新的个人资料后，相应用户应自己进行自定义。"</string>
     <string name="user_add_user_message_update" msgid="3836353291078729240">"任意个人资料都能更新所有其他个人资料使用的应用。"</string>
     <string name="user_limit_reached_title" msgid="5677729355746623293">"已达到个人资料数量上限"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
-      <item quantity="other">您最多可以创建 <xliff:g id="COUNT">%d</xliff:g> 份个人资料。</item>
-      <item quantity="one">只能创建 1 份个人资料。</item>
-    </plurals>
+    <string name="user_limit_reached_message" msgid="2773441357248819721">"{count,plural, =1{只能创建 1 份个人资料。}other{您最多可以创建 # 份个人资料。}}"</string>
     <string name="add_user_error_title" msgid="7589792057846396341">"无法创建新的个人资料"</string>
     <string name="delete_user_dialog_title" msgid="575517556232943687">"要删除此个人资料吗？"</string>
     <string name="delete_user_dialog_message" msgid="3916865958419051299">"此个人资料的所有应用和数据都将被删除"</string>
-    <string name="delete_user_error_title" msgid="6422249596301690254">"无法删除个人资料。"</string>
+    <string name="delete_user_error_title" msgid="287249031795906102">"个人资料未删除。您可以重启设备，然后重试。"</string>
     <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"此个人资料将在您切换个人资料或重新发动汽车时删除。"</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"关闭"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"重试"</string>
@@ -621,6 +648,7 @@
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"如何绘制解锁图案"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"保存图案时出错"</string>
     <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"错误次数过多。请在 <xliff:g id="NUMBER">%d</xliff:g> 秒后重试。"</string>
+    <string name="lockpattern_does_not_support_rotary" msgid="7356367113555659428">"图案不支持旋转输入；请使用触控输入"</string>
     <string name="okay" msgid="4589873324439764349">"确定"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"清除屏幕锁定设置"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"这样一来，任何人都能访问您的帐号"</string>
@@ -652,30 +680,6 @@
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"您的 IT 管理员已禁止使用常用 PIN 码。请尝试使用其他 PIN 码。"</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"此密码不得包含无效字符。"</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"密码无效，密码必须至少包含 4 个字符。"</string>
-    <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
-      <item quantity="other">必须包含至少 <xliff:g id="COUNT">%d</xliff:g> 个字母</item>
-      <item quantity="one">必须包含至少 1 个字母</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_lowercase" formatted="false" msgid="2267487180744744833">
-      <item quantity="other">必须包含至少 <xliff:g id="COUNT">%d</xliff:g> 个小写字母</item>
-      <item quantity="one">必须包含至少 1 个小写字母</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_uppercase" formatted="false" msgid="7999264563026517898">
-      <item quantity="other">必须包含至少 <xliff:g id="COUNT">%d</xliff:g> 个大写字母</item>
-      <item quantity="one">必须包含至少 1 个大写字母</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_numeric" formatted="false" msgid="7935079851855168646">
-      <item quantity="other">必须包含至少 <xliff:g id="COUNT">%d</xliff:g> 个数字</item>
-      <item quantity="one">必须包含至少 1 个数字</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_symbols" formatted="false" msgid="3994046435150094132">
-      <item quantity="other">必须包含至少 <xliff:g id="COUNT">%d</xliff:g> 个特殊符号</item>
-      <item quantity="one">必须包含至少 1 个特殊符号</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="6878486326748506524">
-      <item quantity="other">必须包含至少 <xliff:g id="COUNT">%d</xliff:g> 个非字母字符</item>
-      <item quantity="one">必须包含至少 1 个非字母字符</item>
-    </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"设备管理员不允许使用最近用过的密码"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"保存密码时出错"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"您的 IT 管理员已禁止使用常用密码。请尝试使用其他密码。"</string>
@@ -718,5 +722,66 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"添加个人资料"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"删除此个人资料"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"添加个人资料"</string>
+    <string name="qc_display_brightness" msgid="2939655289816201170">"屏幕亮度"</string>
+    <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"要想看到您的设备，请开启蓝牙"</string>
+    <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"要想配对设备，请打开蓝牙设置"</string>
+    <string name="device_admin_add_title" msgid="1294399588284546811">"信息娱乐系统管理"</string>
+    <string name="device_admin_activated_apps" msgid="568075063362271751">"已启用的应用"</string>
+    <string name="device_admin_deactivated_apps" msgid="3797263682500122872">"已停用的应用"</string>
+    <string name="device_admin_apps_description" msgid="1371935499168453457">"具有此权限的应用可以获取该车辆的数据"</string>
+    <string name="device_admin_apps_list_empty" msgid="7634804595645191123">"没有车辆管理应用"</string>
+    <string name="device_admin_status" msgid="4041772636856135168">"此信息娱乐系统管理应用已启用，它允许“<xliff:g id="APP_NAME">%1$s</xliff:g>”应用执行以下操作："</string>
+    <string name="device_admin_warning" msgid="8997805999333600901">"启用此信息娱乐系统应用将允许“<xliff:g id="APP_NAME">%1$s</xliff:g>”应用执行以下操作："</string>
+    <string name="add_device_admin_msg" msgid="8188888666879499482">"要启用此信息娱乐系统应用吗？"</string>
+    <string name="add_device_admin" msgid="7674707256074840333">"启用此信息娱乐系统应用"</string>
+    <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"停用并卸载"</string>
+    <string name="remove_device_admin" msgid="3595343390502030723">"停用此信息娱乐系统应用"</string>
+    <string name="admin_support_more_info" msgid="380785608579390750">"更多详情"</string>
+    <string name="admin_profile_owner_message" msgid="8361351256802954556">"组织管理员可以监控和管理与此个人资料相关联的应用和数据，其中包括设置、权限、企业权限、网络活动以及车辆的位置信息。"</string>
+    <string name="admin_profile_owner_user_message" msgid="366072696508275753">"组织管理员可以监控和管理与此个人资料相关联的应用和数据，其中包括设置、权限、企业权限、网络活动以及设备的位置信息。"</string>
+    <string name="admin_device_owner_message" msgid="896530502350904835">"组织管理员可以监控和管理与此信息娱乐系统相关联的应用和数据，其中包括设置、权限、企业权限、网络活动以及车辆的位置信息。"</string>
+    <string name="admin_financed_message" msgid="7357397436233684082">"组织管理员或许能够访问与此信息娱乐系统相关联的数据、管理应用以及更改此车辆的设置。"</string>
+    <string name="disabled_by_policy_title" msgid="1121694702115232518">"该设置不可用"</string>
+    <string name="disabled_by_policy_title_adjust_volume" msgid="7002865820552702232">"无法在此受管理车辆中更改音量"</string>
+    <string name="disabled_by_policy_title_outgoing_calls" msgid="158752542663419500">"无法在此受管理车辆中进行通话"</string>
+    <string name="disabled_by_policy_title_sms" msgid="3044491214572494290">"无法在此受管理车辆中收发短信"</string>
+    <string name="disabled_by_policy_title_camera" msgid="8929782627587059121">"无法在此受管理车辆中使用摄像头"</string>
+    <string name="disabled_by_policy_title_screen_capture" msgid="4059715943558852466">"无法在此受管理车辆中截取屏幕截图"</string>
+    <string name="disabled_by_policy_title_suspend_packages" msgid="7505332012990359725">"无法在此受管理车辆中打开这款应用"</string>
+    <string name="disabled_by_policy_title_financed_device" msgid="6005343494788285981">"已被分期付款提供商屏蔽"</string>
+    <string name="default_admin_support_msg" msgid="2986598061733013282">"组织已限制您对某些功能的使用权限。\n\n如有任何问题，请与组织管理人员联系。"</string>
+    <string name="help_url_action_disabled_by_it_admin" msgid="1479392394986580260"></string>
+    <string name="manage_device_admin" msgid="7087659697154317316">"车辆管理应用"</string>
+    <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# 个已启用的应用}other{# 个已启用的应用}}"</string>
+    <string name="number_of_device_admins_none" msgid="5547493703413973954">"没有已启用的应用"</string>
+    <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>的车辆政策"</string>
+    <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"由组织管理员管理的设置"</string>
+    <string name="footer_learn_more_content_description" msgid="7749452309729272078">"详细了解“<xliff:g id="SERVICE">%1$s</xliff:g>”"</string>
+    <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"要分享错误报告吗？"</string>
+    <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"此车辆的组织管理员要求提供错误报告，以便对这台设备进行问题排查。报告中可能会包含应用信息和数据。"</string>
+    <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"此车辆的组织管理员要求提供错误报告，以便对这台设备进行问题排查。报告中可能会包含应用信息和数据，并且您的设备可能会暂时变慢。"</string>
+    <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"正在与此车辆的组织管理员分享该错误报告。如需更多详细信息，请联系组织管理员。"</string>
+    <string name="share_remote_bugreport_action" msgid="5364819432179581532">"分享"</string>
+    <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"拒绝"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"暂时无法更改此设置"</string>
+    <string name="accessibility_settings_title" msgid="2615042088419230347">"无障碍功能"</string>
+    <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"字幕"</string>
+    <string name="captions_settings_title" msgid="5738067618097295831">"字幕偏好设置"</string>
+    <string name="captions_settings_off" msgid="7568096968016015626">"已关闭"</string>
+    <string name="captions_settings_on" msgid="5374984113566914978">"已开启"</string>
+    <string name="screen_reader_settings_title" msgid="4012734340987826872">"屏幕阅读器"</string>
+    <string name="show_captions_toggle_title" msgid="710582308974826311">"显示字幕"</string>
+    <string name="captions_text_size_title" msgid="1960814652560877963">"文字大小"</string>
+    <string name="captions_settings_style_header" msgid="944591388386054372">"字幕文字大小和样式"</string>
+    <string name="captions_settings_text_size_very_small" msgid="7476485317028306502">"超小"</string>
+    <string name="captions_settings_text_size_small" msgid="1481895299805450566">"小"</string>
+    <string name="captions_settings_text_size_default" msgid="2227802573224038267">"默认"</string>
+    <string name="captions_settings_text_size_large" msgid="5198207220911360512">"大"</string>
+    <string name="captions_settings_text_size_very_large" msgid="949511539689307969">"超大"</string>
+    <string name="captions_text_style_title" msgid="8547777957403577760">"字幕样式"</string>
+    <string name="captions_settings_text_style_by_app" msgid="7014882290456996444">"由应用设置"</string>
+    <string name="captions_settings_text_style_white_on_black" msgid="5758084000323596070">"黑底白字"</string>
+    <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"白底黑字"</string>
+    <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"黑底黄字"</string>
+    <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"蓝底黄字"</string>
 </resources>

@@ -27,4 +27,7 @@ android_test {
         "cts",
         "general-tests",
     ],
+    data: [
+        ":CtsHiddenApiBlocklistApiDynamicConfig",
+    ],
 }

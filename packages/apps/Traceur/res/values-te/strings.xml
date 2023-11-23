@@ -4,10 +4,11 @@
     <string name="system_tracing" msgid="4719188511746319848">"సిస్టమ్ స్థితిగతి కనుగొనుట"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"సిస్టమ్ యాక్టివిటీని రికార్డ్ చేసి, తర్వాత దానిని విశ్లేషించి పనితీరును మెరుగుపరచు"</string>
     <string name="record_trace" msgid="6416875085186661845">"స్థితిగతిని రికార్డ్ చేయండి"</string>
+    <string name="start_new_trace" msgid="8177130420802170353">"కొత్త ట్రేస్‌ను ప్రారంభించండి"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"డీబగ్ చేయగల అప్లికేషన్‌ల స్థితిగతి కనుగొనండి"</string>
     <string name="categories" msgid="2280163673538611008">"కేటగిరీలు"</string>
-    <string name="restore_default_categories" msgid="5090536794637169521">"డిఫాల్ట్ వర్గాలను పునరుద్ధరించండి"</string>
-    <string name="default_categories_restored" msgid="6861683793680564181">"డిఫాల్ట్ వర్గాలు పునరుద్ధరించబడ్డాయి"</string>
+    <string name="restore_default_categories" msgid="5090536794637169521">"ఆటోమేటిక్ కేటగిరీలను రీస్టోర్ చేయండి"</string>
+    <string name="default_categories_restored" msgid="6861683793680564181">"ఆటోమేటిక్ కేటగిరీలు రీస్టోర్ అయ్యాయి"</string>
     <string name="default_categories" msgid="2117679794687799407">"ఆటోమేటిక్"</string>
     <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
       <item quantity="other">%d ఎంచుకోబడ్డాయి</item>

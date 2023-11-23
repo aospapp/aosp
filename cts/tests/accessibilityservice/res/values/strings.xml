@@ -57,34 +57,34 @@
     <string name="accessibility_query_window_test_activity">Query window test</string>
 
     <!-- String Button1 text -->
-    <string name="button1">B1</string>
+    <string name="button1">Btn1</string>
 
     <!-- String Button2 text -->
-    <string name="button2">B2</string>
+    <string name="button2">Btn2</string>
 
     <!-- String Button3 text -->
-    <string name="button3">B3</string>
+    <string name="button3">Btn3</string>
 
     <!-- String Button4 text -->
-    <string name="button4">B4</string>
+    <string name="button4">Btn4</string>
 
     <!-- String Button5 text -->
-    <string name="button5">B5</string>
+    <string name="button5">Btn5</string>
 
     <!-- String Button6 text -->
-    <string name="button6">B6</string>
+    <string name="button6">Btn6</string>
 
     <!-- String with content description for Button6 -->
     <string name="contentDescription">contentDescription</string>
 
     <!-- String Button7 text -->
-    <string name="button7">B7</string>
+    <string name="button7">Btn7</string>
 
     <!-- String Button8 text -->
-    <string name="button8">B8</string>
+    <string name="button8">Btn8</string>
 
     <!-- String Button9 text -->
-    <string name="button9">B9</string>
+    <string name="button9">Btn9</string>
 
     <!-- AccessibilityFocusTest -->
 
@@ -194,5 +194,9 @@
 
     <!-- String title of embedded display activity -->
     <string name="non_default_display_activity">Non default display activity</string>
+
+    <!-- String title of the accessibility drag & drop activity -->
+    <string name="accessibility_drag_and_drop_test_activity">Drag and drop</string>
+    <string name="drag_and_drop_text">Dragged text</string>
 
 </resources>

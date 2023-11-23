@@ -77,7 +77,7 @@ android::automotive::watchdog::internal::PackageMetadata toPackageMetadata(
 android::automotive::watchdog::internal::IoOveruseAlertThreshold toIoOveruseAlertThreshold(
         const int64_t durationInSeconds, const int64_t writtenBytesPerSecond);
 
-testing::Matcher<const android::automotive::watchdog::internal::ResourceOveruseConfiguration>
+testing::Matcher<const android::automotive::watchdog::internal::ResourceOveruseConfiguration&>
 ResourceOveruseConfigurationMatcher(
         const android::automotive::watchdog::internal::ResourceOveruseConfiguration& config);
 

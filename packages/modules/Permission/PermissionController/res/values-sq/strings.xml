@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"Lejet e aplikacionit"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Aplikacionet e papërdorura"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Nuk ka aplikacione të papërdorura"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"0 aplikacione të papërdorura"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Çaktivizo aplikacionin"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Nëse e çaktivizon këtë aplikacion, Android dhe aplikacionet e tjera mund të mos funksionojnë më siç pritet. Ki parasysh se nuk mund ta fshish këtë aplikacion pasi ai ka ardhur i instaluar paraprakisht në pajisjen tënde. Duke e çaktivizuar, mund ta kalosh këtë aplikacion në joaktiv dhe ta fshehësh në pajisjen tënde."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Menaxheri i lejeve"</string>

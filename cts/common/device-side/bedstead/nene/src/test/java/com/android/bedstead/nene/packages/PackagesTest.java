@@ -16,33 +16,45 @@
 
 package com.android.bedstead.nene.packages;
 
+import static android.os.Build.VERSION_CODES.S;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assume.assumeTrue;
 import static org.testng.Assert.assertThrows;
 
-import android.os.Build;
-
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.harrier.annotations.EnsureHasSecondaryUser;
+import com.android.bedstead.harrier.annotations.EnsureHasWorkProfile;
+import com.android.bedstead.harrier.annotations.RequireRunOnPrimaryUser;
+import com.android.bedstead.harrier.annotations.RequireSdkVersion;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.users.UserReference;
 import com.android.bedstead.nene.utils.Versions;
+import com.android.bedstead.testapp.TestApp;
+import com.android.bedstead.testapp.TestAppInstance;
+import com.android.bedstead.testapp.TestAppProvider;
 import com.android.compatibility.common.util.FileUtils;
 
+import org.junit.ClassRule;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-@RunWith(JUnit4.class)
+@RunWith(BedsteadJUnit4.class)
 public class PackagesTest {
+    @ClassRule
+    @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
     private static final String INPUT_METHODS_FEATURE = "android.software.input_methods";
     private static final String NON_EXISTING_PACKAGE = "com.package.does.not.exist";
-
     // Controlled by AndroidTest.xml
     private static final String TEST_APP_PACKAGE_NAME =
             "com.android.bedstead.nene.testapps.TestApp1";
@@ -50,16 +62,16 @@ public class PackagesTest {
     private static final File NON_EXISTING_APK_FILE =
             new File("/data/local/tmp/ThisApkDoesNotExist.apk");
     private static final byte[] TEST_APP_BYTES = loadBytes(TEST_APP_APK_FILE);
-
-    private final TestApis mTestApis = new TestApis();
-    private final UserReference mUser = mTestApis.users().instrumented();
-    private final PackageReference mExistingPackage =
-            mTestApis.packages().find("com.android.providers.telephony");
-    private final PackageReference mTestAppReference =
-            mTestApis.packages().find(TEST_APP_PACKAGE_NAME);
-    private final PackageReference mDifferentTestAppReference =
-            mTestApis.packages().find(NON_EXISTING_PACKAGE);
-    private final UserReference mNonExistingUser = mTestApis.users().find(99999);
+    private static final TestAppProvider sTestAppProvider = new TestAppProvider();
+    private static final TestApp sTestApp = sTestAppProvider.any();
+    private final UserReference mUser = TestApis.users().instrumented();
+    private final Package mExistingPackage =
+            TestApis.packages().find("com.android.providers.telephony");
+    private final Package mTestAppReference =
+            TestApis.packages().find(TEST_APP_PACKAGE_NAME);
+    private final Package mDifferentTestAppReference =
+            TestApis.packages().find(NON_EXISTING_PACKAGE);
+    private final UserReference mNonExistingUser = TestApis.users().find(99999);
     private final File mApkFile = new File("");
 
     private static byte[] loadBytes(File file) {
@@ -71,164 +83,169 @@ public class PackagesTest {
     }
 
     @Test
-    public void construct_nullTestApis_throwsException() {
-        assertThrows(NullPointerException.class, () -> new Packages(/* testApis= */ null));
-    }
-
-    @Test
     public void construct_constructs() {
-        new Packages(mTestApis); // Doesn't throw any exceptions
+        new Packages(); // Doesn't throw any exceptions
     }
 
     @Test
     public void features_noUserSpecified_containsKnownFeature() {
-        assertThat(mTestApis.packages().features()).contains(INPUT_METHODS_FEATURE);
-    }
-
-    @Test
-    public void all_containsKnownPackage() {
-        assertThat(mTestApis.packages().all()).contains(mExistingPackage);
+        assertThat(TestApis.packages().features()).contains(INPUT_METHODS_FEATURE);
     }
 
     @Test
     public void find_nullPackageName_throwsException() {
-        assertThrows(NullPointerException.class, () -> mTestApis.packages().find(null));
+        assertThrows(NullPointerException.class, () -> TestApis.packages().find(null));
     }
 
     @Test
     public void find_existingPackage_returnsPackageReference() {
-        assertThat(mTestApis.packages().find(mExistingPackage.packageName())).isNotNull();
+        assertThat(TestApis.packages().find(mExistingPackage.packageName())).isNotNull();
     }
 
     @Test
     public void find_nonExistingPackage_returnsPackageReference() {
-        assertThat(mTestApis.packages().find(NON_EXISTING_PACKAGE)).isNotNull();
+        assertThat(TestApis.packages().find(NON_EXISTING_PACKAGE)).isNotNull();
     }
 
     @Test
     public void installedForUser_nullUserReference_throwsException() {
         assertThrows(NullPointerException.class,
-                () -> mTestApis.packages().installedForUser(/* user= */ null));
+                () -> TestApis.packages().installedForUser(/* user= */ null));
     }
 
     @Test
     public void installedForUser_containsPackageInstalledForUser() {
-        PackageReference packageReference = mTestApis.packages().install(mUser, TEST_APP_APK_FILE);
+        Package pkg = TestApis.packages().install(mUser, TEST_APP_APK_FILE);
 
         try {
-            assertThat(mTestApis.packages().installedForUser(mUser)).contains(packageReference);
+            assertThat(TestApis.packages().installedForUser(mUser)).contains(pkg);
         } finally {
-            packageReference.uninstall(mUser);
+            pkg.uninstall(mUser);
         }
     }
 
     @Test
     public void installedForUser_doesNotContainPackageNotInstalledForUser() {
-        PackageReference packageReference = mTestApis.packages().install(mUser, TEST_APP_APK_FILE);
+        Package pkg = TestApis.packages().install(mUser, TEST_APP_APK_FILE);
 
-        try (UserReference otherUser = mTestApis.users().createUser().create()) {
-            assertThat(mTestApis.packages().installedForUser(otherUser))
-                    .doesNotContain(packageReference);
+        try (UserReference otherUser = TestApis.users().createUser().create()) {
+            assertThat(TestApis.packages().installedForUser(otherUser))
+                    .doesNotContain(pkg);
         } finally {
-            packageReference.uninstall(mUser);
+            pkg.uninstall(mUser);
         }
     }
 
     @Test
     public void install_nonExistingPackage_throwsException() {
         assertThrows(NeneException.class,
-                () -> mTestApis.packages().install(mUser, NON_EXISTING_APK_FILE));
+                () -> TestApis.packages().install(mUser, NON_EXISTING_APK_FILE));
     }
 
     @Test
     public void install_nullUser_throwsException() {
         assertThrows(NullPointerException.class,
-                () -> mTestApis.packages().install(/* user= */ null, mApkFile));
+                () -> TestApis.packages().install(/* user= */ null, mApkFile));
     }
 
     @Test
     public void install_byteArray_nullUser_throwsException() {
         assertThrows(NullPointerException.class,
-                () -> mTestApis.packages().install(/* user= */ null, TEST_APP_BYTES));
+                () -> TestApis.packages().install(/* user= */ null, TEST_APP_BYTES));
     }
 
     @Test
     public void install_nullApkFile_throwsException() {
         assertThrows(NullPointerException.class,
-                () -> mTestApis.packages().install(mUser, (File) /* apkFile= */ null));
+                () -> TestApis.packages().install(mUser, (File) /* apkFile= */ null));
     }
 
     @Test
     public void install_nullByteArray_throwsException() {
         assertThrows(NullPointerException.class,
-                () -> mTestApis.packages().install(mUser, (byte[]) /* apkFile= */ null));
+                () -> TestApis.packages().install(mUser, (byte[]) /* apkFile= */ null));
     }
 
     @Test
     public void install_instrumentedUser_isInstalled() {
-        PackageReference packageReference =
-                mTestApis.packages().install(mTestApis.users().instrumented(), TEST_APP_APK_FILE);
+        Package pkg =
+                TestApis.packages().install(TestApis.users().instrumented(), TEST_APP_APK_FILE);
 
         try {
-            assertThat(packageReference.resolve().installedOnUsers())
-                    .contains(mTestApis.users().instrumented());
+            assertThat(pkg.installedOnUser()).isTrue();
         } finally {
-            packageReference.uninstall(mTestApis.users().instrumented());
+            pkg.uninstall(TestApis.users().instrumented());
         }
     }
 
     @Test
     public void install_byteArray_instrumentedUser_isInstalled() {
-        PackageReference packageReference =
-                mTestApis.packages().install(mTestApis.users().instrumented(), TEST_APP_BYTES);
+        Package pkg =
+                TestApis.packages().install(TestApis.users().instrumented(), TEST_APP_BYTES);
 
         try {
-            assertThat(packageReference.resolve().installedOnUsers())
-                    .contains(mTestApis.users().instrumented());
+            assertThat(pkg.installedOnUser()).isTrue();
         } finally {
-            packageReference.uninstall(mTestApis.users().instrumented());
+            pkg.uninstall(TestApis.users().instrumented());
         }
     }
 
     @Test
-    public void install_differentUser_isInstalled() {
-        UserReference user = mTestApis.users().createUser().createAndStart();
-        PackageReference packageReference =
-                mTestApis.packages().install(user, TEST_APP_APK_FILE);
+    @RequireRunOnPrimaryUser
+    @EnsureHasWorkProfile
+    public void install_inWorkProfile_isInstalled() {
+        TestApis.packages().install(sDeviceState.workProfile(), TEST_APP_APK_FILE);
+        Package pkg = TestApis.packages().find(TEST_APP_PACKAGE_NAME);
 
         try {
-            assertThat(packageReference.resolve().installedOnUsers()).contains(user);
+            assertThat(pkg.installedOnUser(sDeviceState.workProfile())).isTrue();
         } finally {
-            user.remove();
+            pkg.uninstall(sDeviceState.workProfile());
+        }
+    }
+
+    @Test
+    @RequireRunOnPrimaryUser
+    @EnsureHasSecondaryUser
+    public void install_differentUser_isInstalled() {
+        TestApis.packages().install(sDeviceState.secondaryUser(), TEST_APP_APK_FILE);
+        Package pkg = TestApis.packages().find(TEST_APP_PACKAGE_NAME);
+
+        try {
+            assertThat(pkg.installedOnUser(sDeviceState.secondaryUser())).isTrue();
+        } finally {
+            pkg.uninstall(sDeviceState.secondaryUser());
         }
     }
 
     @Test
     public void install_byteArray_differentUser_isInstalled() {
-        UserReference user = mTestApis.users().createUser().createAndStart();
-        PackageReference packageReference = mTestApis.packages().install(user, TEST_APP_BYTES);
+        UserReference user = TestApis.users().createUser().createAndStart();
+        TestApis.packages().install(user, TEST_APP_BYTES);
+        Package pkg = TestApis.packages().find(TEST_APP_PACKAGE_NAME);
 
         try {
-            assertThat(packageReference.resolve().installedOnUsers()).contains(user);
+            assertThat(pkg.installedOnUser(user)).isTrue();
         } finally {
             user.remove();
         }
     }
 
     @Test
+    @RequireRunOnPrimaryUser
     public void install_userNotStarted_throwsException() {
-        try (UserReference user = mTestApis.users().createUser().create().stop()) {
-            assertThrows(NeneException.class, () -> mTestApis.packages().install(user,
+        try (UserReference user = TestApis.users().createUser().create().stop()) {
+            assertThrows(NeneException.class, () -> TestApis.packages().install(user,
                     TEST_APP_APK_FILE));
         }
     }
 
     @Test
     public void install_byteArray_userNotStarted_throwsException() {
-        UserReference user = mTestApis.users().createUser().create().stop();
+        UserReference user = TestApis.users().createUser().create().stop();
 
         try {
-            assertThrows(NeneException.class, () -> mTestApis.packages().install(user,
+            assertThrows(NeneException.class, () -> TestApis.packages().install(user,
                     TEST_APP_BYTES));
         } finally {
             user.remove();
@@ -237,154 +254,156 @@ public class PackagesTest {
 
     @Test
     public void install_userDoesNotExist_throwsException() {
-        assertThrows(NeneException.class, () -> mTestApis.packages().install(mNonExistingUser,
+        assertThrows(NeneException.class, () -> TestApis.packages().install(mNonExistingUser,
                 TEST_APP_APK_FILE));
     }
 
     @Test
     public void install_byteArray_userDoesNotExist_throwsException() {
-        assertThrows(NeneException.class, () -> mTestApis.packages().install(mNonExistingUser,
+        assertThrows(NeneException.class, () -> TestApis.packages().install(mNonExistingUser,
                 TEST_APP_BYTES));
     }
 
     @Test
     public void install_alreadyInstalledForUser_installs() {
-        PackageReference packageReference = mTestApis.packages().install(mUser, TEST_APP_APK_FILE);
+        Package pkg = TestApis.packages().install(mUser, TEST_APP_APK_FILE);
 
         try {
-            packageReference = mTestApis.packages().install(mUser, TEST_APP_APK_FILE);
-            assertThat(packageReference.resolve().installedOnUsers()).contains(mUser);
+            pkg = TestApis.packages().install(mUser, TEST_APP_APK_FILE);
+            assertThat(pkg.installedOnUser(mUser)).isTrue();
         } finally {
-            packageReference.uninstall(mUser);
+            pkg.uninstall(mUser);
         }
     }
 
     @Test
     public void install_byteArray_alreadyInstalledForUser_installs() {
-        PackageReference packageReference = mTestApis.packages().install(mUser, TEST_APP_BYTES);
+        Package pkg = TestApis.packages().install(mUser, TEST_APP_BYTES);
 
         try {
-            packageReference = mTestApis.packages().install(mUser, TEST_APP_BYTES);
-            assertThat(packageReference.resolve().installedOnUsers()).contains(mUser);
+            pkg = TestApis.packages().install(mUser, TEST_APP_BYTES);
+            assertThat(pkg.installedOnUser(mUser)).isTrue();
         } finally {
-            packageReference.uninstall(mUser);
+            pkg.uninstall(mUser);
         }
     }
 
     @Test
     public void install_alreadyInstalledOnOtherUser_installs() {
-        PackageReference packageReference = null;
+        Package pkg = null;
 
-        try (UserReference otherUser = mTestApis.users().createUser().createAndStart()) {
-            mTestApis.packages().install(otherUser, TEST_APP_APK_FILE);
+        try (UserReference otherUser = TestApis.users().createUser().createAndStart()) {
+            TestApis.packages().install(otherUser, TEST_APP_APK_FILE);
 
-            packageReference =
-                    mTestApis.packages().install(mUser, TEST_APP_APK_FILE);
+            pkg =
+                    TestApis.packages().install(mUser, TEST_APP_APK_FILE);
 
-            assertThat(packageReference.resolve().installedOnUsers()).contains(mUser);
+            assertThat(pkg.installedOnUser(mUser)).isTrue();
         } finally {
-            if (packageReference != null) {
-                packageReference.uninstall(mUser);
+            if (pkg != null) {
+                pkg.uninstall(mUser);
             }
         }
     }
 
     @Test
     public void install_byteArray_alreadyInstalledOnOtherUser_installs() {
-        PackageReference packageReference = null;
+        Package pkg = null;
 
-        try (UserReference otherUser = mTestApis.users().createUser().createAndStart()) {
-            mTestApis.packages().install(otherUser, TEST_APP_BYTES);
+        try (UserReference otherUser = TestApis.users().createUser().createAndStart()) {
+            TestApis.packages().install(otherUser, TEST_APP_BYTES);
 
-            packageReference = mTestApis.packages().install(mUser, TEST_APP_BYTES);
+            pkg = TestApis.packages().install(mUser, TEST_APP_BYTES);
 
-            assertThat(packageReference.resolve().installedOnUsers()).contains(mUser);
+            assertThat(pkg.installedOnUser(mUser)).isTrue();
         } finally {
-            if (packageReference != null) {
-                packageReference.uninstall(mUser);
+            if (pkg != null) {
+                pkg.uninstall(mUser);
             }
         }
     }
 
     @Test
-    public void keepUninstalledPackages_packageIsUninstalled_packageStillResolves() {
-        assumeTrue("keepUninstalledPackages is only supported on S+",
-                Versions.meetsMinimumSdkVersionRequirement(Build.VERSION_CODES.S));
+    @RequireSdkVersion(min = S, reason = "keepUninstalledPackages is only supported on S+")
+    @Ignore
+    // TODO: .exists() doesn't return true when the package is kept - restore this functionality
+    public void keepUninstalledPackages_packageIsUninstalled_packageStillExists() {
+        try (TestAppInstance testAppInstance = sTestApp.install()) {
+            TestApis.packages().keepUninstalledPackages()
+                    .add(sTestApp.pkg())
+                    .commit();
 
-        mTestApis.packages().install(mUser, TEST_APP_APK_FILE);
-        mTestApis.packages().keepUninstalledPackages()
-                .add(mTestAppReference)
-                .commit();
+            testAppInstance.uninstall();
 
-        try {
-            mTestAppReference.uninstall(mUser);
-
-            assertThat(mTestAppReference.resolve()).isNotNull();
+            assertThat(sTestApp.pkg().exists()).isTrue();
         } finally {
-            mTestApis.packages().keepUninstalledPackages().clear();
+            TestApis.packages().keepUninstalledPackages().clear();
         }
     }
 
     @Test
-    @Ignore("While using adb calls this is not reliable, enable once we use framework calls for uninstall")
-    public void keepUninstalledPackages_packageRemovedFromList_packageIsUninstalled_packageDoesNotResolve() {
+    @Ignore("While using adb calls this is not reliable, enable once we use framework calls for "
+            + "uninstall")
+    public void keepUninstalledPackages_packageRemovedFromList_packageIsUninstalled_packageDoesNotExist() {
         assumeTrue("keepUninstalledPackages is only supported on S+",
-                Versions.meetsMinimumSdkVersionRequirement(Build.VERSION_CODES.S));
+                Versions.meetsMinimumSdkVersionRequirement(S));
 
-        mTestApis.packages().install(mUser, TEST_APP_APK_FILE);
-        mTestApis.packages().keepUninstalledPackages()
+        TestApis.packages().install(mUser, TEST_APP_APK_FILE);
+        TestApis.packages().keepUninstalledPackages()
                 .add(mTestAppReference)
                 .commit();
-        mTestApis.packages().keepUninstalledPackages()
+        TestApis.packages().keepUninstalledPackages()
                 .add(mDifferentTestAppReference)
                 .commit();
 
         try {
             mTestAppReference.uninstall(mUser);
 
-            assertThat(mTestAppReference.resolve()).isNull();
+            assertThat(mTestAppReference.exists()).isFalse();
         } finally {
-            mTestApis.packages().keepUninstalledPackages().clear();
+            TestApis.packages().keepUninstalledPackages().clear();
         }
     }
 
     @Test
-    @Ignore("While using adb calls this is not reliable, enable once we use framework calls for uninstall")
-    public void keepUninstalledPackages_cleared_packageIsUninstalled_packageDoesNotResolve() {
+    @Ignore("While using adb calls this is not reliable, enable once we use framework calls for "
+            + "uninstall")
+    public void keepUninstalledPackages_cleared_packageIsUninstalled_packageDoesNotExist() {
         assumeTrue("keepUninstalledPackages is only supported on S+",
-                Versions.meetsMinimumSdkVersionRequirement(Build.VERSION_CODES.S));
+                Versions.meetsMinimumSdkVersionRequirement(S));
 
-        mTestApis.packages().install(mUser, TEST_APP_APK_FILE);
+        TestApis.packages().install(mUser, TEST_APP_APK_FILE);
 
-        mTestApis.packages().keepUninstalledPackages()
+        TestApis.packages().keepUninstalledPackages()
                 .add(mTestAppReference)
                 .commit();
-        mTestApis.packages().keepUninstalledPackages().clear();
+        TestApis.packages().keepUninstalledPackages().clear();
 
         try {
             mTestAppReference.uninstall(mUser);
 
-            assertThat(mTestAppReference.resolve()).isNull();
+            assertThat(mTestAppReference.exists()).isFalse();
         } finally {
-            mTestApis.packages().keepUninstalledPackages().clear();
+            TestApis.packages().keepUninstalledPackages().clear();
         }
     }
 
     @Test
-    @Ignore("While using adb calls this is not reliable, enable once we use framework calls for uninstall")
-    public void keepUninstalledPackages_packageRemovedFromList_packageAlreadyUninstalled_packageDoesNotResolve() {
+    @Ignore("While using adb calls this is not reliable, enable once we use framework calls for "
+            + "uninstall")
+    public void keepUninstalledPackages_packageRemovedFromList_packageAlreadyUninstalled_packageDoesNotExist() {
         assumeTrue("keepUninstalledPackages is only supported on S+",
-                Versions.meetsMinimumSdkVersionRequirement(Build.VERSION_CODES.S));
+                Versions.meetsMinimumSdkVersionRequirement(S));
 
-        mTestApis.packages().install(mUser, TEST_APP_APK_FILE);
-        mTestApis.packages().keepUninstalledPackages().add(mTestAppReference).commit();
+        TestApis.packages().install(mUser, TEST_APP_APK_FILE);
+        TestApis.packages().keepUninstalledPackages().add(mTestAppReference).commit();
         mTestAppReference.uninstall(mUser);
-        mTestApis.packages().keepUninstalledPackages().add(mDifferentTestAppReference).commit();
+        TestApis.packages().keepUninstalledPackages().add(mDifferentTestAppReference).commit();
 
         try {
-            assertThat(mTestAppReference.resolve()).isNull();
+            assertThat(mTestAppReference.exists()).isFalse();
         } finally {
-            mTestApis.packages().keepUninstalledPackages().clear();
+            TestApis.packages().keepUninstalledPackages().clear();
         }
     }
 }

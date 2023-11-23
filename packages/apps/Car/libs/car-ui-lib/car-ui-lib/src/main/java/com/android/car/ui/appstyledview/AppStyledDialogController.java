@@ -16,22 +16,27 @@
 
 package com.android.car.ui.appstyledview;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
-import com.android.car.ui.appstyledview.AppStyledViewController.AppStyledDismissListener;
-import com.android.car.ui.appstyledview.AppStyledViewController.AppStyledVCloseClickListener;
 import com.android.car.ui.appstyledview.AppStyledViewController.AppStyledViewNavIcon;
-import com.android.car.ui.sharedlibrarysupport.SharedLibraryFactorySingleton;
+import com.android.car.ui.pluginsupport.PluginFactorySingleton;
 
 import java.util.Objects;
 
 /**
  * Controller to interact with the app styled view UI.
+ * <p>
+ * Rendered views will comply with
+ * <a href="https://source.android.com/devices/automotive/hmi/car_ui/appendix_b">customization guardrails</a>
  */
+@TargetApi(MIN_TARGET_API)
 public final class AppStyledDialogController {
 
     @NonNull
@@ -41,7 +46,7 @@ public final class AppStyledDialogController {
 
     public AppStyledDialogController(@NonNull Context context) {
         Objects.requireNonNull(context);
-        mAppStyledViewController = SharedLibraryFactorySingleton.get(context)
+        mAppStyledViewController = PluginFactorySingleton.get(context)
                 .createAppStyledView(context);
         mDialog = new AppStyledDialog(context, mAppStyledViewController);
     }
@@ -59,7 +64,6 @@ public final class AppStyledDialogController {
         Objects.requireNonNull(contentView);
 
         mDialog.setContent(contentView);
-        mAppStyledViewController.setOnCloseClickListener(mDialog::dismiss);
     }
 
     /**
@@ -77,19 +81,24 @@ public final class AppStyledDialogController {
     }
 
     /**
-     * Sets the {@link AppStyledVCloseClickListener}
+     * Dismiss this dialog, removing it from the screen. This method can be invoked safely from any
+     * thread.
      */
-    public void setOnCloseClickListener(@NonNull AppStyledVCloseClickListener listener) {
-        mAppStyledViewController.setOnCloseClickListener(() -> {
-            mDialog.dismiss();
-            listener.onClick();
-        });
+    public void dismiss() {
+        mDialog.dismiss();
     }
 
     /**
-     * Sets the {@link AppStyledDismissListener}
+     * Sets a runnable that will be invoked when a nav icon is clicked.
      */
-    public void setOnDismissListener(@NonNull AppStyledDismissListener listener) {
+    public void setOnNavIconClickListener(@NonNull Runnable listener) {
+        mAppStyledViewController.setOnNavIconClickListener(listener);
+    }
+
+    /**
+     * Sets a runnable that will be invoked when a dialog is dismissed.
+     */
+    public void setOnDismissListener(@NonNull Runnable listener) {
         mDialog.setOnDismissListener(listener);
     }
 

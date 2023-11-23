@@ -340,22 +340,22 @@
     <string name="maintenance_disable" msgid="2121032601497725602">"അറ്റകുറ്റപ്പണി സേവനങ്ങൾ പ്രവർത്തനരഹിതമാക്കി"</string>
     <string name="general_news_settings" msgid="2670499575962080411">"പൊതുവായ വാർത്തകൾ"</string>
     <string name="bf_news_settings" msgid="8571709425370794221">"ബിസിനസ്സ്, സാമ്പത്തിക വാർത്തകൾ"</string>
-    <string name="sports_news_settings" msgid="2684364556989168438">"കായിക വാർത്ത"</string>
-    <string name="entertainment_news_settings" msgid="4228527702346305543">"വിനോദവാർത്ത"</string>
+    <string name="sports_news_settings" msgid="2684364556989168438">"കായിക വാർത്തകൾ"</string>
+    <string name="entertainment_news_settings" msgid="4228527702346305543">"വിനോദ വാർത്തകൾ"</string>
     <string name="enable_disable_local" msgid="7654175079979415572">"പ്രാദേശികം"</string>
-    <string name="local_enable" msgid="790606890868710629">"പ്രാദേശിക വാർത്ത പ്രവർത്തനക്ഷമമാക്കി"</string>
-    <string name="local_disable" msgid="7649945293198602877">"പ്രാദേശിക വാർത്ത പ്രവർത്തനരഹിതമാക്കി"</string>
+    <string name="local_enable" msgid="790606890868710629">"പ്രാദേശിക വാർത്തകൾ പ്രവർത്തനക്ഷമമാക്കി"</string>
+    <string name="local_disable" msgid="7649945293198602877">"പ്രാദേശിക വാർത്തകൾ പ്രവർത്തനരഹിതമാക്കി"</string>
     <string name="enable_disable_regional" msgid="5783403191376564638">"പ്രാദേശികം"</string>
     <string name="regional_enable" msgid="7730109417536296079">"പ്രാദേശിക വാർത്തകൾ പ്രവർത്തനക്ഷമമാക്കി"</string>
     <string name="regional_disable" msgid="3781951818157772545">"പ്രാദേശിക വാർത്തകൾ പ്രവർത്തനരഹിതമാക്കി"</string>
     <string name="enable_disable_national" msgid="6198481711934897632">"ദേശീയം"</string>
-    <string name="national_enable" msgid="5159683504138239304">"ദേശീയ വാർത്ത പ്രവർത്തനക്ഷമമാക്കി"</string>
-    <string name="national_disable" msgid="8484356368757118987">"ദേശീയ വാർത്ത പ്രവർത്തനരഹിതമാക്കി"</string>
+    <string name="national_enable" msgid="5159683504138239304">"ദേശീയ വാർത്തകൾ പ്രവർത്തനക്ഷമമാക്കി"</string>
+    <string name="national_disable" msgid="8484356368757118987">"ദേശീയ വാർത്തകൾ പ്രവർത്തനരഹിതമാക്കി"</string>
     <string name="enable_disable_international" msgid="4204334217211198792">"അന്തര്‍‌ദ്ദേശീയം"</string>
-    <string name="international_enable" msgid="8943466745792690340">"അന്തർദ്ദേശീയ വാർത്ത പ്രവർത്തനക്ഷമമാക്കി"</string>
+    <string name="international_enable" msgid="8943466745792690340">"അന്തർദ്ദേശീയ വാർത്തകൾ പ്രവർത്തനക്ഷമമാക്കി"</string>
     <string name="international_disable" msgid="4803498658100318265">"അന്തർദ്ദേശീയ വാർത്തകൾ പ്രവർത്തനരഹിതമാക്കി"</string>
     <string name="list_language_title" msgid="1850167908665485738">"ഭാഷ"</string>
-    <string name="list_language_summary" msgid="7921756070782277559">"വാർത്താഭാഷ തിരഞ്ഞെടുക്"</string>
+    <string name="list_language_summary" msgid="7921756070782277559">"വാർത്താഭാഷ തിരഞ്ഞെടുക്കുക"</string>
   <string-array name="list_language_entries">
     <item msgid="2347238508726934281">"ഇംഗ്ലീഷ്"</item>
     <item msgid="5172468397620875174">"ഫ്രഞ്ച്"</item>
@@ -405,9 +405,9 @@
     <string name="enable_disable_mhh" msgid="715930476289202466">"മെഡിക്കൽ, ആരോഗ്യം, ആശുപത്രി എന്നിവ"</string>
     <string name="mhh_enable" msgid="7224396815285147008">"മെഡിക്കൽ, ആരോഗ്യം, ആശുപത്രി എന്നിവ പ്രവർത്തനക്ഷമമാക്കി"</string>
     <string name="mhh_disable" msgid="5503643028885686265">"മെഡിക്കൽ, ആരോഗ്യം, ആശുപത്രി എന്നിവ പ്രവർത്തനരഹിതമാക്കി"</string>
-    <string name="enable_disable_technology_news" msgid="2794845609698078400">"സാങ്കേതിക വാർത്ത"</string>
-    <string name="technology_news_enable" msgid="1908991199492598311">"സാങ്കേതിക വാർത്ത പ്രവർത്തനക്ഷമമാക്കി"</string>
-    <string name="technology_news_disable" msgid="8388582607149800889">"സാങ്കേതിക വാർത്ത പ്രവർത്തനരഹിതമാക്കി"</string>
+    <string name="enable_disable_technology_news" msgid="2794845609698078400">"സാങ്കേതിക വാർത്തകൾ"</string>
+    <string name="technology_news_enable" msgid="1908991199492598311">"സാങ്കേതിക വാർത്തകൾ പ്രവർത്തനക്ഷമമാക്കി"</string>
+    <string name="technology_news_disable" msgid="8388582607149800889">"സാങ്കേതിക വാർത്തകൾ പ്രവർത്തനരഹിതമാക്കി"</string>
     <string name="enable_disable_multi_category" msgid="5958248155437940625">"ഒന്നിലധികം വിഭാഗം"</string>
     <string name="multi_category_enable" msgid="4531915767817483960">"ഒന്നിലധികം വിഭാഗം പ്രവർത്തനക്ഷമമാക്കി"</string>
     <string name="multi_category_disable" msgid="6325934413701238104">"ഒന്നിലധികം വിഭാഗം പ്രവർത്തനരഹിതമാക്കി"</string>

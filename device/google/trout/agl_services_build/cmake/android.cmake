@@ -2,13 +2,25 @@ if(NOT trout_ANDROID_SYSCORE_DIR)
     set(trout_ANDROID_SYSCORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/android/system_core")
 endif()
 
-set(_trout_ANDROID_CXX_FLAGS -Wall -Werror -Wextra -Wno-unknown-warning-option -Wno-c99-designator -std=c++17)
+if(NOT trout_ANDROID_LIBBASE_DIR)
+    set(trout_ANDROID_LIBBASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/android/libbase")
+endif()
 
-set(trout_ANDROID_LIBLOG_DIR ${trout_ANDROID_SYSCORE_DIR}/liblog)
+if(NOT trout_ANDROID_LIBLOG_DIR)
+    set(trout_ANDROID_LIBLOG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/android/logging/liblog")
+endif()
+
+set(_trout_ANDROID_CXX_FLAGS
+    -std=c++17
+    -Wall -Werror -Wextra
+    -Wno-unknown-warning-option
+    -Wno-c99-designator
+    -Wno-sign-compare
+)
+
 set(trout_ANDROID_LIBLOG_INCLUDE_DIR ${trout_ANDROID_LIBLOG_DIR}/include)
 set(trout_ANDROID_LIBLOG_LIBRARY "android_liblog")
 
-set(trout_ANDROID_LIBBASE_DIR ${trout_ANDROID_SYSCORE_DIR}/base)
 set(trout_ANDROID_LIBBASE_INCLUDE_DIR ${trout_ANDROID_LIBBASE_DIR}/include)
 set(trout_ANDROID_LIBBASE_LIBRARY "android_libbase")
 
@@ -23,7 +35,6 @@ set(trout_ANDROID_LIBCUTLS_INCLUDE_DIR ${trout_ANDROID_SYSCORE_DIR}/libcutils/in
 
 if (NOT TARGET ${trout_ANDROID_LIBBASE_LIBRARY})
     add_library(${trout_ANDROID_LIBBASE_LIBRARY}
-        ${trout_ANDROID_LIBBASE_DIR}/liblog_symbols.cpp
         ${trout_ANDROID_LIBBASE_DIR}/logging.cpp
         ${trout_ANDROID_LIBBASE_DIR}/strings.cpp
         ${trout_ANDROID_LIBBASE_DIR}/stringprintf.cpp
@@ -76,6 +87,7 @@ if (NOT TARGET ${trout_ANDROID_LIBUTILS_LIBRARY})
     )
 
     target_link_libraries(${trout_ANDROID_LIBUTILS_LIBRARY}
+        ${trout_ANDROID_LIBBASE_LIBRARY}
         ${trout_ANDROID_LIBLOG_LIBRARY}
     )
 

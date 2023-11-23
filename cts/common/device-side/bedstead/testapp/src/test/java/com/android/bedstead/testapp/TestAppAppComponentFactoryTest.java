@@ -19,14 +19,13 @@ package com.android.bedstead.testapp;
 import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.android.eventlib.truth.EventLogsSubject.assertThat;
 
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 
 import com.android.bedstead.nene.TestApis;
-import com.android.eventlib.EventLogs;
 import com.android.eventlib.events.activities.ActivityCreatedEvent;
 import com.android.eventlib.events.broadcastreceivers.BroadcastReceivedEvent;
 
@@ -52,9 +51,8 @@ public class TestAppAppComponentFactoryTest {
     private static final String GENERATED_BROADCAST_RECEIVER_ACTION =
             "com.android.testapp.GENERATED_BROADCAST_RECEIVER";
 
-    private static final TestApis sTestApis = new TestApis();
     private static final Context sContext =
-            sTestApis.context().instrumentedContext();
+            TestApis.context().instrumentedContext();
 
     @Test
     public void startActivity_activityDoesNotExist_startsLoggingActivity() {
@@ -64,11 +62,9 @@ public class TestAppAppComponentFactoryTest {
         intent.setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK);
         sContext.startActivity(intent);
 
-        EventLogs<ActivityCreatedEvent> eventLogs =
-                ActivityCreatedEvent.queryPackage(sContext.getPackageName())
+        assertThat(ActivityCreatedEvent.queryPackage(sContext.getPackageName())
                         .whereActivity().activityClass().className()
-                            .isEqualTo(DECLARED_ACTIVITY_WITH_NO_CLASS);
-        assertThat(eventLogs.poll()).isNotNull();
+                            .isEqualTo(DECLARED_ACTIVITY_WITH_NO_CLASS)).eventOccurred();
     }
 
     @Test
@@ -78,10 +74,9 @@ public class TestAppAppComponentFactoryTest {
 
         sContext.sendBroadcast(intent);
 
-        EventLogs<BroadcastReceivedEvent> eventLogs = BroadcastReceivedEvent
+        assertThat(BroadcastReceivedEvent
                 .queryPackage(sContext.getPackageName())
                 .whereBroadcastReceiver().receiverClass().className()
-                    .isEqualTo(GENERATED_RECEIVER_CLASS_NAME);
-        assertThat(eventLogs.poll()).isNotNull();
+                .isEqualTo(GENERATED_RECEIVER_CLASS_NAME)).eventOccurred();
     }
 }

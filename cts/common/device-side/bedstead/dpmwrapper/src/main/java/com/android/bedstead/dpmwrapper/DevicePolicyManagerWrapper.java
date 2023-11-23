@@ -280,6 +280,17 @@ final class DevicePolicyManagerWrapper
             // Used by TrustAgentInfoTest
             doAnswer(answer).when(spy).getTrustAgentConfiguration(any(), any());
 
+            // Used by BackupServiceActiveTest
+            doAnswer(answer).when(spy).setBackupServiceEnabled(any(), anyBoolean());
+            doAnswer(answer).when(spy).isBackupServiceEnabled(any());
+
+            // Used by PendingSystemUpdateTest
+            doAnswer(answer).when(spy).notifyPendingSystemUpdate(anyLong());
+            doAnswer(answer).when(spy).getPendingSystemUpdate(any());
+
+            // Used by AffiliationTest (GTS)
+            doAnswer(answer).when(spy).getAffiliationIds(any());
+
             // TODO(b/176993670): add more methods below as tests are converted
         } catch (Exception e) {
             // Should never happen, but needs to be catch as some methods declare checked exceptions

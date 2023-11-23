@@ -5,13 +5,10 @@
 //! Implementation of the the `Encoder` struct, which is responsible for translation between the
 //! virtio protocols and LibVDA APIs.
 
+pub mod backend;
 mod encoder;
-mod libvda_encoder;
 
-pub use encoder::EncoderError;
-pub use libvda_encoder::LibvdaEncoder;
-
-use base::{error, warn, Tube, WaitContext};
+use base::{error, info, warn, Tube, WaitContext};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::virtio::resource_bridge::{self, BufferInfo, ResourceInfo, ResourceRequest};
@@ -23,15 +20,18 @@ use crate::virtio::video::device::{
     AsyncCmdResponse, AsyncCmdTag, Device, Token, VideoEvtResponseType,
 };
 use crate::virtio::video::encoder::encoder::{
-    Encoder, EncoderEvent, EncoderSession, InputBufferId, OutputBufferId, SessionConfig,
-    VideoFramePlane,
+    EncoderEvent, InputBufferId, OutputBufferId, SessionConfig,
 };
 use crate::virtio::video::error::*;
 use crate::virtio::video::event::{EvtType, VideoEvt};
-use crate::virtio::video::format::{Format, Level, PlaneFormat, Profile};
+use crate::virtio::video::format::{
+    Bitrate, BitrateMode, Format, FramePlane, Level, PlaneFormat, Profile,
+};
 use crate::virtio::video::params::Params;
 use crate::virtio::video::protocol;
 use crate::virtio::video::response::CmdResponse;
+use crate::virtio::video::EosBufferManager;
+use backend::*;
 
 #[derive(Debug)]
 struct QueuedInputResourceParams {
@@ -42,7 +42,7 @@ struct QueuedInputResourceParams {
 
 struct InputResource {
     resource_handle: u128,
-    planes: Vec<VideoFramePlane>,
+    planes: Vec<FramePlane>,
     queue_params: Option<QueuedInputResourceParams>,
 }
 
@@ -72,7 +72,7 @@ struct Stream<T: EncoderSession> {
     id: u32,
     src_params: Params,
     dst_params: Params,
-    dst_bitrate: u32,
+    dst_bitrate: Bitrate,
     dst_profile: Profile,
     dst_h264_level: Option<Level>,
     frame_rate: u32,
@@ -88,7 +88,7 @@ struct Stream<T: EncoderSession> {
     encoder_output_buffer_ids: BTreeMap<OutputBufferId, u32>,
 
     pending_commands: BTreeSet<PendingCommand>,
-    eos_notification_buffer: Option<OutputBufferId>,
+    eos_manager: EosBufferManager,
 }
 
 impl<T: EncoderSession> Stream<T> {
@@ -101,7 +101,12 @@ impl<T: EncoderSession> Stream<T> {
         const MAX_BUFFERS: u32 = 342;
         const DEFAULT_WIDTH: u32 = 640;
         const DEFAULT_HEIGHT: u32 = 480;
-        const DEFAULT_BITRATE: u32 = 6000;
+        const DEFAULT_BITRATE_TARGET: u32 = 6000;
+        const DEFAULT_BITRATE_PEAK: u32 = DEFAULT_BITRATE_TARGET * 2;
+        const DEFAULT_BITRATE: Bitrate = Bitrate::VBR {
+            target: DEFAULT_BITRATE_TARGET,
+            peak: DEFAULT_BITRATE_PEAK,
+        };
         const DEFAULT_BUFFER_SIZE: u32 = 2097152; // 2MB; chosen empirically for 1080p video
         const DEFAULT_FPS: u32 = 30;
 
@@ -161,7 +166,7 @@ impl<T: EncoderSession> Stream<T> {
             dst_resources: Default::default(),
             encoder_output_buffer_ids: Default::default(),
             pending_commands: Default::default(),
-            eos_notification_buffer: None,
+            eos_manager: EosBufferManager::new(id),
         })
     }
 
@@ -188,7 +193,7 @@ impl<T: EncoderSession> Stream<T> {
                 dst_params: self.dst_params.clone(),
                 dst_profile: self.dst_profile,
                 dst_bitrate: self.dst_bitrate,
-                dst_h264_level: self.dst_h264_level.clone(),
+                dst_h264_level: self.dst_h264_level,
                 frame_rate: self.frame_rate,
             })
             .map_err(|_| VideoError::InvalidOperation)?;
@@ -408,36 +413,7 @@ impl<T: EncoderSession> Stream<T> {
 
         let mut async_responses = vec![];
 
-        let eos_resource_id = match self.eos_notification_buffer {
-            Some(r) => r,
-            None => {
-                error!(
-                    "No EOS resource available on successful flush response (stream id {})",
-                    self.id
-                );
-                return Some(vec![VideoEvtResponseType::Event(VideoEvt {
-                    typ: EvtType::Error,
-                    stream_id: self.id,
-                })]);
-            }
-        };
-
-        let eos_tag = AsyncCmdTag::Queue {
-            stream_id: self.id,
-            queue_type: QueueType::Output,
-            resource_id: eos_resource_id,
-        };
-
-        let eos_response = CmdResponse::ResourceQueue {
-            timestamp: 0,
-            flags: protocol::VIRTIO_VIDEO_BUFFER_FLAG_EOS,
-            size: 0,
-        };
-
-        async_responses.push(VideoEvtResponseType::AsyncCmd(
-            AsyncCmdResponse::from_response(eos_tag, eos_response),
-        ));
-
+        // First gather the responses for all completed commands.
         if self.pending_commands.remove(&PendingCommand::Drain) {
             async_responses.push(VideoEvtResponseType::AsyncCmd(
                 AsyncCmdResponse::from_response(
@@ -471,16 +447,12 @@ impl<T: EncoderSession> Stream<T> {
             ));
         }
 
-        if async_responses.is_empty() {
-            error!("Received flush response but there are no pending commands.");
-            None
-        } else {
-            Some(async_responses)
-        }
+        // Then add the EOS buffer to the responses if it is available.
+        self.eos_manager.try_complete_eos(async_responses)
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    fn notify_error(&self, error: EncoderError) -> Option<Vec<VideoEvtResponseType>> {
+    fn notify_error(&self, error: VideoError) -> Option<Vec<VideoEvtResponseType>> {
         error!(
             "Received encoder error event for stream {}: {}",
             self.id, error
@@ -496,6 +468,7 @@ pub struct EncoderDevice<T: Encoder> {
     cros_capabilities: encoder::EncoderCapabilities,
     encoder: T,
     streams: BTreeMap<u32, Stream<T::Session>>,
+    resource_bridge: Tube,
 }
 
 fn get_resource_info(res_bridge: &Tube, uuid: u128) -> VideoResult<BufferInfo> {
@@ -510,11 +483,13 @@ fn get_resource_info(res_bridge: &Tube, uuid: u128) -> VideoResult<BufferInfo> {
 }
 
 impl<T: Encoder> EncoderDevice<T> {
-    pub fn new(encoder: T) -> encoder::Result<Self> {
+    /// Build a new encoder using the provided `backend`.
+    fn from_backend(backend: T, resource_bridge: Tube) -> VideoResult<Self> {
         Ok(Self {
-            cros_capabilities: encoder.query_capabilities()?,
-            encoder,
+            cros_capabilities: backend.query_capabilities()?,
+            encoder: backend,
             streams: Default::default(),
+            resource_bridge,
         })
     }
 
@@ -597,7 +572,6 @@ impl<T: Encoder> EncoderDevice<T> {
     fn resource_create(
         &mut self,
         wait_ctx: &WaitContext<Token>,
-        resource_bridge: &Tube,
         stream_id: u32,
         queue_type: QueueType,
         resource_id: u32,
@@ -627,11 +601,11 @@ impl<T: Encoder> EncoderDevice<T> {
                     warn!("Replacing source resource with id {}", resource_id);
                 }
 
-                let resource_info = get_resource_info(resource_bridge, uuid)?;
+                let resource_info = get_resource_info(&self.resource_bridge, uuid)?;
 
-                let planes: Vec<VideoFramePlane> = resource_info.planes[0..num_planes]
-                    .into_iter()
-                    .map(|plane_info| VideoFramePlane {
+                let planes: Vec<FramePlane> = resource_info.planes[0..num_planes]
+                    .iter()
+                    .map(|plane_info| FramePlane {
                         offset: plane_info.offset as usize,
                         stride: plane_info.stride as usize,
                     })
@@ -672,7 +646,6 @@ impl<T: Encoder> EncoderDevice<T> {
 
     fn resource_queue(
         &mut self,
-        resource_bridge: &Tube,
         stream_id: u32,
         queue_type: QueueType,
         resource_id: u32,
@@ -708,7 +681,7 @@ impl<T: Encoder> EncoderDevice<T> {
                 )?;
 
                 let resource_info =
-                    get_resource_info(resource_bridge, src_resource.resource_handle)?;
+                    get_resource_info(&self.resource_bridge, src_resource.resource_handle)?;
 
                 let force_keyframe = std::mem::replace(&mut stream.force_keyframe, false);
 
@@ -771,7 +744,7 @@ impl<T: Encoder> EncoderDevice<T> {
                 )?;
 
                 let resource_info =
-                    get_resource_info(resource_bridge, dst_resource.resource_handle)?;
+                    get_resource_info(&self.resource_bridge, dst_resource.resource_handle)?;
 
                 let mut buffer_size = data_sizes[0];
 
@@ -787,8 +760,7 @@ impl<T: Encoder> EncoderDevice<T> {
                 // This is necessary because libvda is unable to indicate EOS along with returned buffers.
                 // For now, when a `Flush()` completes, this saved resource will be returned as a zero-sized
                 // buffer with the EOS flag.
-                if stream.eos_notification_buffer.is_none() {
-                    stream.eos_notification_buffer = Some(resource_id);
+                if stream.eos_manager.try_reserve_eos_buffer(resource_id) {
                     return Ok(VideoCmdResponseType::Async(AsyncCmdTag::Queue {
                         stream_id,
                         queue_type: QueueType::Output,
@@ -850,7 +822,7 @@ impl<T: Encoder> EncoderDevice<T> {
         stream.encoder_input_buffer_ids.clear();
         stream.dst_resources.clear();
         stream.encoder_output_buffer_ids.clear();
-        stream.eos_notification_buffer.take();
+        stream.eos_manager.reset();
         Ok(VideoCmdResponseType::Sync(CmdResponse::NoData))
     }
 
@@ -889,7 +861,7 @@ impl<T: Encoder> EncoderDevice<T> {
                         queue_params.in_queue = false;
                     }
                 }
-                stream.eos_notification_buffer = None;
+                stream.eos_manager.reset();
             }
         }
         Ok(VideoCmdResponseType::Sync(CmdResponse::NoData))
@@ -952,97 +924,132 @@ impl<T: Encoder> EncoderDevice<T> {
             .get_mut(&stream_id)
             .ok_or(VideoError::InvalidStreamId(stream_id))?;
 
-        if stream.src_resources.len() > 0 || stream.dst_resources.len() > 0 {
-            // Buffers have already been queued and encoding has already started.
-            return Err(VideoError::InvalidOperation);
+        let mut create_session = stream.encoder_session.is_none();
+        let resources_queued = stream.src_resources.len() > 0 || stream.dst_resources.len() > 0;
+
+        // Dynamic framerate changes are allowed. The framerate can be set on either the input or
+        // output queue. Changing the framerate can influence the selected H.264 level, as the
+        // level might be adjusted to conform to the minimum requirements for the selected bitrate
+        // and framerate. As dynamic level changes are not supported we will just recreate the
+        // encoder session as long as no resources have been queued yet. If an encoder session is
+        // active we will request a dynamic framerate change instead, and it's up to the encoder
+        // backend to return an error on invalid requests.
+        if stream.frame_rate != frame_rate {
+            stream.frame_rate = frame_rate;
+            if let Some(ref mut encoder_session) = stream.encoder_session {
+                if !resources_queued {
+                    create_session = true;
+                } else if let Err(e) = encoder_session
+                    .request_encoding_params_change(stream.dst_bitrate, stream.frame_rate)
+                {
+                    error!("failed to dynamically request framerate change: {}", e);
+                    return Err(VideoError::InvalidOperation);
+                }
+            }
         }
 
         match queue_type {
             QueueType::Input => {
-                // There should be at least a single plane.
-                if plane_formats.is_empty() {
-                    return Err(VideoError::InvalidArgument);
-                }
+                if stream.src_params.frame_width != frame_width
+                    || stream.src_params.frame_height != frame_height
+                    || stream.src_params.format != format
+                    || stream.src_params.plane_formats != plane_formats
+                {
+                    if resources_queued {
+                        // Buffers have already been queued and encoding has already started.
+                        return Err(VideoError::InvalidOperation);
+                    }
 
-                let desired_format = format.or(stream.src_params.format).unwrap_or(Format::NV12);
-                self.cros_capabilities
-                    .populate_src_params(
+                    // There should be at least a single plane.
+                    if plane_formats.is_empty() {
+                        return Err(VideoError::InvalidArgument);
+                    }
+
+                    let desired_format =
+                        format.or(stream.src_params.format).unwrap_or(Format::NV12);
+                    self.cros_capabilities.populate_src_params(
                         &mut stream.src_params,
                         desired_format,
                         frame_width,
                         frame_height,
                         plane_formats[0].stride,
-                    )
-                    .map_err(VideoError::EncoderImpl)?;
+                    )?;
 
-                // Following the V4L2 standard the framerate requested on the
-                // input queue should also be applied to the output queue.
-                if frame_rate > 0 {
-                    stream.frame_rate = frame_rate;
+                    create_session = true
                 }
             }
             QueueType::Output => {
-                let desired_format = format.or(stream.dst_params.format).unwrap_or(Format::H264);
+                if stream.dst_params.format != format
+                    || stream.dst_params.plane_formats != plane_formats
+                {
+                    if resources_queued {
+                        // Buffers have already been queued and encoding has already started.
+                        return Err(VideoError::InvalidOperation);
+                    }
 
-                // There should be exactly one output buffer.
-                if plane_formats.len() != 1 {
-                    return Err(VideoError::InvalidArgument);
-                }
+                    let desired_format =
+                        format.or(stream.dst_params.format).unwrap_or(Format::H264);
 
-                self.cros_capabilities
-                    .populate_dst_params(
+                    // There should be exactly one output buffer.
+                    if plane_formats.len() != 1 {
+                        return Err(VideoError::InvalidArgument);
+                    }
+
+                    self.cros_capabilities.populate_dst_params(
                         &mut stream.dst_params,
                         desired_format,
                         plane_formats[0].plane_size,
+                    )?;
+
+                    // Format is always populated for encoder.
+                    let new_format = stream
+                        .dst_params
+                        .format
+                        .ok_or(VideoError::InvalidArgument)?;
+
+                    // If the selected profile no longer corresponds to the selected coded format,
+                    // reset it.
+                    stream.dst_profile = self
+                        .cros_capabilities
+                        .get_default_profile(&new_format)
+                        .ok_or(VideoError::InvalidArgument)?;
+
+                    if new_format == Format::H264 {
+                        stream.dst_h264_level = Some(Level::H264_1_0);
+                    } else {
+                        stream.dst_h264_level = None;
+                    }
+
+                    create_session = true;
+                }
+            }
+        }
+
+        if create_session {
+            // An encoder session has to be created immediately upon a SetParams
+            // (S_FMT) call, because we need to receive the RequireInputBuffers
+            // callback which has output buffer size info, in order to populate
+            // dst_params to have the correct size on subsequent GetParams (G_FMT) calls.
+            if stream.encoder_session.is_some() {
+                stream.clear_encode_session(wait_ctx)?;
+                if !stream.received_input_buffers_event {
+                    // This could happen if two SetParams calls are occuring at the same time.
+                    // For example, the user calls SetParams for the input queue on one thread,
+                    // and a new encode session is created. Then on another thread, SetParams
+                    // is called for the output queue before the first SetParams call has returned.
+                    // At this point, there is a new EncodeSession being created that has not
+                    // yet received a RequireInputBuffers event.
+                    // Even if we clear the encoder session and recreate it, this case
+                    // is handled because stream.pending_commands will still contain
+                    // the waiting GetParams responses, which will then receive fresh data once
+                    // the new session's RequireInputBuffers event happens.
+                    warn!(
+                        "New encoder session being created while waiting for RequireInputBuffers."
                     )
-                    .map_err(VideoError::EncoderImpl)?;
-
-                if frame_rate > 0 {
-                    stream.frame_rate = frame_rate;
-                }
-
-                // Format is always populated for encoder.
-                let new_format = stream
-                    .dst_params
-                    .format
-                    .ok_or(VideoError::InvalidArgument)?;
-
-                // If the selected profile no longer corresponds to the selected coded format,
-                // reset it.
-                stream.dst_profile = self
-                    .cros_capabilities
-                    .get_default_profile(&new_format)
-                    .ok_or(VideoError::InvalidArgument)?;
-
-                if new_format == Format::H264 {
-                    stream.dst_h264_level = Some(Level::H264_1_0);
-                } else {
-                    stream.dst_h264_level = None;
                 }
             }
+            stream.set_encode_session(&mut self.encoder, wait_ctx)?;
         }
-
-        // An encoder session has to be created immediately upon a SetParams
-        // (S_FMT) call, because we need to receive the RequireInputBuffers
-        // callback which has output buffer size info, in order to populate
-        // dst_params to have the correct size on subsequent GetParams (G_FMT) calls.
-        if stream.encoder_session.is_some() {
-            stream.clear_encode_session(wait_ctx)?;
-            if !stream.received_input_buffers_event {
-                // This could happen if two SetParams calls are occuring at the same time.
-                // For example, the user calls SetParams for the input queue on one thread,
-                // and a new encode session is created. Then on another thread, SetParams
-                // is called for the output queue before the first SetParams call has returned.
-                // At this point, there is a new EncodeSession being created that has not
-                // yet received a RequireInputBuffers event.
-                // Even if we clear the encoder session and recreate it, this case
-                // is handled because stream.pending_commands will still contain
-                // the waiting GetParams responses, which will then receive fresh data once
-                // the new session's RequireInputBuffers event happens.
-                warn!("New encoder session being created while waiting for RequireInputBuffers.")
-            }
-        }
-        stream.set_encode_session(&mut self.encoder, wait_ctx)?;
         Ok(VideoCmdResponseType::Sync(CmdResponse::NoData))
     }
 
@@ -1096,7 +1103,13 @@ impl<T: Encoder> EncoderDevice<T> {
             .get(&stream_id)
             .ok_or(VideoError::InvalidStreamId(stream_id))?;
         let ctrl_val = match ctrl_type {
-            CtrlType::Bitrate => CtrlVal::Bitrate(stream.dst_bitrate),
+            CtrlType::BitrateMode => CtrlVal::BitrateMode(stream.dst_bitrate.mode()),
+            CtrlType::Bitrate => CtrlVal::Bitrate(stream.dst_bitrate.target()),
+            CtrlType::BitratePeak => CtrlVal::BitratePeak(match stream.dst_bitrate {
+                Bitrate::VBR { peak, .. } => peak,
+                // For CBR there is no peak, so return the target (which is technically correct).
+                Bitrate::CBR { target } => target,
+            }),
             CtrlType::Profile => CtrlVal::Profile(stream.dst_profile),
             CtrlType::Level => {
                 let format = stream
@@ -1115,6 +1128,9 @@ impl<T: Encoder> EncoderDevice<T> {
             }
             // Button controls should not be queried.
             CtrlType::ForceKeyframe => return Err(VideoError::UnsupportedControl(ctrl_type)),
+            // Prepending SPS and PPS to IDR is always enabled in the libvda backend.
+            // TODO (b/161495502): account for other backends
+            CtrlType::PrependSpsPpsToIdr => CtrlVal::PrependSpsPpsToIdr(true),
         };
         Ok(VideoCmdResponseType::Sync(CmdResponse::GetControl(
             ctrl_val,
@@ -1131,19 +1147,61 @@ impl<T: Encoder> EncoderDevice<T> {
             .get_mut(&stream_id)
             .ok_or(VideoError::InvalidStreamId(stream_id))?;
         match ctrl_val {
+            CtrlVal::BitrateMode(bitrate_mode) => {
+                if stream.encoder_session.is_some() {
+                    error!(
+                        "set control called for bitrate mode but encoder session already exists."
+                    );
+                    return Err(VideoError::InvalidOperation);
+                }
+
+                // We only need to care if there is a change.
+                if stream.dst_bitrate.mode() != bitrate_mode {
+                    stream.dst_bitrate = match bitrate_mode {
+                        BitrateMode::CBR => Bitrate::CBR {
+                            target: stream.dst_bitrate.target(),
+                        },
+                        BitrateMode::VBR => Bitrate::VBR {
+                            target: stream.dst_bitrate.target(),
+                            peak: stream.dst_bitrate.target(),
+                        },
+                    };
+                }
+            }
             CtrlVal::Bitrate(bitrate) => {
+                let mut new_bitrate = stream.dst_bitrate;
+                match &mut new_bitrate {
+                    Bitrate::CBR { target } | Bitrate::VBR { target, .. } => *target = bitrate,
+                }
                 if let Some(ref mut encoder_session) = stream.encoder_session {
-                    if let Err(e) =
-                        encoder_session.request_encoding_params_change(bitrate, stream.frame_rate)
+                    if let Err(e) = encoder_session
+                        .request_encoding_params_change(new_bitrate, stream.frame_rate)
                     {
-                        error!(
-                            "failed to dynamically request encoding params change: {}",
-                            e
-                        );
+                        error!("failed to dynamically request target bitrate change: {}", e);
                         return Err(VideoError::InvalidOperation);
                     }
                 }
-                stream.dst_bitrate = bitrate;
+                stream.dst_bitrate = new_bitrate;
+            }
+            CtrlVal::BitratePeak(bitrate) => {
+                let mut new_bitrate = stream.dst_bitrate;
+                match &mut new_bitrate {
+                    Bitrate::CBR { .. } => {
+                        // Trying to set the peak bitrate while in constant mode. This is not an
+                        // error, just ignored.
+                        return Ok(VideoCmdResponseType::Sync(CmdResponse::SetControl));
+                    }
+                    Bitrate::VBR { peak, .. } => *peak = bitrate,
+                }
+                if let Some(ref mut encoder_session) = stream.encoder_session {
+                    if let Err(e) = encoder_session
+                        .request_encoding_params_change(new_bitrate, stream.frame_rate)
+                    {
+                        error!("failed to dynamically request peak bitrate change: {}", e);
+                        return Err(VideoError::InvalidOperation);
+                    }
+                }
+                stream.dst_bitrate = new_bitrate;
             }
             CtrlVal::Profile(profile) => {
                 if stream.encoder_session.is_some() {
@@ -1187,8 +1245,16 @@ impl<T: Encoder> EncoderDevice<T> {
                 }
                 stream.dst_h264_level = Some(level);
             }
-            CtrlVal::ForceKeyframe() => {
+            CtrlVal::ForceKeyframe => {
                 stream.force_keyframe = true;
+            }
+            CtrlVal::PrependSpsPpsToIdr(prepend_sps_pps_to_idr) => {
+                // Prepending SPS and PPS to IDR is always enabled in the libvda backend,
+                // disabling it will always fail.
+                // TODO (b/161495502): account for other backends
+                if !prepend_sps_pps_to_idr {
+                    return Err(VideoError::InvalidOperation);
+                }
             }
         }
         Ok(VideoCmdResponseType::Sync(CmdResponse::SetControl))
@@ -1200,11 +1266,11 @@ impl<T: Encoder> Device for EncoderDevice<T> {
         &mut self,
         req: VideoCmd,
         wait_ctx: &WaitContext<Token>,
-        resource_bridge: &Tube,
     ) -> (
         VideoCmdResponseType,
         Option<(u32, Vec<VideoEvtResponseType>)>,
     ) {
+        let mut event_ret = None;
         let cmd_response = match req {
             VideoCmd::QueryCapability { queue_type } => self.query_capabilities(queue_type),
             VideoCmd::StreamCreate {
@@ -1221,7 +1287,6 @@ impl<T: Encoder> Device for EncoderDevice<T> {
                 uuid,
             } => self.resource_create(
                 wait_ctx,
-                resource_bridge,
                 stream_id,
                 queue_type,
                 resource_id,
@@ -1234,14 +1299,50 @@ impl<T: Encoder> Device for EncoderDevice<T> {
                 resource_id,
                 timestamp,
                 data_sizes,
-            } => self.resource_queue(
-                resource_bridge,
-                stream_id,
-                queue_type,
-                resource_id,
-                timestamp,
-                data_sizes,
-            ),
+            } => {
+                let resp =
+                    self.resource_queue(stream_id, queue_type, resource_id, timestamp, data_sizes);
+
+                if resp.is_ok() && queue_type == QueueType::Output {
+                    if let Some(stream) = self.streams.get_mut(&stream_id) {
+                        // If we have a flush pending, add the response for dequeueing the EOS
+                        // buffer.
+                        if stream.eos_manager.client_awaits_eos {
+                            info!(
+                                "stream {}: using queued buffer as EOS for pending flush",
+                                stream_id
+                            );
+                            event_ret = match stream.eos_manager.try_complete_eos(vec![]) {
+                                Some(eos_resps) => Some((stream_id, eos_resps)),
+                                None => {
+                                    error!("stream {}: try_get_eos_buffer() should have returned a valid response. This is a bug.", stream_id);
+                                    Some((
+                                        stream_id,
+                                        vec![VideoEvtResponseType::Event(VideoEvt {
+                                            typ: EvtType::Error,
+                                            stream_id,
+                                        })],
+                                    ))
+                                }
+                            };
+                        }
+                    } else {
+                        error!(
+                            "stream {}: the stream ID should be valid here. This is a bug.",
+                            stream_id
+                        );
+                        event_ret = Some((
+                            stream_id,
+                            vec![VideoEvtResponseType::Event(VideoEvt {
+                                typ: EvtType::Error,
+                                stream_id,
+                            })],
+                        ));
+                    }
+                }
+
+                resp
+            }
             VideoCmd::ResourceDestroyAll { stream_id, .. } => self.resource_destroy_all(stream_id),
             VideoCmd::QueueClear {
                 stream_id,
@@ -1290,7 +1391,7 @@ impl<T: Encoder> Device for EncoderDevice<T> {
                 VideoCmdResponseType::Sync(e.into())
             }
         };
-        (cmd_ret, None)
+        (cmd_ret, event_ret)
     }
 
     fn process_event(

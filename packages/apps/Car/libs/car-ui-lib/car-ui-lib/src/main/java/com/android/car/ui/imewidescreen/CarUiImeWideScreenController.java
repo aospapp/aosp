@@ -16,6 +16,9 @@
 
 package com.android.car.ui.imewidescreen;
 
+import static com.android.car.ui.core.CarUi.TARGET_API_R;
+
+import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
@@ -84,8 +87,8 @@ import java.util.regex.Pattern;
  *      from {@link InputMethodService#onCreateInputView()}</li>
  *      <li>{@link #onComputeInsets(InputMethodService.Insets) should be called from
  *      {@link InputMethodService#onComputeInsets(InputMethodService.Insets)}</li>
- *      <li>{@link #onAppPrivateCommand(String, Bundle) should be called from {
- *      @link InputMethodService#onAppPrivateCommand(String, Bundle)}}</li>
+ *      <li>{@link #onAppPrivateCommand(String, Bundle) should be called from
+ *      {@link InputMethodService#onAppPrivateCommand(String, Bundle)}}</li>
  *      <li>{@link #setExtractViewShown(boolean)} should be called from
  *      {@link InputMethodService#setExtractViewShown(boolean)}</li>
  *      <li>{@link #onStartInputView(EditorInfo, InputConnection, CharSequence)} should be called
@@ -100,6 +103,7 @@ import java.util.regex.Pattern;
  * {@link InputMethodService#setExtractViewShown(boolean)} and return the original value instead
  * of false. for more info see {@link #setExtractViewShown(boolean)}
  */
+@RequiresApi(TARGET_API_R)
 public class CarUiImeWideScreenController {
 
     private static final String TAG = "ImeWideScreenController";
@@ -112,6 +116,9 @@ public class CarUiImeWideScreenController {
     // Action name of action that will be used by IMS to notify the application to clear the data
     // in the EditText.
     public static final String WIDE_SCREEN_CLEAR_DATA_ACTION = "automotive_wide_screen_clear_data";
+    // Action name when user clicks on the back button to close the IME.
+    public static final String WIDE_SCREEN_ON_BACK_CLICKED_ACTION =
+            "automotive_wide_screen_back_clicked";
     public static final String WIDE_SCREEN_POST_LOAD_SEARCH_RESULTS_ACTION =
             "automotive_wide_screen_post_load_search_results";
     // Action name used by applications to notify that new search results are available.
@@ -247,7 +254,7 @@ public class CarUiImeWideScreenController {
 
             @Override
             public void surfaceChanged(SurfaceHolder holder, int format,
-                                       int width, int height) {
+                    int width, int height) {
                 Bundle bundle = new Bundle();
                 bundle.putInt(CONTENT_AREA_SURFACE_HEIGHT,
                         mContentAreaSurfaceView.getHeight());
@@ -327,12 +334,12 @@ public class CarUiImeWideScreenController {
      * description and not the title.
      * <p>
      * When the IME window is closed all the views are reset. For the default view visibility see
-     * {@link #resetAutomotiveWideScreenViews()}.
+     * {@code resetAutomotiveWideScreenViews}.
      *
      * @param action Name of the command to be performed.
-     * @param data   Any data to include with the command.
+     * @param data Any data to include with the command.
      */
-    @RequiresApi(api = VERSION_CODES.R)
+    @RequiresApi(TARGET_API_R)
     public void onAppPrivateCommand(String action, Bundle data) {
         if (!isWideScreenMode()) {
             return;
@@ -432,6 +439,7 @@ public class CarUiImeWideScreenController {
         }
     }
 
+    @SuppressLint("Range")
     private void loadSearchItems() {
         if (mInputEditorInfo == null) {
             Log.w(TAG, "Result can't be loaded, input InputEditorInfo not available ");
@@ -517,10 +525,10 @@ public class CarUiImeWideScreenController {
      * Initialize the view in the wide screen template based on the data provided by the app through
      * {@link #onAppPrivateCommand(String, Bundle)}
      */
-    @RequiresApi(api = VERSION_CODES.R)
+    @RequiresApi(TARGET_API_R)
     public void onStartInputView(@NonNull EditorInfo editorInfo,
-                                 @Nullable InputConnection inputConnection,
-                                 @Nullable CharSequence textForImeAction) {
+            @Nullable InputConnection inputConnection,
+            @Nullable CharSequence textForImeAction) {
         if (!isWideScreenMode()) {
             return;
         }
@@ -563,6 +571,8 @@ public class CarUiImeWideScreenController {
             close.setOnClickListener(
                     (v) -> {
                         mInputMethodService.requestHideSelf(0);
+                        mInputConnection.performPrivateCommand(WIDE_SCREEN_ON_BACK_CLICKED_ACTION,
+                                null);
                     });
         }
 
@@ -600,7 +610,7 @@ public class CarUiImeWideScreenController {
      * information will ONLY be sent if OEM allows an application to hide the content area and let
      * it draw its own content.
      */
-    @RequiresApi(api = VERSION_CODES.R)
+    @RequiresApi(TARGET_API_R)
     private void sendSurfaceInfo() {
         if (!mAllowAppToHideContentArea && mContentAreaSurfaceView.getDisplay() == null
                 && !(mInputEditorInfo != null
@@ -609,10 +619,9 @@ public class CarUiImeWideScreenController {
         }
         // Dispatch the window visibility change for IME window as soon as its displayed.
         mRootView.dispatchWindowVisibilityChanged(View.VISIBLE);
-        IBinder hostToken = null;
         int displayId = mContentAreaSurfaceView.getDisplay() == null
                 ? 0 : mContentAreaSurfaceView.getDisplay().getDisplayId();
-        hostToken = mContentAreaSurfaceView.getHostToken();
+        IBinder hostToken = mContentAreaSurfaceView.getHostToken();
 
         Bundle bundle = new Bundle();
         bundle.putBinder(CONTENT_AREA_SURFACE_HOST_TOKEN, hostToken);
@@ -651,7 +660,7 @@ public class CarUiImeWideScreenController {
      */
     @Nullable
     private static PackageInfo getPackageInfo(Context context,
-                                              String packageName) {
+            String packageName) {
         PackageManager packageManager = context.getPackageManager();
         PackageInfo packageInfo = null;
         try {
@@ -694,7 +703,7 @@ public class CarUiImeWideScreenController {
      * <p>
      * For example, within the IMS service call
      * <pre>
-     *   @Override
+     *   &#64;Override
      *   public void setExtractViewShown(boolean shown) {
      *     if (!carUiImeWideScreenController.isWideScreenMode()) {
      *         super.setExtractViewShown(shown);
@@ -804,7 +813,7 @@ public class CarUiImeWideScreenController {
     /**
      * Called when IME window closes. Reset all the views once that happens.
      */
-    @RequiresApi(api = VERSION_CODES.R)
+    @RequiresApi(TARGET_API_R)
     public void onFinishInputView() {
         if (!isWideScreenMode()) {
             return;
@@ -812,7 +821,7 @@ public class CarUiImeWideScreenController {
         resetAutomotiveWideScreenViews();
     }
 
-    @RequiresApi(api = VERSION_CODES.R)
+    @RequiresApi(TARGET_API_R)
     private void resetAutomotiveWideScreenViews() {
         mWideScreenDescriptionTitle.setVisibility(View.GONE);
         mContentAreaSurfaceView.setVisibility(View.GONE);

@@ -18,7 +18,7 @@ package android.net.metrics;
 
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
-import com.android.testutils.assertParcelSane
+import com.android.testutils.assertParcelingIsLossless
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -48,7 +48,7 @@ class ApfProgramEventTest {
         assertEquals(5, apfProgramEvent.programLength)
         assertEquals(ApfProgramEvent.flagsFor(true, true), apfProgramEvent.flags)
 
-        assertParcelSane(apfProgramEvent, 6)
+        assertParcelingIsLossless(apfProgramEvent)
     }
 
     @Test

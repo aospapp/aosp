@@ -16,10 +16,12 @@
 package com.android.car.rotary;
 
 import static android.view.accessibility.AccessibilityWindowInfo.TYPE_SYSTEM;
+import static android.view.accessibility.AccessibilityWindowInfo.UNDEFINED_WINDOW_ID;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Rect;
+import android.view.Display;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 
@@ -32,6 +34,15 @@ import java.util.ArrayList;
 
 @RunWith(AndroidJUnit4.class)
 public class WindowBuilderTest {
+    @Test
+    public void testBuildDefaultWindow() {
+        AccessibilityWindowInfo window = new WindowBuilder().build();
+        assertThat(window.getId()).isEqualTo(UNDEFINED_WINDOW_ID);
+        assertThat(window.getType()).isEqualTo(0);
+        assertThat(window.getDisplayId()).isEqualTo(Display.DEFAULT_DISPLAY);
+        assertThat(window.isFocused()).isFalse();
+    }
+
     @Test
     public void testSetId() {
         AccessibilityWindowInfo window = new WindowBuilder().setId(0x42).build();
@@ -66,5 +77,18 @@ public class WindowBuilderTest {
         AccessibilityWindowInfo window =
                 new WindowBuilder().setDisplayId(3).build();
         assertThat(window.getDisplayId()).isEqualTo(3);
+    }
+
+    @Test
+    public void testSetFocused() {
+        AccessibilityWindowInfo window = new WindowBuilder().setFocused(true).build();
+        assertThat(window.isFocused()).isTrue();
+    }
+
+    @Test
+    public void testSetTaskId() {
+        AccessibilityWindowInfo window =
+                new WindowBuilder().setTaskId(3).build();
+        assertThat(window.getTaskId()).isEqualTo(3);
     }
 }

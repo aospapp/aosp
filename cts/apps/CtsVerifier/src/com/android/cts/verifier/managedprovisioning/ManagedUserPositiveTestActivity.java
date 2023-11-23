@@ -16,6 +16,7 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
+import static com.android.cts.verifier.managedprovisioning.CommandReceiverActivity.createIntentForDisablingKeyguardOrStatusBar;
 import static com.android.cts.verifier.managedprovisioning.Utils.createInteractiveTestItem;
 
 import android.app.Activity;
@@ -24,8 +25,10 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.DataSetObserver;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
+import android.util.Log;
 
 import com.android.cts.verifier.ArrayTestListAdapter;
 import com.android.cts.verifier.IntentDrivenTestActivity.ButtonInfo;
@@ -33,6 +36,7 @@ import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.TestListAdapter.TestListItem;
 import com.android.cts.verifier.TestResult;
+import com.android.cts.verifier.features.FeatureUtil;
 
 /**
  * Activity that lists all positive managed user tests.
@@ -56,13 +60,15 @@ public class ManagedUserPositiveTestActivity extends PassFailButtons.TestListAct
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (ACTION_CHECK_AFFILIATED_PROFILE_OWNER.equals(getIntent().getAction())) {
+        Intent intent = getIntent();
+        Log.d(TAG, "onCreate(" + UserHandle.myUserId() + "): intent=" + intent);
+        if (ACTION_CHECK_AFFILIATED_PROFILE_OWNER.equals(intent.getAction())) {
             DevicePolicyManager dpm = getSystemService(DevicePolicyManager.class);
             if (dpm.isProfileOwnerApp(getPackageName()) && dpm.isAffiliatedUser()) {
-                TestResult.setPassedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
+                TestResult.setPassedResult(this, intent.getStringExtra(EXTRA_TEST_ID),
                         null, null);
             } else {
-                TestResult.setFailedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
+                TestResult.setFailedResult(this, intent.getStringExtra(EXTRA_TEST_ID),
                         getString(R.string.managed_user_incorrect_managed_user), null);
             }
             finish();
@@ -97,8 +103,10 @@ public class ManagedUserPositiveTestActivity extends PassFailButtons.TestListAct
             // Pass and fail buttons are known to call finish() when clicked,
             // and this is when we want to remove the managed owner.
             DevicePolicyManager dpm = getSystemService(DevicePolicyManager.class);
+            Log.i(TAG, "Calling logoutUser() on user " + UserHandle.myUserId());
             dpm.logoutUser(DeviceAdminTestReceiver.getReceiverComponentName());
         }
+        Log.i(TAG, "So long and thanks for all the finish()!");
         super.finish();
     }
 
@@ -124,31 +132,33 @@ public class ManagedUserPositiveTestActivity extends PassFailButtons.TestListAct
                     new ButtonInfo[]{
                             new ButtonInfo(
                                     R.string.device_owner_disable_statusbar_button,
-                                    createManagedUserIntentWithBooleanParameter(
+                                    createIntentForDisablingKeyguardOrStatusBar(this,
                                             CommandReceiverActivity.COMMAND_SET_STATUSBAR_DISABLED,
-                                            true)),
+                                            /* disabled= */ true)),
                             new ButtonInfo(
                                     R.string.device_owner_reenable_statusbar_button,
-                                    createManagedUserIntentWithBooleanParameter(
+                                    createIntentForDisablingKeyguardOrStatusBar(this,
                                             CommandReceiverActivity.COMMAND_SET_STATUSBAR_DISABLED,
-                                            false))}));
+                                            /* disabled= */ false))}));
         }
 
         // setKeyguardDisabled
-        adapter.add(createInteractiveTestItem(this, DISABLE_KEYGUARD_TEST_ID,
-                R.string.device_owner_disable_keyguard_test,
-                R.string.device_owner_disable_keyguard_test_info,
-                new ButtonInfo[]{
-                        new ButtonInfo(
-                                R.string.device_owner_disable_keyguard_button,
-                                createManagedUserIntentWithBooleanParameter(
-                                        CommandReceiverActivity.COMMAND_SET_KEYGUARD_DISABLED,
-                                        true)),
-                        new ButtonInfo(
-                                R.string.device_owner_reenable_keyguard_button,
-                                createManagedUserIntentWithBooleanParameter(
-                                        CommandReceiverActivity.COMMAND_SET_KEYGUARD_DISABLED,
-                                        false))}));
+        if (FeatureUtil.isKeyguardShownWhenUserDoesntHaveCredentials(this)) {
+            adapter.add(createInteractiveTestItem(this, DISABLE_KEYGUARD_TEST_ID,
+                    R.string.device_owner_disable_keyguard_test,
+                    R.string.device_owner_disable_keyguard_test_info,
+                    new ButtonInfo[]{
+                            new ButtonInfo(
+                                    R.string.device_owner_disable_keyguard_button,
+                                    createIntentForDisablingKeyguardOrStatusBar(this,
+                                            CommandReceiverActivity.COMMAND_SET_KEYGUARD_DISABLED,
+                                            true)),
+                            new ButtonInfo(
+                                    R.string.device_owner_reenable_keyguard_button,
+                                    createIntentForDisablingKeyguardOrStatusBar(this,
+                                            CommandReceiverActivity.COMMAND_SET_KEYGUARD_DISABLED,
+                                            false))}));
+        }
 
         // DISALLOW_REMOVE_USER
         adapter.add(createInteractiveTestItem(this, DISALLOW_REMOVE_USER_TEST_ID,
@@ -183,12 +193,6 @@ public class ManagedUserPositiveTestActivity extends PassFailButtons.TestListAct
             Intent intent) {
         intent.putExtra(EXTRA_TEST_ID, id);
         return TestListItem.newTest(activity, titleRes, id, intent, null);
-    }
-
-    private Intent createManagedUserIntentWithBooleanParameter(String command, boolean value) {
-        return new Intent(this, CommandReceiverActivity.class)
-                .putExtra(CommandReceiverActivity.EXTRA_COMMAND, command)
-                .putExtra(CommandReceiverActivity.EXTRA_ENFORCED, value);
     }
 
     private boolean isStatusBarEnabled() {

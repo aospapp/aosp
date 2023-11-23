@@ -1,0 +1,16 @@
+genfscon sysfs /devices/platform/1c2c0000.drmdsim/1c2c0000.drmdsim.0/backlight                 u:object_r:sysfs_leds:s0
+genfscon sysfs /devices/platform/1c2c0000.drmdsim/1c2c0000.drmdsim.0/panel_name                u:object_r:sysfs_display:s0
+genfscon sysfs /devices/platform/1c2c0000.drmdsim/1c2c0000.drmdsim.0/serial_number             u:object_r:sysfs_display:s0
+genfscon sysfs /firmware/devicetree/base/drmdsim@0x1C2C0000/panel@0/compatible                 u:object_r:sysfs_display:s0
+
+genfscon sysfs /devices/platform/1c2d0000.drmdsim/1c2d0000.drmdsim.0/backlight                 u:object_r:sysfs_leds:s0
+genfscon sysfs /devices/platform/1c2d0000.drmdsim/1c2d0000.drmdsim.0/panel_name                u:object_r:sysfs_display:s0
+genfscon sysfs /devices/platform/1c2d0000.drmdsim/1c2d0000.drmdsim.0/serial_number             u:object_r:sysfs_display:s0
+genfscon sysfs /firmware/devicetree/base/drmdsim@0x1C2D0000/panel@0/compatible                 u:object_r:sysfs_display:s0
+
+genfscon sysfs /module/drm/parameters/vblankoffdelay                                           u:object_r:sysfs_display:s0
+
+genfscon sysfs /devices/platform/1c300000.drmdecon/dqe/atc                                     u:object_r:sysfs_display:s0
+genfscon sysfs /devices/platform/1c300000.drmdecon/early_wakeup                                u:object_r:sysfs_display:s0
+
+genfscon sysfs /devices/platform/exynos-drm/tui_status                                         u:object_r:sysfs_display:s0

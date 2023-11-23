@@ -963,7 +963,7 @@ class SnapshotUpdateTest : public SnapshotTest {
     }
 
     AssertionResult UnmapAll() {
-        for (const auto& name : {"sys", "vnd", "prd"}) {
+        for (const auto& name : {"sys", "vnd", "prd", "dlkm"}) {
             if (!dm_.DeleteDeviceIfExists(name + "_a"s)) {
                 return AssertionFailure() << "Cannot unmap " << name << "_a";
             }
@@ -1289,6 +1289,92 @@ TEST_F(SnapshotUpdateTest, SpaceSwapUpdate) {
         ASSERT_TRUE(init->ListSnapshots(local_lock.get(), &snapshots));
         ASSERT_TRUE(snapshots.empty());
     }
+
+    // Check that the target partitions have the same content after the merge.
+    for (const auto& name : {"sys_b", "vnd_b", "prd_b"}) {
+        ASSERT_TRUE(IsPartitionUnchanged(name))
+                << "Content of " << name << " changes after the merge";
+    }
+}
+
+// Test that a transient merge consistency check failure can resume properly.
+TEST_F(SnapshotUpdateTest, ConsistencyCheckResume) {
+    if (!IsCompressionEnabled()) {
+        // b/179111359
+        GTEST_SKIP() << "Skipping Virtual A/B Compression test";
+    }
+
+    auto old_sys_size = GetSize(sys_);
+    auto old_prd_size = GetSize(prd_);
+
+    // Grow |sys| but shrink |prd|.
+    SetSize(sys_, old_sys_size * 2);
+    sys_->set_estimate_cow_size(8_MiB);
+    SetSize(prd_, old_prd_size / 2);
+    prd_->set_estimate_cow_size(1_MiB);
+
+    AddOperationForPartitions();
+
+    ASSERT_TRUE(sm->BeginUpdate());
+    ASSERT_TRUE(sm->CreateUpdateSnapshots(manifest_));
+    ASSERT_TRUE(WriteSnapshotAndHash("sys_b"));
+    ASSERT_TRUE(WriteSnapshotAndHash("vnd_b"));
+    ASSERT_TRUE(ShiftAllSnapshotBlocks("prd_b", old_prd_size));
+
+    sync();
+
+    // Assert that source partitions aren't affected.
+    for (const auto& name : {"sys_a", "vnd_a", "prd_a"}) {
+        ASSERT_TRUE(IsPartitionUnchanged(name));
+    }
+
+    ASSERT_TRUE(sm->FinishedSnapshotWrites(false));
+
+    // Simulate shutting down the device.
+    ASSERT_TRUE(UnmapAll());
+
+    // After reboot, init does first stage mount.
+    auto init = NewManagerForFirstStageMount("_b");
+    ASSERT_NE(init, nullptr);
+    ASSERT_TRUE(init->NeedSnapshotsInFirstStageMount());
+    ASSERT_TRUE(init->CreateLogicalAndSnapshotPartitions("super", snapshot_timeout_));
+
+    // Check that the target partitions have the same content.
+    for (const auto& name : {"sys_b", "vnd_b", "prd_b"}) {
+        ASSERT_TRUE(IsPartitionUnchanged(name));
+    }
+
+    auto old_checker = init->merge_consistency_checker();
+
+    init->set_merge_consistency_checker(
+            [](const std::string&, const SnapshotStatus&) -> MergeFailureCode {
+                return MergeFailureCode::WrongMergeCountConsistencyCheck;
+            });
+
+    // Initiate the merge and wait for it to be completed.
+    ASSERT_TRUE(init->InitiateMerge());
+    {
+        // Check that the merge phase is FIRST_PHASE until at least one call
+        // to ProcessUpdateState() occurs.
+        ASSERT_TRUE(AcquireLock());
+        auto local_lock = std::move(lock_);
+        auto status = init->ReadSnapshotUpdateStatus(local_lock.get());
+        ASSERT_EQ(status.merge_phase(), MergePhase::FIRST_PHASE);
+    }
+
+    // Merge should have failed.
+    ASSERT_EQ(UpdateState::MergeFailed, init->ProcessUpdateState());
+
+    // Simulate shutting down the device and creating partitions again.
+    ASSERT_TRUE(UnmapAll());
+
+    // Restore the checker.
+    init->set_merge_consistency_checker(std::move(old_checker));
+
+    ASSERT_TRUE(init->CreateLogicalAndSnapshotPartitions("super", snapshot_timeout_));
+
+    // Complete the merge.
+    ASSERT_EQ(UpdateState::MergeCompleted, init->ProcessUpdateState());
 
     // Check that the target partitions have the same content after the merge.
     for (const auto& name : {"sys_b", "vnd_b", "prd_b"}) {
@@ -2024,6 +2110,80 @@ TEST_F(SnapshotUpdateTest, LowSpace) {
     ASSERT_EQ(Return::ErrorCode::NO_SPACE, res.error_code());
     ASSERT_GE(res.required_size(), 14_MiB);
     ASSERT_LT(res.required_size(), 40_MiB);
+}
+
+TEST_F(SnapshotUpdateTest, AddPartition) {
+    // OTA client blindly unmaps all partitions that are possibly mapped.
+    for (const auto& name : {"sys_b", "vnd_b", "prd_b"}) {
+        ASSERT_TRUE(sm->UnmapUpdateSnapshot(name));
+    }
+
+    group_->add_partition_names("dlkm");
+
+    auto dlkm = manifest_.add_partitions();
+    dlkm->set_partition_name("dlkm");
+    dlkm->set_estimate_cow_size(2_MiB);
+    SetSize(dlkm, 3_MiB);
+
+    // Grow all partitions. Set |prd| large enough that |sys| and |vnd|'s COWs
+    // fit in super, but not |prd|.
+    constexpr uint64_t partition_size = 3788_KiB;
+    SetSize(sys_, partition_size);
+    SetSize(vnd_, partition_size);
+    SetSize(prd_, partition_size);
+    SetSize(dlkm, partition_size);
+
+    AddOperationForPartitions({sys_, vnd_, prd_, dlkm});
+
+    // Execute the update.
+    ASSERT_TRUE(sm->BeginUpdate());
+    ASSERT_TRUE(sm->CreateUpdateSnapshots(manifest_));
+
+    // Write some data to target partitions.
+    for (const auto& name : {"sys_b", "vnd_b", "prd_b", "dlkm_b"}) {
+        ASSERT_TRUE(WriteSnapshotAndHash(name));
+    }
+
+    // Assert that source partitions aren't affected.
+    for (const auto& name : {"sys_a", "vnd_a", "prd_a"}) {
+        ASSERT_TRUE(IsPartitionUnchanged(name));
+    }
+
+    ASSERT_TRUE(sm->FinishedSnapshotWrites(false));
+
+    // Simulate shutting down the device.
+    ASSERT_TRUE(UnmapAll());
+
+    // After reboot, init does first stage mount.
+    auto init = NewManagerForFirstStageMount("_b");
+    ASSERT_NE(init, nullptr);
+
+    ASSERT_TRUE(init->EnsureSnapuserdConnected());
+    init->set_use_first_stage_snapuserd(true);
+
+    ASSERT_TRUE(init->NeedSnapshotsInFirstStageMount());
+    ASSERT_TRUE(init->CreateLogicalAndSnapshotPartitions("super", snapshot_timeout_));
+
+    // Check that the target partitions have the same content.
+    std::vector<std::string> partitions = {"sys_b", "vnd_b", "prd_b", "dlkm_b"};
+    for (const auto& name : partitions) {
+        ASSERT_TRUE(IsPartitionUnchanged(name));
+    }
+
+    ASSERT_TRUE(init->PerformInitTransition(SnapshotManager::InitTransition::SECOND_STAGE));
+    for (const auto& name : partitions) {
+        ASSERT_TRUE(init->snapuserd_client()->WaitForDeviceDelete(name + "-user-cow-init"));
+    }
+
+    // Initiate the merge and wait for it to be completed.
+    ASSERT_TRUE(init->InitiateMerge());
+    ASSERT_EQ(UpdateState::MergeCompleted, init->ProcessUpdateState());
+
+    // Check that the target partitions have the same content after the merge.
+    for (const auto& name : {"sys_b", "vnd_b", "prd_b", "dlkm_b"}) {
+        ASSERT_TRUE(IsPartitionUnchanged(name))
+                << "Content of " << name << " changes after the merge";
+    }
 }
 
 class AutoKill final {

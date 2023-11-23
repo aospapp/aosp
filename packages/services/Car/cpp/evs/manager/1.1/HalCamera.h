@@ -58,7 +58,7 @@ class VirtualCamera;    // From VirtualCamera.h
 // stream from the hardware camera and distribute it to the associated VirtualCamera objects.
 class HalCamera : public IEvsCameraStream_1_1 {
 public:
-    HalCamera(sp<IEvsCamera_1_1> hwCamera,
+    HalCamera(sp<IEvsCamera_1_1>& hwCamera,
               std::string deviceId = "",
               int32_t recordId = 0,
               Stream cfg = {})
@@ -75,8 +75,9 @@ public:
 
     // Factory methods for client VirtualCameras
     sp<VirtualCamera>     makeVirtualCamera();
-    bool                  ownVirtualCamera(sp<VirtualCamera> virtualCamera);
-    void                  disownVirtualCamera(sp<VirtualCamera> virtualCamera);
+    bool                  ownVirtualCamera(sp<VirtualCamera>& virtualCamera);
+    void                  disownVirtualCamera(sp<VirtualCamera>& virtualCamera);
+    void                  disownVirtualCamera(const VirtualCamera* virtualCamera);
 
     // Implementation details
     sp<IEvsCamera_1_0>  getHwCamera()       { return mHwCamera; };

@@ -1,0 +1,74 @@
+diff --git a/devices/Android.bp b/devices/Android.bp
+index 09290b81..8580691c 100644
+--- a/devices/Android.bp
++++ b/devices/Android.bp
+@@ -21,6 +21,8 @@ rust_defaults {
+     edition: "2018",
+     features: [
+         "audio",
++        "gfxstream",
++        "gpu",
+         "usb",
+     ],
+     rustlibs: [
+@@ -33,6 +35,7 @@ rust_defaults {
+         "libdisk",
+         "libfuse_rust",
+         "libfutures",
++        "libgpu_display",
+         "libhypervisor",
+         "libkvm_sys",
+         "liblibc",
+@@ -45,6 +48,7 @@ rust_defaults {
+         "libpower_monitor",
+         "librand_ish",
+         "libresources",
++        "librutabaga_gfx",
+         "libserde",
+         "libsmallvec",
+         "libsync_rust",
+@@ -63,6 +67,19 @@ rust_defaults {
+         "libenumn",
+         "libremain",
+     ],
++    target: {
++        host: {
++            shared_libs: ["libvirglrenderer"],
++        },
++        android: {
++            shared_libs: ["libdrm"],
++            static_libs: [
++                "libepoxy",
++                "libgbm",
++                "libvirglrenderer",
++            ],
++        },
++    },
+ }
+ 
+ rust_test_host {
+@@ -90,6 +107,8 @@ rust_library {
+     edition: "2018",
+     features: [
+         "audio",
++        "gfxstream",
++        "gpu",
+         "usb",
+     ],
+     rustlibs: [
+@@ -102,6 +121,7 @@ rust_library {
+         "libdisk",
+         "libfuse_rust",
+         "libfutures",
++        "libgpu_display",
+         "libhypervisor",
+         "libkvm_sys",
+         "liblibc",
+@@ -114,6 +134,7 @@ rust_library {
+         "libpower_monitor",
+         "librand_ish",
+         "libresources",
++        "librutabaga_gfx",
+         "libserde",
+         "libsmallvec",
+         "libsync_rust",

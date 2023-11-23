@@ -16,9 +16,10 @@
 
 package com.android.cellbroadcastreceiver.unit;
 
-
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 
 import android.app.backup.BackupAgentHelper;
@@ -28,6 +29,7 @@ import android.content.Intent;
 import android.os.UserHandle;
 
 import com.android.cellbroadcastreceiver.CellBroadcastBackupAgent;
+import com.android.cellbroadcastreceiver.CellBroadcastInternalReceiver;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -73,12 +75,17 @@ public class CellBroadcastBackupAgentTest {
 
     @Test
     public void testRestoreFinish() throws Exception {
+        final String packageName = CellBroadcastInternalReceiver.class.getPackage().getName();
+        final String className = CellBroadcastInternalReceiver.class.getName();
+        doReturn(mMockContext).when(mMockContext).getApplicationContext();
+        doReturn(packageName).when(mMockContext).getPackageName();
         mockBackupDispatcher();
         mBackupAgentUT.attach(mMockContext);
 
-        ArgumentCaptor<Intent> intentArgumentCaptor = ArgumentCaptor.forClass(Intent.class);
+        ArgumentCaptor<Intent> intentArg = ArgumentCaptor.forClass(Intent.class);
         mBackupAgentUT.onRestoreFinished();
-        verify(mMockContext).sendBroadcastAsUser(intentArgumentCaptor.capture(),
-                eq(UserHandle.SYSTEM));
+        verify(mMockContext).sendBroadcastAsUser(intentArg.capture(), eq(UserHandle.SYSTEM));
+        assertEquals(packageName, intentArg.getValue().getComponent().getPackageName());
+        assertEquals(className, intentArg.getValue().getComponent().getClassName());
     }
 }

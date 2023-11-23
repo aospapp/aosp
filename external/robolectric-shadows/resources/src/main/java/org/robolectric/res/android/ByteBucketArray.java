@@ -24,7 +24,7 @@ public abstract class ByteBucketArray<T> {
     }
 
 //    byte bucketIndex = static_cast<byte>(index) >> 4;
-    byte bucketIndex = (byte) (index >> 4);
+    byte bucketIndex = (byte) (Byte.toUnsignedInt((byte) index) >> 4);
     T[] bucket = (T[]) mBuckets[bucketIndex];
     if (bucket == null) {
       return mDefault;
@@ -38,7 +38,7 @@ public abstract class ByteBucketArray<T> {
 //        (uint32_t) index, (uint32_t) size());
 
 //    uint8_t bucketIndex = static_cast<uint8_t>(index) >> 4;
-    byte bucketIndex = (byte) (((byte) index) >> 4);
+    byte bucketIndex = (byte) (Byte.toUnsignedInt((byte) index) >> 4);
     Object[] bucket = mBuckets[bucketIndex];
     if (bucket == null) {
       bucket = mBuckets[bucketIndex] = new Object[BUCKET_SIZE];
@@ -60,7 +60,7 @@ public abstract class ByteBucketArray<T> {
     }
 
 //    editItemAt(index) = value;
-    byte bucketIndex = (byte) (((byte) index) >> 4);
+    byte bucketIndex = (byte) (Byte.toUnsignedInt((byte) index) >> 4);
     Object[] bucket = mBuckets[bucketIndex];
     if (bucket == null) {
       bucket = mBuckets[bucketIndex] = new Object[BUCKET_SIZE];

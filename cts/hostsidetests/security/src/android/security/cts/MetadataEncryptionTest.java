@@ -56,6 +56,13 @@ public class MetadataEncryptionTest extends BaseHostJUnit4Test {
         if (PropertyUtil.getFirstApiLevel(mDevice) <= 29) {
           return; // Requirement does not apply to devices running Q or earlier
         }
+        if (PropertyUtil.propertyEquals(mDevice, "ro.crypto.type", "managed")) {
+          // Android is running in a virtualized environment and the file
+          // system is encrypted by the host system.
+          // Note: All encryption-related CDD requirements still must be met,
+          // but they can't be tested directly in this case.
+          return;
+        }
         assertTrue("Metadata encryption must be enabled",
             mDevice.getBooleanProperty("ro.crypto.metadata.enabled", false));
     }
@@ -63,7 +70,9 @@ public class MetadataEncryptionTest extends BaseHostJUnit4Test {
     private void assumeSecurityModelCompat() throws Exception {
         // This feature name check only applies to devices that first shipped with
         // SC or later.
-        if (PropertyUtil.getFirstApiLevel(mDevice) >= 31) {
+        final int firstApiLevel = Math.min(PropertyUtil.getFirstApiLevel(mDevice),
+                PropertyUtil.getVendorApiLevel(mDevice));
+        if (firstApiLevel >= 31) {
             assumeTrue("Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.",
                     getDevice().hasFeature("feature:android.hardware.security.model.compatible"));
         }

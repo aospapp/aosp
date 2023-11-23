@@ -20,78 +20,64 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.ComponentName;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.harrier.annotations.enterprise.EnsureHasProfileOwner;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.users.UserReference;
-import com.android.bedstead.nene.users.UserType;
+import com.android.bedstead.remotedpc.RemoteDpc;
 import com.android.bedstead.testapp.TestApp;
-import com.android.bedstead.testapp.TestAppProvider;
-import com.android.eventlib.premade.EventLibDeviceAdminReceiver;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(BedsteadJUnit4.class)
 public class ProfileOwnerTest {
 
-    //  TODO(180478924): We shouldn't need to hardcode this
-    private static final String DEVICE_ADMIN_TESTAPP_PACKAGE_NAME = "android.DeviceAdminTestApp";
-    private static final ComponentName DPC_COMPONENT_NAME =
-            new ComponentName(DEVICE_ADMIN_TESTAPP_PACKAGE_NAME,
-                    EventLibDeviceAdminReceiver.class.getName());
-
-    private static final TestApis sTestApis = new TestApis();
-    private static final UserReference sUser = sTestApis.users().instrumented();
+    private static final ComponentName DPC_COMPONENT_NAME = RemoteDpc.DPC_COMPONENT_NAME;
     private static UserReference sProfile;
-
     private static TestApp sTestApp;
-    private static ProfileOwner sProfileOwner;
+    private static DevicePolicyController sProfileOwner;
 
-    @BeforeClass
-    public static void setupClass() {
-        sProfile = sTestApis.users().createUser()
-                .parent(sUser)
-                .type(sTestApis.users().supportedType(UserType.MANAGED_PROFILE_TYPE_NAME))
-                .createAndStart();
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
-        sTestApp = new TestAppProvider().query()
-                .wherePackageName().isEqualTo(DEVICE_ADMIN_TESTAPP_PACKAGE_NAME)
-                .get();
-
-        sTestApp.install(sProfile);
-
-        sProfileOwner = sTestApis.devicePolicy().setProfileOwner(sProfile, DPC_COMPONENT_NAME);
-    }
-
-    @AfterClass
-    public static void teardownClass() {
-        sProfile.remove();
+    @Before
+    public void setUp() {
+        sProfile = TestApis.users().instrumented();
+        sTestApp = sDeviceState.dpc().testApp();
+        sProfileOwner = sDeviceState.profileOwner().devicePolicyController();
     }
 
     @Test
+    @EnsureHasProfileOwner
     public void user_returnsUser() {
         assertThat(sProfileOwner.user()).isEqualTo(sProfile);
     }
 
     @Test
+    @EnsureHasProfileOwner
     public void pkg_returnsPackage() {
-        assertThat(sProfileOwner.pkg()).isEqualTo(sTestApp.reference());
+        assertThat(sProfileOwner.pkg()).isEqualTo(sTestApp.pkg());
     }
 
     @Test
+    @EnsureHasProfileOwner
     public void componentName_returnsComponentName() {
         assertThat(sProfileOwner.componentName()).isEqualTo(DPC_COMPONENT_NAME);
     }
 
     @Test
+    @EnsureHasProfileOwner
     public void remove_removesProfileOwner() {
         sProfileOwner.remove();
         try {
-            assertThat(sTestApis.devicePolicy().getProfileOwner(sProfile)).isNull();
+            assertThat(TestApis.devicePolicy().getProfileOwner(sProfile)).isNull();
         } finally {
-            sProfileOwner = sTestApis.devicePolicy().setProfileOwner(sProfile, DPC_COMPONENT_NAME);
+            sProfileOwner = TestApis.devicePolicy().setProfileOwner(sProfile, DPC_COMPONENT_NAME);
         }
     }
 }

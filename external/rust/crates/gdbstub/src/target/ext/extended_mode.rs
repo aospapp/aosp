@@ -30,9 +30,11 @@ pub enum ShouldTerminate {
     No,
 }
 
-impl From<ShouldTerminate> for bool {
-    fn from(st: ShouldTerminate) -> bool {
-        match st {
+impl ShouldTerminate {
+    /// Convert `ShouldTerminate::Yes` into `true`, and `ShouldTerminate::No`
+    /// into `false`
+    pub fn into_bool(self) -> bool {
+        match self {
             ShouldTerminate::Yes => true,
             ShouldTerminate::No => false,
         }
@@ -40,7 +42,6 @@ impl From<ShouldTerminate> for bool {
 }
 
 /// Describes how the target attached to a process.
-#[cfg(not(feature = "alloc"))]
 pub enum AttachKind {
     /// It attached to an existing process.
     Attach,
@@ -48,7 +49,6 @@ pub enum AttachKind {
     Run,
 }
 
-#[cfg(not(feature = "alloc"))]
 impl AttachKind {
     pub(crate) fn was_attached(self) -> bool {
         match self {
@@ -100,13 +100,14 @@ pub trait ExtendedMode: Target {
     /// Query if specified PID was spawned by the target (via `run`), or if the
     /// target attached to an existing process (via `attach`).
     ///
-    /// This method is only required when the `alloc`/`std` features are
-    /// disabled. If `alloc` is available, `gdbstub` will automatically track
-    /// this property using a heap-allocated data structure.
-    #[cfg(not(feature = "alloc"))]
+    /// If the PID doesn't correspond to a process the target has run or
+    /// attached to, a non fatal error should be returned.
     fn query_if_attached(&mut self, pid: Pid) -> TargetResult<AttachKind, Self>;
 
     /// Called when the GDB client sends a Kill request.
+    ///
+    /// If the PID doesn't correspond to a process the target has run or
+    /// attached to, a non fatal error should be returned.
     ///
     /// GDB may or may not specify a specific PID to kill. When no PID is
     /// specified, the target is free to decide what to do (e.g: kill the
@@ -146,21 +147,25 @@ pub trait ExtendedMode: Target {
     }
 
     /// Enable/Disable ASLR for spawned processes.
-    fn configure_aslr(&mut self) -> Option<ConfigureASLROps<Self>> {
+    #[inline(always)]
+    fn configure_aslr(&mut self) -> Option<ConfigureAslrOps<Self>> {
         None
     }
 
     /// Set/Remove/Reset Environment variables for spawned processes.
+    #[inline(always)]
     fn configure_env(&mut self) -> Option<ConfigureEnvOps<Self>> {
         None
     }
 
     /// Configure if spawned processes should be spawned using a shell.
+    #[inline(always)]
     fn configure_startup_shell(&mut self) -> Option<ConfigureStartupShellOps<Self>> {
         None
     }
 
     /// Configure the working directory for spawned processes.
+    #[inline(always)]
     fn configure_working_dir(&mut self) -> Option<ConfigureWorkingDirOps<Self>> {
         None
     }
@@ -194,18 +199,19 @@ impl<'args> Iterator for Args<'_, 'args> {
     }
 }
 
-/// Enable/Disable ASLR for spawned processes (for a more consistent debugging
-/// experience).
+/// Nested Target Extension - Enable/Disable ASLR for spawned processes (for a
+/// more consistent debugging experience).
 ///
 /// Corresponds to GDB's [`set disable-randomization`](https://sourceware.org/gdb/onlinedocs/gdb/Starting.html) command.
-pub trait ConfigureASLR: ExtendedMode {
+pub trait ConfigureAslr: ExtendedMode {
     /// Enable/Disable ASLR for spawned processes.
     fn cfg_aslr(&mut self, enabled: bool) -> TargetResult<(), Self>;
 }
 
-define_ext!(ConfigureASLROps, ConfigureASLR);
+define_ext!(ConfigureAslrOps, ConfigureAslr);
 
-/// Set/Remove/Reset the Environment variables for spawned processes.
+/// Nested Target Extension - Set/Remove/Reset the Environment variables for
+/// spawned processes.
 ///
 /// Corresponds to GDB's [`set environment`](https://sourceware.org/gdb/onlinedocs/gdb/Environment.html#set-environment) cmd.
 ///
@@ -226,7 +232,8 @@ pub trait ConfigureEnv: ExtendedMode {
 
 define_ext!(ConfigureEnvOps, ConfigureEnv);
 
-/// Configure if spawned processes should be spawned using a shell.
+/// Nested Target Extension - Configure if spawned processes should be spawned
+/// using a shell.
 ///
 /// Corresponds to GDB's [`set startup-with-shell`](https://sourceware.org/gdb/onlinedocs/gdb/Starting.html) command.
 pub trait ConfigureStartupShell: ExtendedMode {
@@ -239,7 +246,8 @@ pub trait ConfigureStartupShell: ExtendedMode {
 
 define_ext!(ConfigureStartupShellOps, ConfigureStartupShell);
 
-/// Configure the working directory for spawned processes.
+/// Nested Target Extension - Configure the working directory for spawned
+/// processes.
 ///
 /// Corresponds to GDB's [`set cwd` and `cd`](https://sourceware.org/gdb/onlinedocs/gdb/Working-Directory.html) commands.
 pub trait ConfigureWorkingDir: ExtendedMode {

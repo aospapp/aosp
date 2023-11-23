@@ -32,11 +32,11 @@
     <string name="wifi_suggestion_action_allow_app" msgid="7757859972144671588">"Tillad"</string>
     <string name="wifi_suggestion_action_disallow_app" msgid="4565857699629860726">"Nej tak"</string>
     <string name="wifi_suggestion_imsi_privacy_title" msgid="8969261812845304079">"Opret forbindelse til <xliff:g id="CARRIERNAME">%s</xliff:g>-Wi-Fi"</string>
-    <string name="wifi_suggestion_imsi_privacy_content" msgid="4266931269306079184">"Disse netværk kræver et SIM-id, der kan bruges til at spore enhedens placering"</string>
+    <string name="wifi_suggestion_imsi_privacy_content" msgid="4266931269306079184">"Disse netværk kræver et SIM-id, der kan bruges til at spore enhedens lokation"</string>
     <string name="wifi_suggestion_action_allow_imsi_privacy_exemption_carrier" msgid="3888538126440442636">"Opret forbindelse"</string>
     <string name="wifi_suggestion_action_disallow_imsi_privacy_exemption_carrier" msgid="3225397664735676024">"Opret ikke forbindelse"</string>
     <string name="wifi_suggestion_imsi_privacy_exemption_confirmation_title" msgid="4407415300707014525">"Vil du bekræfte forbindelsen?"</string>
-    <string name="wifi_suggestion_imsi_privacy_exemption_confirmation_content" msgid="9211241189147807136">"Hvis du opretter forbindelse, kan Wi-Fi-netværk fra <xliff:g id="CARRIERNAME">%s</xliff:g> få adgang til eller dele et unikt id, der er knyttet til dit SIM-kort. Derved kan din enheds placering muligvis spores."</string>
+    <string name="wifi_suggestion_imsi_privacy_exemption_confirmation_content" msgid="9211241189147807136">"Hvis du opretter forbindelse, kan Wi-Fi-netværk fra <xliff:g id="CARRIERNAME">%s</xliff:g> få adgang til eller dele et unikt id, der er knyttet til dit SIM-kort. Derved kan din enheds lokation muligvis spores."</string>
     <string name="wifi_suggestion_action_allow_imsi_privacy_exemption_confirmation" msgid="2168947026413431603">"Opret forbindelse"</string>
     <string name="wifi_suggestion_action_disallow_imsi_privacy_exemption_confirmation" msgid="5156881939985876066">"Opret ikke forbindelse"</string>
     <string name="wifi_wakeup_onboarding_title" msgid="3868826648004934540">"Wi‑Fi aktiveres automatisk"</string>
@@ -65,7 +65,7 @@
     <string name="wifi_cannot_connect_with_randomized_mac_title" msgid="2344570489693915253">"Der kan ikke oprettes forbindelse til <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_cannot_connect_with_randomized_mac_message" msgid="4834133226521813352">"Tryk for at ændre privatlivsindstillingerne, og prøv igen"</string>
     <string name="wifi_disable_mac_randomization_dialog_title" msgid="2054540994993681606">"Vil du ændre privatlivsindstillingen?"</string>
-    <string name="wifi_disable_mac_randomization_dialog_message" msgid="8874064864332248988">"<xliff:g id="SSID">%1$s</xliff:g> skal bruge din enheds MAC-adresse (som er et unikt id), for at oprette forbindelse. I øjeblikket bruges et tilfældigt id i henhold til dine privatlivsindstillinger for dette netværk. \n\nDenne ændring kan gøre det muligt for enheder i nærheden spore din enheds placering."</string>
+    <string name="wifi_disable_mac_randomization_dialog_message" msgid="8874064864332248988">"<xliff:g id="SSID">%1$s</xliff:g> skal bruge din enheds MAC-adresse (som er et unikt id), for at oprette forbindelse. I øjeblikket bruges et tilfældigt id i henhold til dine privatlivsindstillinger for dette netværk. \n\nDenne ændring kan gøre det muligt for enheder i nærheden spore din enheds lokation."</string>
     <string name="wifi_disable_mac_randomization_dialog_confirm_text" msgid="6954419863076751626">"Skift indstilling"</string>
     <string name="wifi_disable_mac_randomization_dialog_success" msgid="5849155828154391387">"Indstillingen blev opdateret. Prøv at oprette forbindelse igen."</string>
     <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"Privatlivsindstillingen kan ikke ændres"</string>

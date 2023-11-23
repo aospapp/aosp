@@ -24,7 +24,10 @@ import android.car.Car.CarServiceLifecycleListener;
 import android.car.CarNotConnectedException;
 import android.car.evs.CarEvsBufferDescriptor;
 import android.car.evs.CarEvsManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
 import android.os.Bundle;
@@ -34,8 +37,8 @@ import android.view.Display;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.LinearLayout;
 
 import java.util.ArrayList;
@@ -55,6 +58,7 @@ public class CarEvsCameraPreviewActivity extends Activity {
 
     /** GL backed surface view to render the camera preview */
     private CarEvsCameraGLSurfaceView mEvsView;
+    private ViewGroup mRootView;
     private LinearLayout mPreviewContainer;
 
     /** Display manager to monitor the display's state */
@@ -145,11 +149,32 @@ public class CarEvsCameraPreviewActivity extends Activity {
         }
     };
 
+    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(intent.getAction())) {
+                finish();
+            } else {
+                Log.e(TAG, "Unexpected intent " + intent);
+            }
+        }
+    };
+
+    // To close the PreviewActiivty when Home button is clicked.
+    private void registerBroadcastReceiver() {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
+        // Need to register the receiver for all users, because we want to receive the Intent after
+        // the user is changed.
+        registerReceiverForAllUsers(mBroadcastReceiver, filter, null, null);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
 
+        registerBroadcastReceiver();
         parseExtra(getIntent());
 
         setShowWhenLocked(true);
@@ -164,8 +189,9 @@ public class CarEvsCameraPreviewActivity extends Activity {
                 Car.CAR_WAIT_TIMEOUT_WAIT_FOREVER, mCarServiceLifecycleListener);
 
         mEvsView = new CarEvsCameraGLSurfaceView(getApplication(), this);
-        mPreviewContainer = (LinearLayout) LayoutInflater.from(this).inflate(
+        mRootView = (ViewGroup) LayoutInflater.from(this).inflate(
                 R.layout.evs_preview_activity, /* root= */ null);
+        mPreviewContainer = mRootView.findViewById(R.id.evs_preview_container);
         LinearLayout.LayoutParams viewParam = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -173,31 +199,31 @@ public class CarEvsCameraPreviewActivity extends Activity {
         );
         mEvsView.setLayoutParams(viewParam);
         mPreviewContainer.addView(mEvsView, 0);
-        Button closeButton = mPreviewContainer.findViewById(R.id.close_button);
-        closeButton.setOnClickListener((v) -> finish());
+        View closeButton = mRootView.findViewById(R.id.close_button);
+        if (closeButton != null) {
+            closeButton.setOnClickListener(v -> finish());
+        }
 
         int width = WindowManager.LayoutParams.MATCH_PARENT;
         int height = WindowManager.LayoutParams.MATCH_PARENT;
-        int x = 0;
-        int y = 0;
         if (mUseSystemWindow) {
             width = getResources().getDimensionPixelOffset(R.dimen.camera_preview_width);
             height = getResources().getDimensionPixelOffset(R.dimen.camera_preview_height);
-            x = (getResources().getDisplayMetrics().widthPixels - width) / 2;
-            y = (getResources().getDisplayMetrics().heightPixels - height) / 2;
         }
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                width, height, x, y,
+                width, height,
                 2020 /* WindowManager.LayoutParams.TYPE_VOLUME_OVERLAY */,
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                WindowManager.LayoutParams.FLAG_DIM_BEHIND
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT);
-        params.gravity = Gravity.LEFT | Gravity.TOP;
+        params.gravity = Gravity.CENTER;
+        params.dimAmount = getResources().getFloat(R.dimen.config_cameraBackgroundScrim);
+
         if (mUseSystemWindow) {
             WindowManager wm = getSystemService(WindowManager.class);
-            wm.addView(mPreviewContainer, params);
+            wm.addView(mRootView, params);
         } else {
-            setContentView(mPreviewContainer, params);
+            setContentView(mRootView, params);
         }
     }
 
@@ -252,8 +278,10 @@ public class CarEvsCameraPreviewActivity extends Activity {
         mDisplayManager.unregisterDisplayListener(mDisplayListener);
         if (mUseSystemWindow) {
             WindowManager wm = getSystemService(WindowManager.class);
-            wm.removeView(mPreviewContainer);
+            wm.removeView(mRootView);
         }
+
+        unregisterReceiver(mBroadcastReceiver);
     }
 
     private void handleVideoStreamLocked() {

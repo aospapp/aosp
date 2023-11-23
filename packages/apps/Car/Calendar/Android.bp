@@ -21,15 +21,16 @@ android_app {
     name: "CarCalendarApp",
     srcs: ["src/**/*.java"],
     resource_dirs: ["res"],
-    sdk_version: "system_current",
-    min_sdk_version: "29",
+    sdk_version: "current",
+    target_sdk_version: "29",
+    min_sdk_version: "28",
     optimize: {
         enabled: false,
     },
     dex_preopt: {
         enabled: false,
     },
-    libs: ["android.car-system-stubs"],
+    libs: ["android.car-stubs"],
     static_libs: [
         "car-ui-lib",
         "androidx.lifecycle_lifecycle-extensions",

@@ -1,0 +1,4 @@
+# EdgeTPU service requires system public properties
+# since it lives under /system_ext/.
+system_public_prop(vendor_edgetpu_service_prop)
+

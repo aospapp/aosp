@@ -26,14 +26,18 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.content.Intent;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.provider.Settings;
 
 import androidx.preference.Preference;
+
+import com.android.car.settings.R;
 
 import org.junit.Test;
 import org.mockito.Mock;
@@ -49,7 +53,7 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
     private Preference mPreference;
 
     @Test
-    public void testGetPreferenceType()  {
+    public void testGetPreferenceType() throws Exception {
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
 
         assertWithMessage("preferenceType").that(controller.getPreferenceType())
@@ -57,14 +61,14 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
     }
 
     @Test
-    public void testGetAvailabilityStatus_noFeature()  {
+    public void testGetAvailabilityStatus_noFeature() throws Exception {
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureDisabled();
 
         assertAvailability(controller.getAvailabilityStatus(), UNSUPPORTED_ON_DEVICE);
     }
 
     @Test
-    public void testGetAvailabilityStatus_noAdmin() {
+    public void testGetAvailabilityStatus_noAdmin() throws Exception {
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
         // Don't need to mock anything else
 
@@ -72,7 +76,7 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
     }
 
     @Test
-    public void testGetAvailabilityStatus_adminWithoutReceiver() {
+    public void testGetAvailabilityStatus_adminWithoutReceiver() throws Exception {
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
         mockProfileOwner();
         // Don't need to mock anything else
@@ -90,17 +94,18 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
     }
 
     @Test
-    public void testUpdateStatus_noFeature()  {
+    public void testUpdateStatus_noFeature() throws Exception {
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureDisabled();
         // Don't need to mock anything else
 
         controller.updateState(mPreference);
 
         verifyPreferenceIntentNotSet();
+        verifyPreferenceTitleNotSet();
     }
 
     @Test
-    public void testUpdateStatus_noAdmin()  {
+    public void testUpdateStatus_noAdmin() throws Exception {
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
         // Don't need to mock anything else
 
@@ -110,7 +115,7 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
     }
 
     @Test
-    public void testUpdateStatus_adminWithoutReceiver()  {
+    public void testUpdateStatus_adminWithoutReceiver() throws Exception {
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
         mockProfileOwner();
         // Don't need to mock anything else
@@ -118,10 +123,11 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
         controller.updateState(mPreference);
 
         verifyPreferenceIntentNotSet();
+        verifyPreferenceTitleNotSet();
     }
 
     @Test
-    public void testUpdateStatus_adminWithReceiver()  {
+    public void testUpdateStatus_adminWithReceiver() throws Exception {
         WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
         mockProfileOwner();
         mockHasIntent();
@@ -129,6 +135,20 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
         controller.updateState(mPreference);
 
         verifyPreferenceIntentSet();
+        verifyPreferenceTitleSet();
+    }
+
+    @Test
+    public void testUpdateStatus_adminWithReceiverButNoPackageInfo() throws Exception {
+        WorkPolicyInfoPreferenceController controller = newControllerWithFeatureEnabled();
+        mockProfileOwner();
+        mockHasIntent();
+        mockAppInfoMissing();
+
+        controller.updateState(mPreference);
+
+        verifyPreferenceIntentNotSet();
+        verifyPreferenceTitleNotSet();
     }
 
     // Must create new instances on demand as the feature check is done on constructor
@@ -154,6 +174,12 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
                 .queryIntentActivities(showWorkPolicyInfoIntent(), eq(/* flags= */ 0));
     }
 
+    private void mockAppInfoMissing() throws NameNotFoundException {
+        // Must use doThrow() instead of when() because it's a spy
+        doThrow(new NameNotFoundException("D'OH!")).when(mSpiedPm).getApplicationInfo(mPackageName,
+                /* flags= */ 0);
+    }
+
     private Intent showWorkPolicyInfoIntent() {
         return intentFor(Settings.ACTION_SHOW_WORK_POLICY_INFO, mDefaultAdmin.getPackageName());
     }
@@ -164,5 +190,14 @@ public final class WorkPolicyInfoPreferenceControllerTest extends BasePreference
 
     private void verifyPreferenceIntentSet() {
         verify(mPreference).setIntent(showWorkPolicyInfoIntent());
+    }
+
+    private void verifyPreferenceTitleNotSet() {
+        verify(mPreference, never()).setTitle(any());
+    }
+
+    private void verifyPreferenceTitleSet() {
+        verify(mPreference).setTitle(mRealContext.getString(R.string.work_policy_privacy_settings,
+                mPackageName)); // NOTE: this test package doesn't provide a label
     }
 }

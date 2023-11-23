@@ -42,12 +42,12 @@
     <string name="header_category_accessories" msgid="6479803330480847199">"Пульт және жабдықтар"</string>
     <string name="header_category_personal" msgid="7880053929985150368">"Жеке"</string>
     <string name="connect_to_network" msgid="4133686359319492392">"Желімен байланыс орнату"</string>
-    <string name="add_an_account" msgid="2601275122685226096">"Есептік жазбаны енгізу"</string>
-    <string name="accounts_category_title" msgid="7286858931427579845">"Есептік жазбалар және оларға кіру"</string>
-    <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"Есептік жазбалар жоқ"</string>
+    <string name="add_an_account" msgid="2601275122685226096">"Аккаунтты енгізу"</string>
+    <string name="accounts_category_title" msgid="7286858931427579845">"Аккаунттар және оларға кіру"</string>
+    <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"Аккаунттар жоқ"</string>
     <plurals name="accounts_category_summary" formatted="false" msgid="1711483230329281167">
-      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> есептік жазба</item>
-      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> есептік жазба</item>
+      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> аккаунт</item>
+      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> аккаунт</item>
     </plurals>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"Медиа қызметтері, Assistant, Төлемдер"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"Желі және интернет"</string>
@@ -64,20 +64,20 @@
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Анықтама және пікір"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"Құпиялылық"</string>
     <string name="privacy_device_settings_category" msgid="5018334603278648524">"Құрылғы параметрлері"</string>
-    <string name="privacy_account_settings_category" msgid="5786591549945777400">"Есептік жазба параметрлері"</string>
+    <string name="privacy_account_settings_category" msgid="5786591549945777400">"Аккаунт параметрлері"</string>
     <string name="privacy_assistant_settings_title" msgid="4524957824712623680">"Google Assistant"</string>
     <string name="privacy_purchases_settings_title" msgid="6490965297061569673">"Төлем және сатып алу транзакциялары"</string>
     <string name="privacy_app_settings_category" msgid="858250971978879266">"Қолданба параметрлері"</string>
     <string name="privacy_category_summary" msgid="3534434883380511043">"Локация, пайдалану дерегі және диагностика, жарнамалар"</string>
-    <string name="add_account" msgid="7386223854837017129">"Есептік жазба қосу"</string>
-    <string name="account_header_remove_account" msgid="8573697553061331373">"Есептік жазбаны жою"</string>
+    <string name="add_account" msgid="7386223854837017129">"Аккаунт қосу"</string>
+    <string name="account_header_remove_account" msgid="8573697553061331373">"Аккаунтты жою"</string>
     <string name="account_sync" msgid="4315295293211313989">"Синхрондалған қолданбаларды таңдау"</string>
     <string name="sync_now" msgid="4335217984374620551">"Қазір синхрондау"</string>
     <string name="sync_in_progress" msgid="8081367667406185785">"Синхрондалуда…"</string>
     <string name="last_synced" msgid="8371967816955123864">"Соңғы синхрондау: <xliff:g id="TIME">%1$s</xliff:g>"</string>
     <string name="sync_disabled" msgid="6652778349371079140">"Өшірілген"</string>
-    <string name="account_remove" msgid="8456848988853890155">"Есептік жазбаны жою"</string>
-    <string name="account_remove_failed" msgid="5654411101098531690">"Есептік жазбаны жою мүмкін емес"</string>
+    <string name="account_remove" msgid="8456848988853890155">"Аккаунтты жою"</string>
+    <string name="account_remove_failed" msgid="5654411101098531690">"Аккаунтты жою мүмкін емес"</string>
     <!-- no translation found for sync_item_title (5884138264243772176) -->
     <skip />
     <string name="sync_one_time_sync" msgid="1665961083810584134">"Қазір синхрондау<xliff:g id="LAST_SYNC_TIME">
@@ -274,7 +274,7 @@
     <string name="enterprise_privacy_exposure_category" msgid="1555735251238636669">"Ұйымыңыз көре алатын ақпарат түрлері"</string>
     <string name="enterprise_privacy_exposure_changes_category" msgid="7750498604032318318">"Ұйым әкімшісі енгізген өзгерістер"</string>
     <string name="enterprise_privacy_device_access_category" msgid="7397106369136259850">"Бұл құрылғыға кіру рұқсатыңыз"</string>
-    <string name="enterprise_privacy_enterprise_data" msgid="8135491104894522008">"Электрондық пошта мен күнтізбе сияқты жұмыс есептік жазбаңызға байланысты деректер"</string>
+    <string name="enterprise_privacy_enterprise_data" msgid="8135491104894522008">"Электрондық пошта мен күнтізбе сияқты жұмыс аккаунтыңызға байланысты деректер"</string>
     <string name="enterprise_privacy_installed_packages" msgid="5012554762299490994">"Құрылғыдағы қолданбалар тізімі"</string>
     <string name="enterprise_privacy_usage_stats" msgid="7062422823174345793">"Әр қолданбада жұмсалған уақыт пен күн мөлшері"</string>
     <string name="enterprise_privacy_network_logs" msgid="305782312671493780">"Ең соңғы желі трафигінің журналы"</string>
@@ -650,10 +650,10 @@
     <string name="third_party_location_services_title" msgid="2826218400381676508">"3-тараптың Локация қызметтері"</string>
     <string name="location_reporting" msgid="3552501333650895634">"Геодерек жіберу"</string>
     <string name="location_history" msgid="4055660203090513120">"Локация тарихы"</string>
-    <string name="location_reporting_desc" msgid="1580018652781674608">"Google бұл мүмкіндікті Google Now және Google Карталар сияқты өнімдерде пайдаланады. Геодерек жіберу функциясын қосу осы мүмкіндікті пайдаланатын кез келген Google өніміне құрылғының Google есептік жазбасымен байланысты ең соңғы орын деректерін сақтауға және пайдалануға мүмкіндік береді."</string>
-    <string name="location_history_desc" msgid="926674012916014270">"Осы есептік жазба үшін орындар тарихы қосулы болса, Google құрылғының орын деректерін қолданбалар пайдалануы үшін сақтай алады.\n\nМысалы, Google Карталар сізге бағыттар бере алады және  give Google Now жұмысқа бару жолындағы жол қозғалысы туралы хабарлай алады.\n\nОрналасу тарихын кез келген уақытта өшіруге болады, бірақ бұлай істеу оны жоймайды. Орналасу тарихын көру және басқару үшін maps.google.com/locationhistory бетіне кіріңіз."</string>
+    <string name="location_reporting_desc" msgid="1580018652781674608">"Google бұл мүмкіндікті Google Now және Google Карталар сияқты өнімдерде пайдаланады. Геодерек жіберу функциясын қосу осы мүмкіндікті пайдаланатын кез келген Google өніміне құрылғының Google аккаунтымен байланысты ең соңғы орын деректерін сақтауға және пайдалануға мүмкіндік береді."</string>
+    <string name="location_history_desc" msgid="926674012916014270">"Осы аккаунт үшін орындар тарихы қосулы болса, Google құрылғының орын деректерін қолданбалар пайдалануы үшін сақтай алады.\n\nМысалы, Google Карталар сізге бағыттар бере алады және  give Google Now жұмысқа бару жолындағы жол қозғалысы туралы хабарлай алады.\n\nОрналасу тарихын кез келген уақытта өшіруге болады, бірақ бұлай істеу оны жоймайды. Орналасу тарихын көру және басқару үшін maps.google.com/locationhistory бетіне кіріңіз."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"Орындар тарихын жою"</string>
-    <string name="delete_location_history_desc" msgid="4035229731487113147">"Бұл осы құрылғыдан осы Google есептік жазбасы үшін сақталған бүкіл орындар тарихын жояды. Бұл жоюды болдырмау мүмкін емес. Кейбір қолданбалар, соның ішінде, Google Now, жұмысын тоқтатады."</string>
+    <string name="delete_location_history_desc" msgid="4035229731487113147">"Бұл осы құрылғыдан осы Google аккаунты үшін сақталған бүкіл орындар тарихын жояды. Бұл жоюды болдырмау мүмкін емес. Кейбір қолданбалар, соның ішінде, Google Now, жұмысын тоқтатады."</string>
     <string name="system_services" msgid="5754310941186053151">"Қызметтер"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"Қызмет параметрлері"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"Жоғары контрасты мәтін"</string>
@@ -850,11 +850,11 @@
       <item quantity="other">Қосылмаған кірістер</item>
       <item quantity="one">Қосылмаған кіріс</item>
     </plurals>
-    <string name="user_add_profile_item_summary" msgid="3211866291940617804">"Есептік жазбаңыздағы қолданбаларға және басқа мазмұнға қатынасты шектеу"</string>
+    <string name="user_add_profile_item_summary" msgid="3211866291940617804">"Аккаунтыңыздағы қолданбаларға және басқа мазмұнға қатынасты шектеу"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"Шектелген профиль"</string>
     <string name="user_restrictions_controlled_by" msgid="8124926446168030445">"<xliff:g id="APP">%1$s</xliff:g> басқарады"</string>
     <string name="app_not_supported_in_limited" msgid="4046604594925826955">"Бұл қолданбаға шектелген профильдерде қолдау көрсетілмейді"</string>
-    <string name="app_sees_restricted_accounts" msgid="174038126799649152">"Бұл қолданба есептік жазбаларыңызға қатынаса алады"</string>
+    <string name="app_sees_restricted_accounts" msgid="174038126799649152">"Бұл қолданба аккаунттарыңызға қатынаса алады"</string>
     <string name="restriction_location_enable_title" msgid="2552780806199464266">"Локация"</string>
     <string name="restriction_location_enable_summary" msgid="3719330231217994482">"Қолданбаларға орныңыз туралы ақпаратты пайдалануға рұқсат беру"</string>
     <string name="restricted_profile_switch_to" msgid="6193201935877168764">"Шектелген профильге кіру"</string>
@@ -873,7 +873,7 @@
     <string name="restricted_profile_configure_apps_description_loading" msgid="3293508876131962699">"Бір сәт күтіңіз…"</string>
     <string name="restricted_profile_change_password_title" msgid="6961384850606763601">"PIN кодын өзгерту"</string>
     <string name="restriction_description" msgid="2053112392083722259">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
-    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="1261056180558324892">"Бұл қолданба есептік жазбаларға кіре алады. <xliff:g id="APP">%1$s</xliff:g> бақылауында"</string>
+    <string name="app_sees_restricted_accounts_and_controlled_by" msgid="1261056180558324892">"Бұл қолданба аккаунттарға кіре алады. <xliff:g id="APP">%1$s</xliff:g> бақылауында"</string>
     <string name="pin_enter_unlock_channel" msgid="243855138978654080">"Осы арнаны көру үшін PIN кодын енгізіңіз"</string>
     <string name="pin_enter_unlock_program" msgid="275489015420025531">"Осы бағдарламаны көру үшін PIN кодын енгізіңіз"</string>
     <string name="pin_enter_pin" msgid="5020029261153234751">"PIN кодын енгізіңіз"</string>
@@ -902,7 +902,7 @@
     <string name="device_apps_app_management_storage_used" msgid="6725789557993296433">"Пайдаланылған жад"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="8928632612101487179">"<xliff:g id="VOLUME">%2$s</xliff:g> деңгейінде пайдаланылатын <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_clear_data" msgid="7305471678286735600">"Деректерді тазалау"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="170972356946852847">"Осы қолданбаның барлық деректері біржола жойылды.\nОның ішінде барлық файлдар, параметрлер, есептік жазбалар, дерекқорлар, т.б. бар."</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="170972356946852847">"Осы қолданбаның барлық деректері біржола жойылды.\nОның ішінде барлық файлдар, параметрлер, аккаунттар, дерекқорлар, т.б. бар."</string>
     <string name="device_apps_app_management_clear_default" msgid="4566187319647111484">"Әдепкі параметрлерді тазалау"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="1649974109123107390">"Кейбір әрекеттер үшін осы қолданбаны іске қосу үшін орнатыңыз"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="5935252537185381597">"Әдепкі параметрлер орнатылмаған"</string>
@@ -929,16 +929,16 @@
     <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"Медиамазмұн ойнату кезінде"</string>
     <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"Energy Saver параметрін растаңыз"</string>
     <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"Жаңа <xliff:g id="SLEEP_TIME">%1$s</xliff:g> параметрін растаңыз, мұның нәтижесінде қуат көбірек пайдаланылуы мүмкін."</string>
-    <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"Ешқандай есептік жазба қазір сақтық көшірмесі жасалған деректерді сақтап жатқан жоқ"</string>
+    <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"Ешқандай аккаунт қазір сақтық көшірмесі жасалған деректерді сақтап жатқан жоқ"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"Wi-Fi құпия сөздерінің, бетбелгілердің, басқа параметрлердің және қолданба деректерінің сақтық көшірмесін жасауды тоқтатып, Google серверлеріндегі барлық көшірмелерді өшіру керек пе?"</string>
     <string name="privacy_backup_data" msgid="3604057980102997914">"Деректердің сақтық көшірмесін жасау"</string>
-    <string name="privacy_backup_account" msgid="4527813051841860610">"Есептік жазбаның сақтық көшірмесін жасау"</string>
+    <string name="privacy_backup_account" msgid="4527813051841860610">"Аккаунттың сақтық көшірмесін жасау"</string>
     <string name="privacy_automatic_restore" msgid="7117805818589418118">"Автоматты түрде қалпына келтіру"</string>
     <string name="factory_reset_device" msgid="6509900821515094361">"Құрылғыны ысыру"</string>
-    <string name="factory_reset_description" msgid="6697396335158766785">"Бұл – құрылғыны зауыттық параметрлерге қайтарып, барлық деректі, есептік жазбаларды, файлдарды және жүктеп алынған қолданбаларды өшіреді."</string>
-    <string name="factory_reset_info_description" msgid="5098454670833183487">"Бұл – құрылғыны зауыттық параметрлерге қайтарып, барлық деректі, есептік жазбаларды, файлдарды және жүктеп алынған қолданбаларды өшіреді."</string>
-    <string name="factory_reset_content_description" msgid="1677022688420116803">"Зауыттық параметрлерге қайтару, бұл – құрылғыны зауыттық параметрлерге қайтарып, барлық деректі, есептік жазбаларды, файлдарды және жүктеп алынған қолданбаларды өшіреді."</string>
+    <string name="factory_reset_description" msgid="6697396335158766785">"Бұл – құрылғыны зауыттық параметрлерге қайтарып, барлық деректі, аккаунттарды, файлдарды және жүктеп алынған қолданбаларды өшіреді."</string>
+    <string name="factory_reset_info_description" msgid="5098454670833183487">"Бұл – құрылғыны зауыттық параметрлерге қайтарып, барлық деректі, аккаунттарды, файлдарды және жүктеп алынған қолданбаларды өшіреді."</string>
+    <string name="factory_reset_content_description" msgid="1677022688420116803">"Зауыттық параметрлерге қайтару, бұл – құрылғыны зауыттық параметрлерге қайтарып, барлық деректі, аккаунттарды, файлдарды және жүктеп алынған қолданбаларды өшіреді."</string>
     <string name="confirm_factory_reset_description" msgid="1337483463207721713">"Жеке ақпарат пен осы құрылғыдағы жүктеп алынған қолданбалар толығыиен өшірілсін бе? Бұл әрекетті қайтару мүмкін емес!"</string>
     <string name="confirm_factory_reset_device" msgid="4308646529880718465">"Барлығын өшіру"</string>
     <string name="select_device_name_title" msgid="3045019448327493634">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> құрылғысына атау таңдау"</string>

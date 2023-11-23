@@ -169,8 +169,9 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                     null));
             adapter.add(TestListAdapter.TestListItem.newTest(this,
                     R.string.aware_subscribe,
-                    DataPathOpenPassiveSubscribeTestActivity.class.getName(),
-                    new Intent(this, DataPathOpenPassiveSubscribeTestActivity.class), null));
+                    DataPathOpenPassiveSubscribeAcceptAnyTestActivity.class.getName(),
+                    new Intent(this, DataPathOpenPassiveSubscribeAcceptAnyTestActivity.class),
+                    null));
             adapter.add(TestListAdapter.TestListItem.newCategory(this,
                     R.string.aware_dp_ib_passphrase_unsolicited_accept_any));
             adapter.add(TestListAdapter.TestListItem.newTest(this,
@@ -181,8 +182,9 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                     null));
             adapter.add(TestListAdapter.TestListItem.newTest(this,
                     R.string.aware_subscribe,
-                    DataPathPassphrasePassiveSubscribeTestActivity.class.getName(),
-                    new Intent(this, DataPathPassphrasePassiveSubscribeTestActivity.class), null));
+                    DataPathPassphrasePassiveSubscribeAcceptAnyTestActivity.class.getName(),
+                    new Intent(this, DataPathPassphrasePassiveSubscribeAcceptAnyTestActivity.class),
+                    null));
             adapter.add(TestListAdapter.TestListItem.newCategory(this,
                     R.string.aware_dp_ib_pmk_unsolicited_accept_any));
             adapter.add(TestListAdapter.TestListItem.newTest(this,
@@ -192,8 +194,9 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                     null));
             adapter.add(TestListAdapter.TestListItem.newTest(this,
                     R.string.aware_subscribe,
-                    DataPathPmkPassiveSubscribeTestActivity.class.getName(),
-                    new Intent(this, DataPathPmkPassiveSubscribeTestActivity.class), null));
+                    DataPathPmkPassiveSubscribeAcceptAnyTestActivity.class.getName(),
+                    new Intent(this, DataPathPmkPassiveSubscribeAcceptAnyTestActivity.class),
+                    null));
             adapter.add(TestListAdapter.TestListItem.newCategory(this,
                     R.string.aware_dp_ib_open_solicited_accept_any));
             adapter.add(TestListAdapter.TestListItem.newTest(this,
@@ -203,8 +206,9 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                     null));
             adapter.add(TestListAdapter.TestListItem.newTest(this,
                     R.string.aware_subscribe,
-                    DataPathOpenActiveSubscribeTestActivity.class.getName(),
-                    new Intent(this, DataPathOpenActiveSubscribeTestActivity.class), null));
+                    DataPathOpenActiveSubscribeAcceptAnyTestActivity.class.getName(),
+                    new Intent(this, DataPathOpenActiveSubscribeAcceptAnyTestActivity.class),
+                    null));
             adapter.add(TestListAdapter.TestListItem.newCategory(this,
                     R.string.aware_dp_ib_passphrase_solicited_accept_any));
             adapter.add(TestListAdapter.TestListItem.newTest(this,
@@ -214,8 +218,9 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                     null));
             adapter.add(TestListAdapter.TestListItem.newTest(this,
                     R.string.aware_subscribe,
-                    DataPathPassphraseActiveSubscribeTestActivity.class.getName(),
-                    new Intent(this, DataPathPassphraseActiveSubscribeTestActivity.class), null));
+                    DataPathPassphraseActiveSubscribeAcceptAnyTestActivity.class.getName(),
+                    new Intent(this, DataPathPassphraseActiveSubscribeAcceptAnyTestActivity.class),
+                    null));
             adapter.add(TestListAdapter.TestListItem.newCategory(this,
                     R.string.aware_dp_ib_pmk_solicited_accept_any));
             adapter.add(TestListAdapter.TestListItem.newTest(this,
@@ -225,8 +230,8 @@ public class TestListActivity extends PassFailButtons.TestListActivity {
                     null));
             adapter.add(TestListAdapter.TestListItem.newTest(this,
                     R.string.aware_subscribe,
-                    DataPathPmkActiveSubscribeTestActivity.class.getName(),
-                    new Intent(this, DataPathPmkActiveSubscribeTestActivity.class), null));
+                    DataPathPmkActiveSubscribeAcceptAnyTestActivity.class.getName(),
+                    new Intent(this, DataPathPmkActiveSubscribeAcceptAnyTestActivity.class), null));
         }
 
         adapter.registerDataSetObserver(new DataSetObserver() {

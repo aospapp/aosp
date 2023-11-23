@@ -25,7 +25,6 @@
 
 #include "compositor/DrmDisplayCompositor.h"
 #include "compositor/Planner.h"
-#include "drm/DrmGenericImporter.h"
 #include "drm/ResourceManager.h"
 #include "drm/VSyncWorker.h"
 #include "drmhwcomposer.h"
@@ -83,27 +82,6 @@ class DrmHwcTwo : public hwc2_device_t {
       buffer_ = buffer;
     }
 
-    int take_acquire_fence() {
-      return acquire_fence_.Release();
-    }
-    void set_acquire_fence(int acquire_fence) {
-      acquire_fence_.Set(dup(acquire_fence));
-    }
-
-    int release_fence() {
-      return release_fence_.get();
-    }
-    int take_release_fence() {
-      return release_fence_.Release();
-    }
-    void manage_release_fence() {
-      release_fence_.Set(release_fence_raw_);
-      release_fence_raw_ = -1;
-    }
-    OutputFd release_fence_output() {
-      return OutputFd(&release_fence_raw_);
-    }
-
     hwc_rect_t display_frame() {
       return display_frame_;
     }
@@ -137,7 +115,17 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error SetLayerSurfaceDamage(hwc_region_t damage);
     HWC2::Error SetLayerTransform(int32_t transform);
     HWC2::Error SetLayerVisibleRegion(hwc_region_t visible);
-    HWC2::Error SetLayerZOrder(uint32_t z);
+    HWC2::Error SetLayerZOrder(uint32_t order);
+
+    UniqueFd acquire_fence_;
+
+    /*
+     * Release fence is not used.
+     * There is no release fence support available in the DRM/KMS. In case no
+     * release fence provided application will use this buffer for writing when
+     * the next frame present fence is signaled.
+     */
+    UniqueFd release_fence_;
 
    private:
     // sf_type_ stores the initial type given to us by surfaceflinger,
@@ -147,9 +135,6 @@ class DrmHwcTwo : public hwc2_device_t {
 
     HWC2::BlendMode blending_ = HWC2::BlendMode::None;
     buffer_handle_t buffer_ = NULL;
-    UniqueFd acquire_fence_;
-    int release_fence_raw_ = -1;
-    UniqueFd release_fence_;
     hwc_rect_t display_frame_;
     float alpha_ = 1.0f;
     hwc_frect_t source_crop_;
@@ -164,8 +149,7 @@ class DrmHwcTwo : public hwc2_device_t {
   class HwcDisplay {
    public:
     HwcDisplay(ResourceManager *resource_manager, DrmDevice *drm,
-               std::shared_ptr<Importer> importer, hwc2_display_t handle,
-               HWC2::DisplayType type);
+               hwc2_display_t handle, HWC2::DisplayType type);
     HwcDisplay(const HwcDisplay &) = delete;
     HWC2::Error Init(std::vector<DrmPlane *> *planes);
 
@@ -174,11 +158,7 @@ class DrmHwcTwo : public hwc2_device_t {
     void RegisterRefreshCallback(hwc2_callback_data_t data,
                                  hwc2_function_pointer_t func);
     HWC2::Error CreateComposition(bool test);
-    bool HardwareSupportsLayerType(HWC2::Composition comp_type);
-    uint32_t CalcPixOps(std::map<uint32_t, DrmHwcTwo::HwcLayer *> &z_map,
-                        size_t first_z, size_t size);
-    void MarkValidated(std::map<uint32_t, DrmHwcTwo::HwcLayer *> &z_map,
-                       size_t client_first_z, size_t client_size);
+    std::vector<DrmHwcTwo::HwcLayer *> GetOrderLayersByZPos();
 
     void ClearDisplay();
 
@@ -218,6 +198,22 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error GetDisplayBrightnessSupport(bool *supported);
     HWC2::Error SetDisplayBrightness(float);
 #endif
+#if PLATFORM_SDK_VERSION > 29
+    HWC2::Error GetDisplayConnectionType(uint32_t *outType);
+    HWC2::Error GetDisplayVsyncPeriod(hwc2_vsync_period_t *outVsyncPeriod);
+
+    HWC2::Error SetActiveConfigWithConstraints(
+        hwc2_config_t config,
+        hwc_vsync_period_change_constraints_t *vsyncPeriodChangeConstraints,
+        hwc_vsync_period_change_timeline_t *outTimeline);
+    HWC2::Error SetAutoLowLatencyMode(bool on);
+    HWC2::Error GetSupportedContentTypes(
+        uint32_t *outNumSupportedContentTypes,
+        const uint32_t *outSupportedContentTypes);
+
+    HWC2::Error SetContentType(int32_t contentType);
+#endif
+
     HWC2::Error GetDozeSupport(int32_t *support);
     HWC2::Error GetHdrCapabilities(uint32_t *num_types, int32_t *types,
                                    float *max_luminance,
@@ -293,10 +289,6 @@ class DrmHwcTwo : public hwc2_device_t {
       return connector_;
     }
 
-    const std::shared_ptr<Importer> &importer() const {
-      return importer_;
-    }
-
     ResourceManager *resource_manager() const {
       return resource_manager_;
     }
@@ -310,14 +302,13 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
    private:
-    void AddFenceToPresentFence(int fd);
+    void AddFenceToPresentFence(UniqueFd fd);
 
     constexpr static size_t MATRIX_SIZE = 16;
 
     ResourceManager *resource_manager_;
     DrmDevice *drm_;
     DrmDisplayCompositor compositor_;
-    std::shared_ptr<Importer> importer_;
     std::unique_ptr<Planner> planner_;
 
     std::vector<DrmPlane *> primary_planes_;
@@ -334,8 +325,8 @@ class DrmHwcTwo : public hwc2_device_t {
     std::map<hwc2_layer_t, HwcLayer> layers_;
     HwcLayer client_layer_;
     UniqueFd present_fence_;
-    int32_t color_mode_;
-    std::array<float, MATRIX_SIZE> color_transform_matrix_;
+    int32_t color_mode_{};
+    std::array<float, MATRIX_SIZE> color_transform_matrix_{};
     android_color_transform_t color_transform_hint_;
 
     uint32_t frame_no_ = 0;

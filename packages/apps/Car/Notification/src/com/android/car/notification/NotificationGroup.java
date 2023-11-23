@@ -18,6 +18,7 @@ package com.android.car.notification;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.Notification;
+import android.os.Build;
 import android.os.Bundle;
 
 import java.util.ArrayList;
@@ -33,16 +34,21 @@ import java.util.List;
  * </ol>
  */
 public class NotificationGroup {
+    private static final String TAG = "NotificationGroup";
+    private static final boolean DEBUG = Build.IS_DEBUGGABLE;
 
-    private String mGroupKey;
     private final List<AlertEntry> mNotifications = new ArrayList<>();
+
     @Nullable
     private List<String> mChildTitles;
     @Nullable
     private AlertEntry mGroupSummaryNotification;
-
+    private String mGroupKey;
     private boolean mIsHeader;
     private boolean mIsFooter;
+    private boolean mIsRecentsHeader;
+    private boolean mIsOlderHeader;
+    private boolean mIsSeen;
 
     public NotificationGroup() {
     }
@@ -51,12 +57,53 @@ public class NotificationGroup {
         addNotification(alertEntry);
     }
 
+    public NotificationGroup(NotificationGroup group) {
+        setGroupKey(group.getGroupKey());
+        if (group.getGroupSummaryNotification() != null) {
+            setGroupSummaryNotification(group.getGroupSummaryNotification());
+        }
+        for (AlertEntry alertEntry : group.getChildNotifications()) {
+            addNotification(alertEntry);
+        }
+        setChildTitles(group.getChildTitles());
+        setFooter(group.isFooter());
+        setHeader(group.isHeader());
+        setOlderHeader(group.isOlderHeader());
+        setRecentsHeader(group.isRecentsHeader());
+        setSeen(group.isSeen());
+    }
+
+    /**
+     * Add child notification.
+     *
+     * New notification must have the same group key as other notifications in group.
+     */
     public void addNotification(AlertEntry alertEntry) {
         assertSameGroupKey(alertEntry.getStatusBarNotification().getGroupKey());
         mNotifications.add(alertEntry);
     }
 
-    void setGroupSummaryNotification(AlertEntry groupSummaryNotification) {
+    /**
+     * Removes child notification.
+     *
+     * @return {@code true} if notification was removed
+     */
+    public boolean removeNotification(AlertEntry alertEntry) {
+        for (int i = 0; i < mNotifications.size(); i++) {
+            if (mNotifications.get(i).getKey().equals(alertEntry.getKey())) {
+                mNotifications.remove(i);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Set group summary notification.
+     *
+     * Group summary must have the same group key as other notifications in group.
+     */
+    public void setGroupSummaryNotification(AlertEntry groupSummaryNotification) {
         assertSameGroupKey(groupSummaryNotification.getStatusBarNotification().getGroupKey());
         mGroupSummaryNotification = groupSummaryNotification;
     }
@@ -91,6 +138,13 @@ public class NotificationGroup {
     }
 
     /**
+     * Return true if this group is a header, footer, recents header or older header.
+     */
+    public boolean isHeaderOrFooter() {
+        return isHeader() || isFooter() || isOlderHeader() || isRecentsHeader();
+    }
+
+    /**
      * Return true if the header is set to be displayed.
      */
     public boolean isHeader() {
@@ -119,11 +173,52 @@ public class NotificationGroup {
     }
 
     /**
+     * Return true if the recents header is set to be displayed.
+     */
+    public boolean isRecentsHeader() {
+        return mIsRecentsHeader;
+    }
+
+    /**
+     * Set this to true if a header is a recents header.
+     */
+    public void setRecentsHeader(boolean isRecentsHeader) {
+        mIsRecentsHeader = isRecentsHeader;
+    }
+
+    /**
+     * Return true if the older notifications header is set to be displayed.
+     */
+    public boolean isOlderHeader() {
+        return mIsOlderHeader;
+    }
+
+    /**
+     * Set this to true if a header is a older notifications header.
+     */
+    public void setOlderHeader(boolean isOlderHeader) {
+        mIsOlderHeader = isOlderHeader;
+    }
+
+    /**
+     * Return true if the notification group has been seen.
+     */
+    public boolean isSeen() {
+        return mIsSeen;
+    }
+
+    /**
+     * Set this to true if the notification group has been seen.
+     */
+    public void setSeen(boolean isSeen) {
+        mIsSeen = isSeen;
+    }
+
+    /**
      * Returns true if this group is not a header or footer and all of the notifications it holds
      * are dismissible by user action.
      */
     public boolean isDismissible() {
-
         if (mIsHeader || mIsFooter) {
             return false;
         }
@@ -179,17 +274,14 @@ public class NotificationGroup {
             Bundle extras = notification.getNotification().extras;
             if (extras.containsKey(Notification.EXTRA_TITLE)) {
                 titles.add(extras.getString(Notification.EXTRA_TITLE));
-
             } else if (extras.containsKey(Notification.EXTRA_TITLE_BIG)) {
                 titles.add(extras.getString(Notification.EXTRA_TITLE_BIG));
-
             } else if (extras.containsKey(Notification.EXTRA_MESSAGES)) {
                 List<Notification.MessagingStyle.Message> messages =
                         Notification.MessagingStyle.Message.getMessagesFromBundleArray(
                                 extras.getParcelableArray(Notification.EXTRA_MESSAGES));
                 Notification.MessagingStyle.Message lastMessage = messages.get(messages.size() - 1);
                 titles.add(lastMessage.getSenderPerson().getName().toString());
-
             } else if (extras.containsKey(Notification.EXTRA_SUB_TEXT)) {
                 titles.add(extras.getString(Notification.EXTRA_SUB_TEXT));
             }
@@ -213,7 +305,6 @@ public class NotificationGroup {
     public AlertEntry getSingleNotification() {
         if (isGroup() || getChildCount() == 0) {
             return getGroupSummaryNotification();
-
         } else {
             return mNotifications.get(0);
         }
@@ -234,5 +325,10 @@ public class NotificationGroup {
                     "Group key mismatch when adding a notification to a group. " +
                             "mGroupKey: " + mGroupKey + "; groupKey:" + groupKey);
         }
+    }
+
+    @Override
+    public String toString() {
+        return mGroupKey + ": " + mNotifications.toString();
     }
 }

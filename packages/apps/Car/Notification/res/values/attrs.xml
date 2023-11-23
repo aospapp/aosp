@@ -16,13 +16,24 @@
 -->
 <resources>
     <declare-styleable name="CarNotificationHeaderView">
+        <!-- Signifies that the notifications should be treated as a HUN. -->
         <attr name="isHeadsUp" format="boolean"/>
     </declare-styleable>
     <declare-styleable name="CarNotificationBodyView">
+        <!-- This attribute is to signify when the large icon should be shown.
+             It is ignored when launcher icon is being used. -->
         <attr name="showBigIcon" format="boolean"/>
+        <!-- The maximum number of lines that can be displayed in the content of a notification.
+             Use config_headsUpNotificationMaxBodyLines to control this value for HUNs.
+             Use config_notificationPanelMaxBodyLines to control this value for non-HUNs.
+             Use config_maxNumberOfMessagesInPanel & config_maxNumberOfMessageLinesInPanel to
+             control this value for non-HUN message style notifications. -->
         <attr name="maxLines" format="integer"/>
+        <!-- Signifies that the notifications should be treated as a HUN. -->
+        <attr name="isHeadsUp" format="boolean"/>
     </declare-styleable>
     <declare-styleable name="CarNotificationActionsView">
+        <!-- Signifies that the notification is of 'call' category. -->
         <attr name="categoryCall" format="boolean"/>
     </declare-styleable>
 </resources>

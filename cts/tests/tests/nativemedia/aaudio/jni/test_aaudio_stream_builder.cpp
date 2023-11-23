@@ -18,6 +18,8 @@
 #define LOG_TAG "AAudioTest"
 
 #include <cstring>
+#include <sstream>
+#include <utility>
 
 #include <aaudio/AAudio.h>
 #include <android/log.h>
@@ -366,3 +368,259 @@ INSTANTIATE_TEST_CASE_P(PM, AAudioStreamBuilderPerfModeTest,
                 // Odd values
                 AAUDIO_UNSPECIFIED - 1, AAUDIO_UNSPECIFIED, 100, 1000000, 10000000),
         &AAudioStreamBuilderPerfModeTest::getTestName);
+
+class AAudioStreamBuilderChannelMaskTest : public ::testing::TestWithParam<aaudio_channel_mask_t> {
+public:
+    static std::string getTestName(const ::testing::TestParamInfo<aaudio_channel_mask_t>& info) {
+        std::stringstream ss;
+        ss << "0x" << std::hex << info.param;
+        return ss.str();
+    }
+protected:
+
+    static bool isValidChannelMask(aaudio_channel_mask_t channelMask, bool isInput) {
+        if (channelMask == AAUDIO_UNSPECIFIED) {
+            return true;
+        }
+
+        if (__builtin_popcount(channelMask) > FCC_LIMIT) {
+            return false;
+        }
+
+        if (isInput) {
+            switch (channelMask) {
+                case AAUDIO_CHANNEL_MONO:
+                case AAUDIO_CHANNEL_STEREO:
+                case AAUDIO_CHANNEL_FRONT_BACK:
+                case AAUDIO_CHANNEL_2POINT0POINT2:
+                case AAUDIO_CHANNEL_2POINT1POINT2:
+                case AAUDIO_CHANNEL_3POINT0POINT2:
+                case AAUDIO_CHANNEL_3POINT1POINT2:
+                case AAUDIO_CHANNEL_5POINT1:
+                    return true;
+            }
+            return false;
+        } else {
+            switch (channelMask) {
+                case AAUDIO_CHANNEL_MONO:
+                case AAUDIO_CHANNEL_STEREO:
+                case AAUDIO_CHANNEL_2POINT1:
+                case AAUDIO_CHANNEL_TRI:
+                case AAUDIO_CHANNEL_TRI_BACK:
+                case AAUDIO_CHANNEL_3POINT1:
+                case AAUDIO_CHANNEL_2POINT0POINT2:
+                case AAUDIO_CHANNEL_2POINT1POINT2:
+                case AAUDIO_CHANNEL_3POINT0POINT2:
+                case AAUDIO_CHANNEL_3POINT1POINT2:
+                case AAUDIO_CHANNEL_QUAD:
+                case AAUDIO_CHANNEL_QUAD_SIDE:
+                case AAUDIO_CHANNEL_SURROUND:
+                case AAUDIO_CHANNEL_PENTA:
+                case AAUDIO_CHANNEL_5POINT1:
+                case AAUDIO_CHANNEL_5POINT1_SIDE:
+                case AAUDIO_CHANNEL_5POINT1POINT2:
+                case AAUDIO_CHANNEL_5POINT1POINT4:
+                case AAUDIO_CHANNEL_6POINT1:
+                case AAUDIO_CHANNEL_7POINT1:
+                case AAUDIO_CHANNEL_7POINT1POINT2:
+                case AAUDIO_CHANNEL_7POINT1POINT4:
+                case AAUDIO_CHANNEL_9POINT1POINT4:
+                case AAUDIO_CHANNEL_9POINT1POINT6:
+                    return true;
+            }
+            return false;
+        }
+    }
+
+    void testChannelMask(aaudio_channel_mask_t channelMask, aaudio_direction_t direction);
+};
+
+void AAudioStreamBuilderChannelMaskTest::testChannelMask(aaudio_channel_mask_t channelMask,
+                                                         aaudio_direction_t direction) {
+    AAudioStreamBuilder *aaudioBuilder = nullptr;
+    create_stream_builder(&aaudioBuilder);
+    AAudioStreamBuilder_setDirection(aaudioBuilder, direction);
+    AAudioStreamBuilder_setChannelMask(aaudioBuilder, channelMask);
+    const Expect expect =
+            isValidChannelMask(channelMask, direction) ? Expect::SUCCEED : Expect::FAIL;
+    AAudioStream *aaudioStream = nullptr;
+    aaudio_result_t result = AAudioStreamBuilder_openStream(aaudioBuilder, &aaudioStream);
+    if (expect == Expect::FAIL) {
+        ASSERT_NE(AAUDIO_OK, result);
+        ASSERT_EQ(nullptr, aaudioStream);
+    } else if (expect == Expect::SUCCEED) {
+        ASSERT_EQ(AAUDIO_OK, result);
+        ASSERT_NE(nullptr, aaudioStream);
+        ASSERT_NE(0, AAudioStream_getChannelCount(aaudioStream));
+        ASSERT_NE(AAUDIO_UNSPECIFIED, AAudioStream_getChannelMask(aaudioStream));
+        ASSERT_NE(AAUDIO_CHANNEL_INVALID, AAudioStream_getChannelMask(aaudioStream));
+    } else { // NOT_CRASH
+        ASSERT_TRUE(((result < 0) && (aaudioStream == nullptr))
+                || ((result == AAUDIO_OK) && (aaudioStream != nullptr)));
+    }
+
+    // Cleanup
+    ASSERT_EQ(AAUDIO_OK, AAudioStreamBuilder_delete(aaudioBuilder));
+    if (aaudioStream != nullptr) {
+        ASSERT_EQ(AAUDIO_OK, AAudioStream_close(aaudioStream));
+    }
+}
+
+TEST_P(AAudioStreamBuilderChannelMaskTest, openInputStream) {
+    if (!deviceSupportsFeature(FEATURE_RECORDING)) {
+        return;
+    }
+    testChannelMask(GetParam(), AAUDIO_DIRECTION_INPUT);
+}
+
+TEST_P(AAudioStreamBuilderChannelMaskTest, openOutputStream) {
+    if (!deviceSupportsFeature(FEATURE_PLAYBACK)) {
+        return;
+    }
+    testChannelMask(GetParam(), AAUDIO_DIRECTION_OUTPUT);
+}
+
+INSTANTIATE_TEST_CASE_P(
+        CM, AAudioStreamBuilderChannelMaskTest,
+        ::testing::Values(
+                // UNSPECIFIED is valid channel mask
+                AAUDIO_UNSPECIFIED,
+                AAUDIO_CHANNEL_INVALID,
+                // Channel mask listed in audio.h
+                // AAUDIO_CHANNEL_FRONT_LEFT,
+                AAUDIO_CHANNEL_FRONT_RIGHT,
+                AAUDIO_CHANNEL_FRONT_CENTER,
+                AAUDIO_CHANNEL_LOW_FREQUENCY,
+                AAUDIO_CHANNEL_BACK_LEFT,
+                AAUDIO_CHANNEL_BACK_RIGHT,
+                AAUDIO_CHANNEL_FRONT_LEFT_OF_CENTER,
+                AAUDIO_CHANNEL_FRONT_RIGHT_OF_CENTER,
+                AAUDIO_CHANNEL_BACK_CENTER,
+                AAUDIO_CHANNEL_SIDE_LEFT,
+                AAUDIO_CHANNEL_SIDE_RIGHT,
+                AAUDIO_CHANNEL_TOP_CENTER,
+                AAUDIO_CHANNEL_TOP_FRONT_LEFT,
+                AAUDIO_CHANNEL_TOP_FRONT_CENTER,
+                AAUDIO_CHANNEL_TOP_FRONT_RIGHT,
+                AAUDIO_CHANNEL_TOP_BACK_LEFT,
+                AAUDIO_CHANNEL_TOP_BACK_CENTER,
+                AAUDIO_CHANNEL_TOP_BACK_RIGHT,
+                AAUDIO_CHANNEL_TOP_SIDE_LEFT,
+                AAUDIO_CHANNEL_TOP_SIDE_RIGHT,
+                AAUDIO_CHANNEL_BOTTOM_FRONT_LEFT,
+                AAUDIO_CHANNEL_BOTTOM_FRONT_CENTER,
+                AAUDIO_CHANNEL_BOTTOM_FRONT_RIGHT,
+                AAUDIO_CHANNEL_LOW_FREQUENCY_2,
+                AAUDIO_CHANNEL_FRONT_WIDE_LEFT,
+                AAUDIO_CHANNEL_FRONT_WIDE_RIGHT,
+                AAUDIO_CHANNEL_MONO,
+                AAUDIO_CHANNEL_STEREO,
+                AAUDIO_CHANNEL_2POINT1,
+                AAUDIO_CHANNEL_TRI,
+                AAUDIO_CHANNEL_TRI_BACK,
+                AAUDIO_CHANNEL_3POINT1,
+                AAUDIO_CHANNEL_2POINT0POINT2,
+                AAUDIO_CHANNEL_2POINT1POINT2,
+                AAUDIO_CHANNEL_3POINT0POINT2,
+                AAUDIO_CHANNEL_3POINT1POINT2,
+                AAUDIO_CHANNEL_QUAD,
+                AAUDIO_CHANNEL_QUAD_SIDE,
+                AAUDIO_CHANNEL_SURROUND,
+                AAUDIO_CHANNEL_PENTA,
+                AAUDIO_CHANNEL_5POINT1,
+                AAUDIO_CHANNEL_5POINT1_SIDE,
+                AAUDIO_CHANNEL_6POINT1,
+                AAUDIO_CHANNEL_7POINT1,
+                AAUDIO_CHANNEL_5POINT1POINT2,
+                AAUDIO_CHANNEL_5POINT1POINT4,
+                AAUDIO_CHANNEL_7POINT1POINT2,
+                AAUDIO_CHANNEL_7POINT1POINT4,
+                AAUDIO_CHANNEL_9POINT1POINT4,
+                AAUDIO_CHANNEL_9POINT1POINT6,
+                AAUDIO_CHANNEL_FRONT_BACK,
+                // Odd value
+                0x20000000,
+                0x30000000,
+                0x40000005),
+        &AAudioStreamBuilderChannelMaskTest::getTestName);
+
+using ChannelMaskAndCountParams = std::pair<aaudio_direction_t, aaudio_channel_mask_t>;
+class AAudioStreamBuilderChannelMaskAndCountTest :
+        public ::testing::TestWithParam<ChannelMaskAndCountParams> {
+public:
+    static std::string getTestName(
+            const ::testing::TestParamInfo<ChannelMaskAndCountParams>& info) {
+        std::stringstream ss;
+        ss << (info.param.first == AAUDIO_DIRECTION_INPUT ? "INPUT_0x" : "OUTPUT_0x")
+           << std::hex << info.param.second;
+        return ss.str();
+    }
+
+protected:
+    void testSetChannelMaskAndCount(aaudio_direction_t direction,
+                                    aaudio_channel_mask_t channelMask,
+                                    int32_t channelCount,
+                                    bool channelMaskFirst);
+};
+
+void AAudioStreamBuilderChannelMaskAndCountTest::testSetChannelMaskAndCount(
+        aaudio_direction_t direction, aaudio_channel_mask_t channelMask,
+        int32_t channelCount, bool setChannelMaskFirst) {
+    AAudioStreamBuilder *aaudioBuilder = nullptr;
+    create_stream_builder(&aaudioBuilder);
+    AAudioStreamBuilder_setDirection(aaudioBuilder, direction);
+    if (setChannelMaskFirst) {
+        AAudioStreamBuilder_setChannelMask(aaudioBuilder, channelMask);
+        AAudioStreamBuilder_setChannelCount(aaudioBuilder, channelCount);
+    } else {
+        AAudioStreamBuilder_setChannelCount(aaudioBuilder, channelCount);
+        AAudioStreamBuilder_setChannelMask(aaudioBuilder, channelMask);
+    }
+    AAudioStream *aaudioStream = nullptr;
+    aaudio_result_t result = AAudioStreamBuilder_openStream(aaudioBuilder, &aaudioStream);
+    ASSERT_EQ(AAUDIO_OK, result);
+    ASSERT_NE(nullptr, aaudioStream);
+    if (setChannelMaskFirst) {
+        ASSERT_EQ(channelCount, AAudioStream_getChannelCount(aaudioStream));
+        ASSERT_EQ(AAUDIO_UNSPECIFIED, AAudioStream_getChannelMask(aaudioStream));
+    } else {
+        // If channel mask is unspecified, stereo will be returned.
+        ASSERT_EQ(channelMask == AAUDIO_UNSPECIFIED ? AAUDIO_CHANNEL_STEREO : channelMask,
+                  AAudioStream_getChannelMask(aaudioStream));
+        ASSERT_EQ(channelMask == AAUDIO_UNSPECIFIED ? 2 : __builtin_popcount(channelMask),
+                  AAudioStream_getChannelCount(aaudioStream));
+    }
+    ASSERT_EQ(AAUDIO_OK, AAudioStreamBuilder_delete(aaudioBuilder));
+    if (aaudioStream != nullptr) {
+        ASSERT_EQ(AAUDIO_OK, AAudioStream_close(aaudioStream));
+    }
+}
+
+TEST_P(AAudioStreamBuilderChannelMaskAndCountTest, channelMaskAndCount) {
+    const aaudio_direction_t direction = GetParam().first;
+    if ((direction == AAUDIO_DIRECTION_OUTPUT && !deviceSupportsFeature(FEATURE_PLAYBACK)) ||
+        (direction == AAUDIO_DIRECTION_INPUT && !deviceSupportsFeature(FEATURE_RECORDING))) {
+        return;
+    }
+    const aaudio_channel_mask_t channelMask = GetParam().second;
+
+    testSetChannelMaskAndCount(direction, channelMask,
+                               2 /*channelCount*/, true /*setChannelMaskFirst*/);
+    testSetChannelMaskAndCount(direction, channelMask,
+                               2 /*channelCount*/, false /*setChannelMaskFirst*/);
+
+    testSetChannelMaskAndCount(direction, AAUDIO_CHANNEL_5POINT1,
+                               2 /*channelCount*/, true /*setChannelMaskFirst*/);
+    testSetChannelMaskAndCount(direction, AAUDIO_CHANNEL_5POINT1,
+                               2 /*channelCount*/, false /*setChannelMaskFirst*/);
+}
+
+INSTANTIATE_TEST_CASE_P(CMC, AAudioStreamBuilderChannelMaskAndCountTest,
+        ::testing::Values(
+                std::make_pair(AAUDIO_DIRECTION_OUTPUT, AAUDIO_CHANNEL_MONO),
+                std::make_pair(AAUDIO_DIRECTION_OUTPUT, AAUDIO_CHANNEL_5POINT1),
+                std::make_pair(AAUDIO_DIRECTION_OUTPUT, AAUDIO_UNSPECIFIED),
+                std::make_pair(AAUDIO_DIRECTION_INPUT, AAUDIO_CHANNEL_MONO),
+                std::make_pair(AAUDIO_DIRECTION_INPUT, AAUDIO_CHANNEL_5POINT1),
+                std::make_pair(AAUDIO_DIRECTION_INPUT, AAUDIO_UNSPECIFIED)),
+        &AAudioStreamBuilderChannelMaskAndCountTest::getTestName);

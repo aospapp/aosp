@@ -129,8 +129,8 @@ public class FinalizationInsideSuwControllerLogic implements FinalizationControl
 
     private @ProvisioningFinalizedResult int startPolicyComplianceActivityForResultIfResolved(
             ProvisioningParams params, int requestCode) {
-        if (!mPolicyComplianceUtils.isPolicyComplianceActivityResolvableForUser(
-                mActivity, params, mUtils, UserHandle.SYSTEM)) {
+        if (!mPolicyComplianceUtils.isPolicyComplianceActivityResolvableForManagedUser(
+                mActivity, params, mUtils)) {
             return PROVISIONING_FINALIZED_RESULT_NO_CHILD_ACTIVITY_LAUNCHED;
         }
 

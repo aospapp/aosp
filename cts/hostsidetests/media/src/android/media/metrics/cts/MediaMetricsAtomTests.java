@@ -568,29 +568,29 @@ public class MediaMetricsAtomTests extends DeviceTestCase implements IBuildRecei
     }
 
     /**
-     * The test try to create and then close aaudio input stream with mmap path via media metrics
+     * The test try to create and then close aaudio input stream with low latency via media metrics
      * atom host side test app on the DUT.
      * After that, the event metric data for MediametricsAAudioStreamReported is pushed to verify
      * the data is collected correctly.
      */
-    public void testAAudioMmapInputStream() throws Exception {
+    public void testAAudioLowLatencyInputStream() throws Exception {
         runAAudioTestAndValidate(
                 FEATURE_MICROPHONE,
                 AtomsProto.MediametricsAAudioStreamReported.Direction.DIRECTION_INPUT_VALUE,
-                "testAAudioMmapInputStream");
+                "testAAudioLowLatencyInputStream");
     }
 
     /**
-     * The test try to create and then close aaudio output stream with mmap path via media metrics
+     * The test try to create and then close aaudio output stream with low latency via media metrics
      * atom host side test app on the DUT.
      * After that, the event metric data for MediametricsAAudioStreamReported is pushed to verify
      * the data is collected correctly.
      */
-    public void testAAudioMmapOutputStream() throws Exception {
+    public void testAAudioLowLatencyOutputStream() throws Exception {
         runAAudioTestAndValidate(
                 FEATURE_AUDIO_OUTPUT,
                 AtomsProto.MediametricsAAudioStreamReported.Direction.DIRECTION_OUTPUT_VALUE,
-                "testAAudioMmapOutputStream");
+                "testAAudioLowLatencyOutputStream");
     }
 
     /**

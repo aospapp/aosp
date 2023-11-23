@@ -26,5 +26,7 @@ java_library_host {
         "host-libprotobuf-java-full",
         "platformprotos",
     ],
-
+    static_libs: [
+        "cts-statsd-atom-host-test-utils",
+    ],
 }

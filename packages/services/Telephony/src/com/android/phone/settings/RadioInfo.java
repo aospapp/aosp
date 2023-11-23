@@ -673,6 +673,12 @@ public class RadioInfo extends AppCompatActivity {
         mPreferredNetworkType.setSelection(mPreferredNetworkTypeResult, true);
         mPreferredNetworkType.setOnItemSelectedListener(mPreferredNetworkHandler);
 
+        new Thread(() -> {
+            int networkType = (int) mTelephonyManager.getPreferredNetworkTypeBitmask();
+            updatePreferredNetworkType(
+                    RadioAccessFamily.getNetworkTypeFromRaf(networkType));
+        }).start();
+
         // set phone index
         mSelectPhoneIndex.setSelection(mSelectedPhoneIndex, true);
         mSelectPhoneIndex.setOnItemSelectedListener(mSelectPhoneIndexHandler);

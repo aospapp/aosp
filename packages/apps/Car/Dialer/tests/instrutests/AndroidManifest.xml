@@ -19,6 +19,9 @@
     package="com.android.car.dialer.tests.instrutests"
     android:debuggable="true">
 
+    <uses-permission android:name="android.permission.WRITE_CONTACTS"/>
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
+
     <application>
         <uses-library android:name="android.test.runner" />
     </application>

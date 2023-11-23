@@ -37,6 +37,8 @@ import java.util.Map;
  * running and restoring to initial values after test method finished.
  */
 public class NormalizeScreenStateRule implements TestRule {
+    private static final String FEATURE_AUTOMOTIVE = "android.hardware.type.automotive";
+
     private final ITestInformationReceiver mTestInformationReceiver;
 
     public NormalizeScreenStateRule(ITestInformationReceiver testInformationReceiver) {
@@ -90,6 +92,10 @@ public class NormalizeScreenStateRule implements TestRule {
         return new Statement() {
             @Override
             public void evaluate() throws Throwable {
+                if (getDevice().hasFeature(FEATURE_AUTOMOTIVE)) {
+                    return;
+                }
+
                 final Map<String, String> initialValues = new HashMap<>();
                 Arrays.stream(DOZE_SETTINGS).forEach(
                         k -> initialValues.put(k, getSecureSetting(k)));

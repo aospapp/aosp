@@ -21,6 +21,7 @@ import threading
 import time
 
 from acts import asserts
+from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.net import connectivity_const as cconsts
 from acts_contrib.test_utils.wifi.aware import aware_const as aconsts
 from acts_contrib.test_utils.wifi.aware import aware_test_utils as autils
@@ -217,7 +218,7 @@ class ThroughputTest(AwareBaseTest):
                           results[i]["tx_rate"], results[i]["rx_rate"])
 
     ########################################################################
-
+    @test_tracker_info(uuid="a628ac08-7a71-4646-9258-8fcd4be6c586")
     def test_iperf_single_ndp_aware_only_ib(self):
         """Measure throughput using iperf on a single NDP, with Aware enabled and
     no infrastructure connection. Use in-band discovery."""
@@ -226,6 +227,7 @@ class ThroughputTest(AwareBaseTest):
         asserts.explicit_pass(
             "test_iperf_single_ndp_aware_only_ib passes", extras=results)
 
+    @test_tracker_info(uuid="26d88e96-2318-4cff-85bb-7961a0b97802")
     def test_iperf_single_ndp_aware_only_oob(self):
         """Measure throughput using iperf on a single NDP, with Aware enabled and
     no infrastructure connection. Use out-of-band discovery."""
@@ -398,6 +400,7 @@ class ThroughputTest(AwareBaseTest):
             self.log.info("iPerf3: Sent = %d bps Received = %d bps",
                           results[i]["tx_rate"], results[i]["rx_rate"])
 
+    @test_tracker_info(uuid="b66faaa5-f1cc-44dd-b22a-610f4fcaf2ca")
     def test_iperf_max_ndi_aware_only_passphrases(self):
         """Test throughput for multiple NDIs configured with different passphrases.
     """
@@ -434,6 +437,7 @@ class ThroughputTest(AwareBaseTest):
         latency_result = autils.run_ping6(p_dut, s_ipv6)
         self.log.info("The latency results are %s", latency_result)
 
+    @test_tracker_info(uuid="8a1160fa-8ccf-4015-94dd-a0541793077a")
     def test_traffic_latency_single_ndp_ib_aware_only_open(self):
         """Test IPv6 traffic latency performance on NDP with security config is open.
         """

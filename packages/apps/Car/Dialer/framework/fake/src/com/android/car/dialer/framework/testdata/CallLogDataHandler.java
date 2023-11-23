@@ -54,20 +54,20 @@ public class CallLogDataHandler {
     /**
      * Adds call log data in a json file to call log database calllog.db in Contacts Provider.
      */
-    public void addCallLogsAsync(String file) {
+    public void addCallLogsAsync(String file, String accountId) {
         // TODO: add thread here later.
         List<CallLogRawData> list = mDataParser.parseCallLogData(mContext, file);
-        addCallLogsAsync(list);
+        addCallLogsAsync(list, accountId);
     }
 
     /**
      * Adds a list of {@link CallLogRawData} that contains call log data to call log database
      * calllog.db in Contacts Provider.
      */
-    public void addCallLogsAsync(List<CallLogRawData> list) {
+    public void addCallLogsAsync(List<CallLogRawData> list, String accountId) {
         Runnable runnable = () -> {
             for (CallLogRawData rawData : list) {
-                addOneCallLog(rawData);
+                addOneCallLog(rawData, accountId);
             }
         };
 
@@ -77,19 +77,18 @@ public class CallLogDataHandler {
     /**
      * Adds a single call log to the database.
      */
-    public void addOneCallLog(CallLogRawData callLogRawData) {
+    public void addOneCallLog(CallLogRawData callLogRawData, String accountId) {
         ArrayList<ContentProviderOperation> ops = new ArrayList<>();
 
-        String id = callLogRawData.getId();
-        String number = callLogRawData.getNumber();
-        Integer type = callLogRawData.getNumberType();
-        Integer timeInterval = callLogRawData.getInterval();
-
         ops.add(ContentProviderOperation.newInsert(CallLog.Calls.CONTENT_URI)
-                .withValue(CallLog.Calls._ID, id)
-                .withValue(CallLog.Calls.NUMBER, number)
-                .withValue(CallLog.Calls.TYPE, type)
-                .withValue(CallLog.Calls.DATE, System.currentTimeMillis() - timeInterval)
+                .withValue(CallLog.Calls.NUMBER, callLogRawData.getNumber())
+                .withValue(CallLog.Calls.TYPE, callLogRawData.getNumberType())
+                .withValue(CallLog.Calls.DATE,
+                        System.currentTimeMillis() - callLogRawData.getInterval())
+                .withValue(CallLog.Calls.TYPE, callLogRawData.getCallType())
+                .withValue(CallLog.Calls.IS_READ, callLogRawData.getRead())
+                .withValue(CallLog.Calls.NEW, 1)
+                .withValue(CallLog.Calls.PHONE_ACCOUNT_ID, accountId)
                 .build());
 
         try {
@@ -109,21 +108,38 @@ public class CallLogDataHandler {
      * Tears down the instance.
      */
     public void tearDown() {
-        removeAddedCalllogsAsync();
+        removeAllCalllogs();
     }
 
     /**
      * Removes call logs that are added after this instance is created.
      */
-    public void removeAddedCalllogsAsync() {
-        // to be implemented.
+    public void removeAddedCalllogsAsync(String accountId) {
+        Runnable removeCallLogs = () -> {
+            try {
+                mContext.getContentResolver().delete(CallLog.Calls.CONTENT_URI,
+                        CallLog.Calls.PHONE_ACCOUNT_ID + "=?", new String[]{accountId});
+            } catch (IllegalArgumentException e) {
+                L.w(TAG, "Call Logs could not be deleted, they may not exist yet.");
+            }
+        };
+        mWorkerExecutor.run(removeCallLogs);
     }
 
     /**
-     * Remove every data piece in the call log database.
+     * Remove every fake data piece in the call log database.
      */
     public void removeAllCalllogs() {
-        // to be implemented.
+        Runnable removeAll = () -> {
+            try {
+                mContext.getContentResolver().delete(CallLog.Calls.CONTENT_URI,
+                        CallLog.Calls.PHONE_ACCOUNT_ID + " like  ? ", new String[]{
+                                TestData.ACCOUNT_NAME_PREFIX + '%'});
+            } catch (IllegalArgumentException e) {
+                L.w(TAG, "Call Logs could not be deleted, they may not exist yet.");
+            }
+        };
+        mWorkerExecutor.run(removeAll);
     }
 
     /**

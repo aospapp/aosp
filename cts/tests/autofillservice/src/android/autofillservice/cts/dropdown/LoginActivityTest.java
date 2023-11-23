@@ -31,7 +31,7 @@ import static android.autofillservice.cts.testcore.Helper.ID_USERNAME;
 import static android.autofillservice.cts.testcore.Helper.ID_USERNAME_LABEL;
 import static android.autofillservice.cts.testcore.Helper.allowOverlays;
 import static android.autofillservice.cts.testcore.Helper.assertHasFlags;
-import static android.autofillservice.cts.testcore.Helper.assertNumberOfChildren;
+import static android.autofillservice.cts.testcore.Helper.assertNumberOfChildrenWithWindowTitle;
 import static android.autofillservice.cts.testcore.Helper.assertTextAndValue;
 import static android.autofillservice.cts.testcore.Helper.assertTextIsSanitized;
 import static android.autofillservice.cts.testcore.Helper.assertTextOnly;
@@ -41,6 +41,7 @@ import static android.autofillservice.cts.testcore.Helper.disallowOverlays;
 import static android.autofillservice.cts.testcore.Helper.dumpStructure;
 import static android.autofillservice.cts.testcore.Helper.findAutofillIdByResourceId;
 import static android.autofillservice.cts.testcore.Helper.findNodeByResourceId;
+import static android.autofillservice.cts.testcore.Helper.getActivityTitle;
 import static android.autofillservice.cts.testcore.Helper.isAutofillWindowFullScreen;
 import static android.autofillservice.cts.testcore.Helper.setUserComplete;
 import static android.autofillservice.cts.testcore.InstrumentedAutoFillService.SERVICE_CLASS;
@@ -116,6 +117,7 @@ import android.view.autofill.AutofillManager;
 import android.widget.EditText;
 import android.widget.RemoteViews;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.FlakyTest;
 
 import com.android.compatibility.common.util.RetryableException;
@@ -2095,7 +2097,10 @@ public class LoginActivityTest extends LoginActivityCommonTestCase {
         // But it also has an intermediate container (for username) that should be included because
         // it has a resource id.
 
-        assertNumberOfChildren(fillRequest.structure, 12);
+        // get activity title
+        final CharSequence activityTitle = mActivity.getPackageName() + "/"
+                + getActivityTitle(InstrumentationRegistry.getInstrumentation(), mActivity);
+        assertNumberOfChildrenWithWindowTitle(fillRequest.structure, 12, activityTitle);
 
         // Make sure container with a resource id was included:
         final ViewNode usernameContainer = findNodeByResourceId(fillRequest.structure,

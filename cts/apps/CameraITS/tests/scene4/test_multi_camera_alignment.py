@@ -559,21 +559,21 @@ class MultiCameraAlignmentTest(its_base_test.ItsBaseTest):
         logging.debug(' x_p, y_p (pixels): %.1f, %.1f', x_p[i], y_p[i])
 
       # Check center locations
-      err = np.linalg.norm(np.array([x_w[i_ref], y_w[i_ref]]) -
-                           np.array([x_w[i_2nd], y_w[i_2nd]]))
-      logging.debug('Center location err (mm): %.2f', err*M_TO_MM)
+      err_mm = np.linalg.norm(np.array([x_w[i_ref], y_w[i_ref]]) -
+                              np.array([x_w[i_2nd], y_w[i_2nd]])) * M_TO_MM
+      logging.debug('Center location err (mm): %.2f', err_mm)
       msg = 'Center locations %s <-> %s too different!' % (i_ref, i_2nd)
-      msg += ' val=%.2fmm, THRESH=%.fmm' % (err*M_TO_MM, ALIGN_TOL_MM)
-      assert err < ALIGN_TOL, msg
+      msg += ' val=%.2f, ATOL=%.f mm' % (err_mm, ALIGN_TOL_MM)
+      assert err_mm < ALIGN_TOL_MM, msg
 
       # Check projections back into pixel space
       for i in [i_ref, i_2nd]:
         err = np.linalg.norm(np.array([circle[i]['x'], circle[i]['y']]) -
-                             np.array([x_p[i], y_p[i]]))
+                             np.array([x_p[i], y_p[i]]).reshape(1, -1))
         logging.debug('Camera %s projection error (pixels): %.1f', i, err)
         tol = ALIGN_TOL * sensor_diag[i]
-        msg = 'Camera %s project locations too different!' % i
-        msg += ' diff=%.2f, TOL=%.2f' % (err, tol)
+        msg = 'Camera %s project location too different!' % i
+        msg += ' diff=%.2f, ATOL=%.2f pixels' % (err, tol)
         assert err < tol, msg
 
       # Check focal length and circle size if more than 1 focal length

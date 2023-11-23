@@ -41,7 +41,6 @@
     <string name="hk_WifiTetherActivity">@string/pk_network_and_internet_entry</string>
     <string name="hk_MobileNetworkActivity">@string/pk_network_and_internet_entry</string>
     <string name="hk_MobileNetworkListActivity">@string/pk_network_and_internet_entry</string>
-    <string name="hk_DataUsageActivity">@string/pk_network_and_internet_entry</string>
     <string name="hk_ApplicationsSettingsActivity">@string/pk_apps_settings_entry</string>
     <string name="hk_SpecialAccessSettingsActivity">@string/pk_apps_settings_entry</string>
     <string name="hk_LanguagesAndInputActivity">@string/pk_system_settings_entry</string>
@@ -63,4 +62,6 @@
     <string name="hk_TextToSpeechOutputActivity">@string/pk_system_settings_entry</string>
     <string name="hk_BluetoothDevicePickerActivity">@string/pk_bluetooth_settings_entry</string>
     <string name="hk_DataWarningAndLimitActivity">pk_network_and_internet_entry</string>
+    <string name="hk_AccessibilitySettingsActivity">@string/pk_accessibility_settings_entry</string>
+    <string name="hk_CaptionsSettingsActivity">@string/pk_accessibility_settings_entry</string>
 </resources>

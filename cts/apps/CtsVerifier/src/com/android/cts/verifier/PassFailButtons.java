@@ -70,7 +70,10 @@ public class PassFailButtons {
     private static final String INFO_DIALOG_MESSAGE_ID = "infoDialogMessageId";
 
     // ReportLog file for CTS-Verifier. The "stream" name gets mapped to the test class name.
-    private static final String REPORT_LOG_NAME = "CTS-Verifier-Log";
+    public static final String GENERAL_TESTS_REPORT_LOG_NAME = "CtsVerifierGeneralTestCases";
+    public static final String AUDIO_TESTS_REPORT_LOG_NAME = "CtsVerifierAudioTestCases";
+
+    private static final String SECTION_UNDEFINED = "undefined_section_name";
 
     // Interface mostly for making documentation and refactoring easier...
     public interface PassFailActivity {
@@ -112,10 +115,16 @@ public class PassFailButtons {
         void setTestResultAndFinish(boolean passed);
 
         /**
-         * @return A unique name (derived from the test class name) to serve as a section
-         * header in the CtsVerifierReportLog file.
+         * @return The name of the file to store the (suite of) ReportLog information.
          */
-        String getReportSectionName();
+        public String getReportFileName();
+
+        /**
+         * @return A unique name to serve as a section header in the CtsVerifierReportLog file.
+         * Tests need to conform to the underscore_delineated_name standard for use with
+         * the protobuff/json ReportLog parsing in Google3
+         */
+        public String getReportSectionName();
 
         /**
          * Test subclasses can override this to record their CtsVerifierReportLogs.
@@ -138,7 +147,7 @@ public class PassFailButtons {
         private final TestResultHistoryCollection mHistoryCollection;
 
         public Activity() {
-            this.mReportLog = new CtsVerifierReportLog(REPORT_LOG_NAME, getReportSectionName());
+            this.mReportLog = new CtsVerifierReportLog(getReportFileName(), getReportSectionName());
             this.mHistoryCollection = new TestResultHistoryCollection();
         }
 
@@ -202,9 +211,15 @@ public class PassFailButtons {
             return mReportLog;
         }
 
+        /**
+         * @return The name of the file to store the (suite of) ReportLog information.
+         */
         @Override
-        public final String getReportSectionName() {
-            return setTestNameSuffix(sCurrentDisplayMode, getClass().getName());
+        public String getReportFileName() { return GENERAL_TESTS_REPORT_LOG_NAME; }
+
+        @Override
+        public String getReportSectionName() {
+            return setTestNameSuffix(sCurrentDisplayMode, SECTION_UNDEFINED);
         }
 
         @Override
@@ -240,7 +255,7 @@ public class PassFailButtons {
         private final TestResultHistoryCollection mHistoryCollection;
 
         public ListActivity() {
-            this.mReportLog = new CtsVerifierReportLog(REPORT_LOG_NAME, getReportSectionName());
+            this.mReportLog = new CtsVerifierReportLog(getReportFileName(), getReportSectionName());
             this.mHistoryCollection = new TestResultHistoryCollection();
         }
 
@@ -286,9 +301,15 @@ public class PassFailButtons {
             return mReportLog;
         }
 
+        /**
+         * @return The name of the file to store the (suite of) ReportLog information.
+         */
         @Override
-        public final String getReportSectionName() {
-            return setTestNameSuffix(sCurrentDisplayMode, getClass().getName());
+        public String getReportFileName() { return GENERAL_TESTS_REPORT_LOG_NAME; }
+
+        @Override
+        public String getReportSectionName() {
+            return setTestNameSuffix(sCurrentDisplayMode, SECTION_UNDEFINED);
         }
 
         @Override
@@ -326,9 +347,9 @@ public class PassFailButtons {
         public TestListActivity() {
             // TODO(b/186555602): temporary hack^H^H^H^H workaround to fix crash
             // This DOES NOT in fact fix that bug.
-            // if (true) this.mReportLog = new CtsVerifierReportLog(REPORT_LOG_NAME, "42"); else
+            // if (true) this.mReportLog = new CtsVerifierReportLog(b/186555602, "42"); else
 
-            this.mReportLog = new CtsVerifierReportLog(REPORT_LOG_NAME, getReportSectionName());
+            this.mReportLog = new CtsVerifierReportLog(getReportFileName(), getReportSectionName());
         }
 
         @Override
@@ -373,10 +394,17 @@ public class PassFailButtons {
             return mReportLog;
         }
 
+        /**
+         * @return The name of the file to store the (suite of) ReportLog information.
+         */
         @Override
-        public final String getReportSectionName() {
-            return setTestNameSuffix(sCurrentDisplayMode, getClass().getName());
+        public String getReportFileName() { return GENERAL_TESTS_REPORT_LOG_NAME; }
+
+        @Override
+        public String getReportSectionName() {
+            return setTestNameSuffix(sCurrentDisplayMode, SECTION_UNDEFINED);
         }
+
 
         /**
          * Get existing test history to aggregate.

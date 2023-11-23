@@ -1,0 +1,5 @@
+allow dmd hidl_base_hwservice:hwservice_manager add;
+allow dmd hal_vendor_oem_hwservice:hwservice_manager { add find };
+binder_call(dmd, modem_diagnostic_app)
+binder_call(dmd, modem_logging_control)
+binder_call(dmd, vendor_telephony_app)

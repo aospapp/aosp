@@ -24,8 +24,9 @@ import androidx.annotation.Nullable;
 import com.android.car.ui.recyclerview.CarUiContentListItem;
 
 /**
- * Definition of list items that can be inserted into {@link CarUiListItemAdapter}. This class is
- * used to display the search items in the template for wide screen mode.
+ * Definition of list items that can be inserted into
+ * {@link com.android.car.ui.recyclerview.CarUiListItemAdapter}. This class is used to display the
+ * search items in the template for wide screen mode.
  *
  * The class is used to pass application icon resources ids to the IME for rendering in its
  * process. Applications can also pass a unique id for each item and supplemental icon that will be

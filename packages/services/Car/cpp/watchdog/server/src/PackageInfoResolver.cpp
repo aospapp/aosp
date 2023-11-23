@@ -179,9 +179,23 @@ void PackageInfoResolver::updatePackageInfos(const std::vector<uid_t>& uids) {
         if (id.name.empty()) {
             continue;
         }
-        if (const auto it = mPackagesToAppCategories.find(id.name);
-            packageInfo.uidType == UidType::APPLICATION && it != mPackagesToAppCategories.end()) {
-            packageInfo.appCategoryType = it->second;
+        if (packageInfo.uidType == UidType::APPLICATION) {
+            if (const auto it = mPackagesToAppCategories.find(id.name);
+                it != mPackagesToAppCategories.end()) {
+                packageInfo.appCategoryType = it->second;
+            } else if (!packageInfo.sharedUidPackages.empty()) {
+                /* The recommendation for the OEMs is to define the application category mapping
+                 * by the shared package names. However, this a fallback to catch if any mapping is
+                 * defined by the individual package name.
+                 */
+                for (const auto& packageName : packageInfo.sharedUidPackages) {
+                    if (const auto it = mPackagesToAppCategories.find(packageName);
+                        it != mPackagesToAppCategories.end()) {
+                        packageInfo.appCategoryType = it->second;
+                        break;
+                    }
+                }
+            }
         }
         mUidToPackageInfoMapping[id.uid] = packageInfo;
     }

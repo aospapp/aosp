@@ -17,6 +17,7 @@
 
 <resources>
     <attr name="icon" format="reference"/>
+    <attr name="mute_icon" format="reference"/>
     <attr name="selectedIcon" format="reference"/>
     <attr name="intent" format="string"/>
     <attr name="longIntent" format="string"/>
@@ -37,6 +38,17 @@
         <attr name="android:gravity"/>
         <attr name="android:minEms"/>
         <attr name="android:textAppearance"/>
+    </declare-styleable>
+
+    <declare-styleable name="SeatTemperatureLevelButton">
+        <attr name="seatTemperatureType">
+            <enum name="heating" value="1"/>
+            <enum name="cooling" value="-1"/>
+        </attr>
+        <!-- List of drawables that will be shown when the seat heat level button is clicked.
+             This list should have exactly R.integer.hvac_seat_heat_level_count items.
+             The first item should have the "off" drawable. -->
+        <attr name="seatTemperatureIconDrawableList" format="reference"/>
     </declare-styleable>
 
     <!-- Allow for custom attribs to be added to a nav button -->
@@ -74,13 +86,34 @@
              (i.e. CarSystemBarButton_intent is defined, CarSystemBarButton_broadcast is false).
              Defaults false. -->
         <attr name="clearBackStack" format="boolean"/>
+        <!-- whether to toggle selected state when button is clicked. Defaults false -->
+        <attr name="toggleSelected" format="boolean" />
     </declare-styleable>
 
-    <!-- Custom attributes to configure hvac values -->
-    <declare-styleable name="TemperatureView">
+    <!-- Custom attributes to configure HVAC values -->
+    <declare-styleable name="HvacView">
         <attr name="hvacAreaId" format="integer"/>
         <attr name="hvacPropertyId" format="integer"/>
         <attr name="hvacTempFormat" format="string"/>
+        <attr name="hvacToggleOnButtonDrawable" format="reference"/>
+        <attr name="hvacToggleOffButtonDrawable" format="reference"/>
+        <!-- Whether the given HvacView must be turned off if the HVAC power is off.
+               Defaults to true. -->
+        <attr name="hvacTurnOffIfPowerOff" format="boolean" />
+        <!-- Whether the given HvacView must be turned off if the HVAC Auto mode is on.
+               Defaults to false. -->
+        <attr name="hvacTurnOffIfAutoOn" format="boolean" />
+    </declare-styleable>
+
+    <declare-styleable name="HvacIntegerToggleButton">
+        <attr name="invalidValue" format="integer"/>
+        <attr name="onValue" format="integer"/>
+        <attr name="offValue" format="integer"/>
+        <!-- Whether the given HvacView can be toggled off. This attribute can be useful when a
+             group of HvacToggleButtons should be used in a radio button like manner (i.e. only one
+             can be selected at a time, an option MUST be selected).
+               Defaults to false. -->
+        <attr name="preventToggleOff" format="boolean" />
     </declare-styleable>
 
     <declare-styleable name="carVolumeItems"/>
@@ -114,5 +147,16 @@
 
         <!-- Icon resource ids to render on UI -->
         <attr name="icon" />
+        <attr name="mute_icon" />
+    </declare-styleable>
+
+    <declare-styleable name="SystemUIQCView">
+        <attr name="remoteQCProvider" format="string"/>
+        <attr name="localQCProvider" format="string"/>
+    </declare-styleable>
+
+    <declare-styleable name="QCFooterButton">
+        <attr name="intent" format="string"/>
+        <attr name="disableWhileDriving" format="boolean"/>
     </declare-styleable>
 </resources>

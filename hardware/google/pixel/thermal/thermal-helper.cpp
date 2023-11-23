@@ -1016,12 +1016,16 @@ bool ThermalHelper::fillTemperatures(hidl_vec<Temperature_1_0> *temperatures) co
     return current_index > 0;
 }
 
-bool ThermalHelper::fillCurrentTemperatures(bool filterType, TemperatureType_2_0 type,
+bool ThermalHelper::fillCurrentTemperatures(bool filterType, bool filterCallback,
+                                            TemperatureType_2_0 type,
                                             hidl_vec<Temperature_2_0> *temperatures) const {
     std::vector<Temperature_2_0> ret;
     for (const auto &name_info_pair : sensor_info_map_) {
         Temperature_2_0 temp;
         if (filterType && name_info_pair.second.type != type) {
+            continue;
+        }
+        if (filterCallback && !name_info_pair.second.send_cb) {
             continue;
         }
         if (readTemperature(name_info_pair.first, &temp, nullptr,
@@ -1030,7 +1034,6 @@ bool ThermalHelper::fillCurrentTemperatures(bool filterType, TemperatureType_2_0
         } else {
             LOG(ERROR) << __func__
                        << ": error reading temperature for sensor: " << name_info_pair.first;
-            return false;
         }
     }
     *temperatures = ret;

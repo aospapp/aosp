@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"Faka"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Thepha ukuze uhlele"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Gcina isithombe sangemuva samanje"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"Faka"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Ukubuka kuqala kwesitayela"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Ukubuka kuqala kwe-grid"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"Ukubuka kuqala ifonti"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, okufakwe manje"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, manje isetshenzisiwe yaphinde yabukwa kuqala"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, manje ibukwe kuqala"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, shintsha okukhethiwe nokuhlolwe kuqala"</string>
     <string name="theme_description" msgid="3697012391785254635">"Ifonti: <xliff:g id="ID_1">%1$s</xliff:g>, izithonjana: <xliff:g id="ID_2">%2$s</xliff:g>, isimo: <xliff:g id="ID_3">%3$s</xliff:g>, umbala: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"Okuzenzekelayo"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"Ifonti"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Igama lesitayela esingokwezifiso"</string>
     <string name="mode_title" msgid="2394873501427436055">"Itimu emnyama"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"Kukhutshaziwe okwesikhashana ngenxa Yesilondolozi Sebhethri"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"Itimu ishintshiwe"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"Izithonjana ezinetimu"</string>
     <string name="beta_title" msgid="8703819523760746458">"I-beta"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Shintsha igridi ye-app"</string>

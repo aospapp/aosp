@@ -447,16 +447,16 @@ public class MediaMetricsAtomHostSideTests {
     }
 
     /**
-     * Open aaudio mmap output stream and then close
+     * Open aaudio low latency output stream and then close
      */
     @Test
-    public native void testAAudioMmapOutputStream();
+    public native void testAAudioLowLatencyOutputStream();
 
     /**
-     * Open aaudio mmap input stream and then close
+     * Open aaudio low latency input stream and then close
      */
     @Test
-    public native void testAAudioMmapInputStream();
+    public native void testAAudioLowLatencyInputStream();
 
     /**
      * Open aaudio legacy output stream and then close

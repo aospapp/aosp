@@ -30,7 +30,7 @@
         android:key="@string/pk_reset_app_pref"
         android:title="@string/reset_app_pref_title"
         settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
-    <com.android.car.settings.common.ClickableWhileDisabledPreference
+    <Preference
         android:fragment="com.android.car.settings.system.FactoryResetFragment"
         android:key="@string/pk_factory_reset"
         android:title="@string/factory_reset_title"

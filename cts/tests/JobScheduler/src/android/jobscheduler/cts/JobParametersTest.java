@@ -122,7 +122,7 @@ public class JobParametersTest extends BaseJobSchedulerTest {
                                 + " " + JOB_ID));
 
         // In automotive device, always-on screen and endless battery charging are assumed.
-        if (!isAutomotiveDevice()) {
+        if (BatteryUtils.hasBattery() && !isAutomotiveDevice()) {
             BatteryUtils.runDumpsysBatterySetLevel(100);
             BatteryUtils.runDumpsysBatteryUnplug();
             verifyStopReason(new JobInfo.Builder(JOB_ID, kJobServiceComponent)

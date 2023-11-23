@@ -883,7 +883,8 @@ internal fun parseSources(
     javaLanguageLevel: LanguageLevel = options.javaLanguageLevel,
     kotlinLanguageLevel: LanguageVersionSettings = options.kotlinLanguageLevel,
     manifest: File? = options.manifest,
-    currentApiLevel: Int = options.currentApiLevel + if (options.currentCodeName != null) 1 else 0
+    currentApiLevel: Int = options.currentApiLevel +
+        if (options.currentCodeName != null && "REL" != options.currentCodeName) 1 else 0
 ): PsiBasedCodebase {
     val sourceRoots = mutableListOf<File>()
     sourcePath.filterTo(sourceRoots) { it.path.isNotBlank() }

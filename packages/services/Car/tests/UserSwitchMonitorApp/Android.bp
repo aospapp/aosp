@@ -27,3 +27,18 @@ android_app {
 
     sdk_version: "system_current",
 }
+
+// "Cloned" app used to make sure events are received by apps with shared uid
+android_app {
+    name: "UserSwitchMonitorApp2",
+
+    manifest: "AndroidManifest2.xml",
+
+    libs: [
+        "android.car-system-stubs",
+    ],
+
+    srcs: ["src/**/*.java"],
+
+    sdk_version: "system_current",
+}

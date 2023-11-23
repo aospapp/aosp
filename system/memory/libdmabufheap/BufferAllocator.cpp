@@ -165,6 +165,9 @@ int BufferAllocator::MapNameToIonHeap(const std::string& heap_name,
     if (ret >= 0)
         return 0;
 
+    /* If ION support is not detected, ignore the mappings */
+    if (ion_fd_ < 0) return 0;
+
     if (uses_legacy_ion_iface_ || ion_heap_name == "") {
         ret = MapNameToIonMask(heap_name, legacy_ion_heap_mask, legacy_ion_heap_flags);
     } else if (!ion_heap_name.empty()) {

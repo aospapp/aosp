@@ -88,10 +88,22 @@
  * @param type Type of element
  */
 
+#ifndef SIMD_EXTRA_ALLOC_BYTES
+#error define SIMD_EXTRA_ALLOC_BYTES appropriately in your makefile
+/*
+ * Useful values:
+ * 0  for an all-scalar processor, which should never over-read the arrays
+ * 16 for an implementation using ARM Neon or X86 SSE4 instructions, which work
+ *    with blocks of 16 bytes (128 bits)
+ */
+#endif
+
 #if defined(VAR_ARRAYS)
 
 #define VARDECL(type, var)
-#define ALLOC(var, size, type) type var[size]
+// include a full SIMD width afterwards;
+#define ALLOC(var, size, type) type var[(size) + ((SIMD_EXTRA_ALLOC_BYTES)/sizeof(type))]
+
 #define SAVE_STACK
 #define RESTORE_STACK
 #define ALLOC_STACK
@@ -103,9 +115,11 @@
 #define VARDECL(type, var) type *var
 
 # ifdef _WIN32
-#  define ALLOC(var, size, type) var = ((type*)_alloca(sizeof(type)*(size)))
+#  define ALLOC(var, size, type) var = \
+                                 ((type*)_alloca(sizeof(type)*(size) + SIMD_EXTRA_ALLOC_BYTES))
 # else
-#  define ALLOC(var, size, type) var = ((type*)alloca(sizeof(type)*(size)))
+#  define ALLOC(var, size, type) var = \
+                                 ((type*)alloca(sizeof(type)*(size) + SIMD_EXTRA_ALLOC_BYTES))
 # endif
 
 #define SAVE_STACK
@@ -150,6 +164,11 @@ extern char *global_stack_top;
 #define ALLOC_STACK char *_saved_stack; (global_stack = (global_stack==0) ? (scratch_ptr=opus_alloc_scratch(GLOBAL_STACK_SIZE)) : global_stack); _saved_stack = global_stack;
 
 #endif /* ENABLE_VALGRIND */
+
+// this path has NOT been modified to be safe in the face of SIMD over-reads
+#if SIMD_EXTRA_ALLOC_BYTES != 0
+#error  "ALLOC() is not updated in this configuration to provide for SIMD over-reads"
+#endif
 
 #include "os_support.h"
 #define VARDECL(type, var) type *var

@@ -39,48 +39,20 @@ public class ScreenshotTest extends AssistTestBase {
 
     @Test
     public void testRedScreenshot() throws Throwable {
-        if (mActivityManager.isLowRamDevice()) {
-            Log.d(TAG, "Not running assist tests on low-RAM device.");
-            return;
-        }
-
-        startTest(TEST_CASE_TYPE);
-        waitForAssistantToBeReady();
-
-        Bundle bundle = new Bundle();
-        bundle.putInt(Utils.SCREENSHOT_COLOR_KEY, Color.RED);
-        start3pApp(TEST_CASE_TYPE, bundle);
-
-        eventuallyWithSessionClose(() -> {
-            delayAndStartSession(Color.RED);
-            verifyAssistDataNullness(false, false, false, false);
-            assertThat(mScreenshotMatches).isTrue();
-        });
+        validateDeviceAndRunTestForColor(Color.RED);
     }
 
     @Test
     public void testGreenScreenshot() throws Throwable {
-        if (mActivityManager.isLowRamDevice()) {
-            Log.d(TAG, "Not running assist tests on low-RAM device.");
-            return;
-        }
-
-        startTest(TEST_CASE_TYPE);
-        waitForAssistantToBeReady();
-
-        Bundle bundle = new Bundle();
-        bundle.putInt(Utils.SCREENSHOT_COLOR_KEY, Color.GREEN);
-        start3pApp(TEST_CASE_TYPE, bundle);
-
-        eventuallyWithSessionClose(() -> {
-            delayAndStartSession(Color.GREEN);
-            verifyAssistDataNullness(false, false, false, false);
-            assertThat(mScreenshotMatches).isTrue();
-        });
+        validateDeviceAndRunTestForColor(Color.GREEN);
     }
 
     @Test
     public void testBlueScreenshot() throws Throwable {
+        validateDeviceAndRunTestForColor(Color.BLUE);
+    }
+
+    private void validateDeviceAndRunTestForColor(int color) throws Throwable {
         if (mActivityManager.isLowRamDevice()) {
             Log.d(TAG, "Not running assist tests on low-RAM device.");
             return;
@@ -90,11 +62,15 @@ public class ScreenshotTest extends AssistTestBase {
         waitForAssistantToBeReady();
 
         Bundle bundle = new Bundle();
-        bundle.putInt(Utils.SCREENSHOT_COLOR_KEY, Color.BLUE);
+        bundle.putInt(Utils.SCREENSHOT_COLOR_KEY, color);
+        start3pApp(TEST_CASE_TYPE, bundle);
+        // In multi-window devices (particularly foldables) we must cover the entire display
+        // to properly validate the Assistant screenshot; as there is no standard API to determine
+        // how many DisplayAreas a screen may contain, open a secondary activity for basic cases
         start3pApp(TEST_CASE_TYPE, bundle);
 
         eventuallyWithSessionClose(() -> {
-            delayAndStartSession(Color.BLUE);
+            delayAndStartSession(color);
             verifyAssistDataNullness(false, false, false, false);
             assertThat(mScreenshotMatches).isTrue();
         });

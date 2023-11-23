@@ -578,7 +578,7 @@
     <string name="onscreenHoldText" msgid="4025348842151665191">"Attente"</string>
     <string name="onscreenEndCallText" msgid="6138725377654842757">"Terminé"</string>
     <string name="onscreenShowDialpadText" msgid="658465753816164079">"Clavier numérique"</string>
-    <string name="onscreenMuteText" msgid="5470306116733843621">"Ignorer"</string>
+    <string name="onscreenMuteText" msgid="5470306116733843621">"Couper le son"</string>
     <string name="onscreenAddCallText" msgid="9075675082903611677">"Autre appel"</string>
     <string name="onscreenMergeCallsText" msgid="3692389519611225407">"Fusionner les appels"</string>
     <string name="onscreenSwapCallsText" msgid="2682542150803377991">"Permuter"</string>

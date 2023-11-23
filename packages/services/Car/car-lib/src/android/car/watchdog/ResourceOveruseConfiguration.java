@@ -76,8 +76,10 @@ public final class ResourceOveruseConfiguration implements Parcelable {
     /**
      * List of system or vendor packages that are safe to be killed on resource overuse.
      *
-     * <p>System component must provide only safe-to-kill system packages in this list.
-     * <p>Vendor component must provide only safe-to-kill vendor packages in this list.
+     * <p>When specifying shared package names, the package names should contain the prefix
+     * 'shared:'.
+     * <p>System components must provide only safe-to-kill system packages in this list.
+     * <p>Vendor components must provide only safe-to-kill vendor packages in this list.
      */
     private @NonNull List<String> mSafeToKillPackages;
 
@@ -87,6 +89,9 @@ public final class ResourceOveruseConfiguration implements Parcelable {
      * <p>Any pre-installed package name starting with one of the prefixes or any package from the
      * vendor partition is identified as a vendor package and vendor provided thresholds are applied
      * to these packages. This list must be provided only by the vendor component.
+     *
+     * <p>When specifying shared package name prefixes, the prefix should contain 'shared:' at
+     * the beginning.
      */
     private @NonNull List<String> mVendorPackagePrefixes;
 
@@ -97,6 +102,10 @@ public final class ResourceOveruseConfiguration implements Parcelable {
      * <p>This mapping must contain only packages that can be mapped to one of the
      * {@link ApplicationCategoryType} types. This mapping must be defined only by the system and
      * vendor components.
+     *
+     * <p>For packages under a shared UID, the application category type must be specified
+     * for the shared package name and not for individual packages under the shared UID. When
+     * specifying shared package names, the package names should contain the prefix 'shared:'.
      */
     private @NonNull Map<String, String> mPackagesToAppCategoryTypes;
 

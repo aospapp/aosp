@@ -319,21 +319,40 @@ public class MotionEventTest {
     }
 
     @Test
-    public void testOffsetLocation() {
+    public void testOffsetLocationForPointerSource() {
         assertEquals(X_3F, mMotionEvent2.getX(), DELTA);
         assertEquals(Y_4F, mMotionEvent2.getY(), DELTA);
+        mMotionEvent2.setSource(InputDevice.SOURCE_TOUCHSCREEN);
 
         float offsetX = 1.0f;
         float offsetY = 1.0f;
         mMotionEvent2.offsetLocation(offsetX, offsetY);
-        withCoords(X_3F + offsetX, Y_4F + offsetY).withPressure(PRESSURE_1F).withSize(SIZE_1F).
-                verifyMatches(mMotionEvent2);
+        withCoords(X_3F + offsetX, Y_4F + offsetY)
+                .withPressure(PRESSURE_1F)
+                .withSize(SIZE_1F)
+                .verifyMatches(mMotionEvent2);
+    }
+
+    @Test
+    public void testNoLocationOffsetForNonPointerSource() {
+        assertEquals(X_3F, mMotionEvent2.getX(), DELTA);
+        assertEquals(Y_4F, mMotionEvent2.getY(), DELTA);
+        mMotionEvent2.setSource(InputDevice.SOURCE_TOUCHPAD);
+
+        float offsetX = 1.0f;
+        float offsetY = 1.0f;
+        mMotionEvent2.offsetLocation(offsetX, offsetY);
+        withCoords(X_3F, Y_4F)
+                .withPressure(PRESSURE_1F)
+                .withSize(SIZE_1F)
+                .verifyMatches(mMotionEvent2);
     }
 
     @Test
     public void testSetLocation() {
         assertEquals(X_3F, mMotionEvent2.getX(), DELTA);
         assertEquals(Y_4F, mMotionEvent2.getY(), DELTA);
+        mMotionEvent2.setSource(InputDevice.SOURCE_TOUCHSCREEN);
 
         mMotionEvent2.setLocation(0.0f, 0.0f);
         withCoords(0.0f, 0.0f).withPressure(PRESSURE_1F).withSize(SIZE_1F).

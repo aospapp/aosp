@@ -26,6 +26,7 @@ import androidx.preference.Preference;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.settingslib.utils.StringUtil;
 
 /**
  * A preference controller handling the logic for updating summary of hibernated apps.
@@ -52,8 +53,8 @@ public final class HibernatedAppsPreferenceController extends PreferenceControll
 
     @Override
     public void onHibernatedAppsCountLoaded(int hibernatedAppsCount) {
-        getPreference().setSummary(getContext().getResources().getQuantityString(
-                R.plurals.unused_apps_summary, hibernatedAppsCount, hibernatedAppsCount));
+        getPreference().setSummary(StringUtil.getIcuPluralsString(getContext(), hibernatedAppsCount,
+                R.string.unused_apps_summary));
         refreshUi();
     }
 }

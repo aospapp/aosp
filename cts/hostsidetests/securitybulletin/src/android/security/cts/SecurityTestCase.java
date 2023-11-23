@@ -47,6 +47,7 @@ import java.math.BigInteger;
 
 import static org.junit.Assert.*;
 import static org.junit.Assume.*;
+import static org.hamcrest.core.Is.is;
 
 public class SecurityTestCase extends BaseHostJUnit4Test {
 
@@ -226,9 +227,17 @@ public class SecurityTestCase extends BaseHostJUnit4Test {
     }
 
     /**
-     * Check if a driver is present on a machine.
+     * Check if a driver is present and readable.
      */
     protected boolean containsDriver(ITestDevice device, String driver) throws Exception {
+        return containsDriver(device, driver, true);
+    }
+
+    /**
+     * Check if a driver is present on a machine.
+     */
+    protected boolean containsDriver(ITestDevice device, String driver, boolean checkReadable)
+            throws Exception {
         boolean containsDriver = false;
         if (driver.contains("*")) {
             // -A  list all files but . and ..
@@ -239,11 +248,15 @@ public class SecurityTestCase extends BaseHostJUnit4Test {
             if (AdbUtils.runCommandGetExitCode(ls, device) == 0) {
                 String[] expanded = device.executeShellCommand(ls).split("\\R");
                 for (String expandedDriver : expanded) {
-                    containsDriver |= containsDriver(device, expandedDriver);
+                    containsDriver |= containsDriver(device, expandedDriver, checkReadable);
                 }
             }
         } else {
-            containsDriver = AdbUtils.runCommandGetExitCode("test -r " + driver, device) == 0;
+            if(checkReadable) {
+                containsDriver = AdbUtils.runCommandGetExitCode("test -r " + driver, device) == 0;
+            } else {
+                containsDriver = AdbUtils.runCommandGetExitCode("test -e " + driver, device) == 0;
+            }
         }
 
         MetricsReportLog reportLog = buildMetricsReportLog(getDevice());
@@ -321,5 +334,29 @@ public class SecurityTestCase extends BaseHostJUnit4Test {
      */
     boolean moduleIsPlayManaged(String modulePackageName) throws Exception {
         return mainlineModuleDetector.getPlayManagedModules().contains(modulePackageName);
+    }
+
+    public void assumeIsSupportedNfcDevice(ITestDevice device) throws Exception {
+        String supportedDrivers[] = { "/dev/nq-nci*", "/dev/pn54*", "/dev/pn551*", "/dev/pn553*",
+                                      "/dev/pn557*", "/dev/pn65*", "/dev/pn66*", "/dev/pn67*",
+                                      "/dev/pn80*", "/dev/pn81*", "/dev/sn100*", "/dev/sn220*",
+                                      "/dev/st54j*" };
+        boolean isDriverFound = false;
+        for(String supportedDriver : supportedDrivers) {
+            if(containsDriver(device, supportedDriver, false)) {
+                isDriverFound = true;
+                break;
+            }
+        }
+        String[] output = device.executeShellCommand("ls -la /dev | grep nfc").split("\\n");
+        String nfcDevice = null;
+        for (String line : output) {
+            if(line.contains("nfc")) {
+                String text[] = line.split("\\s+");
+                nfcDevice = text[text.length - 1];
+            }
+        }
+        assumeTrue("NFC device " + nfcDevice + " is not supported. Hence skipping the test",
+                   isDriverFound);
     }
 }

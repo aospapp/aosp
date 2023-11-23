@@ -31,7 +31,7 @@
     <string name="bugreport_dialog_title" msgid="3315160684205929910">"Опишите ошибку вслух"</string>
     <string name="bugreport_dialog_add_audio_to_existing" msgid="4958460267276935700">"Аудио для отчета об ошибке (%s)"</string>
     <string name="bugreport_dialog_recording_finished" msgid="3982335902169398758">"Запись завершена."</string>
-    <string name="bugreport_dialog_in_progress_title" msgid="3782308141532622394">"Отчет об ошибке уже загружается"</string>
+    <string name="bugreport_dialog_in_progress_title" msgid="1663500052146177338">"Отчет об ошибке загружается…"</string>
     <string name="bugreport_dialog_in_progress_title_finished" msgid="1610236990020413471">"Отчет об ошибке загружен."</string>
     <string name="bugreport_add_audio_button_text" msgid="8606400151705699144">"Добавить аудио"</string>
     <string name="bugreport_add_audio_upload_button_text" msgid="3830917832551764694">"Добавить и загрузить аудио"</string>
@@ -39,12 +39,12 @@
     <string name="bugreport_upload_button_text" msgid="4136749466634820848">"Загрузить"</string>
     <string name="bugreport_upload_gcs_button_text" msgid="5844929656507607424">"Загрузить в GCS"</string>
     <string name="toast_permissions_denied" msgid="7054832711916992770">"Предоставьте разрешения."</string>
-    <string name="toast_bug_report_in_progress" msgid="8319601113129121579">"Отчет об ошибке уже загружается."</string>
-    <string name="toast_bug_report_started" msgid="7154589593986557754">"Выполняется загрузка отчета об ошибке."</string>
+    <string name="toast_bug_report_in_progress" msgid="5218530088025955746">"Отчет об ошибке загружается…"</string>
+    <string name="toast_bug_report_started" msgid="891404618481185195">"Создается отчет об ошибке…"</string>
     <string name="toast_status_failed" msgid="6365384202315043395">"Произошла ошибка."</string>
     <string name="toast_status_screencap_failed" msgid="2187083897594745149">"Не удалось сделать скриншот."</string>
-    <string name="toast_status_dump_state_failed" msgid="8072469535227541761">"Ошибка дампа состояния."</string>
+    <string name="toast_status_dump_state_failed" msgid="3496460783060512078">"Ошибка сервиса Dumpstate."</string>
     <string name="notification_bugreport_in_progress" msgid="8486454116357963238">"Отчет об ошибке загружается…"</string>
-    <string name="notification_bugreport_finished_title" msgid="3970195939909624320">"Отчет об ошибке загружен"</string>
+    <string name="notification_bugreport_finished_title" msgid="1188447311929693472">"Отчет об ошибке загружен"</string>
     <string name="notification_bugreport_channel_name" msgid="776902295433824255">"Канал статуса отчета об ошибке"</string>
 </resources>

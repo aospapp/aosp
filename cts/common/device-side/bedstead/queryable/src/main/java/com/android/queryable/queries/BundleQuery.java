@@ -22,16 +22,15 @@ import androidx.annotation.CheckResult;
 
 import com.android.queryable.Queryable;
 
-import java.io.Serializable;
-
 /** Query for a {@link Bundle}. */
 public interface BundleQuery<E extends Queryable> extends Query<Bundle> {
 
+    /** Queries a {@link Bundle}. */
     static BundleQuery<BundleQuery> bundle() {
         return new BundleQueryHelper<>();
     }
 
-    /** Query a given key on the {@link Bundle}. */
+    /** Queries a given key on the {@link Bundle}. */
     @CheckResult
     BundleKeyQuery<E> key(String key);
 }

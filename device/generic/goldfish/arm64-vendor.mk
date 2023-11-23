@@ -3,9 +3,6 @@ include device/generic/goldfish/arm64-kernel.mk
 PRODUCT_PROPERTY_OVERRIDES += \
        vendor.rild.libpath=/vendor/lib64/libgoldfish-ril.so
 
-PRODUCT_PACKAGES += \
-    emulatorip
-
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.crypto.dm_default_key.options_format.version=2
 

@@ -84,22 +84,23 @@ public final class WallpaperCropUtils {
             minDim = Math.min(realSize.x, realSize.y);
         }
 
-        return calculateCropSurfaceSize(resources, maxDim, minDim);
+        return calculateCropSurfaceSize(resources, maxDim, minDim, display.getWidth(),
+                display.getHeight());
     }
 
     /**
      * Calculates ideal crop surface size for a surface of dimensions maxDim x minDim such that
      * there is room for parallax in both* landscape and portrait screen orientations.
      */
-    public static Point calculateCropSurfaceSize(Resources resources, int maxDim, int minDim) {
+    public static Point calculateCropSurfaceSize(Resources resources, int maxDim, int minDim,
+            int width, int height) {
         final int defaultWidth, defaultHeight;
         if (resources.getConfiguration().smallestScreenWidthDp >= 720) {
             defaultWidth = (int) (maxDim * wallpaperTravelToScreenWidthRatio(maxDim, minDim));
-            defaultHeight = maxDim;
         } else {
             defaultWidth = Math.max((int) (minDim * WALLPAPER_SCREENS_SPAN), maxDim);
-            defaultHeight = maxDim;
         }
+        defaultHeight = width < height ? maxDim : minDim;
 
         return new Point(defaultWidth, defaultHeight);
     }

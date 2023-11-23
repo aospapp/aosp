@@ -132,14 +132,13 @@ public class VrDisplayTests extends MultiDisplayTestBase {
         // Ensure that the subsequent activity is visible
         mWmState.assertVisibility(LAUNCHING_ACTIVITY, true /* visible */);
 
-        // Check that activity is launched in focused stack on primary display.
+        // Check that activity is launched in focused task on primary display.
         mWmState.assertFocusedActivity("Launched activity must be focused",
                 LAUNCHING_ACTIVITY);
-        final int focusedStackId = mWmState.getFocusedStackId();
-        final WindowManagerState.ActivityTask focusedStack
-                = mWmState.getRootTask(focusedStackId);
-        assertEquals("Launched activity must be resumed in focused stack",
-                getActivityName(LAUNCHING_ACTIVITY), focusedStack.mResumedActivity);
+        final int focusedTaskId = mWmState.getFocusedTaskId();
+        final WindowManagerState.Task focusedTask = mWmState.getRootTask(focusedTaskId);
+        assertEquals("Launched activity must be resumed in focused task",
+                getActivityName(LAUNCHING_ACTIVITY), focusedTask.mResumedActivity);
 
         // Check if the launch activity is in Vr virtual display id.
         final List<DisplayContent> reportedDisplays = getDisplaysStates();
@@ -147,9 +146,9 @@ public class VrDisplayTests extends MultiDisplayTestBase {
                 VR_VIRTUAL_DISPLAY_WIDTH, VR_VIRTUAL_DISPLAY_HEIGHT, VR_VIRTUAL_DISPLAY_DPI);
         assertNotNull("Vr mode should have a virtual display", vrDisplay);
 
-        // Check if the focused activity is on this virtual stack.
-        assertEquals("Launch in Vr mode should be in virtual stack", vrDisplay.mId,
-                focusedStack.mDisplayId);
+        // Check if the focused activity is on this virtual task.
+        assertEquals("Launch in Vr mode should be in virtual task", vrDisplay.mId,
+                focusedTask.mDisplayId);
     }
 
     /**
@@ -182,14 +181,14 @@ public class VrDisplayTests extends MultiDisplayTestBase {
         // Ensure that the subsequent activity is visible
         mWmState.assertVisibility(LAUNCHING_ACTIVITY, true /* visible */);
 
-        // Check that activity is launched in focused stack on primary display.
+        // Check that activity is launched in focused task on primary display.
         mWmState.assertFocusedActivity("Launched activity must be focused",
                 LAUNCHING_ACTIVITY);
-        final int focusedStackId = mWmState.getFocusedStackId();
-        final WindowManagerState.ActivityTask focusedStack
-                = mWmState.getRootTask(focusedStackId);
-        assertEquals("Launched activity must be resumed in focused stack",
-                getActivityName(LAUNCHING_ACTIVITY), focusedStack.mResumedActivity);
+        final int focusedTaskId = mWmState.getFocusedTaskId();
+        final WindowManagerState.Task focusedTask
+                = mWmState.getRootTask(focusedTaskId);
+        assertEquals("Launched activity must be resumed in focused task",
+                getActivityName(LAUNCHING_ACTIVITY), focusedTask.mResumedActivity);
 
         // Check if the launch activity is in Vr virtual display id.
         final List<DisplayContent> reportedDisplays = getDisplaysStates();
@@ -197,9 +196,9 @@ public class VrDisplayTests extends MultiDisplayTestBase {
                 VR_VIRTUAL_DISPLAY_WIDTH, VR_VIRTUAL_DISPLAY_HEIGHT, VR_VIRTUAL_DISPLAY_DPI);
         assertNotNull("Vr mode should have a virtual display", vrDisplay);
 
-        // Check if the focused activity is on this virtual stack.
-        assertEquals("Launch in Vr mode should be in virtual stack", vrDisplay.mId,
-                focusedStack.mDisplayId);
+        // Check if the focused activity is on this virtual task.
+        assertEquals("Launch in Vr mode should be in virtual task", vrDisplay.mId,
+                focusedTask.mDisplayId);
     }
 
     /**
@@ -231,15 +230,14 @@ public class VrDisplayTests extends MultiDisplayTestBase {
             // Ensure that the subsequent activity is visible
             mWmState.assertVisibility(ALT_LAUNCHING_ACTIVITY, true /* visible */);
 
-            // Check that activity is launched in focused stack on primary display.
+            // Check that activity is launched in focused task on primary display.
             mWmState.assertFocusedActivity("Launched activity must be focused",
                     ALT_LAUNCHING_ACTIVITY);
-            final int focusedStackId = mWmState.getFocusedStackId();
-            final WindowManagerState.ActivityTask focusedStack
-                    = mWmState.getRootTask(focusedStackId);
-            assertEquals("Launched activity must be resumed in focused stack",
+            final int focusedTaskId = mWmState.getFocusedTaskId();
+            final WindowManagerState.Task focusedTask = mWmState.getRootTask(focusedTaskId);
+            assertEquals("Launched activity must be resumed in focused task",
                     getActivityName(ALT_LAUNCHING_ACTIVITY),
-                    focusedStack.mResumedActivity);
+                    focusedTask.mResumedActivity);
 
             // Check if the launch activity is in Vr virtual display id.
             final List<DisplayContent> reportedDisplays = getDisplaysStates();
@@ -248,9 +246,9 @@ public class VrDisplayTests extends MultiDisplayTestBase {
                     VR_VIRTUAL_DISPLAY_DPI);
             assertNotNull("Vr mode should have a virtual display", vrDisplay);
 
-            // Check if the focused activity is on this virtual stack.
-            assertEquals("Launch in Vr mode should be in virtual stack", vrDisplay.mId,
-                    focusedStack.mDisplayId);
+            // Check if the focused activity is on this virtual task.
+            assertEquals("Launch in Vr mode should be in virtual task", vrDisplay.mId,
+                    focusedTask.mDisplayId);
 
         }
 
@@ -270,14 +268,14 @@ public class VrDisplayTests extends MultiDisplayTestBase {
         // Ensure that the subsequent activity is visible
         mWmState.assertVisibility(RESIZEABLE_ACTIVITY, true /* visible */);
 
-        // Check that activity is launched in focused stack on primary display.
+        // Check that activity is launched in focused task on primary display.
         mWmState.assertFocusedActivity("Launched activity must be focused", RESIZEABLE_ACTIVITY);
-        final int frontStackId = mWmState.getFrontRootTaskId(DEFAULT_DISPLAY);
-        final WindowManagerState.ActivityTask frontStack
-                = mWmState.getRootTask(frontStackId);
-        assertEquals("Launched activity must be resumed in front stack",
-                getActivityName(RESIZEABLE_ACTIVITY), frontStack.mResumedActivity);
-        assertEquals("Front stack must be on primary display",
-                DEFAULT_DISPLAY, frontStack.mDisplayId);
+        final int frontRootTaskId = mWmState.getFrontRootTaskId(DEFAULT_DISPLAY);
+        final WindowManagerState.Task frontRootTask
+                = mWmState.getRootTask(frontRootTaskId);
+        assertEquals("Launched activity must be resumed in front root task",
+                getActivityName(RESIZEABLE_ACTIVITY), frontRootTask.mResumedActivity);
+        assertEquals("Front root task must be on primary display",
+                DEFAULT_DISPLAY, frontRootTask.mDisplayId);
     }
 }

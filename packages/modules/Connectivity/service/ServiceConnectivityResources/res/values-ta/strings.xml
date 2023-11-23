@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="connectivityResourcesAppLabel" msgid="2476261877900882974">"சிஸ்டம் இணைப்பு மூலங்கள்"</string>
+    <string name="connectivityResourcesAppLabel" msgid="2476261877900882974">"சிஸ்டம் இணைப்பு தகவல்கள்"</string>
     <string name="wifi_available_sign_in" msgid="8041178343789805553">"வைஃபை நெட்வொர்க்கில் உள்நுழையவும்"</string>
     <string name="network_available_sign_in" msgid="2622520134876355561">"நெட்வொர்க்கில் உள்நுழையவும்"</string>
     <!-- no translation found for network_available_sign_in_detailed (8439369644697866359) -->

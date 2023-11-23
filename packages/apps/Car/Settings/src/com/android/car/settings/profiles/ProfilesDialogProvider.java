@@ -23,6 +23,7 @@ import androidx.annotation.Nullable;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.ConfirmationDialogFragment;
+import com.android.settingslib.utils.StringUtil;
 
 /**
  * Provides common Profiles-related ConfirmationDialogFragments to ensure consistency
@@ -87,8 +88,8 @@ public final class ProfilesDialogProvider {
             Context context, int maxProfileLimit) {
         return new ConfirmationDialogFragment.Builder(context)
                 .setTitle(R.string.user_limit_reached_title)
-                .setMessage(context.getResources().getQuantityString(
-                        R.plurals.user_limit_reached_message, maxProfileLimit, maxProfileLimit))
+                .setMessage(StringUtil.getIcuPluralsString(context, maxProfileLimit,
+                        R.string.user_limit_reached_message))
                 .setPositiveButton(android.R.string.ok, /* confirmListener= */ null)
                 .build();
     }

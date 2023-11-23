@@ -16,8 +16,10 @@
 
 package com.android.car.ui.preference;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.preference.PreferenceDialogFragment.ARG_KEY;
 
+import android.annotation.TargetApi;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -52,6 +54,7 @@ import java.util.Set;
  * A fragment that provides a layout with a list of options associated with a {@link
  * CarUiMultiSelectListPreference}.
  */
+@TargetApi(MIN_TARGET_API)
 public class MultiSelectListPreferenceFragment extends Fragment implements InsetsChangedListener {
 
     private CarUiMultiSelectListPreference mPreference;
@@ -95,7 +98,7 @@ public class MultiSelectListPreferenceFragment extends Fragment implements Inset
         recyclerView.setClipToPadding(false);
         if (toolbar != null) {
             toolbar.setTitle(mPreference.getTitle());
-            toolbar.setSubtitle(null);
+            toolbar.setSubtitle("");
             if (toolbar.isStateSet()) {
                 toolbar.setState(Toolbar.State.SUBPAGE);
             } else {

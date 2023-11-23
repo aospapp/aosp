@@ -24,7 +24,7 @@ android_test {
         "androidx.test.rules",
         "automotive-notification-scenarios",
         "automotive-health-test-rules",
-        "automotive-settings-app-helper",
+        "automotive-notifications-app-helper",
         "app-helpers-auto-interfaces",
         "ub-uiautomator",
         "collector-device-lib-platform",

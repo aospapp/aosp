@@ -55,6 +55,10 @@ public abstract class AbstractAutoStandardAppHelper extends AbstractStandardAppH
         mAutoJsonUtil = AutoJsonUtility.getInstance();
     }
 
+    protected void addConfigUtility(String appName, IAutoConfigUtility utility) {
+        mAutoJsonUtil.addConfigUtility(appName, utility);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void open() {

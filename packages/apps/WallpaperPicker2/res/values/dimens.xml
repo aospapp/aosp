@@ -153,10 +153,13 @@
     <dimen name="bottom_actions_height">84dp</dimen>
     <dimen name="bottom_actions_top_padding">24dp</dimen>
     <dimen name="bottom_actions_bottom_padding">12dp</dimen>
+    <dimen name="bottom_actions_horizontal_margin">0dp</dimen>
     <dimen name="bottom_action_button_width">72dp</dimen>
     <dimen name="bottom_action_button_height">48dp</dimen>
     <dimen name="bottom_action_button_padding_horizontal">26dp</dimen>
     <dimen name="bottom_action_button_radius">100dp</dimen>
+    <dimen name="apply_button_background_width">60dp</dimen>
+    <dimen name="apply_button_background_height">36dp</dimen>
 
     <!-- Whenever updating this file, ensure that
          bottom_actions_plus_separated_tabs == bottom_actions_height + separated_tabs_height -->
@@ -178,7 +181,7 @@
     <dimen name="separated_tabs_corner_radius">12dp</dimen>
     <dimen name="separated_tabs_inset_horizontal">4dp</dimen>
     <!--  Default page horizontal margin (24dp) - separated tabs inset horizontal (4dp) -->
-    <dimen name="separated_tabs_horizontal_margin">20dp</dimen>
+    <dimen name="separated_tabs_horizontal_padding">20dp</dimen>
 
     <!-- Whenever updating this file, ensure that
          fullscreen_preview_button_margin == - separated_tabs_height -->
@@ -205,4 +208,15 @@
     <dimen name="wallpaper_picker_entry_drawable_padding">8dp</dimen>
     <dimen name="wallpaper_picker_entry_horizontal_padding">16dp</dimen>
     <dimen name="wallpaper_picker_entry_margin_vertical">18dp</dimen>
+
+    <!-- For the full screen preview activity's hide UI menu item -->
+    <dimen name="menu_item_hide_ui_background_width">46dp</dimen>
+    <dimen name="menu_item_hide_ui_background_height">46dp</dimen>
+    <dimen name="menu_item_hide_ui_icon_size">24dp</dimen>
+    <dimen name="menu_item_full_preview_margin">12dp</dimen>
+
+    <!-- For the full screen preview activity's set wallpaper menu item -->
+    <dimen name="menu_item_set_wallpaper_background_width">92dp</dimen>
+    <dimen name="menu_item_set_wallpaper_background_height">46dp</dimen>
+    <dimen name="menu_item_set_wallpaper_background_radius">24dp</dimen>
 </resources>

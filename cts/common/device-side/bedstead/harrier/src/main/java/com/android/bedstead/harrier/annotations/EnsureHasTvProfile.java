@@ -17,7 +17,9 @@
 package com.android.bedstead.harrier.annotations;
 
 import static com.android.bedstead.harrier.DeviceState.UserType.CURRENT_USER;
+import static com.android.bedstead.harrier.OptionalBoolean.ANY;
 import static com.android.bedstead.harrier.OptionalBoolean.TRUE;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.MIDDLE;
 
 import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.harrier.OptionalBoolean;
@@ -44,4 +46,21 @@ public @interface EnsureHasTvProfile {
 
     /** Whether the instrumented test app should be installed in the tv profile. */
     OptionalBoolean installInstrumentedApp() default TRUE;
+
+    /**
+     * Should we ensure that we are switched to the parent of the profile.
+     */
+    OptionalBoolean switchedToParentUser() default ANY;
+
+    /**
+     * Weight sets the order that annotations will be resolved.
+     *
+     * <p>Annotations with a lower weight will be resolved before annotations with a higher weight.
+     *
+     * <p>If there is an order requirement between annotations, ensure that the weight of the
+     * annotation which must be resolved first is lower than the one which must be resolved later.
+     *
+     * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
+     */
+    int weight() default MIDDLE;
 }

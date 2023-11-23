@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"പ്രയോഗിക്കുക"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"എഡിറ്റ് ചെയ്യാൻ ടാപ്പ് ചെയ്യുക"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"നിലവിലെ വാൾപേപ്പർ നിലനിർത്തുക"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"പ്രയോഗിക്കുക"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"സ്‌റ്റൈൽ പ്രിവ്യൂ"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"ഗ്രിഡ് പ്രിവ്യൂ"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"ഫോണ്ട് പ്രിവ്യൂ"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, നിലവിൽ ബാധകമാക്കിയത്"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, നിലവിൽ ബാധകമാക്കി പ്രിവ്യൂ ചെയ്യുന്നു"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, നിലവിൽ പ്രിവ്യൂ ചെയ്യുന്നു"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, തിരഞ്ഞെടുത്തവയും പ്രിവ്യൂ ചെയ്തവയും മാറ്റുക"</string>
     <string name="theme_description" msgid="3697012391785254635">"ഫോണ്ട്: <xliff:g id="ID_1">%1$s</xliff:g>, ഐക്കണുകൾ: <xliff:g id="ID_2">%2$s</xliff:g>, രൂപം: <xliff:g id="ID_3">%3$s</xliff:g>, വർണ്ണം: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"ഡിഫോൾട്ട്"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"ഫോണ്ട്"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"ഇഷ്‌ടാനുസൃത സ്‌റ്റൈലിന്റെ പേര്"</string>
     <string name="mode_title" msgid="2394873501427436055">"ഡാർക്ക് തീം"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"ബാറ്ററി ലാഭിക്കൽ കാരണം തൽക്കാലം പ്രവർത്തനരഹിതമാണ്"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"തീം മാറ്റി"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"തീമുള്ള ഐക്കണുകൾ"</string>
     <string name="beta_title" msgid="8703819523760746458">"ബീറ്റ"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ആപ്പ് ഗ്രിഡ് മാറ്റുക"</string>

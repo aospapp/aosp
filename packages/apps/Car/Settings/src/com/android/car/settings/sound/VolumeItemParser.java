@@ -79,7 +79,8 @@ public class VolumeItemParser {
                         volumeItems.put(usage, new VolumeItemParser.VolumeItem(
                                 usage, rank,
                                 item.getResourceId(R.styleable.carVolumeItems_item_titleText, 0),
-                                item.getResourceId(R.styleable.carVolumeItems_item_icon, 0)));
+                                item.getResourceId(R.styleable.carVolumeItems_item_icon, 0),
+                                item.getResourceId(R.styleable.carVolumeItems_item_mute_icon, 0)));
                         rank++;
                     }
                     item.recycle();
@@ -102,14 +103,17 @@ public class VolumeItemParser {
         private final int mTitle;
         @DrawableRes
         private final int mIcon;
+        @DrawableRes
+        private final int mMuteIcon;
 
         /** Constructs the VolumeItem container with the given values. */
         public VolumeItem(@AudioAttributes.AttributeUsage int usage, int rank,
-                @StringRes int title, @DrawableRes int icon) {
+                @StringRes int title, @DrawableRes int icon, @DrawableRes int muteIcon) {
             mUsage = usage;
             mRank = rank;
             mTitle = title;
             mIcon = icon;
+            mMuteIcon = muteIcon;
         }
 
         /**
@@ -137,6 +141,11 @@ public class VolumeItemParser {
         /** Icon which should be used for the seek bar preference. */
         public int getIcon() {
             return mIcon;
+        }
+
+        /** Icon which should be used for the seek bar preference when muted. */
+        public int getMuteIcon() {
+            return mMuteIcon;
         }
     }
 }

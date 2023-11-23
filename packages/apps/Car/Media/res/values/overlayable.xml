@@ -33,108 +33,17 @@ REGENERATE USING packages/apps/Car/tests/tools/rro/generate-overlayable.py
       <item type="bool" name="show_time_for_now_playing_queue_list_item"/>
       <item type="bool" name="switch_to_playback_view_when_playable_item_is_clicked"/>
       <item type="bool" name="use_media_source_color_for_progress_bar"/>
-      <item type="color" name="album_art_background"/>
-      <item type="color" name="appbar_view_icon_tint"/>
-      <item type="color" name="appbar_view_settings_tint"/>
-      <item type="color" name="browse_playback_bg_color"/>
-      <item type="color" name="no_content_text_color"/>
-      <item type="color" name="progress_bar_background"/>
-      <item type="color" name="progress_bar_highlight"/>
-      <item type="color" name="progress_bar_thumb_color"/>
-      <item type="color" name="progress_bar_thumb_inner_ring_color"/>
-      <item type="color" name="progress_bar_thumb_outer_ring_color"/>
-      <item type="color" name="queue_playing_icon_color"/>
-      <item type="color" name="search_bar_underline_color"/>
-      <item type="color" name="search_hint_text_color"/>
-      <item type="dimen" name="appbar_view_control_buttons_margin_end"/>
-      <item type="dimen" name="appbar_view_control_buttons_spacing"/>
-      <item type="dimen" name="appbar_view_nav_button_width"/>
-      <item type="dimen" name="appbar_view_tabs_margin_end"/>
-      <item type="dimen" name="appbar_view_tabs_margin_start"/>
-      <item type="dimen" name="appbar_view_title_margin_start"/>
-      <item type="dimen" name="apps_max_content_width"/>
-      <item type="dimen" name="art_metadata_margin"/>
       <item type="dimen" name="browse_fragment_bottom_padding"/>
       <item type="dimen" name="browse_fragment_top_padding"/>
       <item type="dimen" name="browse_fragment_top_padding_stacked"/>
-      <item type="dimen" name="browse_playback_controls_height"/>
-      <item type="dimen" name="browse_spacer_height"/>
-      <item type="dimen" name="browse_state_error_margin_top"/>
-      <item type="dimen" name="browse_tab_alpha_selected"/>
-      <item type="dimen" name="browse_tab_alpha_unselected"/>
-      <item type="dimen" name="browse_tab_padding"/>
-      <item type="dimen" name="browse_tab_width"/>
-      <item type="dimen" name="controls_margin"/>
-      <item type="dimen" name="controls_spacing_inner"/>
-      <item type="dimen" name="controls_spacing_outer"/>
-      <item type="dimen" name="controls_tap_target_height"/>
-      <item type="dimen" name="controls_tap_target_width"/>
-      <item type="dimen" name="fragment_error_button_margin_bottom"/>
-      <item type="dimen" name="fragment_error_button_margin_top"/>
-      <item type="dimen" name="fragment_error_message_margin_x"/>
-      <item type="dimen" name="fragment_metadata_margin_x"/>
-      <item type="dimen" name="fragment_playback_queue_overlap_bottom"/>
-      <item type="dimen" name="fragment_playback_queue_overlap_top"/>
-      <item type="dimen" name="grid_item_spacing"/>
-      <item type="dimen" name="media_activity_close_vector_x"/>
-      <item type="dimen" name="media_activity_close_vector_y"/>
-      <item type="dimen" name="media_activity_controls_container_padding"/>
-      <item type="dimen" name="media_activity_controls_margin_start"/>
       <item type="dimen" name="media_background_alpha"/>
-      <item type="dimen" name="media_browse_grid_icons_item_art_size"/>
-      <item type="dimen" name="media_browse_grid_item_margin_bottom"/>
-      <item type="dimen" name="media_browse_grid_item_padding"/>
-      <item type="dimen" name="media_browse_grid_item_text_margin_top"/>
-      <item type="dimen" name="media_browse_header_item_height"/>
-      <item type="dimen" name="media_browse_header_item_margin_x"/>
-      <item type="dimen" name="media_browse_indicator_size"/>
       <item type="dimen" name="media_browse_list_icons_item_art_margin_start"/>
-      <item type="dimen" name="media_browse_list_icons_item_art_size"/>
       <item type="dimen" name="media_browse_list_icons_item_text_margin_x"/>
-      <item type="dimen" name="media_browse_list_item_arrow_size"/>
-      <item type="dimen" name="media_browse_list_item_height"/>
-      <item type="dimen" name="media_browse_list_item_icon_margin_start"/>
       <item type="dimen" name="media_browse_list_item_text_margin_x"/>
-      <item type="dimen" name="media_browse_list_item_thumbnail_margin_bottom"/>
-      <item type="dimen" name="media_browse_list_item_thumbnail_size"/>
-      <item type="dimen" name="media_browse_subtitle_margin_top"/>
-      <item type="dimen" name="media_scrim_alpha"/>
-      <item type="dimen" name="media_scrim_darkened_alpha"/>
-      <item type="dimen" name="metadata_subtitles_margin"/>
-      <item type="dimen" name="metadata_title_subtitle_margin"/>
       <item type="dimen" name="minimized_control_bar_margin_bottom"/>
-      <item type="dimen" name="missing_permission_icon_size"/>
-      <item type="dimen" name="music_action_icon_inset"/>
-      <item type="dimen" name="music_action_ripple_inset"/>
-      <item type="dimen" name="playback_album_art_size"/>
-      <item type="dimen" name="playback_background_blur_radius"/>
-      <item type="dimen" name="playback_background_blur_scale"/>
-      <item type="dimen" name="playback_background_raw_image_size"/>
-      <item type="dimen" name="playback_queue_background_alpha"/>
-      <item type="dimen" name="playback_queue_button_margin_end"/>
-      <item type="dimen" name="playback_queue_list_padding_top"/>
-      <item type="dimen" name="playback_seekbar_height"/>
       <item type="dimen" name="playback_seekbar_margin_x"/>
-      <item type="dimen" name="playback_seekbar_padding_x"/>
-      <item type="dimen" name="playback_seekbar_thumb_height"/>
-      <item type="dimen" name="playback_seekbar_thumb_inner_ring_inner_radius"/>
-      <item type="dimen" name="playback_seekbar_thumb_inner_ring_thickness"/>
-      <item type="dimen" name="playback_seekbar_thumb_offset"/>
-      <item type="dimen" name="playback_seekbar_thumb_outer_ring_inner_radius"/>
-      <item type="dimen" name="playback_seekbar_thumb_outer_ring_thickness"/>
-      <item type="dimen" name="playback_seekbar_thumb_width"/>
-      <item type="dimen" name="playback_seekbar_track_height"/>
-      <item type="dimen" name="playback_title_margin_end"/>
-      <item type="dimen" name="queue_button_background_size"/>
-      <item type="dimen" name="queue_fading_edge_length"/>
-      <item type="dimen" name="queue_list_item_height"/>
       <item type="dimen" name="queue_list_item_padding_x"/>
-      <item type="dimen" name="queue_list_item_spacer_width"/>
       <item type="dimen" name="queue_list_item_thumbnail_container_width"/>
-      <item type="dimen" name="queue_list_item_thumbnail_size"/>
-      <item type="dimen" name="queue_list_item_title_time_margin"/>
-      <item type="dimen" name="tab_view_icon_margin_bottom"/>
-      <item type="dimen" name="tab_view_icon_size"/>
       <item type="drawable" name="error_illustration"/>
       <item type="drawable" name="ic_arrow_back"/>
       <item type="drawable" name="ic_chevron_right"/>
@@ -251,6 +160,7 @@ REGENERATE USING packages/apps/Car/tests/tools/rro/generate-overlayable.py
       <item type="style" name="BrowseListTitleStyle"/>
       <item type="style" name="BrowseSubheaderStyle"/>
       <item type="style" name="ErrorTextStyle"/>
+      <item type="style" name="MediaIconContainerStyle"/>
       <item type="style" name="MetadataContainerStyle"/>
       <item type="style" name="MetadataPlaybackSubtitleStyle"/>
       <item type="style" name="MetadataPlaybackTitleStyle"/>

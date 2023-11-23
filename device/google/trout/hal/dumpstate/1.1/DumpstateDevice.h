@@ -49,6 +49,7 @@ class DumpstateDevice : public IDumpstateDevice {
   private:
     bool dumpRemoteLogs(::grpc::ClientReaderInterface<dumpstate_proto::DumpstateBuffer>* reader,
                         const fs::path& dumpPath);
+    bool dumpString(const std::string& text, const fs::path& dumpPath);
 
     bool dumpHelperSystem(int textFd, int binFd);
 

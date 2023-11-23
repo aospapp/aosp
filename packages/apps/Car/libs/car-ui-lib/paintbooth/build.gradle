@@ -50,6 +50,6 @@ dependencies {
     implementation project(':car-ui-lib')
     debugImplementation 'com.squareup.leakcanary:leakcanary-android:2.0'
     api 'androidx.annotation:annotation:1.2.0'
-    api 'androidx.constraintlayout:constraintlayout:2.0.4'
-    api 'androidx.recyclerview:recyclerview:1.2.0'
+    api 'androidx.constraintlayout:constraintlayout:2.1.0'
+    api 'androidx.recyclerview:recyclerview:1.2.1'
 }

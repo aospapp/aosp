@@ -17,6 +17,7 @@ package com.android.wallpaper.util;
 
 import static com.android.wallpaper.util.LaunchSourceUtils.LAUNCH_SETTINGS_SEARCH;
 import static com.android.wallpaper.util.LaunchSourceUtils.LAUNCH_SOURCE_SETTINGS;
+import static com.android.wallpaper.util.LaunchSourceUtils.LAUNCH_SOURCE_SETTINGS_HOMEPAGE;
 import static com.android.wallpaper.util.LaunchSourceUtils.WALLPAPER_LAUNCH_SOURCE;
 
 import android.app.Activity;
@@ -69,6 +70,16 @@ public final class ActivityUtils {
     }
 
     /**
+     * Checks if the Activity's launch source is from Settings' trampoline.
+     *
+     * @param intent intent to start the Activity
+     * @return {@code true} if the Activity's launch source is from Settings' trampoline.
+     */
+    public static boolean isLaunchedFromSettingsTrampoline(Intent intent) {
+        return isLaunchedFromSettingsHome(intent);
+    }
+
+    /**
      * Returns true if wallpaper launch source is from Settings.
      *
      * @param intent activity intent.
@@ -76,6 +87,10 @@ public final class ActivityUtils {
     private static boolean isLaunchedFromSettings(Intent intent) {
         return (intent != null && TextUtils.equals(LAUNCH_SOURCE_SETTINGS,
                 intent.getStringExtra(WALLPAPER_LAUNCH_SOURCE)));
+    }
+
+    private static boolean isLaunchedFromSettingsHome(Intent intent) {
+        return (intent != null && intent.getBooleanExtra(LAUNCH_SOURCE_SETTINGS_HOMEPAGE, false));
     }
 
     /**

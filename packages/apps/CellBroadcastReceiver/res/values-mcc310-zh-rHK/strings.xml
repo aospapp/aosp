@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"從安全警示系統接收必需的每月測試"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"國家級警報"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"第一次警報出現後顯示停用對話框 (國家級警報除外)。"</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"國家級警示"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"國家級警示訊息。這類訊息無法關閉。"</string>
 </resources>

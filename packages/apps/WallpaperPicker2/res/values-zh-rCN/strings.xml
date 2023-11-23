@@ -95,7 +95,14 @@
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"壁纸预览"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"该集合不存在"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"隐藏界面预览"</string>
+    <string name="hint_hide_ui_preview" msgid="4527603797714586070">"界面在预览中处于隐藏状态。点按两次即可取消隐藏"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"显示界面预览"</string>
+    <string name="hint_show_ui_preview" msgid="2744155435325318349">"界面在预览中处于显示状态。点按两次即可隐藏"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"更换壁纸"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"锁定屏幕壁纸预览"</string>
+    <string name="apply_btn" msgid="5764555565943538528">"应用"</string>
+    <string name="accessibility_customize_hidden" msgid="6320568529768181691">"“自定义”面板处于隐藏状态"</string>
+    <string name="accessibility_customize_shown" msgid="590964727831547651">"“自定义”面板处于显示状态"</string>
+    <string name="accessibility_info_hidden" msgid="2288603712350168107">"“信息”面板处于隐藏状态"</string>
+    <string name="accessibility_info_shown" msgid="6626025722456105632">"“信息”面板处于显示状态"</string>
 </resources>

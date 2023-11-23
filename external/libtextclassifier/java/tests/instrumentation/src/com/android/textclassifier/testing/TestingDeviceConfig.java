@@ -25,42 +25,64 @@ import javax.annotation.Nullable;
 /** A fake DeviceConfig implementation for testing purpose. */
 public final class TestingDeviceConfig implements TextClassifierSettings.IDeviceConfig {
 
-  private final HashMap<String, String> strConfigs;
-  private final HashMap<String, Boolean> boolConfigs;
+  private final HashMap<String, String> configs;
 
   public TestingDeviceConfig() {
-    this.strConfigs = new HashMap<>();
-    this.boolConfigs = new HashMap<>();
+    this.configs = new HashMap<>();
   }
 
   public void setConfig(String key, String value) {
-    strConfigs.put(key, value);
+    configs.put(key, value);
   }
 
   public void setConfig(String key, boolean value) {
-    boolConfigs.put(key, value);
+    configs.put(key, Boolean.toString(value));
+  }
+
+  public void setConfig(String key, int value) {
+    configs.put(key, Integer.toString(value));
+  }
+
+  public void setConfig(String key, float value) {
+    configs.put(key, Float.toString(value));
+  }
+
+  public void setConfig(String key, long value) {
+    configs.put(key, Long.toString(value));
   }
 
   @Override
   public Properties getProperties(@NonNull String namespace, @NonNull String... names) {
     Properties.Builder builder = new Properties.Builder(namespace);
-    for (String key : strConfigs.keySet()) {
-      builder.setString(key, strConfigs.get(key));
-    }
-    for (String key : boolConfigs.keySet()) {
-      builder.setBoolean(key, boolConfigs.get(key));
+    for (String key : configs.keySet()) {
+      builder.setString(key, configs.get(key));
     }
     return builder.build();
   }
 
   @Override
   public boolean getBoolean(@NonNull String namespace, @NonNull String name, boolean defaultValue) {
-    return boolConfigs.containsKey(name) ? boolConfigs.get(name) : defaultValue;
+    return configs.containsKey(name) ? Boolean.parseBoolean(configs.get(name)) : defaultValue;
   }
 
   @Override
   public String getString(
       @NonNull String namespace, @NonNull String name, @Nullable String defaultValue) {
-    return strConfigs.containsKey(name) ? strConfigs.get(name) : defaultValue;
+    return configs.containsKey(name) ? configs.get(name) : defaultValue;
+  }
+
+  @Override
+  public int getInt(@NonNull String namespace, @NonNull String name, int defaultValue) {
+    return configs.containsKey(name) ? Integer.parseInt(configs.get(name)) : defaultValue;
+  }
+
+  @Override
+  public float getFloat(@NonNull String namespace, @NonNull String name, float defaultValue) {
+    return configs.containsKey(name) ? Float.parseFloat(configs.get(name)) : defaultValue;
+  }
+
+  @Override
+  public long getLong(@NonNull String namespace, @NonNull String name, long defaultValue) {
+    return configs.containsKey(name) ? Long.parseLong(configs.get(name)) : defaultValue;
   }
 }

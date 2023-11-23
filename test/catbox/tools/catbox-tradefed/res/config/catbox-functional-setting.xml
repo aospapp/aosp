@@ -29,5 +29,6 @@
   <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:no-rerun:true" />
 
   <!-- Tests -->
-  <option name="compatibility:include-filter" value="AndroidAutomotiveSettingsTests" />
+  <option name="compatibility:include-filter" value="AndroidAutomotiveSettingsTests android.platform.tests.SettingTest" />
+  <option name="compatibility:include-filter" value="AndroidAutomotiveSettingsTests android.platform.tests.SettingSearchTest" />
 </configuration>

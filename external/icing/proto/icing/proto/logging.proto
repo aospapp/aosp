@@ -181,8 +181,7 @@ message QueryStatsProto {
 }
 
 // Stats of the top-level functions IcingSearchEngine::Delete,
-// IcingSearchEngine::DeleteByNamespace, IcingSearchEngine::DeleteBySchemaType,
-// IcingSearchEngine::DeleteByQuery.
+// IcingSearchEngine::DeleteByNamespace, IcingSearchEngine::DeleteBySchemaType.
 // Next tag: 4
 message DeleteStatsProto {
   // Overall time used for the function call.
@@ -196,8 +195,10 @@ message DeleteStatsProto {
       // Delete one document.
       SINGLE = 1;
 
-      // Delete by query.
-      QUERY = 2;
+      // Delete by query. This value is deprecated.
+      // IcingSearchEngine::DeleteByQuery will return a DeleteByQueryStatsProto
+      // rather than a DeleteStatsProto.
+      DEPRECATED_QUERY = 2 [deprecated = true];
 
       // Delete by namespace.
       NAMESPACE = 3;
@@ -210,4 +211,33 @@ message DeleteStatsProto {
 
   // Number of documents deleted by this call.
   optional int32 num_documents_deleted = 3;
+}
+
+// Stats of the top-level functions IcingSearchEngine::DeleteByQuery.
+// Next tag: 9
+message DeleteByQueryStatsProto {
+  // Overall time used for the function call.
+  optional int32 latency_ms = 1;
+
+  // Number of documents deleted by this call.
+  optional int32 num_documents_deleted = 2;
+
+  // The UTF-8 length of the query string
+  optional int32 query_length = 3;
+
+  // Number of terms in the query string.
+  optional int32 num_terms = 4;
+
+  // Number of namespaces filtered.
+  optional int32 num_namespaces_filtered = 5;
+
+  // Number of schema types filtered.
+  optional int32 num_schema_types_filtered = 6;
+
+  // Time used to parse the query, including 2 parts: tokenizing and
+  // transforming tokens into an iterator tree.
+  optional int32 parse_query_latency_ms = 7;
+
+  // Time used to delete each document.
+  optional int32 document_removal_latency_ms = 8;
 }

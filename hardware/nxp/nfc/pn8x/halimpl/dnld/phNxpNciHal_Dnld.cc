@@ -31,6 +31,7 @@
 #define NFC_MEM_READ (0xD0U)
 #define NFC_MEM_WRITE (0xD1U)
 #define NFC_FW_DOWNLOAD (0x09F7U)
+#define MAX_GET_VER_RESP_LEN (0x0FU)
 
 /* External global variable to get FW version */
 extern uint16_t wFwVer;
@@ -636,7 +637,7 @@ static NFCSTATUS phNxpNciHal_fw_dnld_get_version(void* pContext,
                                                  void* pInfo) {
   NFCSTATUS wStatus = NFCSTATUS_SUCCESS;
   phNxpNciHal_Sem_t cb_data;
-  static uint8_t bGetVerRes[11];
+  static uint8_t bGetVerRes[MAX_GET_VER_RESP_LEN];
   phDnldNfc_Buff_t tDnldBuff;
   UNUSED(pContext);
   UNUSED(status);

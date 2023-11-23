@@ -60,4 +60,7 @@ rust_library {
         "libsimpleperf_profcollect_rust",
     ],
     shared_libs: ["libsimpleperf_profcollect"],
+
+    // Enable 'test' feature for more verbose logging and the logging trace provider.
+    // features: ["test"],
 }

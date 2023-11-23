@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"Aplicați"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Atingeți pentru a modifica"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Păstrați imaginea de fundal actuală"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"Aplicați"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Previzualizarea stilului"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Previzualizarea grilei"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"Previzualizarea fontului"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"S-a aplicat <xliff:g id="ID_1">%1$s</xliff:g> acum"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, aplicată și previzualizată acum"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, previzualizată acum"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, modificați opțiunea selectată și previzualizată"</string>
     <string name="theme_description" msgid="3697012391785254635">"Font: <xliff:g id="ID_1">%1$s</xliff:g>, pictograme: <xliff:g id="ID_2">%2$s</xliff:g>, formă: <xliff:g id="ID_3">%3$s</xliff:g>, culoare: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"Standard"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"Font"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Numele stilului personalizat"</string>
     <string name="mode_title" msgid="2394873501427436055">"Temă întunecată"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"Dezactivat temporar de Economisirea bateriei"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"Tema a fost schimbată"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"Pictograme tematice"</string>
     <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Schimbați grila de aplicații"</string>

@@ -1,0 +1,9 @@
+type securedpud_slider, domain;
+type securedpud_slider_exec, exec_type, vendor_file_type, file_type;
+
+init_daemon_domain(securedpud_slider)
+
+allow securedpud_slider dmabuf_heap_device:chr_file r_file_perms;
+allow securedpud_slider ion_device:chr_file r_file_perms;
+allow securedpud_slider tee_device:chr_file rw_file_perms;
+allow securedpud_slider tui_device:chr_file rw_file_perms;

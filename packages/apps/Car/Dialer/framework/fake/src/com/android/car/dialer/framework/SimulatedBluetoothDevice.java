@@ -17,16 +17,23 @@
 package com.android.car.dialer.framework;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import android.bluetooth.BluetoothDevice;
 
+import androidx.annotation.WorkerThread;
+
 import com.android.car.dialer.framework.testdata.CallLogDataHandler;
+import com.android.car.dialer.framework.testdata.CallLogRawData;
 import com.android.car.dialer.framework.testdata.ContactDataHandler;
+import com.android.car.dialer.framework.testdata.ContactRawData;
+import com.android.car.dialer.framework.testdata.TestData;
 
 /**
  * A class simulating the behavior of a real bluetooth device.
  */
 public class SimulatedBluetoothDevice {
+
     private BluetoothDevice mMockBluetoothDevice;
     private String mContactDataFileName;
     private String mCallLogDataFileName;
@@ -35,11 +42,15 @@ public class SimulatedBluetoothDevice {
     private CallLogDataHandler mCallLogDataHandler;
 
     public SimulatedBluetoothDevice(
+            int deviceId,
             ContactDataHandler contactDataHandler,
             CallLogDataHandler callLogDataHandler,
             String contactDataFile,
             String callLogDataFile) {
         mMockBluetoothDevice = mock(BluetoothDevice.class);
+        when(mMockBluetoothDevice.getAddress()).thenReturn(
+                String.format(TestData.ACCOUNT_NAME, deviceId));
+
         mContactDataHandler = contactDataHandler;
         mCallLogDataHandler = callLogDataHandler;
         mContactDataFileName = contactDataFile;
@@ -53,17 +64,34 @@ public class SimulatedBluetoothDevice {
     /**
      * Connects the bluetooth device to the {@link FakeHfpManager} and imports data.
      */
-    public void connect() {
-        // TODO: b/186613173 figure out account name and account type.
-        mContactDataHandler.addContactsAsync(mContactDataFileName, null, null);
-        mCallLogDataHandler.addCallLogsAsync(mCallLogDataFileName);
+    public void connect(boolean withMockData) {
+        if (withMockData) {
+            mContactDataHandler.addContactsAsync(mContactDataFileName,
+                    mMockBluetoothDevice.getAddress(), TestData.ACCOUNT_TYPE);
+            mCallLogDataHandler.addCallLogsAsync(mCallLogDataFileName,
+                    mMockBluetoothDevice.getAddress());
+        }
     }
 
     /**
      * Disconnects the bluetooth device from the {@link FakeHfpManager} and remove the data.
      */
     public void disconnect() {
-        mContactDataHandler.removeAddedContactsAsync();
-        mCallLogDataHandler.removeAddedCalllogsAsync();
+        mContactDataHandler.removeAddedContactsAsync(mMockBluetoothDevice.getAddress(),
+                TestData.ACCOUNT_TYPE);
+        mCallLogDataHandler.removeAddedCalllogsAsync(mMockBluetoothDevice.getAddress());
+    }
+
+    /** Insert one mock contact into the contacts provider for this device. */
+    @WorkerThread
+    public void insertContactInBackground(ContactRawData contactRawData) {
+        mContactDataHandler.addOneContact(contactRawData, mMockBluetoothDevice.getAddress(),
+                TestData.ACCOUNT_TYPE);
+    }
+
+    /** Insert one mock call log into the contacts provider for this device. */
+    @WorkerThread
+    public void insertCallLogInBackground(CallLogRawData callLogRawData) {
+        mCallLogDataHandler.addOneCallLog(callLogRawData, mMockBluetoothDevice.getAddress());
     }
 }

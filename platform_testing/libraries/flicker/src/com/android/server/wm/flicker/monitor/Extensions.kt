@@ -17,10 +17,11 @@
 @file:JvmName("Extensions")
 package com.android.server.wm.flicker.monitor
 
-import com.android.server.wm.traces.parser.DeviceStateDump
 import com.android.server.wm.traces.common.windowmanager.WindowManagerTrace
 import com.android.server.wm.flicker.getDefaultFlickerOutputDir
+import com.android.server.wm.traces.common.DeviceTraceDump
 import com.android.server.wm.traces.common.layers.LayersTrace
+import com.android.server.wm.traces.parser.DeviceDumpParser
 import com.android.server.wm.traces.parser.layers.LayersTraceParser
 import com.android.server.wm.traces.parser.windowmanager.WindowManagerTraceParser
 import java.nio.file.Path
@@ -73,11 +74,11 @@ fun withSFTracing(
 fun withTracing(
     outputDir: Path = getDefaultFlickerOutputDir(),
     predicate: () -> Unit
-): DeviceStateDump {
+): DeviceTraceDump {
     val traces = recordTraces(outputDir, predicate)
     val wmTraceData = traces.first
     val layersTraceData = traces.second
-    return DeviceStateDump.fromTrace(wmTraceData, layersTraceData)
+    return DeviceDumpParser.fromTrace(wmTraceData, layersTraceData)
 }
 
 /**

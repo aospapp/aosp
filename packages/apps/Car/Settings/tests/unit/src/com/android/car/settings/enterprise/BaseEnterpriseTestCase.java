@@ -15,6 +15,10 @@
  */
 package com.android.car.settings.enterprise;
 
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
+
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -24,38 +28,42 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.AppOpsManager;
 import android.app.admin.DeviceAdminInfo;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.os.IBinder;
 import android.os.UserManager;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.settingslib.RestrictedLockUtilsInternal;
+
+import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
+import org.mockito.MockitoSession;
+import org.mockito.quality.Strictness;
 
 import java.util.Arrays;
 
 @RunWith(AndroidJUnit4.class)
-abstract class BaseEnterpriseTestCase {
-
-    @Rule
-    public final MockitoRule mockitorule = MockitoJUnit.rule();
+public abstract class BaseEnterpriseTestCase {
 
     protected final Context mRealContext = ApplicationProvider.getApplicationContext();
     protected final Context mSpiedContext = spy(mRealContext);
 
     protected final String mPackageName = mRealContext.getPackageName();
 
-    private final PackageManager mRealPm = mRealContext.getPackageManager();
+    protected final PackageManager mRealPm = mRealContext.getPackageManager();
     protected PackageManager mSpiedPm = spy(mRealPm);
 
     protected final ComponentName mDefaultAdmin =
@@ -63,39 +71,90 @@ abstract class BaseEnterpriseTestCase {
     protected final ComponentName mFancyAdmin =
             new ComponentName(mSpiedContext, FancyDeviceAdminReceiver.class);
 
+    protected ResolveInfo mDefaultResolveInfo;
+    protected ResolveInfo mFancyResolveInfo;
     protected DeviceAdminInfo mDefaultDeviceAdminInfo;
     protected DeviceAdminInfo mFancyDeviceAdminInfo;
 
     @Mock
-    private DevicePolicyManager mDpm;
+    protected AppOpsManager mAppOpsMgr;
 
     @Mock
-    private UserManager mUm;
+    protected DevicePolicyManager mDpm;
+
+    @Mock
+    protected UserManager mUm;
+
+    private MockitoSession mSession;
 
     @Before
     public final void setFixtures() throws Exception {
+        if (mSession != null) {
+            throw new IllegalStateException("Already set session - subclasses should NOT explicitly"
+                    + " call setFixtures()");
+        }
+        mSession = ExtendedMockito.mockitoSession()
+                .initMocks(this)
+                .mockStatic(UserManager.class)
+                .mockStatic(RestrictedLockUtilsInternal.class)
+                .strictness(Strictness.LENIENT)
+                .startMocking();
+
+        assertWithMessage("mDpm").that(mDpm).isNotNull();
+        assertWithMessage("mUm").that(mUm).isNotNull();
+
+        when(mSpiedContext.getSystemService(AppOpsManager.class)).thenReturn(mAppOpsMgr);
         when(mSpiedContext.getSystemService(DevicePolicyManager.class)).thenReturn(mDpm);
         when(mSpiedContext.getSystemService(PackageManager.class)).thenReturn(mSpiedPm);
         when(mSpiedContext.getPackageManager()).thenReturn(mSpiedPm);
         when(mSpiedContext.getSystemService(UserManager.class)).thenReturn(mUm);
+        doReturn(mUm).when(() -> UserManager.get(any()));
 
-        ActivityInfo defaultInfo = mRealPm.getReceiverInfo(mDefaultAdmin,
-                PackageManager.GET_META_DATA);
-        mDefaultDeviceAdminInfo = new DeviceAdminInfo(mRealContext, defaultInfo);
+        ActivityInfo defaultActivityInfo =
+                mRealPm.getReceiverInfo(mDefaultAdmin, PackageManager.GET_META_DATA);
+        mDefaultDeviceAdminInfo = new DeviceAdminInfo(mRealContext, defaultActivityInfo);
+        mDefaultResolveInfo = new ResolveInfo();
+        mDefaultResolveInfo.activityInfo = defaultActivityInfo;
 
-        ActivityInfo fancyInfo = mRealPm.getReceiverInfo(mFancyAdmin, PackageManager.GET_META_DATA);
-        mFancyDeviceAdminInfo = new DeviceAdminInfo(mRealContext, fancyInfo);
+        ActivityInfo fancyActivityInfo =
+                mRealPm.getReceiverInfo(mFancyAdmin, PackageManager.GET_META_DATA);
+        mFancyDeviceAdminInfo = new DeviceAdminInfo(mRealContext, fancyActivityInfo);
+        mFancyResolveInfo = new ResolveInfo();
+        mFancyResolveInfo.activityInfo = fancyActivityInfo;
+    }
+
+    @After
+    public void tearDown() {
+        if (mSession != null) {
+            mSession.finishMocking();
+            mSession = null;
+        }
     }
 
     protected final void mockProfileOwner() {
-        mockActiveAdmin();
+        mockActiveAdmin(mDefaultAdmin);
         when(mDpm.getProfileOwner()).thenReturn(mDefaultAdmin);
     }
 
     protected final void mockDeviceOwner() {
-        mockActiveAdmin();
+        when(mDpm.isDeviceManaged()).thenReturn(true);
+        mockActiveAdmin(mDefaultAdmin);
+        when(mDpm.isDeviceManaged()).thenReturn(true);
         when(mDpm.getDeviceOwnerComponentOnCallingUser()).thenReturn(mDefaultAdmin);
         when(mDpm.getDeviceOwnerComponentOnAnyUser()).thenReturn(mDefaultAdmin);
+    }
+
+    protected final void mockNoDeviceOwner() {
+        when(mDpm.getDeviceOwnerComponentOnCallingUser()).thenReturn(null);
+        when(mDpm.getDeviceOwnerComponentOnAnyUser()).thenReturn(null);
+    }
+
+    protected final void mockNotManaged() {
+        when(mDpm.isDeviceManaged()).thenReturn(false);
+    }
+
+    protected final void mockOrganizationName(String orgName) {
+        when(mDpm.getDeviceOwnerOrganizationName()).thenReturn(orgName);
     }
 
     protected final void mockFinancialDevice() {
@@ -104,20 +163,36 @@ abstract class BaseEnterpriseTestCase {
                 .thenReturn(DevicePolicyManager.DEVICE_OWNER_TYPE_FINANCED);
     }
 
-    protected final void mockActiveAdmin() {
-        when(mDpm.isAdminActive(mDefaultAdmin)).thenReturn(true);
+    protected final void mockActiveAdmin(ComponentName componentName) {
+        when(mDpm.isAdminActive(componentName)).thenReturn(true);
     }
 
-    protected final void mockInactiveAdmin() {
-        when(mDpm.isAdminActive(mDefaultAdmin)).thenReturn(false);
+    protected final void mockInactiveAdmin(ComponentName componentName) {
+        when(mDpm.isAdminActive(componentName)).thenReturn(false);
     }
 
-    protected final void mockActiveAdmin(ComponentName admin) {
-        when(mDpm.getActiveAdmins()).thenReturn(Arrays.asList(admin));
+    protected final void mockGetActiveAdmins(ComponentName... componentNames) {
+        when(mDpm.getActiveAdmins()).thenReturn(Arrays.asList(componentNames));
+    }
+
+    protected final void mockQueryBroadcastReceivers(ResolveInfo... resolveInfoArray) {
+        // Need to use doReturn() instead of when() because mSpiedPm is a spy.
+        doReturn(Arrays.asList(resolveInfoArray))
+                .when(mSpiedPm).queryBroadcastReceivers(any(Intent.class), anyInt());
     }
 
     protected final void mockGetLongSupportMessageForUser(CharSequence message) {
         when(mDpm.getLongSupportMessageForUser(eq(mDefaultAdmin), anyInt())).thenReturn(message);
+    }
+
+    protected final void mockRemovingAdmin(ComponentName admin, int userId) {
+        when(mDpm.isRemovingAdmin(admin, userId)).thenReturn(true);
+    }
+
+    protected final void mockGrantedPolicies(ComponentName admin, int ... policies) {
+        for (int policy: policies) {
+            when(mDpm.hasGrantedPolicy(admin, policy)).thenReturn(true);
+        }
     }
 
     protected final void mockHasDeviceAdminFeature() {
@@ -126,6 +201,35 @@ abstract class BaseEnterpriseTestCase {
 
     protected final void mockNoDeviceAdminFeature() {
         when(mSpiedPm.hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN)).thenReturn(false);
+    }
+
+    protected final void mockSystemUser() {
+        when(mUm.isSystemUser()).thenReturn(true);
+    }
+
+    protected final void mockNonSystemUser() {
+        when(mUm.isSystemUser()).thenReturn(false);
+    }
+
+    protected final void mockNullEnforcedAdmin(String restriction, int userId) {
+        when(RestrictedLockUtilsInternal
+                .checkIfRestrictionEnforced(mSpiedContext, restriction, userId)).thenReturn(null);
+    }
+
+    protected final void mockGetLastBugreportTime(long time) {
+        when(mDpm.getLastBugReportRequestTime()).thenReturn(time);
+    }
+
+    protected final void mockGetLastNetworkLogRetrievalTime(long time) {
+        when(mDpm.getLastNetworkLogRetrievalTime()).thenReturn(time);
+    }
+
+    protected final void mockGetLastSecurityLogRetrievalTime(long time) {
+        when(mDpm.getLastSecurityLogRetrievalTime()).thenReturn(time);
+    }
+
+    protected final void mockIsCurrentInputMethodSetByOwner(boolean value) {
+        when(mDpm.isCurrentInputMethodSetByOwner()).thenReturn(value);
     }
 
     protected final void verifyAdminActivated() {
@@ -144,11 +248,7 @@ abstract class BaseEnterpriseTestCase {
         verify(mDpm, never()).removeActiveAdmin(any());
     }
 
-    protected final void mockAdminUser() {
-        when(mUm.isAdminUser()).thenReturn(true);
-    }
-
-    protected final void mockNonAdminUser() {
-        when(mUm.isAdminUser()).thenReturn(false);
+    protected final void verifyAppOpsMgrSetUserRestriction(int code, boolean restricted) {
+        verify(mAppOpsMgr).setUserRestriction(eq(code), eq(restricted), any(IBinder.class));
     }
 }

@@ -18,11 +18,10 @@
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.car.dialer.testing">
-    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="29"/>
 
     <application android:testOnly="false" android:debuggable="true">
         <activity android:name="com.android.car.dialer.testing.TestActivity"
-                  android:exported="true">
+                  android:exported="true" android:theme="@style/Theme.CarUi.NoToolbar">
         </activity>
     </application>
 </manifest>

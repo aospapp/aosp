@@ -333,7 +333,7 @@ void nci_proc_ee_management_rsp(NFC_HDR* p_msg) {
   tNFC_RESPONSE_CBACK* p_cback = nfc_cb.p_resp_cback;
   tNFC_RESPONSE nfc_response;
   tNFC_RESPONSE_EVT event = NFC_NFCEE_INFO_REVT;
-  uint8_t* p_old = nfc_cb.last_cmd;
+  uint8_t* p_old = nfc_cb.last_nfcee_cmd;
 
   /* find the start of the NCI message and parse the NCI header */
   p = (uint8_t*)(p_msg + 1) + p_msg->offset;
@@ -412,7 +412,7 @@ void nci_proc_ee_management_ntf(NFC_HDR* p_msg) {
   tNFC_RESPONSE_CBACK* p_cback = nfc_cb.p_resp_cback;
   tNFC_RESPONSE nfc_response;
   tNFC_RESPONSE_EVT event = NFC_NFCEE_INFO_REVT;
-  uint8_t* p_old = nfc_cb.last_cmd;
+  uint8_t* p_old = nfc_cb.last_nfcee_cmd;
   uint8_t xx;
   uint8_t yy;
   tNFC_NFCEE_TLV* p_tlv;

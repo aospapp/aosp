@@ -31,6 +31,7 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeNotNull;
 
 import android.content.Context;
@@ -38,6 +39,7 @@ import android.content.cts.R;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.os.Build;
 import android.os.Environment;
 import android.os.Parcel;
 import android.os.Process;
@@ -291,6 +293,10 @@ public class ApplicationInfoTest {
 
     @Test
     public void testIsProduct() throws Exception {
+        // The product flag is supported since P. Suppose that devices lauch on Android P may not
+        // have product partition.
+        assumeFalse(Build.VERSION.DEVICE_INITIAL_SDK_INT <= Build.VERSION_CODES.P);
+
         final String systemPath = Environment.getRootDirectory().getAbsolutePath();
         final String productPath = Environment.getProductDirectory().getAbsolutePath();
         final String packageName = getPartitionFirstPackageName(systemPath, productPath);

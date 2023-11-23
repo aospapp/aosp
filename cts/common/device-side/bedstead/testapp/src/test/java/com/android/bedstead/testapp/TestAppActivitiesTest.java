@@ -16,6 +16,8 @@
 
 package com.android.bedstead.testapp;
 
+import static com.android.queryable.queries.ActivityQuery.activity;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.testng.Assert.assertThrows;
@@ -37,29 +39,34 @@ public class TestAppActivitiesTest {
 
     @ClassRule @Rule
     public static final DeviceState sDeviceState = new DeviceState();
-    private static final TestApis sTestApis = new TestApis();
-    private static final UserReference sUser = sTestApis.users().instrumented();
-
-    private static final TestAppProvider sTestAppProvider = new TestAppProvider();
-    private static final TestApp sTestApp = sTestAppProvider.any(); // TODO(scottjonathan): specify must have activity
-    private static TestAppInstanceReference mTestAppInstance;
+    private static final UserReference sUser = TestApis.users().instrumented();
 
     private static final String EXISTING_ACTIVITY = "android.testapp.activity";
     private static final String NON_EXISTING_ACTIVITY = "non.existing.activity";
 
+    private static final TestAppProvider sTestAppProvider = new TestAppProvider();
+    private static final TestApp sTestApp = sTestAppProvider.query()
+            .whereActivities().contains(
+                    activity().activityClass().className().isEqualTo(EXISTING_ACTIVITY)
+            ).whereActivities().doesNotContain(
+                    activity().activityClass().className().isEqualTo(NON_EXISTING_ACTIVITY)
+            )
+            .get();
+    private static TestAppInstance sTestAppInstance;
+
     @Before
     public void setup() {
-        mTestAppInstance = sTestApp.install(sUser);
+        sTestAppInstance = sTestApp.install(sUser);
     }
 
     @After
     public void teardown() {
-        mTestAppInstance.uninstall();
+        sTestAppInstance.uninstall();
     }
 
     @Test
     public void query_matchesActivity_returnsActivity() {
-        TestAppActivityReference activity = mTestAppInstance.activities().query()
+        TestAppActivityReference activity = sTestAppInstance.activities().query()
                     .whereActivity().activityClass().className().isEqualTo(EXISTING_ACTIVITY)
                     .get();
 
@@ -68,12 +75,12 @@ public class TestAppActivitiesTest {
 
     @Test
     public void query_matchesPreviouslyReturnedActivity_throwsException() {
-        mTestAppInstance.activities().query()
+        sTestAppInstance.activities().query()
                 .whereActivity().activityClass().className().isEqualTo(EXISTING_ACTIVITY)
                 .get();
 
         assertThrows(IllegalStateException.class, () ->
-                mTestAppInstance.activities().query()
+                sTestAppInstance.activities().query()
                         .whereActivity().activityClass().className().isEqualTo(EXISTING_ACTIVITY)
                         .get());
     }
@@ -81,7 +88,7 @@ public class TestAppActivitiesTest {
     @Test
     public void query_doesNotMatchActivity_throwsException() {
         assertThrows(IllegalStateException.class, () ->
-                mTestAppInstance.activities().query()
+                sTestAppInstance.activities().query()
                         .whereActivity().activityClass().className()
                             .isEqualTo(NON_EXISTING_ACTIVITY)
                         .get());
@@ -89,18 +96,18 @@ public class TestAppActivitiesTest {
 
     @Test
     public void any_returnsActivity() {
-        TestAppActivityReference activity = mTestAppInstance.activities().any();
+        TestAppActivityReference activity = sTestAppInstance.activities().any();
 
         assertThat(activity).isNotNull();
     }
 
     @Test
     public void query_matchesActivityPreviouslyReturnedByDifferentInstance_returnsActivity() {
-        mTestAppInstance.activities().query()
+        sTestAppInstance.activities().query()
                 .whereActivity().activityClass().className().isEqualTo(EXISTING_ACTIVITY)
                 .get();
 
-        TestAppInstanceReference testAppInstance2 = sTestApp.instance(sUser);
+        TestAppInstance testAppInstance2 = sTestApp.instance(sUser);
 
         assertThat(
                 testAppInstance2.activities().query()

@@ -36,6 +36,9 @@ cc_defaults {
         "libtinyxml2",
         "libutils",
     ],
+    static_libs: [
+        "libsysfsmonitor",
+    ],
 }
 
 cc_library {

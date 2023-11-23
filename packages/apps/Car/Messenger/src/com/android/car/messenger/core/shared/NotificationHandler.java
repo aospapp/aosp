@@ -20,7 +20,9 @@ import static com.android.car.messenger.core.shared.MessageConstants.EXTRA_ACCOU
 
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.service.notification.StatusBarNotification;
 
 import androidx.annotation.NonNull;
@@ -31,6 +33,7 @@ import com.android.car.messenger.R;
 import com.android.car.messenger.common.Conversation;
 import com.android.car.messenger.core.interfaces.AppFactory;
 import com.android.car.messenger.core.service.MessengerService;
+import com.android.car.messenger.core.ui.launcher.MessageLauncherActivity;
 import com.android.car.messenger.core.util.L;
 import com.android.car.messenger.core.util.VoiceUtil;
 
@@ -44,17 +47,8 @@ public class NotificationHandler {
 
     private NotificationHandler() {}
 
-    /** Posts, removes or updates a notification based on a conversation */
-    public static void postOrRemoveNotification(@NonNull Conversation conversation) {
-        if (conversation.isMuted()) {
-            removeNotification(conversation.getId());
-        } else {
-            postNotification(conversation);
-        }
-    }
-
-    /* Posts or updates a notification based on a conversation */
-    private static void postNotification(Conversation conversation) {
+    /** Posts or updates a notification based on a conversation */
+    public static void postNotification(Conversation conversation) {
         int userAccountId = conversation.getExtras().getInt(EXTRA_ACCOUNT_ID, 0);
         if (userAccountId == 0) {
             L.w(
@@ -66,12 +60,29 @@ public class NotificationHandler {
         Context context = AppFactory.get().getContext();
         NotificationManager notificationManager =
                 context.getSystemService(NotificationManager.class);
-        String channelId = MessengerService.MESSAGE_CHANNEL_ID;
+
+        String channelId =
+                conversation.isMuted()
+                        ? MessengerService.SILENT_MESSAGE_CHANNEL_ID
+                        : MessengerService.MESSAGE_CHANNEL_ID;
         Notification notification =
                 ConversationPayloadHandler.createNotificationFromConversation(
                         context, channelId, tapToReadConversation, R.drawable.ic_message, null);
-
+        notification.contentIntent = createContentIntent();
         notificationManager.notify(tapToReadConversation.getId().hashCode(), notification);
+    }
+
+    private static PendingIntent createContentIntent() {
+        Context context = AppFactory.get().getContext();
+        Intent intent =
+                new Intent(context, MessageLauncherActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        return PendingIntent.getActivity(
+                context,
+                /* requestCode= */ 0,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     /**

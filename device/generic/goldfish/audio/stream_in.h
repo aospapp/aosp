@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include <android/hardware/audio/6.0/IStreamIn.h>
-#include <android/hardware/audio/6.0/IDevice.h>
+#include <android/hardware/audio/7.0/IStreamIn.h>
+#include <android/hardware/audio/7.0/IDevice.h>
 #include "stream_common.h"
 #include "io_thread.h"
 #include "primary_device.h"
@@ -24,7 +24,7 @@
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V6_0 {
+namespace V7_0 {
 namespace implementation {
 
 using ::android::sp;
@@ -32,15 +32,15 @@ using ::android::hardware::hidl_bitfield;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
-using namespace ::android::hardware::audio::common::V6_0;
-using namespace ::android::hardware::audio::V6_0;
+using namespace ::android::hardware::audio::common::V7_0;
+using namespace ::android::hardware::audio::V7_0;
 
 struct StreamIn : public IStreamIn {
     StreamIn(sp<PrimaryDevice> dev,
              int32_t ioHandle,
              const DeviceAddress& device,
              const AudioConfig& config,
-             hidl_bitfield<AudioInputFlag> flags,
+             hidl_vec<AudioInOutFlag> flags,
              const SinkMetadata& sinkMetadata);
     ~StreamIn();
 
@@ -48,16 +48,9 @@ struct StreamIn : public IStreamIn {
     Return<uint64_t> getFrameSize() override;
     Return<uint64_t> getFrameCount() override;
     Return<uint64_t> getBufferSize() override;
-    Return<uint32_t> getSampleRate() override;
-    Return<void> getSupportedSampleRates(AudioFormat format, getSupportedSampleRates_cb _hidl_cb) override;
-    Return<Result> setSampleRate(uint32_t sampleRateHz) override;
-    Return<hidl_bitfield<AudioChannelMask>> getChannelMask() override;
-    Return<void> getSupportedChannelMasks(AudioFormat format, getSupportedChannelMasks_cb _hidl_cb) override;
-    Return<Result> setChannelMask(hidl_bitfield<AudioChannelMask> mask) override;
-    Return<AudioFormat> getFormat() override;
-    Return<void> getSupportedFormats(getSupportedFormats_cb _hidl_cb) override;
-    Return<Result> setFormat(AudioFormat format) override;
+    Return<void> getSupportedProfiles(getSupportedProfiles_cb _hidl_cb) override;
     Return<void> getAudioProperties(getAudioProperties_cb _hidl_cb) override;
+    Return<Result> setAudioProperties(const AudioConfigBaseOptional& config) override;
     Return<Result> addEffect(uint64_t effectId) override;
     Return<Result> removeEffect(uint64_t effectId) override;
     Return<Result> standby() override;
@@ -78,7 +71,7 @@ struct StreamIn : public IStreamIn {
     // IStreamIn
     Return<void> getAudioSource(getAudioSource_cb _hidl_cb) override;
     Return<Result> setGain(float gain) override;
-    Return<void> updateSinkMetadata(const SinkMetadata& sinkMetadata) override;
+    Return<Result> updateSinkMetadata(const SinkMetadata& sinkMetadata) override;
     Return<void> prepareForReading(uint32_t frameSize, uint32_t framesCount,
                                    prepareForReading_cb _hidl_cb) override;
     Return<uint32_t> getInputFramesLost() override;
@@ -89,12 +82,16 @@ struct StreamIn : public IStreamIn {
 
     const DeviceAddress &getDeviceAddress() const { return mCommon.m_device; }
     const AudioConfig &getAudioConfig() const { return mCommon.m_config; }
-    const hidl_bitfield<AudioOutputFlag> &getAudioOutputFlags() const { return mCommon.m_flags; }
+    const hidl_vec<AudioInOutFlag> &getAudioOutputFlags() const { return mCommon.m_flags; }
 
     uint64_t &getFrameCounter() { return mFrames; }
     void setMicMute(bool mute);
     void addInputFramesLost(size_t n) { mInputFramesLost += n; }
     float getEffectiveVolume() const { return mEffectiveVolume; }
+
+    static bool validateDeviceAddress(const DeviceAddress& device);
+    static bool validateFlags(const hidl_vec<AudioInOutFlag>& flags);
+    static bool validateSinkMetadata(const SinkMetadata& sinkMetadata);
 
 private:
     Result closeImpl(bool fromDctor);
@@ -112,7 +109,7 @@ private:
 };
 
 }  // namespace implementation
-}  // namespace V6_0
+}  // namespace V7_0
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

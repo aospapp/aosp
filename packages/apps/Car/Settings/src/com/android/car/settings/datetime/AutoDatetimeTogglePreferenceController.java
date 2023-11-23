@@ -21,7 +21,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.provider.Settings;
 
-import androidx.preference.TwoStatePreference;
+import androidx.preference.SwitchPreference;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
@@ -30,7 +30,7 @@ import com.android.car.settings.common.PreferenceController;
  * Business logic which controls the auto datetime toggle.
  */
 public class AutoDatetimeTogglePreferenceController extends
-        PreferenceController<TwoStatePreference> {
+        PreferenceController<SwitchPreference> {
 
     public AutoDatetimeTogglePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -38,23 +38,35 @@ public class AutoDatetimeTogglePreferenceController extends
     }
 
     @Override
-    protected Class<TwoStatePreference> getPreferenceType() {
-        return TwoStatePreference.class;
+    protected Class<SwitchPreference> getPreferenceType() {
+        return SwitchPreference.class;
     }
 
     @Override
-    protected void updateState(TwoStatePreference preference) {
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p ->
+                DatetimeUtils.runClickableWhileDisabled(getContext(), getFragmentController()));
+    }
+
+    @Override
+    protected void updateState(SwitchPreference preference) {
         preference.setChecked(isEnabled());
     }
 
     @Override
-    protected boolean handlePreferenceChanged(TwoStatePreference preference, Object newValue) {
+    protected boolean handlePreferenceChanged(SwitchPreference preference, Object newValue) {
         boolean isAutoDatetimeEnabled = (boolean) newValue;
         Settings.Global.putInt(getContext().getContentResolver(), Settings.Global.AUTO_TIME,
                 isAutoDatetimeEnabled ? 1 : 0);
 
         getContext().sendBroadcast(new Intent(Intent.ACTION_TIME_CHANGED));
         return true;
+    }
+
+    @Override
+    public int getAvailabilityStatus() {
+        return DatetimeUtils.getAvailabilityStatus(getContext());
     }
 
     private boolean isEnabled() {

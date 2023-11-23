@@ -146,9 +146,26 @@
         >com.android.car.activityresolver/.CarResolverActivity</string>
 
     <!-- The name of the package that will hold the system cluster service role. -->
-    <string name="config_systemAutomotiveCluster" translatable="false">android.car.cluster</string>
+    <!-- Removed. As config_systemAutomotiveCluster will be overridden in device or product
+         overlay. -->
+    <!--
+    <string name="config_systemAutomotiveCluster" translatable="false">
+        android.car.cluster
+    </string>
+    -->
 
     <!-- Whether this device is supporting the microphone toggle -->
     <bool name="config_supportsMicToggle">true</bool>
 
+    <!-- Whether the airplane mode should be reset when device boots in non-safemode after exiting
+     from safemode.
+     This flag should be enabled only when the product does not have any UI to toggle airplane
+     mode like automotive devices.-->
+    <bool name="config_autoResetAirplaneMode">true</bool>
+
+    <!-- The component name of the activity for the companion-device-manager notification access
+         confirmation. -->
+    <string name="config_notificationAccessConfirmationActivity" translatable="false">
+        com.android.car.settings/com.android.car.settings.notifications.NotificationAccessConfirmationActivity
+    </string>
 </resources>

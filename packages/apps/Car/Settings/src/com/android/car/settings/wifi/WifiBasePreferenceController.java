@@ -42,8 +42,13 @@ public abstract class WifiBasePreferenceController<V extends Preference> extends
 
     @Override
     protected void onCreateInternal() {
+        super.onCreateInternal();
         mCarWifiManager = new CarWifiManager(getContext(),
                 getFragmentController().getSettingsLifecycle());
+
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> {
+            WifiUtil.runClickableWhileDisabled(getContext(), getFragmentController());
+        });
     }
 
     @Override
@@ -58,7 +63,7 @@ public abstract class WifiBasePreferenceController<V extends Preference> extends
 
     @Override
     public int getAvailabilityStatus() {
-        return WifiUtil.isWifiAvailable(getContext()) ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
+        return WifiUtil.getAvailabilityStatus(getContext());
     }
 
     @Override

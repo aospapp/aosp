@@ -8,6 +8,10 @@ package {
 android_test {
     name: "CarDialerUnitTests",
 
+    min_sdk_version: "29",
+
+    target_sdk_version: "31",
+
     srcs: ["src/**/*.java"],
 
     libs: ["android.car-system-stubs"],

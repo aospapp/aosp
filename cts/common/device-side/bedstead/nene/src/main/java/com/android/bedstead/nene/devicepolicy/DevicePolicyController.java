@@ -19,8 +19,7 @@ package com.android.bedstead.nene.devicepolicy;
 import android.app.admin.DeviceAdminReceiver;
 import android.content.ComponentName;
 
-import com.android.bedstead.nene.TestApis;
-import com.android.bedstead.nene.packages.PackageReference;
+import com.android.bedstead.nene.packages.Package;
 import com.android.bedstead.nene.users.UserReference;
 
 import java.util.Objects;
@@ -30,18 +29,15 @@ import java.util.Objects;
  */
 public abstract class DevicePolicyController implements AutoCloseable {
 
-    protected final TestApis mTestApis;
     protected final UserReference mUser;
-    protected final PackageReference mPackage;
+    protected final Package mPackage;
     protected final ComponentName mComponentName;
 
-    DevicePolicyController(TestApis testApis,
-            UserReference user, PackageReference pkg, ComponentName componentName) {
-        if (testApis == null || user == null || pkg == null || componentName == null) {
+    DevicePolicyController(UserReference user, Package pkg, ComponentName componentName) {
+        if (user == null || pkg == null || componentName == null) {
             throw new NullPointerException();
         }
 
-        mTestApis = testApis;
         mUser = user;
         mPackage = pkg;
         mComponentName = componentName;
@@ -55,9 +51,9 @@ public abstract class DevicePolicyController implements AutoCloseable {
     }
 
     /**
-     * Get the {@link PackageReference} of the device policy controller.
+     * Get the {@link Package} of the device policy controller.
      */
-    public PackageReference pkg() {
+    public Package pkg() {
         return mPackage;
     }
 

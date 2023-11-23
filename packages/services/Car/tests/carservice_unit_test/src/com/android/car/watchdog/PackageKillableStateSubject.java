@@ -44,7 +44,7 @@ public final class PackageKillableStateSubject extends Subject {
     }
 
     public static Subject.Factory<PackageKillableStateSubject,
-            Iterable<PackageKillableState>> resourceOveruseStats() {
+            Iterable<PackageKillableState>> packageKillableStates() {
         return PACKAGE_KILLABLE_STATE_SUBJECT_FACTORY;
     }
 

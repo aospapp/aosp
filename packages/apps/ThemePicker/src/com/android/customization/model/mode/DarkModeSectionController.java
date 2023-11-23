@@ -128,7 +128,11 @@ public class DarkModeSectionController implements
         UiModeManager uiModeManager = context.getSystemService(UiModeManager.class);
         int shortDelay = context.getResources().getInteger(android.R.integer.config_shortAnimTime);
         new Handler(Looper.getMainLooper()).postDelayed(
-                () -> uiModeManager.setNightModeActivated(viewActivated),
+                () -> {
+                    mDarkModeSectionView.announceForAccessibility(
+                            context.getString(R.string.mode_changed));
+                    uiModeManager.setNightModeActivated(viewActivated);
+                },
                 /* delayMillis= */ shortDelay);
     }
 

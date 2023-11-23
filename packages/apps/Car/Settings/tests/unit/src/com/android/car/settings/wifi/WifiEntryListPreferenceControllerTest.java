@@ -56,7 +56,9 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
 public class WifiEntryListPreferenceControllerTest {
@@ -250,7 +252,59 @@ public class WifiEntryListPreferenceControllerTest {
         verify(mMockWifiManager).connect(eq(config), any());
     }
 
+    @Test
+    public void fetchWifiEntries_getSavedWifiEntries() {
+        String ssid = "test_ssid";
+        when(mMockWifiEntry1.getSsid()).thenReturn(ssid);
+        when(mMockWifiEntry1.getSecurity()).thenReturn(WifiEntry.SECURITY_PSK);
+        when(mMockWifiEntry1.isSaved()).thenReturn(false);
+        List<WifiEntry> wifiEntryList = Arrays.asList(mMockWifiEntry1);
+        List<WifiEntry> noWifiEntries = new ArrayList<>();
+
+        when(mMockCarWifiManager.getSavedWifiEntries()).thenReturn(wifiEntryList);
+        when(mMockCarWifiManager.getAllWifiEntries()).thenReturn(noWifiEntries);
+
+        TestWifiEntryListPreferenceController prefController =
+                (TestWifiEntryListPreferenceController) mPreferenceController;
+        Set<String> prefsThatIgnore = new HashSet<>();
+        prefsThatIgnore.add("unknown key");
+
+        prefController.setUxRestrictionsIgnoredConfig(false, prefsThatIgnore);
+        CarUxRestrictions noSetupRestrictions = new CarUxRestrictions.Builder(
+                true, CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP, 0).build();
+        mPreferenceController.onUxRestrictionsChanged(noSetupRestrictions);
+
+        List<WifiEntry> result = prefController.fetchWifiEntries();
+
+        assertThat(result.size()).isEqualTo(wifiEntryList.size());
+    }
+
+    @Test
+    public void fetchWifiEntries_getAllWifiEntries() {
+        String ssid = "test_ssid";
+        when(mMockWifiEntry1.getSsid()).thenReturn(ssid);
+        when(mMockWifiEntry1.getSecurity()).thenReturn(WifiEntry.SECURITY_PSK);
+        when(mMockWifiEntry1.isSaved()).thenReturn(false);
+        List<WifiEntry> wifiEntryList = Arrays.asList(mMockWifiEntry1);
+        List<WifiEntry> noWifiEntries = new ArrayList<>();
+
+        when(mMockCarWifiManager.getSavedWifiEntries()).thenReturn(wifiEntryList);
+        when(mMockCarWifiManager.getAllWifiEntries()).thenReturn(noWifiEntries);
+
+        TestWifiEntryListPreferenceController prefController =
+                (TestWifiEntryListPreferenceController) mPreferenceController;
+
+        prefController.setUxRestrictionsIgnoredConfig(false, new HashSet<String>());
+
+        List<WifiEntry> result = prefController.fetchWifiEntries();
+
+        assertThat(result.size()).isEqualTo(noWifiEntries.size());
+    }
+
     private class TestWifiEntryListPreferenceController extends WifiEntryListPreferenceController {
+
+        private boolean mAllIgnoresUxRestrictions = false;
+        private Set<String> mPreferencesIgnoringUxRestrictions = new HashSet<>();
 
         TestWifiEntryListPreferenceController(Context context, String preferenceKey,
                 FragmentController fragmentController,
@@ -266,6 +320,17 @@ public class WifiEntryListPreferenceControllerTest {
         @Override
         WifiManager getWifiManager() {
             return mMockWifiManager;
+        }
+
+        public void setUxRestrictionsIgnoredConfig(boolean allIgnore, Set preferencesThatIgnore) {
+            mAllIgnoresUxRestrictions = allIgnore;
+            mPreferencesIgnoringUxRestrictions = preferencesThatIgnore;
+        }
+
+        @Override
+        protected boolean isUxRestrictionsIgnored(boolean allIgnores, Set prefsThatIgnore) {
+            return super.isUxRestrictionsIgnored(mAllIgnoresUxRestrictions,
+                    mPreferencesIgnoringUxRestrictions);
         }
     }
 }

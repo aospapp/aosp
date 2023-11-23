@@ -24,10 +24,6 @@ import static com.android.permissioncontroller.PermissionControllerStatsLog.APP_
 import static com.android.permissioncontroller.PermissionControllerStatsLog.APP_PERMISSIONS_FRAGMENT_VIEWED__CATEGORY__DENIED;
 import static com.android.permissioncontroller.hibernation.HibernationPolicyKt.isHibernationEnabled;
 import static com.android.permissioncontroller.permission.ui.handheld.UtilsKt.pressBack;
-import static com.android.permissioncontroller.permission.utils.Utils.LAST_24H_CONTENT_PROVIDER;
-import static com.android.permissioncontroller.permission.utils.Utils.LAST_24H_SENSOR_TODAY;
-import static com.android.permissioncontroller.permission.utils.Utils.LAST_24H_SENSOR_YESTERDAY;
-import static com.android.permissioncontroller.permission.utils.Utils.NOT_IN_LAST_24H;
 
 import static java.util.concurrent.TimeUnit.DAYS;
 
@@ -68,9 +64,9 @@ import com.android.modules.utils.build.SdkLevel;
 import com.android.permissioncontroller.PermissionControllerStatsLog;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.model.AppPermissionUsage;
+import com.android.permissioncontroller.permission.model.PermissionUsages;
 import com.android.permissioncontroller.permission.model.livedatatypes.HibernationSettingState;
 import com.android.permissioncontroller.permission.ui.Category;
-import com.android.permissioncontroller.permission.ui.handheld.dashboard.PermissionUsages;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionGroupsViewModel;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionGroupsViewModel.GroupUiInfo;
 import com.android.permissioncontroller.permission.ui.model.AppPermissionGroupsViewModelFactory;
@@ -106,7 +102,6 @@ public final class AppPermissionGroupsFragment extends SettingsWithLargeHeader i
     private static final String ASSISTANT_MIC_CATEGORY_KEY = "_ASSISTANT_MIC_KEY";
     private static final String ASSISTANT_MIC_SWITCH_KEY = "_ASSISTANT_MIC_SWITCH_KEY";
     private static final String ASSISTANT_MIC_SUMMARY_KEY = "_ASSISTANT_MIC_SUMMARY_KEY";
-    private static final int AGGREGATE_DATA_FILTER_BEGIN_DAYS = 1;
 
     static final String EXTRA_HIDE_INFO_BUTTON = "hideInfoButton";
 
@@ -187,7 +182,8 @@ public final class AppPermissionGroupsFragment extends SettingsWithLargeHeader i
             mPermissionUsages = new PermissionUsages(context);
 
             long filterTimeBeginMillis = Math.max(System.currentTimeMillis()
-                            - DAYS.toMillis(AGGREGATE_DATA_FILTER_BEGIN_DAYS),
+                            - DAYS.toMillis(
+                    AppPermissionGroupsViewModel.AGGREGATE_DATA_FILTER_BEGIN_DAYS),
                     Instant.EPOCH.toEpochMilli());
             mPermissionUsages.load(null, null, filterTimeBeginMillis, Long.MAX_VALUE,
                     PermissionUsages.USAGE_FLAG_LAST, getActivity().getLoaderManager(),
@@ -272,39 +268,6 @@ public final class AppPermissionGroupsFragment extends SettingsWithLargeHeader i
         }
     }
 
-    private void extractGroupUsageLastAccessTime(Map<String, Long> accessTime) {
-        accessTime.clear();
-        long filterTimeBeginMillis = Math.max(System.currentTimeMillis()
-                - DAYS.toMillis(AGGREGATE_DATA_FILTER_BEGIN_DAYS), Instant.EPOCH.toEpochMilli());
-
-        int numApps = mAppPermissionUsages.size();
-        for (int appIndex = 0; appIndex < numApps; appIndex++) {
-            AppPermissionUsage appUsage = mAppPermissionUsages.get(appIndex);
-            if (!appUsage.getPackageName().equals(mPackageName)) {
-                continue;
-            }
-
-            List<AppPermissionUsage.GroupUsage> appGroups = appUsage.getGroupUsages();
-            int numGroups = appGroups.size();
-            for (int groupIndex = 0; groupIndex < numGroups; groupIndex++) {
-                AppPermissionUsage.GroupUsage groupUsage = appGroups.get(groupIndex);
-                long lastAccessTime = groupUsage.getLastAccessTime();
-                String groupName = groupUsage.getGroup().getName();
-                if (lastAccessTime == 0 || lastAccessTime < filterTimeBeginMillis) {
-                    continue;
-                }
-
-                // We might have another AppPermissionUsage entry that's of the same packageName
-                // but with a different uid. In that case, we want to grab the max lastAccessTime
-                // as the last usage to show.
-                lastAccessTime = Math.max(
-                        accessTime.getOrDefault(groupName, Instant.EPOCH.toEpochMilli()),
-                        lastAccessTime);
-                accessTime.put(groupName, lastAccessTime);
-            }
-        }
-    }
-
     private void updatePreferences(Map<Category, List<GroupUiInfo>> groupMap) {
         if (groupMap == null) {
             return;
@@ -328,7 +291,8 @@ public final class AppPermissionGroupsFragment extends SettingsWithLargeHeader i
         }
 
         Map<String, Long> groupUsageLastAccessTime = new HashMap<>();
-        extractGroupUsageLastAccessTime(groupUsageLastAccessTime);
+        mViewModel.extractGroupUsageLastAccessTime(groupUsageLastAccessTime, mAppPermissionUsages,
+                mPackageName);
 
         findPreference(Category.ALLOWED_FOREGROUND.getCategoryName()).setVisible(false);
 
@@ -367,100 +331,10 @@ public final class AppPermissionGroupsFragment extends SettingsWithLargeHeader i
                 preference.setTitle(KotlinUtils.INSTANCE.getPermGroupLabel(context, groupName));
                 preference.setIcon(KotlinUtils.INSTANCE.getPermGroupIcon(context, groupName));
                 preference.setKey(groupName);
-                switch (groupInfo.getSubtitle()) {
-                    case BACKGROUND:
-                        switch (lastAccessType) {
-                            case LAST_24H_CONTENT_PROVIDER:
-                                preference.setSummary(
-                                        R.string.app_perms_content_provider_background);
-                                break;
-                            case LAST_24H_SENSOR_TODAY:
-                                preference.setSummary(
-                                        getString(
-                                                R.string.app_perms_24h_access_background,
-                                                summaryTimestamp.getFirst()));
-                                break;
-                            case LAST_24H_SENSOR_YESTERDAY:
-                                preference.setSummary(getString(
-                                        R.string.app_perms_24h_access_yest_background,
-                                        summaryTimestamp.getFirst()));
-                                break;
-                            case NOT_IN_LAST_24H:
-                            default:
-                                preference.setSummary(
-                                        R.string.permission_subtitle_background);
-                        }
-
-                        break;
-                    case MEDIA_ONLY:
-                        switch (lastAccessType) {
-                            case LAST_24H_CONTENT_PROVIDER:
-                                preference.setSummary(
-                                        R.string.app_perms_content_provider_media_only);
-                                break;
-                            case LAST_24H_SENSOR_TODAY:
-                                preference.setSummary(
-                                        getString(
-                                                R.string.app_perms_24h_access_media_only,
-                                                summaryTimestamp.getFirst()));
-                                break;
-                            case LAST_24H_SENSOR_YESTERDAY:
-                                preference.setSummary(
-                                        getString(
-                                                R.string.app_perms_24h_access_yest_media_only,
-                                                summaryTimestamp.getFirst()));
-                                break;
-                            case NOT_IN_LAST_24H:
-                            default:
-                                preference.setSummary(R.string.permission_subtitle_media_only);
-                        }
-
-                        break;
-                    case ALL_FILES:
-                        switch (lastAccessType) {
-                            case LAST_24H_CONTENT_PROVIDER:
-                                preference.setSummary(
-                                        R.string.app_perms_content_provider_all_files);
-                                break;
-                            case LAST_24H_SENSOR_TODAY:
-                                preference.setSummary(
-                                        getString(
-                                                R.string.app_perms_24h_access_all_files,
-                                                summaryTimestamp.getFirst()));
-                                break;
-                            case LAST_24H_SENSOR_YESTERDAY:
-                                preference.setSummary(
-                                        getString(
-                                                R.string.app_perms_24h_access_yest_all_files,
-                                                summaryTimestamp.getFirst()));
-                                break;
-                            case NOT_IN_LAST_24H:
-                            default:
-                                preference.setSummary(R.string.permission_subtitle_all_files);
-                        }
-
-                        break;
-                    case FOREGROUND_ONLY:
-                        // We don't want to note the foreground access
-                    default:
-                        switch (lastAccessType) {
-                            case LAST_24H_CONTENT_PROVIDER:
-                                preference.setSummary(
-                                        R.string.app_perms_content_provider);
-                                break;
-                            case LAST_24H_SENSOR_TODAY:
-                                preference.setSummary(
-                                        getString(R.string.app_perms_24h_access,
-                                                summaryTimestamp.getFirst()));
-                                break;
-                            case LAST_24H_SENSOR_YESTERDAY:
-                                preference.setSummary(
-                                        getString(R.string.app_perms_24h_access_yest,
-                                                summaryTimestamp.getFirst()));
-                                break;
-                            case NOT_IN_LAST_24H:
-                            default:
-                        }
+                String summary = mViewModel.getPreferenceSummary(groupInfo, context,
+                        groupUsageLastAccessTime.get(groupName));
+                if (!summary.isEmpty()) {
+                    preference.setSummary(summary);
                 }
                 // Add an info icon if the package handles ACTION_VIEW_PERMISSION_USAGE.
                 PackageManager packageManager = requireActivity().getPackageManager();

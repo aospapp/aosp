@@ -46,7 +46,7 @@ public abstract class CarNotificationModule {
     @Provides
     @SysUISingleton
     static NotificationDataManager provideNotificationDataManager() {
-        return new NotificationDataManager();
+        return NotificationDataManager.getInstance();
     }
 
     @Provides
@@ -59,11 +59,10 @@ public abstract class CarNotificationModule {
     @SysUISingleton
     static CarNotificationListener provideCarNotificationListener(Context context,
             CarUxRestrictionManagerWrapper carUxRestrictionManagerWrapper,
-            CarHeadsUpNotificationManager carHeadsUpNotificationManager,
-            NotificationDataManager notificationDataManager) {
+            CarHeadsUpNotificationManager carHeadsUpNotificationManager) {
         CarNotificationListener listener = new CarNotificationListener();
         listener.registerAsSystemService(context, carUxRestrictionManagerWrapper,
-                carHeadsUpNotificationManager, notificationDataManager);
+                carHeadsUpNotificationManager);
         return listener;
     }
 
@@ -71,10 +70,9 @@ public abstract class CarNotificationModule {
     @SysUISingleton
     static CarHeadsUpNotificationManager provideCarHeadsUpNotificationManager(Context context,
             NotificationClickHandlerFactory notificationClickHandlerFactory,
-            NotificationDataManager notificationDataManager,
             CarHeadsUpNotificationContainer headsUpNotificationDisplay) {
         return new CarHeadsUpNotificationManager(context, notificationClickHandlerFactory,
-                notificationDataManager, headsUpNotificationDisplay);
+                headsUpNotificationDisplay);
     }
 
     @Binds

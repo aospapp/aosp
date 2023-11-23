@@ -24,6 +24,7 @@
 #include <openssl/x509.h>
 
 #include <keymaster/UniquePtr.h>
+#include <keymaster/authorization_set.h>
 
 #include <hardware/keymaster_defs.h>
 
@@ -101,6 +102,11 @@ keymaster_error_t GetEcdsa256KeyFromCert(const keymaster_blob_t* km_cert, uint8_
 size_t ec_group_size_bits(EC_KEY* ec_key);
 
 keymaster_error_t GenerateRandom(uint8_t* buf, size_t length);
+
+inline bool IsCertSigningKey(const AuthorizationSet& key_description) {
+    return key_description.Contains(TAG_PURPOSE, KM_PURPOSE_SIGN) ||
+           key_description.Contains(TAG_PURPOSE, KM_PURPOSE_ATTEST_KEY);
+}
 
 inline const EVP_MD* KmDigestToEvpDigest(keymaster_digest_t digest) {
     switch (digest) {

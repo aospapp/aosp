@@ -20,6 +20,7 @@ import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
 import static org.junit.Assert.assertEquals;
 
 import android.os.RemoteException;
+import android.os.SystemClock;
 
 import org.junit.runner.Description;
 
@@ -36,11 +37,18 @@ public class LandscapeOrientationRule extends TestWatcher {
             int currentOrientation = getContext().getResources().getConfiguration().orientation;
             if (currentOrientation != ORIENTATION_LANDSCAPE) { // ORIENTATION_PORTRAIT
                 getUiDevice().setOrientationLeft();
-                int rotatedOrientation = getContext().getResources().getConfiguration().orientation;
-                assertEquals(
-                        "Orientation should be landscape",
-                        ORIENTATION_LANDSCAPE,
-                        rotatedOrientation);
+                for (int i = 0; i != 100; ++i) {
+                    int rotatedOrientation =
+                            getContext().getResources().getConfiguration().orientation;
+                    if (rotatedOrientation == ORIENTATION_LANDSCAPE) break;
+                    if (i == 99) {
+                        assertEquals(
+                                "Orientation should be landscape",
+                                ORIENTATION_LANDSCAPE,
+                                rotatedOrientation);
+                    }
+                    SystemClock.sleep(100);
+                }
             }
         } catch (RemoteException e) {
             String message = "RemoteException when forcing landscape rotation on the device";

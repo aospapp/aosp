@@ -20,6 +20,6 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/sdk_x86_64.mk)
 
 EMULATOR_VENDOR_NO_SOUND := true
 PRODUCT_NAME := sdk_car_x86_64
-PRODUCT_DEVICE := emulator_x86_64
+PRODUCT_DEVICE := emulator_car_x86_64
 PRODUCT_BRAND := Android
 PRODUCT_MODEL := Car on x86_64 emulator

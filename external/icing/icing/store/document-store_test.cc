@@ -3556,7 +3556,6 @@ TEST_F(DocumentStoreTest, InitializeForceRecoveryDeletesInvalidDocument) {
       SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
   ASSERT_THAT(schema_store->SetSchema(schema), IsOk());
 
-  DocumentId docid = kInvalidDocumentId;
   DocumentProto docWithBody =
       DocumentBuilder()
           .SetKey("icing", "email/1")
@@ -3589,8 +3588,12 @@ TEST_F(DocumentStoreTest, InitializeForceRecoveryDeletesInvalidDocument) {
     std::unique_ptr<DocumentStore> doc_store =
         std::move(create_result.document_store);
 
+    DocumentId docid = kInvalidDocumentId;
     ICING_ASSERT_OK_AND_ASSIGN(docid, doc_store->Put(docWithBody));
+    ASSERT_NE(docid, kInvalidDocumentId);
+    docid = kInvalidDocumentId;
     ICING_ASSERT_OK_AND_ASSIGN(docid, doc_store->Put(docWithoutBody));
+    ASSERT_NE(docid, kInvalidDocumentId);
 
     ASSERT_THAT(doc_store->Get(docWithBody.namespace_(), docWithBody.uri()),
                 IsOkAndHolds(EqualsProto(docWithBody)));
@@ -3658,7 +3661,6 @@ TEST_F(DocumentStoreTest, InitializeDontForceRecoveryKeepsInvalidDocument) {
       SchemaStore::Create(&filesystem_, schema_store_dir_, &fake_clock_));
   ASSERT_THAT(schema_store->SetSchema(schema), IsOk());
 
-  DocumentId docid = kInvalidDocumentId;
   DocumentProto docWithBody =
       DocumentBuilder()
           .SetKey("icing", "email/1")
@@ -3691,8 +3693,12 @@ TEST_F(DocumentStoreTest, InitializeDontForceRecoveryKeepsInvalidDocument) {
     std::unique_ptr<DocumentStore> doc_store =
         std::move(create_result.document_store);
 
+    DocumentId docid = kInvalidDocumentId;
     ICING_ASSERT_OK_AND_ASSIGN(docid, doc_store->Put(docWithBody));
+    ASSERT_NE(docid, kInvalidDocumentId);
+    docid = kInvalidDocumentId;
     ICING_ASSERT_OK_AND_ASSIGN(docid, doc_store->Put(docWithoutBody));
+    ASSERT_NE(docid, kInvalidDocumentId);
 
     ASSERT_THAT(doc_store->Get(docWithBody.namespace_(), docWithBody.uri()),
                 IsOkAndHolds(EqualsProto(docWithBody)));

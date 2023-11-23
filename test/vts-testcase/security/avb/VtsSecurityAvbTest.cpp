@@ -388,7 +388,8 @@ static bool ValidatePublicKeyBlob(const std::string &key_blob_to_validate) {
   std::string allowed_key_blob;
   std::vector<std::string> allowed_key_paths = {
       "/data/local/tmp/q-gsi.avbpubkey", "/data/local/tmp/r-gsi.avbpubkey",
-      "/data/local/tmp/s-gsi.avbpubkey", "/data/local/tmp/qcar-gsi.avbpubkey"};
+      "/data/local/tmp/s-gsi.avbpubkey", "/data/local/tmp/t-gsi.avbpubkey",
+      "/data/local/tmp/qcar-gsi.avbpubkey"};
   for (const auto &path : allowed_key_paths) {
     if (android::base::ReadFileToString(path, &allowed_key_blob)) {
       if (key_blob_to_validate == allowed_key_blob) {
@@ -484,23 +485,42 @@ bool DeviceSupportsFeature(const char *feature) {
   return device_supports_feature;
 }
 
-static int GetFirstApiLevel() {
-  int level = android::base::GetIntProperty("ro.product.first_api_level", 0);
-  if (level == 0) {
-    level = android::base::GetIntProperty("ro.build.version.sdk", 0);
+const uint32_t kCurrentApiLevel = 10000;
+
+static uint32_t ReadApiLevelProps(
+    const std::vector<std::string> &api_level_props) {
+  uint32_t api_level = kCurrentApiLevel;
+  for (const auto &api_level_prop : api_level_props) {
+    api_level = android::base::GetUintProperty<uint32_t>(api_level_prop,
+                                                         kCurrentApiLevel);
+    if (api_level != kCurrentApiLevel) {
+      break;
+    }
   }
-  if (level == 0) {
-    ADD_FAILURE() << "Failed to determine first API level";
+  return api_level;
+}
+
+static uint32_t GetBoardApiLevel() {
+  uint32_t device_api_level =
+      ReadApiLevelProps({"ro.product.first_api_level", "ro.build.version.sdk"});
+  uint32_t board_api_level =
+      ReadApiLevelProps({"ro.board.api_level", "ro.board.first_api_level",
+                         "ro.vendor.build.version.sdk"});
+  uint32_t api_level =
+      board_api_level < device_api_level ? board_api_level : device_api_level;
+  if (api_level == kCurrentApiLevel) {
+    ADD_FAILURE() << "Failed to determine board API level";
+    return 0;
   }
-  return level;
+  return api_level;
 }
 
 bool ShouldSkipGkiTest() {
   /* Skip for devices launched before Android R. */
   constexpr auto R_API_LEVEL = 30;
-  int first_api_level = GetFirstApiLevel();
-  GTEST_LOG_(INFO) << "First API level is " << first_api_level;
-  if (first_api_level < R_API_LEVEL) {
+  uint32_t board_api_level = GetBoardApiLevel();
+  GTEST_LOG_(INFO) << "Board API level is " << board_api_level;
+  if (board_api_level < R_API_LEVEL) {
     GTEST_LOG_(INFO) << "Exempt from GKI test due to old starting API level";
     return true;
   }
@@ -1002,6 +1022,30 @@ static void VerifyHashAlgorithm(const AvbHashtreeDescriptor* descriptor) {
   }
 }
 
+// In VTS, a boot-debug.img or vendor_boot-debug.img, which is not release
+// key signed, will be used. In this case, The AvbSlotVerifyResult returned
+// from libavb->avb_slot_verify() might be the following non-fatal errors.
+// We should allow them in VTS because it might not be
+// AVB_SLOT_VERIFY_RESULT_OK.
+static bool CheckAvbSlotVerifyResult(AvbSlotVerifyResult result) {
+  switch (result) {
+    case AVB_SLOT_VERIFY_RESULT_OK:
+    case AVB_SLOT_VERIFY_RESULT_ERROR_VERIFICATION:
+    case AVB_SLOT_VERIFY_RESULT_ERROR_ROLLBACK_INDEX:
+    case AVB_SLOT_VERIFY_RESULT_ERROR_PUBLIC_KEY_REJECTED:
+      return true;
+
+    case AVB_SLOT_VERIFY_RESULT_ERROR_OOM:
+    case AVB_SLOT_VERIFY_RESULT_ERROR_IO:
+    case AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_METADATA:
+    case AVB_SLOT_VERIFY_RESULT_ERROR_UNSUPPORTED_VERSION:
+    case AVB_SLOT_VERIFY_RESULT_ERROR_INVALID_ARGUMENT:
+      return false;
+  }
+
+  return false;
+}
+
 static void LoadAndVerifyAvbSlotDataForCurrentSlot(
     AvbSlotVerifyData** avb_slot_data) {
   // Use an empty suffix string for non-A/B devices.
@@ -1013,11 +1057,14 @@ static void LoadAndVerifyAvbSlotDataForCurrentSlot(
 
   const char* requested_partitions[] = {nullptr};
 
+  // AVB_SLOT_VERIFY_FLAGS_ALLOW_VERIFICATION_ERROR is needed for boot-debug.img
+  // or vendor_boot-debug.img, which is not releae key signed.
   auto avb_ops = avb_ops_user_new();
-  auto verify_result = avb_slot_verify(
-      avb_ops, requested_partitions, suffix.c_str(), AVB_SLOT_VERIFY_FLAGS_NONE,
-      AVB_HASHTREE_ERROR_MODE_EIO, avb_slot_data);
-  ASSERT_EQ(AVB_SLOT_VERIFY_RESULT_OK, verify_result)
+  auto verify_result =
+      avb_slot_verify(avb_ops, requested_partitions, suffix.c_str(),
+                      AVB_SLOT_VERIFY_FLAGS_ALLOW_VERIFICATION_ERROR,
+                      AVB_HASHTREE_ERROR_MODE_EIO, avb_slot_data);
+  ASSERT_TRUE(CheckAvbSlotVerifyResult(verify_result))
       << "Failed to verify avb slot data " << verify_result;
 }
 
@@ -1025,9 +1072,9 @@ static void LoadAndVerifyAvbSlotDataForCurrentSlot(
 TEST(AvbTest, HashtreeAlgorithm) {
   constexpr auto S_API_LEVEL = 31;
 
-  int first_api_level = GetFirstApiLevel();
-  GTEST_LOG_(INFO) << "First API level is " << first_api_level;
-  if (first_api_level < S_API_LEVEL) {
+  uint32_t board_api_level = GetBoardApiLevel();
+  GTEST_LOG_(INFO) << "Board API level is " << board_api_level;
+  if (board_api_level < S_API_LEVEL) {
     GTEST_LOG_(INFO)
         << "Exempt from avb hash tree test due to old starting API level";
     return;

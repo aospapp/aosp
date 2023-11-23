@@ -159,7 +159,7 @@ public class CarUiText {
          *
          * @param text text to display
          */
-        public Builder(CharSequence text) {
+        public Builder(@NonNull CharSequence text) {
             this(Collections.singletonList(text));
         }
 

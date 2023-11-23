@@ -16,7 +16,9 @@
 
 package com.android.bedstead.nene.permissions;
 
+import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.NeneException;
+import com.android.bedstead.nene.utils.Versions;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -62,6 +64,29 @@ public final class PermissionContextImpl implements PermissionContext {
     }
 
     /**
+     * See {@link Permissions#withPermissionOnVersion(int, String...)}
+     */
+    public PermissionContextImpl withPermissionOnVersion(int sdkVersion, String... permissions) {
+        if (Versions.meetsSdkVersionRequirements(sdkVersion, sdkVersion)) {
+            return withPermission(permissions);
+        }
+
+        return this;
+    }
+
+    /**
+     * See {@link Permissions#withPermissionOnVersionAtLeast(int, String...)}
+     */
+    public PermissionContextImpl withPermissionOnVersionAtLeast(
+            int sdkVersion, String... permissions) {
+        if (Versions.meetsMinimumSdkVersionRequirement(sdkVersion)) {
+            return withPermission(permissions);
+        }
+
+        return this;
+    }
+
+    /**
      * See {@link Permissions#withoutPermission(String...)}
      */
     public PermissionContextImpl withoutPermission(String... permissions) {
@@ -71,6 +96,11 @@ public final class PermissionContextImpl implements PermissionContext {
                 throw new NeneException(
                         permission + " cannot be required to be both granted and denied");
             }
+        }
+
+        if (TestApis.packages().instrumented().isInstantApp()) {
+            throw new NeneException(
+                    "Tests which use withoutPermission must not run as instant apps");
         }
 
         mDeniedPermissions.addAll(Arrays.asList(permissions));

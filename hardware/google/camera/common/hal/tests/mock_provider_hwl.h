@@ -110,6 +110,10 @@ class MockProviderHwl : public CameraProviderHwl {
 
     return OK;
   }
+
+  status_t NotifyDeviceStateChange(DeviceState /*device_state*/) override {
+    return OK;
+  }
   // End of override functions in CameraProviderHwl.
 
   // The following members are public so the test can change the values easily.

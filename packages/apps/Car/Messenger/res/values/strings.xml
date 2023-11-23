@@ -15,27 +15,46 @@
   ~ limitations under the License.
   -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <!-- Application name [CHAR LIMIT=30] -->
+    <!-- Phrase describing that there is a new message [CHAR LIMIT=20] -->
     <plurals name="new_message">
-        <item quantity="one" translatable="false">New message</item>
-        <item quantity="other" translatable="false">
+        <item quantity="one">New message</item>
+        <item quantity="other">
             <xliff:g example="2" id="count">%d</xliff:g> messages</item>
     </plurals>
 
+    <!-- Phrase describing the number of messages [CHAR LIMIT=20] -->
+    <plurals name="no_of_message">
+        <item quantity="zero">No message</item>
+        <item quantity="one">1 message</item>
+        <item quantity="other">
+            <xliff:g example="2" id="count">%d</xliff:g> messages</item>
+    </plurals>
+
+    <!-- Phrase describing a case where there are more messages other than the one shown the user. [CHAR LIMIT=30] -->
+    <plurals name="more_message">
+        <item quantity="one">One more message</item>
+        <item quantity="other">
+            <xliff:g example="2" id="count">%d</xliff:g> more messages</item>
+    </plurals>
+
     <!-- Button text for when disconnected from Bluetooth [CHAR LIMIT=40] -->
-    <string name="app_name" translatable="false">Car Messenger</string>
+    <string name="app_name" translatable="false">SMS</string>
 
     <!-- Button text for connecting to Bluetooth [CHAR LIMIT=40] -->
     <string name="bluetooth_disconnected" translatable="false">Bluetooth disconnected</string>
 
     <!-- Status when no new messages[CHAR LIMIT=40] -->
+    <string name="no_messages" translatable="false">No messages</string>
+
     <string name="connect_bluetooth_button_text" translatable="false">Connect to Bluetooth</string>
 
     <!-- Status when replied [CHAR LIMIT=40] -->
-    <string name="no_new_messages" translatable="false">No new messages</string>
+    <string name="replied" translatable="false">Replied</string>
+
+    <!-- Status - Tap To Read Aloud [CHAR LIMIT=40] -->
+    <string name="tap_to_read_aloud">Tap to read aloud</string>
 
     <!-- Dot separator [CHAR LIMIT=1] -->
-    <string name="replied" translatable="false">Replied</string>
     <string name="dot" translatable="false">·</string>
     <string name="action_reply" translatable="false">Reply</string>
     <string name="action_mute" translatable="false">Mute</string>
@@ -67,4 +86,109 @@
     <string name="cd_loading_info_icon">Loading Info Icon</string>
     <!-- Mute button [CHAR LIMIT=40] -->
     <string name="cd_reply_action_button">Reply Action Button</string>
+
+    <!-- Mute button [CHAR LIMIT=40] -->
+    <string name="cd_play_action_button">Play Action Button</string>
+
+    <!-- A string denoting the current point in time that should be as short as possible. Abbreviations are preferred to full strings as this might be shown repetitively. It is used in the header of notifications. [CHAR LIMIT=8]-->
+    <string name="now_string_shortest">now</string>
+
+    <!-- Overflow title text for too many participants in a conversation [CHAR LIMIT=40] -->
+    <string name="participant_overflow_text">, and %d more</string>
+
+    <!-- Phrase describing a time duration using minutes that is as short as possible, preferrably one character. If the language needs a space in between the integer and the unit, please also integrate it in the string, but preferably it should not have a space in between.[CHAR LIMIT=6] -->
+    <plurals name="duration_minutes_shortest">
+        <item quantity="one"><xliff:g example="1" id="count" translatable="false">%d</xliff:g>m</item>
+        <item quantity="other"><xliff:g example="2" id="count" translatable="false">%d</xliff:g>m</item>
+    </plurals>
+
+    <!-- Phrase describing a time duration using hours that is as short as possible, preferrably one character. If the language needs a space in between the integer and the unit, please also integrate it in the string, but preferably it should not have a space in between.[CHAR LIMIT=6] -->
+    <plurals name="duration_hours_shortest">
+        <item quantity="one"><xliff:g example="1" id="count">%d</xliff:g>h</item>
+        <item quantity="other"><xliff:g example="2" id="count">%d</xliff:g>h</item>
+    </plurals>
+
+    <!-- Phrase describing a time duration using days that is as short as possible, preferrably one character. If the language needs a space in between the integer and the unit, please also integrate it in the string, but preferably it should not have a space in between.[CHAR LIMIT=6] -->
+    <plurals name="duration_days_shortest">
+        <item quantity="one"><xliff:g example="1" id="count">%d</xliff:g>d</item>
+        <item quantity="other"><xliff:g example="2" id="count">%d</xliff:g>d</item>
+    </plurals>
+
+    <!-- Phrase describing a time duration using years that is as short as possible, preferrably one character. If the language needs a space in between the integer and the unit, please also integrate it in the string, but preferably it should not have a space in between.[CHAR LIMIT=6] -->
+    <plurals name="duration_years_shortest">
+        <item quantity="one"><xliff:g example="1" id="count">%d</xliff:g>y</item>
+        <item quantity="other"><xliff:g example="2" id="count">%d</xliff:g>y</item>
+    </plurals>
+
+    <!-- Phrase describing a time duration using minutes that is as short as possible, preferrably one character. This version should be a future point in time. If the language needs a space in between the integer and the unit, please also integrate it in the string, but preferably it should not have a space in between.[CHAR LIMIT=14] -->
+    <plurals name="duration_minutes_shortest_future">
+        <item quantity="one">in <xliff:g example="1" id="count">%d</xliff:g>m</item>
+        <item quantity="other">in <xliff:g example="2" id="count">%d</xliff:g>m</item>
+    </plurals>
+
+    <!-- Phrase describing a time duration using hours that is as short as possible, preferrably one character. This version should be a future point in time. If the language needs a space in between the integer and the unit, please also integrate it in the string, but preferably it should not have a space in between.[CHAR LIMIT=14] -->
+    <plurals name="duration_hours_shortest_future">
+        <item quantity="one">in <xliff:g example="1" id="count">%d</xliff:g>h</item>
+        <item quantity="other">in <xliff:g example="2" id="count">%d</xliff:g>h</item>
+    </plurals>
+
+    <!-- Phrase describing a time duration using days that is as short as possible, preferrably one character. This version should be a future point in time. If the language needs a space in between the integer and the unit, please also integrate it in the string, but preferably it should not have a space in between.[CHAR LIMIT=14] -->
+    <plurals name="duration_days_shortest_future">
+        <item quantity="one">in <xliff:g example="1" id="count">%d</xliff:g>d</item>
+        <item quantity="other">in <xliff:g example="2" id="count">%d</xliff:g>d</item>
+    </plurals>
+
+    <!-- Phrase describing a time duration using years that is as short as possible, preferrably one character. This version should be a future point in time. If the language needs a space in between the integer and the unit, please also integrate it in the string, but preferably it should not have a space in between.[CHAR LIMIT=14] -->
+    <plurals name="duration_years_shortest_future">
+        <item quantity="one">in <xliff:g example="1" id="count">%d</xliff:g>y</item>
+        <item quantity="other">in <xliff:g example="2" id="count">%d</xliff:g>y</item>
+    </plurals>
+
+    <!-- Phrase describing a relative time using minutes in the past that is not shown on the screen but used for accessibility. [CHAR LIMIT=40] -->
+    <plurals name="duration_minutes_relative">
+        <item quantity="one"><xliff:g example="1" id="count">%d</xliff:g> minute ago</item>
+        <item quantity="other"><xliff:g example="2" id="count">%d</xliff:g> minutes ago</item>
+    </plurals>
+
+    <!-- Phrase describing a relative time using hours in the past that is not shown on the screen but used for accessibility. [CHAR LIMIT=40] -->
+    <plurals name="duration_hours_relative">
+        <item quantity="one"><xliff:g example="1" id="count">%d</xliff:g> hour ago</item>
+        <item quantity="other"><xliff:g example="2" id="count">%d</xliff:g> hours ago</item>
+    </plurals>
+
+    <!-- Phrase describing a relative time using days in the past that is not shown on the screen but used for accessibility. [CHAR LIMIT=40] -->
+    <plurals name="duration_days_relative">
+        <item quantity="one"><xliff:g example="1" id="count">%d</xliff:g> day ago</item>
+        <item quantity="other"><xliff:g example="2" id="count">%d</xliff:g> days ago</item>
+    </plurals>
+
+    <!-- Phrase describing a relative time using years in the past that is not shown on the screen but used for accessibility. [CHAR LIMIT=40] -->
+    <plurals name="duration_years_relative">
+        <item quantity="one"><xliff:g example="1" id="count">%d</xliff:g> year ago</item>
+        <item quantity="other"><xliff:g example="2" id="count">%d</xliff:g> years ago</item>
+    </plurals>
+
+    <!-- Phrase describing a relative time using minutes that is not shown on the screen but used for accessibility. This version should be a future point in time. [CHAR LIMIT=NONE] -->
+    <plurals name="duration_minutes_relative_future">
+        <item quantity="one">in <xliff:g example="1" id="count">%d</xliff:g> minute</item>
+        <item quantity="other">in <xliff:g example="2" id="count">%d</xliff:g> minutes</item>
+    </plurals>
+
+    <!-- Phrase describing a relative time using hours that is not shown on the screen but used for accessibility. This version should be a future point in time. [CHAR LIMIT=NONE] -->
+    <plurals name="duration_hours_relative_future">
+        <item quantity="one">in <xliff:g example="1" id="count">%d</xliff:g> hour</item>
+        <item quantity="other">in <xliff:g example="2" id="count">%d</xliff:g> hours</item>
+    </plurals>
+
+    <!-- Phrase describing a relative time using days that is not shown on the screen but used for accessibility. This version should be a future point in time. [CHAR LIMIT=NONE] -->
+    <plurals name="duration_days_relative_future">
+        <item quantity="one">in <xliff:g example="1" id="count">%d</xliff:g> day</item>
+        <item quantity="other">in <xliff:g example="2" id="count">%d</xliff:g> days</item>
+    </plurals>
+
+    <!-- Phrase describing a relative time using years that is not shown on the screen but used for accessibility. This version should be a future point in time. [CHAR LIMIT=NONE] -->
+    <plurals name="duration_years_relative_future">
+        <item quantity="one">in <xliff:g example="1" id="count">%d</xliff:g> year</item>
+        <item quantity="other">in <xliff:g example="2" id="count">%d</xliff:g> years</item>
+    </plurals>
 </resources>

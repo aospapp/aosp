@@ -231,7 +231,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
         Thread.sleep(WAIT_TIME_FOR_SCREEN_MS);
 
         executeForegroundActivity(getDevice(), ACTION_SLEEP_WHILE_TOP);
-        // ASAP, turn off the screen to make proc state -> top_sleeping.
+        Thread.sleep(WAIT_TIME_FOR_SCREEN_MS);
         DeviceUtils.turnScreenOff(getDevice());
         final int waitTime = SLEEP_OF_ACTION_SLEEP_WHILE_TOP + EXTRA_WAIT_TIME_MS;
         Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS);

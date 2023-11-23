@@ -216,7 +216,15 @@ def _find_raw_fov_reference(cam, req, props, log_path):
     fd = float(cap_raw['metadata']['android.lens.focalLength'])
     k = camera_properties_utils.get_intrinsic_calibration(props, True, fd)
     opencv_dist = camera_properties_utils.get_distortion_matrix(props)
-    img_raw = cv2.undistort(img_raw, k, opencv_dist)
+    k_new = cv2.getOptimalNewCameraMatrix(
+        k, opencv_dist, (img_raw.shape[1], img_raw.shape[0]), 0)[0]
+    scale = max(k_new[0][0] / k[0][0], k_new[1][1] / k[1][1])
+    if scale > 1:
+      k_new[0][0] = k[0][0] * scale
+      k_new[1][1] = k[1][1] * scale
+      img_raw = cv2.undistort(img_raw, k, opencv_dist, None, k_new)
+    else:
+      img_raw = cv2.undistort(img_raw, k, opencv_dist)
 
   # Get image size.
   size_raw = img_raw.shape

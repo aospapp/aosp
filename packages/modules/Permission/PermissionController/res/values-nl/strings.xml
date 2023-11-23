@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"App-rechten"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Niet-gebruikte apps"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Geen niet-gebruikte apps"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"0 niet-gebruikte apps"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"App uitzetten"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Als je deze app uitzet, werken Android en andere apps mogelijk niet meer zoals bedoeld. Je kunt deze app niet verwijderen omdat deze vooraf geïnstalleerd was op je apparaat. Door de app uit te zetten verberg je deze ook op je apparaat."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Rechtenbeheer"</string>
@@ -433,13 +434,13 @@
     <string name="home_missing_work_profile_support" msgid="1756855847669387977">"Ondersteunt geen werkprofielen"</string>
     <string name="encryption_unaware_confirmation_message" msgid="8274491794636402484">"Opmerking: Als je het apparaat opnieuw opstart en een schermvergrendeling hebt ingesteld, kan deze app pas worden gestart nadat je het apparaat hebt ontgrendeld."</string>
     <string name="assistant_confirmation_message" msgid="7476540402884416212">"De assistentie-app kan informatie over de gebruikte apps in je systeem lezen, waaronder informatie die zichtbaar is op je scherm of toegankelijk is in de apps."</string>
-    <string name="incident_report_channel_name" msgid="3144954065936288440">"Foutopsporingsgegevens delen"</string>
-    <string name="incident_report_notification_title" msgid="4635984625656519773">"Gedetailleerde foutopsporingsgegevens delen?"</string>
+    <string name="incident_report_channel_name" msgid="3144954065936288440">"Foutopsporingsinformatie delen"</string>
+    <string name="incident_report_notification_title" msgid="4635984625656519773">"Gedetailleerde foutopsporingsinformatie delen?"</string>
     <string name="incident_report_notification_text" msgid="3376480583513587923">"<xliff:g id="APP_NAME">%1$s</xliff:g> wil foutopsporingsinformatie uploaden."</string>
-    <string name="incident_report_dialog_title" msgid="669104389325204095">"Foutopsporingsgegevens delen?"</string>
+    <string name="incident_report_dialog_title" msgid="669104389325204095">"Foutopsporingsinformatie delen?"</string>
     <string name="incident_report_dialog_intro" msgid="5897733669850951832">"Het systeem heeft een probleem gedetecteerd."</string>
     <string name="incident_report_dialog_text" msgid="5675553296891757523">"<xliff:g id="APP_NAME_0">%1$s</xliff:g> wil een bugrapport van dit apparaat uploaden dat is gemaakt op <xliff:g id="DATE">%2$s</xliff:g> om <xliff:g id="TIME">%3$s</xliff:g>. Bugrapporten omvatten persoonlijke informatie over je apparaat of gegevens die zijn geregistreerd door apps, zoals gebruikersnamen, locatiegegevens, apparaat-ID\'s en netwerkgegevens. Deel alleen bugrapporten met mensen en apps die je met deze informatie vertrouwt. Wil je <xliff:g id="APP_NAME_1">%4$s</xliff:g> toestaan een bugrapport te uploaden?"</string>
-    <string name="incident_report_error_dialog_text" msgid="4189647113387092272">"Er is een fout opgetreden bij het verwerken van het bugrapport voor <xliff:g id="APP_NAME">%1$s</xliff:g>. Het delen van de gedetailleerde foutopsporingsgegevens is daarom geweigerd. Onze excuses voor de onderbreking."</string>
+    <string name="incident_report_error_dialog_text" msgid="4189647113387092272">"Er is een fout opgetreden bij het verwerken van het bugrapport voor <xliff:g id="APP_NAME">%1$s</xliff:g>. Het delen van de gedetailleerde foutopsporingsinformatie is daarom geweigerd. Onze excuses voor de onderbreking."</string>
     <string name="incident_report_dialog_allow_label" msgid="2970242967721155239">"Toestaan"</string>
     <string name="incident_report_dialog_deny_label" msgid="3535314290677579383">"Weigeren"</string>
     <string name="adjust_user_sensitive_title" msgid="4196724451314280527">"Geavanceerde instellingen"</string>

@@ -25,3 +25,4 @@ AndroidbootProps2 = on
 DeviceSkinOverlay = on
 VulkanQueueSubmitWithCommands = on
 VulkanBatchedDescriptorSetUpdate = on
+DeviceStateOnBoot = on

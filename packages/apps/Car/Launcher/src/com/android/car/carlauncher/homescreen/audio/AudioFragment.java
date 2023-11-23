@@ -112,10 +112,17 @@ public class AudioFragment extends HomeCardFragment {
         return mMediaLayoutView;
     }
 
-
     private void updateBackgroundImage(Drawable image) {
-        if (image != null && getCardSize() != null) {
-            int maxDimen = Math.max(getCardSize().getWidth(), getCardSize().getHeight());
+        if (getCardSize() != null) {
+            if (image == null) {
+                image = getContext().getDrawable(R.drawable.default_audio_background);
+            }
+            int maxDimen = Math.max(getCardBackgroundImage().getWidth(),
+                    getCardBackgroundImage().getHeight());
+            // Prioritize size of background image view. Otherwise, use size of whole card
+            if (maxDimen == 0) {
+                maxDimen = Math.max(getCardSize().getWidth(), getCardSize().getHeight());
+            }
             Size scaledSize = new Size(maxDimen, maxDimen);
             Bitmap imageBitmap = BitmapUtils.fromDrawable(image, scaledSize);
             Bitmap blurredBackground = ImageUtils.blur(getContext(), imageBitmap, scaledSize,

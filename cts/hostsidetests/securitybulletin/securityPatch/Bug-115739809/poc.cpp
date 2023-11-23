@@ -125,6 +125,8 @@ static void sanitizeMessage(const InputMessage& msg, InputMessage* outMsg) {
             outMsg->body.motion.xCursorPosition = msg.body.motion.xCursorPosition;
             // float yCursorPosition
             outMsg->body.motion.yCursorPosition = msg.body.motion.yCursorPosition;
+            // uint32_t displayOrientation
+            outMsg->body.motion.displayOrientation = msg.body.motion.displayOrientation;
             // int32_t displayW
             outMsg->body.motion.displayWidth = msg.body.motion.displayWidth;
             // int32_t displayH

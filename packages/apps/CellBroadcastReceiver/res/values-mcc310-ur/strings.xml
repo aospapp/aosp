@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"حفاظتی الرٹ سسٹم سے مطلوبہ ماہانہ ٹیسٹس موصول کریں"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"قومی الرٹ"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"پہلا الرٹ (قومی الرٹ کے علاوہ) ڈسپلے کرنے کے بعد ایک آپٹ آؤٹ ڈائیلاگ دکھائیں۔"</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"قومی الرٹس"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"قومی وارننگ کے پیغامات۔ آف نہیں کیا جا سکتا۔"</string>
 </resources>

@@ -100,7 +100,7 @@
     <string name="peerTtyModeHco" msgid="5626377160840915617">"પીઅરે TTY મોડ HCO ની વિનંતી કરી"</string>
     <string name="peerTtyModeVco" msgid="572208600818270944">"પીઅરે TTY મોડ VCO ની વિનંતી કરી"</string>
     <string name="peerTtyModeOff" msgid="2420380956369226583">"પીઅરે TTY મોડ બંધ કરવાની વિનંતી કરી"</string>
-    <string name="serviceClassVoice" msgid="2065556932043454987">"Voice"</string>
+    <string name="serviceClassVoice" msgid="2065556932043454987">"વૉઇસ"</string>
     <string name="serviceClassData" msgid="4148080018967300248">"ડેટા"</string>
     <string name="serviceClassFAX" msgid="2561653371698904118">"ફેક્સ"</string>
     <string name="serviceClassSMS" msgid="1547664561704509004">"SMS"</string>
@@ -306,7 +306,7 @@
     <string name="permgroupdesc_contacts" msgid="9163927941244182567">"તમારા સંપર્કોને ઍક્સેસ કરવાની"</string>
     <string name="permgrouplab_location" msgid="1858277002233964394">"સ્થાન"</string>
     <string name="permgroupdesc_location" msgid="1995955142118450685">"આ ઉપકરણના સ્થાનને ઍક્સેસ કરવાની"</string>
-    <string name="permgrouplab_calendar" msgid="6426860926123033230">"Calendar"</string>
+    <string name="permgrouplab_calendar" msgid="6426860926123033230">"કૅલેન્ડર"</string>
     <string name="permgroupdesc_calendar" msgid="6762751063361489379">"તમારા કેલેન્ડરને ઍક્સેસ કરવાની"</string>
     <string name="permgrouplab_sms" msgid="795737735126084874">"SMS"</string>
     <string name="permgroupdesc_sms" msgid="5726462398070064542">"SMS સંદેશા મોકલવાની અને જોવાની"</string>
@@ -609,12 +609,14 @@
     <string name="fingerprint_or_screen_lock_dialog_default_subtitle" msgid="5195808203117992200">"ચાલુ રાખવા માટે તમારા ફિંગરપ્રિન્ટ અથવા સ્ક્રીન લૉકનો ઉપયોગ કરો"</string>
   <string-array name="fingerprint_error_vendor">
   </string-array>
+    <string name="fingerprint_error_vendor_unknown" msgid="4170002184907291065">"કંઈક ખોટું થયું. ફરી પ્રયાસ કરો."</string>
     <string name="fingerprint_icon_content_description" msgid="4741068463175388817">"ફિંગરપ્રિન્ટ આયકન"</string>
     <string name="face_recalibrate_notification_name" msgid="7311163114750748686">"ફેસ અનલૉક"</string>
     <string name="face_recalibrate_notification_title" msgid="2524791952735579082">"ફેસ અનલૉકની સુવિધામાં સમસ્યા"</string>
     <string name="face_recalibrate_notification_content" msgid="3064513770251355594">"તમારા ચહેરાનું મૉડલ ડિલીટ કરવા માટે ટૅપ કરો, પછી તમારો ચહેરો ફરીથી ઉમેરો"</string>
     <string name="face_setup_notification_title" msgid="8843461561970741790">"ફેસ અનલૉક સુવિધાનું સેટઅપ કરો"</string>
     <string name="face_setup_notification_content" msgid="5463999831057751676">"તમારા ફોનની તરફ જોઈને તેને અનલૉક કરો"</string>
+    <string name="face_sensor_privacy_enabled" msgid="7407126963510598508">"ફેસ અનલૉક સુવિધાનો ઉપયોગ કરવા માટે, સેટિંગ &gt; પ્રાઇવસીમાં જઈને "<b>"કૅમેરા ઍક્સેસ"</b>" ચાલુ કરો"</string>
     <string name="fingerprint_setup_notification_title" msgid="2002630611398849495">"અનલૉક કરવાની બીજી રીતોનું સેટઅપ કરો"</string>
     <string name="fingerprint_setup_notification_content" msgid="205578121848324852">"ફિંગરપ્રિન્ટ ઉમેરવા માટે ટૅપ કરો"</string>
     <string name="fingerprint_recalibrate_notification_name" msgid="1414578431898579354">"ફિંગરપ્રિન્ટ અનલૉક"</string>
@@ -661,6 +663,7 @@
     <string name="face_or_screen_lock_dialog_default_subtitle" msgid="5006381531158341844">"ચાલુ રાખવા માટે તમારા ફેસ લૉક અથવા સ્ક્રીન લૉકનો ઉપયોગ કરો"</string>
   <string-array name="face_error_vendor">
   </string-array>
+    <string name="face_error_vendor_unknown" msgid="7387005932083302070">"કંઈક ખોટું થયું. ફરી પ્રયાસ કરો."</string>
     <string name="face_icon_content_description" msgid="465030547475916280">"ચહેરા આઇકન"</string>
     <string name="permlab_readSyncSettings" msgid="6250532864893156277">"સિંક સેટિંગ વાંચો"</string>
     <string name="permdesc_readSyncSettings" msgid="1325658466358779298">"ઍપને એકાઉન્ટ માટે સિંક સેટિંગને વાંચવાની મંજૂરી આપે છે. ઉદાહરણ તરીકે, આ એકાઉન્ટ સાથે લોકો ઍપ સિંક થઈ છે કે કેમ તે નિર્ધારિત કરી શકે છે."</string>
@@ -727,9 +730,11 @@
     <string name="policylab_watchLogin" msgid="7599669460083719504">"સ્ક્રીનને અનલૉક કરવાના પ્રયત્નોનું નિયમન કરો"</string>
     <string name="policydesc_watchLogin" product="tablet" msgid="2388436408621909298">"સ્ક્રીનને અનલૉક કરતી વખતે લખેલા ખોટા પાસવર્ડ્સની સંખ્યાને મૉનિટર કરો અને જો ઘણા બધા ખોટા પાસવર્ડ્સ લખ્યાં છે તો ટેબ્લેટને લૉક કરો અથવા ટેબ્લેટનો તમામ ડેટા કાઢી નાખો."</string>
     <string name="policydesc_watchLogin" product="tv" msgid="2140588224468517507">"સ્ક્રીનને અનલૉક કરતી વખતે ટાઇપ કરેલા ખોટા પાસવર્ડની સંખ્યાને મૉનિટર કરો અને જો ઘણા બધા ખોટા પાસવર્ડ ટાઇપ કર્યા હોય, તો તમારા Android TV ડિવાઇસના ડેટાને લૉક કરો અથવા આ વપરાશકર્તાનો બધો ડેટા કાઢી નાખો."</string>
+    <string name="policydesc_watchLogin" product="automotive" msgid="7011438994051251521">"સ્ક્રીનને અનલૉક કરતી વખતે લખેલા ખોટા પાસવર્ડની સંખ્યાને મૉનિટર કરો અને જો ઘણા બધા ખોટા પાસવર્ડ લખ્યા હોય તો ઇન્ફોટેનમેન્ટ સિસ્ટમને લૉક કરો અથવા ઇન્ફોટેનમેન્ટ સિસ્ટમનો બધો ડેટા કાઢી નાખો."</string>
     <string name="policydesc_watchLogin" product="default" msgid="4885030206253600299">"સ્ક્રીનને અનલૉક કરતી વખતે લખેલા ખોટા પાસવર્ડ્સની સંખ્યાને મૉનિટર કરો અને જો ઘણા બધા ખોટા પાસવર્ડ્સ લખ્યાં છે તો ફોનને લૉક કરો અથવા ફોનનો તમામ ડેટા કાઢી નાખો."</string>
     <string name="policydesc_watchLogin_secondaryUser" product="tablet" msgid="2049038943004297474">"સ્ક્રીનને અનલૉક કરતી વખતે લખેલા ખોટા પાસવર્ડ્સની સંખ્યાને મૉનિટર કરો અને જો ઘણા બધા ખોટા પાસવર્ડ્સ લખ્યાં છે તો ટેબ્લેટને લૉક કરો અથવા આ વપરાશકર્તાનો તમામ ડેટા કાઢી નાખો."</string>
     <string name="policydesc_watchLogin_secondaryUser" product="tv" msgid="8965224107449407052">"સ્ક્રીનને અનલૉક કરતી વખતે ટાઇપ કરેલા ખોટા પાસવર્ડની સંખ્યાને મૉનિટર કરો અને જો ઘણા બધા ખોટા પાસવર્ડ ટાઇપ કર્યા હોય તો તમારા Android TV ડિવાઇસને લૉક કરો અથવા આ વપરાશકર્તાનો બધો ડેટા કાઢી નાખો."</string>
+    <string name="policydesc_watchLogin_secondaryUser" product="automotive" msgid="7180857406058327941">"સ્ક્રીનને અનલૉક કરતી વખતે લખેલા ખોટા પાસવર્ડની સંખ્યાને મૉનિટર કરો અને જો ઘણા બધા ખોટા પાસવર્ડ લખ્યા હોય તો ઇન્ફોટેનમેન્ટ સિસ્ટમને લૉક કરો અથવા આ પ્રોફાઇલનો બધો ડેટા કાઢી નાખો."</string>
     <string name="policydesc_watchLogin_secondaryUser" product="default" msgid="9177645136475155924">"સ્ક્રીનને અનલૉક કરતી વખતે લખેલા ખોટા પાસવર્ડ્સની સંખ્યાને મૉનિટર કરો અને જો ઘણા બધા ખોટા પાસવર્ડ્સ લખ્યાં છે તો ફોનને લૉક કરો અથવા આ વપરાશકર્તાનો તમામ ડેટા કાઢી નાખો."</string>
     <string name="policylab_resetPassword" msgid="214556238645096520">"સ્ક્રીન લૉક બદલો"</string>
     <string name="policydesc_resetPassword" msgid="4626419138439341851">"સ્ક્રીન લૉક બદલો."</string>
@@ -738,10 +743,13 @@
     <string name="policylab_wipeData" msgid="1359485247727537311">"બધો ડેટા કાઢી નાખો"</string>
     <string name="policydesc_wipeData" product="tablet" msgid="7245372676261947507">"ફેક્ટરી ડેટા ફરીથી સેટ કરોને કરીને ચેતવણી વિના ટેબ્લેટનો ડેટા કાઢી નાખો."</string>
     <string name="policydesc_wipeData" product="tv" msgid="513862488950801261">"ફેક્ટરી ડેટા રીસેટ કરીને ચેતવણી વિના તમારા Android TV ડિવાઇસનો ડેટા કાઢી નાખો."</string>
+    <string name="policydesc_wipeData" product="automotive" msgid="660804547737323300">"ફેક્ટરી ડેટા રીસેટ કરીને કોઈ ચેતવણી વિના જ ઇન્ફોટેનમેન્ટ સિસ્ટમનો ડેટા કાઢી નાખો."</string>
     <string name="policydesc_wipeData" product="default" msgid="8036084184768379022">"ફેક્ટરી ડેટા ફરીથી સેટ કરોને કરીને ચેતવણી વિના ફોનનો ડેટા કાઢી નાખો."</string>
-    <string name="policylab_wipeData_secondaryUser" msgid="413813645323433166">"વપરાશકર્તા ડેટા કાઢી નાખો"</string>
+    <string name="policylab_wipeData_secondaryUser" product="automotive" msgid="115034358520328373">"પ્રોફાઇલનો ડેટા કાઢી નાખો"</string>
+    <string name="policylab_wipeData_secondaryUser" product="default" msgid="413813645323433166">"વપરાશકર્તા ડેટા કાઢી નાખો"</string>
     <string name="policydesc_wipeData_secondaryUser" product="tablet" msgid="2336676480090926470">"ચેતવણી વિના આ ટેબ્લેટ પરનો આ વપરાશકર્તાનો ડેટા કાઢી નાખો."</string>
     <string name="policydesc_wipeData_secondaryUser" product="tv" msgid="2293713284515865200">"ચેતવણી વિના આ Android TV ડિવાઇસ પર રહેલો આ વપરાશકર્તાનો ડેટા કાઢી નાખો."</string>
+    <string name="policydesc_wipeData_secondaryUser" product="automotive" msgid="4658832487305780879">"કોઈ ચેતવણી વિના જ આ ઇન્ફોટેનમેન્ટ સિસ્ટમ પર રહેલો આ પ્રોફાઇલનો ડેટા કાઢી નાખો."</string>
     <string name="policydesc_wipeData_secondaryUser" product="default" msgid="2788325512167208654">"ચેતવણી વિના આ ફોન પરનો આ વપરાશકર્તાનો ડેટા કાઢી નાખો."</string>
     <string name="policylab_setGlobalProxy" msgid="215332221188670221">"ઉપકરણ વૈશ્વિક પ્રોક્સી સેટ કરો"</string>
     <string name="policydesc_setGlobalProxy" msgid="7149665222705519604">"પૉલિસી ચાલુ હોય તે વખતે ઉપયોગ કરવા માટેના ડિવાઇસ વૈશ્વિક પ્રોક્સીને સેટ કરો. ફક્ત ડિવાઇસના માલિક વૈશ્વિક પ્રોક્સી સેટ કરી શકે છે."</string>
@@ -848,7 +856,7 @@
     <string name="orgTypeOther" msgid="5450675258408005553">"અન્ય"</string>
     <string name="orgTypeCustom" msgid="1126322047677329218">"કસ્ટમ"</string>
     <string name="relationTypeCustom" msgid="282938315217441351">"કસ્ટમ"</string>
-    <string name="relationTypeAssistant" msgid="4057605157116589315">"Assistant"</string>
+    <string name="relationTypeAssistant" msgid="4057605157116589315">"આસિસ્ટંટ"</string>
     <string name="relationTypeBrother" msgid="7141662427379247820">"ભાઈ"</string>
     <string name="relationTypeChild" msgid="9076258911292693601">"બાળક"</string>
     <string name="relationTypeDomesticPartner" msgid="7825306887697559238">"ઘરેલું ભાગીદાર"</string>
@@ -950,7 +958,7 @@
     <string name="keyguard_accessibility_widget" msgid="6776892679715699875">"<xliff:g id="WIDGET_INDEX">%1$s</xliff:g> વિજેટ."</string>
     <string name="keyguard_accessibility_user_selector" msgid="1466067610235696600">"વપરાશકર્તા પસંદગીકર્તા"</string>
     <string name="keyguard_accessibility_status" msgid="6792745049712397237">"સ્થિતિ"</string>
-    <string name="keyguard_accessibility_camera" msgid="7862557559464986528">"કૅમેરો"</string>
+    <string name="keyguard_accessibility_camera" msgid="7862557559464986528">"કૅમેરા"</string>
     <string name="keygaurd_accessibility_media_controls" msgid="2267379779900620614">"મીડિયા નિયંત્રણો"</string>
     <string name="keyguard_accessibility_widget_reorder_start" msgid="7066213328912939191">"વિજેટ પુનઃક્રમાંકન પ્રારંભ થયું."</string>
     <string name="keyguard_accessibility_widget_reorder_end" msgid="1083806817600593490">"વિજેટ પુનઃક્રમાંકન સમાપ્ત થયું."</string>
@@ -1691,7 +1699,7 @@
     <string name="accessibility_shortcut_toogle_warning" msgid="4161716521310929544">"જ્યારે શૉર્ટકટ ચાલુ હોય, ત્યારે બન્ને વૉલ્યૂમ બટનને 3 સેકન્ડ સુધી દબાવી રાખવાથી ઍક્સેસિબિલિટી સુવિધા શરૂ થઈ જશે."</string>
     <string name="accessibility_shortcut_multiple_service_warning_title" msgid="3135860819356676426">"ઍક્સેસિબિલિટી સુવિધાઓ માટે શૉર્ટકટ ચાલુ કરીએ?"</string>
     <string name="accessibility_shortcut_multiple_service_warning" msgid="3740723309483706911">"બન્ને વૉલ્યૂમ કીને થોડી સેકન્ડ સુધી દબાવી રાખવાથી ઍક્સેસિબિલિટી સુવિધાઓ ચાલુ થઈ જાય છે. આનાથી તમારા ડિવાઇસની કામ કરવાની રીત બદલાઈ શકે છે.\n\nવર્તમાન સુવિધાઓ:\n<xliff:g id="SERVICE">%1$s</xliff:g>\nતમે સેટિંગ &gt; ઍક્સેસિબિલિટીમાં જઈને પસંદ કરેલી સુવિધાઓને બદલી શકો છો."</string>
-    <string name="accessibility_shortcut_multiple_service_list" msgid="6935581470716541531">"	• <xliff:g id="SERVICE">%1$s</xliff:g>\n"</string>
+    <string name="accessibility_shortcut_multiple_service_list" msgid="2128323171922023762">" • <xliff:g id="SERVICE">%1$s</xliff:g>\n"</string>
     <string name="accessibility_shortcut_single_service_warning_title" msgid="1909518473488345266">"<xliff:g id="SERVICE">%1$s</xliff:g> શૉર્ટકટ ચાલુ કરીએ?"</string>
     <string name="accessibility_shortcut_single_service_warning" msgid="6363127705112844257">"બન્ને વૉલ્યૂમ કીને થોડી સેકન્ડ સુધી દબાવી રાખવાથી ઍક્સેસિબિલિટી સુવિધા એવી <xliff:g id="SERVICE">%1$s</xliff:g> ચાલુ થઈ જાય છે. આનાથી તમારા ડિવાઇસની કામ કરવાની રીત બદલાઈ શકે છે.\n\nતમે સેટિંગ &gt; ઍક્સેસિબિલિટીમાં જઈને આ શૉર્ટકટને બીજી સુવિધામાં બદલી શકો છો."</string>
     <string name="accessibility_shortcut_on" msgid="5463618449556111344">"ચાલુ કરો"</string>

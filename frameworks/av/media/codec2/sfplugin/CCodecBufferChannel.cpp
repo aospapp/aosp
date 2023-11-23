@@ -19,6 +19,7 @@
 #include <utils/Log.h>
 
 #include <algorithm>
+#include <atomic>
 #include <list>
 #include <numeric>
 
@@ -155,6 +156,7 @@ CCodecBufferChannel::CCodecBufferChannel(
         input->pipelineDelay = 0u;
         input->numSlots = kSmoothnessFactor;
         input->numExtraSlots = 0u;
+        input->lastFlushIndex = 0u;
     }
     {
         Mutexed<Output>::Locked output(mOutput);
@@ -1116,6 +1118,7 @@ status_t CCodecBufferChannel::start(
         input->numSlots = numInputSlots;
         input->extraBuffers.flush();
         input->numExtraSlots = 0u;
+        input->lastFlushIndex = mFrameIndex.load(std::memory_order_relaxed);
         if (audioEncoder && encoderFrameSize && sampleRate && channelCount) {
             input->frameReassembler.init(
                     pool,
@@ -1452,6 +1455,16 @@ status_t CCodecBufferChannel::requestInitialInputBuffers() {
     std::list<std::unique_ptr<C2Work>> flushedConfigs;
     mFlushedConfigs.lock()->swap(flushedConfigs);
     if (!flushedConfigs.empty()) {
+        {
+            Mutexed<PipelineWatcher>::Locked watcher(mPipelineWatcher);
+            PipelineWatcher::Clock::time_point now = PipelineWatcher::Clock::now();
+            for (const std::unique_ptr<C2Work> &work : flushedConfigs) {
+                watcher->onWorkQueued(
+                        work->input.ordinal.frameIndex.peeku(),
+                        std::vector(work->input.buffers),
+                        now);
+            }
+        }
         err = mComponent->queue(&flushedConfigs);
         if (err != C2_OK) {
             ALOGW("[%s] Error while queueing a flushed config", mName);
@@ -1518,40 +1531,45 @@ void CCodecBufferChannel::release() {
     setDescrambler(nullptr);
 }
 
-
 void CCodecBufferChannel::flush(const std::list<std::unique_ptr<C2Work>> &flushedWork) {
     ALOGV("[%s] flush", mName);
-    std::vector<uint64_t> indices;
     std::list<std::unique_ptr<C2Work>> configs;
-    for (const std::unique_ptr<C2Work> &work : flushedWork) {
-        indices.push_back(work->input.ordinal.frameIndex.peeku());
-        if (!(work->input.flags & C2FrameData::FLAG_CODEC_CONFIG)) {
-            continue;
+    mInput.lock()->lastFlushIndex = mFrameIndex.load(std::memory_order_relaxed);
+    {
+        Mutexed<PipelineWatcher>::Locked watcher(mPipelineWatcher);
+        for (const std::unique_ptr<C2Work> &work : flushedWork) {
+            uint64_t frameIndex = work->input.ordinal.frameIndex.peeku();
+            if (!(work->input.flags & C2FrameData::FLAG_CODEC_CONFIG)) {
+                watcher->onWorkDone(frameIndex);
+                continue;
+            }
+            if (work->input.buffers.empty()
+                    || work->input.buffers.front() == nullptr
+                    || work->input.buffers.front()->data().linearBlocks().empty()) {
+                ALOGD("[%s] no linear codec config data found", mName);
+                watcher->onWorkDone(frameIndex);
+                continue;
+            }
+            std::unique_ptr<C2Work> copy(new C2Work);
+            copy->input.flags = C2FrameData::flags_t(
+                    work->input.flags | C2FrameData::FLAG_DROP_FRAME);
+            copy->input.ordinal = work->input.ordinal;
+            copy->input.ordinal.frameIndex = mFrameIndex++;
+            for (size_t i = 0; i < work->input.buffers.size(); ++i) {
+                copy->input.buffers.push_back(watcher->onInputBufferReleased(frameIndex, i));
+            }
+            for (const std::unique_ptr<C2Param> &param : work->input.configUpdate) {
+                copy->input.configUpdate.push_back(C2Param::Copy(*param));
+            }
+            copy->input.infoBuffers.insert(
+                    copy->input.infoBuffers.begin(),
+                    work->input.infoBuffers.begin(),
+                    work->input.infoBuffers.end());
+            copy->worklets.emplace_back(new C2Worklet);
+            configs.push_back(std::move(copy));
+            watcher->onWorkDone(frameIndex);
+            ALOGV("[%s] stashed flushed codec config data", mName);
         }
-        if (work->input.buffers.empty()
-                || work->input.buffers.front() == nullptr
-                || work->input.buffers.front()->data().linearBlocks().empty()) {
-            ALOGD("[%s] no linear codec config data found", mName);
-            continue;
-        }
-        std::unique_ptr<C2Work> copy(new C2Work);
-        copy->input.flags = C2FrameData::flags_t(work->input.flags | C2FrameData::FLAG_DROP_FRAME);
-        copy->input.ordinal = work->input.ordinal;
-        copy->input.ordinal.frameIndex = mFrameIndex++;
-        copy->input.buffers.insert(
-                copy->input.buffers.begin(),
-                work->input.buffers.begin(),
-                work->input.buffers.end());
-        for (const std::unique_ptr<C2Param> &param : work->input.configUpdate) {
-            copy->input.configUpdate.push_back(C2Param::Copy(*param));
-        }
-        copy->input.infoBuffers.insert(
-                copy->input.infoBuffers.begin(),
-                work->input.infoBuffers.begin(),
-                work->input.infoBuffers.end());
-        copy->worklets.emplace_back(new C2Worklet);
-        configs.push_back(std::move(copy));
-        ALOGV("[%s] stashed flushed codec config data", mName);
     }
     mFlushedConfigs.lock()->swap(configs);
     {
@@ -1564,12 +1582,6 @@ void CCodecBufferChannel::flush(const std::list<std::unique_ptr<C2Work>> &flushe
         if (output->buffers) {
             output->buffers->flush(flushedWork);
             output->buffers->flushStash();
-        }
-    }
-    {
-        Mutexed<PipelineWatcher>::Locked watcher(mPipelineWatcher);
-        for (uint64_t index : indices) {
-            watcher->onWorkDone(index);
         }
     }
 }
@@ -1589,12 +1601,18 @@ void CCodecBufferChannel::onInputBufferDone(
     }
     std::shared_ptr<C2Buffer> buffer =
             mPipelineWatcher.lock()->onInputBufferReleased(frameIndex, arrayIndex);
-    bool newInputSlotAvailable;
+    bool newInputSlotAvailable = false;
     {
         Mutexed<Input>::Locked input(mInput);
-        newInputSlotAvailable = input->buffers->expireComponentBuffer(buffer);
-        if (!newInputSlotAvailable) {
-            (void)input->extraBuffers.expireComponentBuffer(buffer);
+        if (input->lastFlushIndex >= frameIndex) {
+            ALOGD("[%s] Ignoring stale input buffer done callback: "
+                  "last flush index = %lld, frameIndex = %lld",
+                  mName, input->lastFlushIndex.peekll(), (long long)frameIndex);
+        } else {
+            newInputSlotAvailable = input->buffers->expireComponentBuffer(buffer);
+            if (!newInputSlotAvailable) {
+                (void)input->extraBuffers.expireComponentBuffer(buffer);
+            }
         }
     }
     if (newInputSlotAvailable) {

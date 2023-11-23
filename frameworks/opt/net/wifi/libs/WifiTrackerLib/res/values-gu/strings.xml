@@ -26,7 +26,7 @@
     <string name="wifitrackerlib_wifi_disabled_network_failure" msgid="3046956554224277166">"IP ગોઠવણીમાં નિષ્ફળતા"</string>
     <string name="wifitrackerlib_wifi_disabled_generic" msgid="4278806060337007814">"બંધ છે"</string>
     <string name="wifitrackerlib_wifi_ap_unable_to_handle_new_sta" msgid="931922372010639716">"ઍક્સેસ પૉઇન્ટમાં હંગામી રૂપે જગ્યા નથી"</string>
-    <string name="wifitrackerlib_wifi_poor_channel_conditions" msgid="26484680900376236">"હંગામી રૂપે નેટવર્કની નબળી પરિસ્થિતિ"</string>
+    <string name="wifitrackerlib_wifi_poor_channel_conditions" msgid="26484680900376236">"હંગામી રીતે નેટવર્કની નબળી સ્થિતિ"</string>
     <string name="wifitrackerlib_wifi_mbo_oce_assoc_disallowed_insufficient_rssi" msgid="5078611817423181773">"નબળું સિગ્નલ. રાઉટરની નજીક જઈને પ્રયાસ કરી જુઓ."</string>
     <string name="wifitrackerlib_wifi_mbo_assoc_disallowed_max_num_sta_associated" msgid="4418848919914618807">"નેટવર્ક પર ક્ષમતા કરતાં વધારે લોડ છે. થોડા સમય પછી ફરી પ્રયાસ કરો."</string>
     <string name="wifitrackerlib_wifi_mbo_assoc_disallowed_cannot_connect" msgid="2692286425448897083">"કનેક્ટ કરી શકાતું નથી. થોડા સમય પછી ફરી પ્રયાસ કરો."</string>

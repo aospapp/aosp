@@ -16,8 +16,10 @@
 
 package com.android.car.ui.preference;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.utils.CarUiUtils.getAttr;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
@@ -39,6 +41,7 @@ import java.util.function.Consumer;
  * the preference.
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(MIN_TARGET_API)
 public class CarUiEditTextPreference extends EditTextPreference
         implements UxRestrictablePreference {
 
@@ -72,7 +75,7 @@ public class CarUiEditTextPreference extends EditTextPreference
                 defStyleAttr,
                 defStyleRes);
 
-        mShowChevron = a.getBoolean(R.styleable.CarUiPreference_showChevron, true);
+        mShowChevron = a.getBoolean(R.styleable.CarUiPreference_carUiShowChevron, true);
         mUxRestricted = a.getBoolean(R.styleable.CarUiPreference_car_ui_ux_restricted, false);
 
         a.recycle();

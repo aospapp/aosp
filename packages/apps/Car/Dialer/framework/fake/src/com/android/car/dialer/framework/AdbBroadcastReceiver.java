@@ -107,7 +107,7 @@ public class AdbBroadcastReceiver extends BroadcastReceiver {
                 break;
             case ACTION_CONNECT:
                 Log.d(TAG, action);
-                mFakeHfpManager.connectHfpDevice();
+                mFakeHfpManager.connectHfpDevice(/* withMockData= */true);
                 break;
             case ACTION_DISCONNECT:
                 id = intent.getStringExtra(EXTRA_DEVICE_ID);

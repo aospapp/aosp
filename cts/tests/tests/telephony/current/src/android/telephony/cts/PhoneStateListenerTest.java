@@ -996,6 +996,8 @@ public class PhoneStateListenerTest {
                     InstrumentationRegistry.getInstrumentation(), TEST_EMERGENCY_NUMBER);
         }
 
+        // Disable suppressing blocking.
+        TelephonyUtils.endBlockSuppression(InstrumentationRegistry.getInstrumentation());
     }
 
     @Test

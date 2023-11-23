@@ -135,7 +135,6 @@ public class AutoJsonUtility {
     private void buildConfigMaps() {
         // Build Config Maps with default values ( based on Reference Devices )
         buildDefaultConfigMaps();
-
         // Read Config File Path Param
         String configFilePath =
                 InstrumentationRegistry.getArguments().getString(CONFIG_FILE_PATH_PARAM, null);
@@ -150,6 +149,14 @@ public class AutoJsonUtility {
     private void buildDefaultConfigMaps() {
         for (String application : configUtilityMap.keySet()) {
             configUtilityMap.get(application).loadDefaultConfig(mApplicationConfigMap);
+        }
+    }
+
+    /** Add and Build Extra Config Maps ( Based on Reference Device ) */
+    public void addConfigUtility(String appName, IAutoConfigUtility utility) {
+        if (utility != null || !configUtilityMap.containsKey(appName)) {
+            configUtilityMap.put(appName, utility);
+            configUtilityMap.get(appName).loadDefaultConfig(mApplicationConfigMap);
         }
     }
 

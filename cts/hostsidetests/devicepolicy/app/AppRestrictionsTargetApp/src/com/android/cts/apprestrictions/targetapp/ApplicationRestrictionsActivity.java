@@ -44,8 +44,11 @@ public class ApplicationRestrictionsActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mUserManager = TestAppSystemServiceFactory.getUserManager(this,
-                IpcBroadcastReceiver.class);
+        boolean isDeviceOwnerTest = "DeviceOwner".equals(getIntent().getStringExtra("admin_type"));
+        mUserManager = isDeviceOwnerTest
+                ? TestAppSystemServiceFactory.getUserManager(this, IpcBroadcastReceiver.class)
+                : getSystemService(UserManager.class);
+        Log.d(TAG, "onCreate(): isDeviceOwnerTest=" + isDeviceOwnerTest + ", um=" + mUserManager);
 
         handleIntent(getIntent());
     }

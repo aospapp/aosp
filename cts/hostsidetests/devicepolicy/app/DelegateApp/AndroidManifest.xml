@@ -24,12 +24,6 @@
 
     <application android:usesCleartextTraffic="true">
         <uses-library android:name="android.test.runner"/>
-        <activity android:name="com.android.cts.delegate.DelegatedScopesReceiverActivity"
-             android:exported="true">
-        </activity>
-        <service android:name="com.android.cts.delegate.DelegatedScopesReceiverService"
-             android:exported="true">
-        </service>
         <receiver android:name=".DelegateTestUtils$DelegatedLogsReceiver"
              android:permission="android.permission.BIND_DEVICE_ADMIN"
              android:exported="true">

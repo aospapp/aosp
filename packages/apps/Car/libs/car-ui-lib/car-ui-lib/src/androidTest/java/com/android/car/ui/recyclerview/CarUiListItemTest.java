@@ -23,12 +23,14 @@ import static androidx.test.espresso.matcher.ViewMatchers.isChecked;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.isEnabled;
 import static androidx.test.espresso.matcher.ViewMatchers.isNotChecked;
-import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.matchers.ViewMatchers.isActivated;
+import static com.android.car.ui.matchers.ViewMatchers.withDrawable;
 
-import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -38,21 +40,22 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import android.text.Spannable;
-import android.text.SpannableString;
-import android.text.style.ForegroundColorSpan;
-import android.widget.TextView;
+import android.annotation.TargetApi;
+import android.graphics.drawable.Drawable;
+import android.widget.CompoundButton;
 
-import androidx.core.content.ContextCompat;
-import androidx.test.core.app.ActivityScenario;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
-import com.android.car.ui.CarUiText;
 import com.android.car.ui.R;
+import com.android.car.ui.core.CarUi;
+import com.android.car.ui.pluginsupport.PluginFactorySingleton;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,36 +63,31 @@ import java.util.List;
 /**
  * Unit tests for {@link CarUiListItem}.
  */
+@RunWith(Parameterized.class)
+@TargetApi(MIN_TARGET_API)
 public class CarUiListItemTest {
-    private static final CharSequence LONG_CHAR_SEQUENCE =
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor "
-                    + "incididunt ut labore et dolore magna aliqua. Netus et malesuada fames ac "
-                    + "turpis egestas maecenas pharetra convallis. At urna condimentum mattis "
-                    + "pellentesque id nibh tortor. Purus in mollis nunc sed id semper risus in. "
-                    + "Turpis massa tincidunt dui ut ornare lectus sit amet. Porttitor lacus "
-                    + "luctus accumsan tortor posuere ac. Augue eget arcu dictum varius. Massa "
-                    + "tempor nec feugiat nisl pretium fusce id velit ut. Fames ac turpis egestas"
-                    + " sed tempus urna et pharetra pharetra. Tellus orci ac auctor augue mauris "
-                    + "augue neque gravida. Purus viverra accumsan in nisl nisi scelerisque eu. "
-                    + "Ut lectus arcu bibendum at varius vel pharetra. Penatibus et magnis dis "
-                    + "parturient montes nascetur ridiculus mus. Suspendisse sed nisi lacus sed "
-                    + "viverra tellus in hac habitasse.";
-    private static final String ELLIPSIS = "…";
-
-    private CarUiRecyclerView mCarUiRecyclerView;
 
     @Rule
     public ActivityScenarioRule<CarUiRecyclerViewTestActivity> mActivityRule =
             new ActivityScenarioRule<>(CarUiRecyclerViewTestActivity.class);
 
-    private ActivityScenario<CarUiRecyclerViewTestActivity> mScenario;
+    @Parameterized.Parameters
+    public static Object[] data() {
+        // It's important to do not plugin first, so that the plugin will
+        // still be enabled when this test finishes
+        return new Object[]{false, true};
+    }
 
+    private CarUiRecyclerView mCarUiRecyclerView;
     private CarUiRecyclerViewTestActivity mActivity;
+
+    public CarUiListItemTest(boolean pluginEnabled) {
+        PluginFactorySingleton.setPluginEnabledForTesting(pluginEnabled);
+    }
 
     @Before
     public void setUp() {
-        mScenario = mActivityRule.getScenario();
-        mScenario.onActivity(activity -> {
+        mActivityRule.getScenario().onActivity(activity -> {
             mActivity = activity;
             mCarUiRecyclerView = mActivity.requireViewById(R.id.list);
         });
@@ -100,16 +98,14 @@ public class CarUiListItemTest {
         List<CarUiListItem> items = new ArrayList<>();
 
         CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setTitle("Test title");
+        String title = "Test title";
+        item.setTitle(title);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(not(isDisplayed())));
-        onView(withId(R.id.car_ui_list_item_icon_container)).check(matches(not(isDisplayed())));
-        onView(withId(R.id.car_ui_list_item_action_container)).check(matches(not(isDisplayed())));
+        onView(withText(title)).check(matches(isDisplayed()));
     }
 
     @Test
@@ -117,39 +113,35 @@ public class CarUiListItemTest {
         List<CarUiListItem> items = new ArrayList<>();
 
         CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody("Test body");
+        String body = "Test body";
+        item.setBody(body);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(isEnabled()));
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(not(isActivated())));
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(not(isDisplayed())));
-        onView(withId(R.id.car_ui_list_item_icon_container)).check(matches(not(isDisplayed())));
-        onView(withId(R.id.car_ui_list_item_action_container)).check(matches(not(isDisplayed())));
+        onView(withText(body)).check(matches(isDisplayed()));
     }
 
     @Test
     public void testHeaderItemVisibility() {
         List<CarUiListItem> items = new ArrayList<>();
 
-        CharSequence title = "Test title";
-        CharSequence body = "Test body";
+        String title = "Test title";
+        String body = "Test body";
         CarUiListItem item = new CarUiHeaderListItem(title, body);
         items.add(item);
 
-        CharSequence title2 = "Test title2";
+        String title2 = "Test title2";
         item = new CarUiHeaderListItem(title2);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withText(title.toString())).check(matches(isDisplayed()));
-        onView(withText(body.toString())).check(matches(isDisplayed()));
-        onView(withText(title2.toString())).check(matches(isDisplayed()));
+        onView(withText(title)).check(matches(isDisplayed()));
+        onView(withText(body)).check(matches(isDisplayed()));
+        onView(withText(title2)).check(matches(isDisplayed()));
     }
 
     @Test
@@ -157,14 +149,15 @@ public class CarUiListItemTest {
         List<CarUiListItem> items = new ArrayList<>();
 
         CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody("Item that is disabled");
+        String body = "Item that is disabled";
+        item.setBody(body);
         item.setEnabled(false);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(not(isEnabled())));
+        onView(withText(body)).check(matches(not(isEnabled())));
     }
 
     @Test
@@ -172,14 +165,15 @@ public class CarUiListItemTest {
         List<CarUiListItem> items = new ArrayList<>();
 
         CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody("Item that is disabled");
+        String body = "Item that is activated";
+        item.setBody(body);
         item.setActivated(true);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(isActivated()));
+        onView(withText(body)).check(matches(isActivated()));
     }
 
     @Test
@@ -187,36 +181,38 @@ public class CarUiListItemTest {
         List<CarUiListItem> items = new ArrayList<>();
 
         CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.CHEVRON);
-        item.setTitle("Test item with chevron");
+        String title = "Test item with chevron";
+        item.setTitle(title);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(not(isDisplayed())));
-        onView(withId(R.id.car_ui_list_item_icon_container)).check(matches(not(isDisplayed())));
-        onView(withId(R.id.car_ui_list_item_action_container)).check(matches(isDisplayed()));
+        onView(withText(title)).check(matches(isDisplayed()));
+        onView(withDrawable(mActivity, R.drawable.car_ui_icon_chevron)).check(
+                matches(isDisplayed()));
     }
 
     @Test
     public void testItemVisibility_withTitle_withBodyAndIcon() {
         List<CarUiListItem> items = new ArrayList<>();
 
+        Drawable close = mActivity.getDrawable(R.drawable.car_ui_icon_close);
+
         CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setTitle("Test title");
-        item.setBody("Test body");
-        item.setIcon(mActivity.getDrawable(R.drawable.car_ui_icon_close));
-        item.setPrimaryIconType(CarUiContentListItem.IconType.CONTENT);
+        String title = "Test title";
+        String body = "Test body";
+        item.setTitle(title);
+        item.setBody(body);
+        item.setIcon(close);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_icon_container)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_action_container)).check(matches(not(isDisplayed())));
+        onView(withText(title)).check(matches(isDisplayed()));
+        onView(withText(body)).check(matches(isDisplayed()));
+        onView(withDrawable(close)).check(matches(isDisplayed()));
     }
 
     @Test
@@ -227,28 +223,29 @@ public class CarUiListItemTest {
                 CarUiContentListItem.OnCheckedChangeListener.class);
 
         CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.CHECK_BOX);
-        item.setTitle("Test item with checkbox");
+        String title = "Test item with checkbox";
+        item.setTitle(title);
         item.setOnCheckedChangeListener(mockOnCheckedChangeListener);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_checkbox_widget)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_action_divider)).check(matches(not(isDisplayed())));
+        onView(withText(title)).check(matches(isDisplayed()));
 
         // List item with checkbox should be initially unchecked.
-        onView(withId(R.id.car_ui_list_item_checkbox_widget)).check(matches(isNotChecked()));
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(
+                matches(isNotChecked()));
         // Clicks anywhere on the item should toggle the checkbox
-        onView(withId(R.id.car_ui_list_item_title)).perform(click());
-        onView(withId(R.id.car_ui_list_item_checkbox_widget)).check(matches(isChecked()));
+        onView(withText(title)).perform(click());
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(matches(isChecked()));
         // Check that onCheckChangedListener was invoked.
         verify(mockOnCheckedChangeListener, times(1)).onCheckedChanged(item, true);
 
-        // Uncheck checkbox with click on the action container
-        onView(withId(R.id.car_ui_list_item_action_container)).perform(click());
-        onView(withId(R.id.car_ui_list_item_checkbox_widget)).check(matches(isNotChecked()));
+        // Uncheck checkbox with click on the checkbox
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).perform(click());
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(
+                matches(isNotChecked()));
         // Check that onCheckChangedListener was invoked.
         verify(mockOnCheckedChangeListener, times(1)).onCheckedChanged(item, false);
     }
@@ -261,28 +258,29 @@ public class CarUiListItemTest {
                 CarUiContentListItem.OnCheckedChangeListener.class);
 
         CarUiContentListItem item = new CarUiCheckBoxListItem();
-        item.setTitle("Test item with checkbox");
+        String title = "Test item with checkbox";
+        item.setTitle(title);
         item.setOnCheckedChangeListener(mockOnCheckedChangeListener);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_checkbox_widget)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_action_divider)).check(matches(not(isDisplayed())));
+        onView(withText(title)).check(matches(isDisplayed()));
 
         // List item with checkbox should be initially unchecked.
-        onView(withId(R.id.car_ui_list_item_checkbox_widget)).check(matches(isNotChecked()));
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(
+                matches(isNotChecked()));
         // Clicks anywhere on the item should toggle the checkbox
-        onView(withId(R.id.car_ui_list_item_title)).perform(click());
-        onView(withId(R.id.car_ui_list_item_checkbox_widget)).check(matches(isChecked()));
+        onView(withText(title)).perform(click());
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(matches(isChecked()));
         // Check that onCheckChangedListener was invoked.
         verify(mockOnCheckedChangeListener, times(1)).onCheckedChanged(item, true);
 
-        // Uncheck checkbox with click on the action container
-        onView(withId(R.id.car_ui_list_item_action_container)).perform(click());
-        onView(withId(R.id.car_ui_list_item_checkbox_widget)).check(matches(isNotChecked()));
+        // Uncheck checkbox with click on the checkbox
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).perform(click());
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(
+                matches(isNotChecked()));
         // Check that onCheckChangedListener was invoked.
         verify(mockOnCheckedChangeListener, times(1)).onCheckedChanged(item, false);
     }
@@ -292,26 +290,26 @@ public class CarUiListItemTest {
         List<CarUiListItem> items = new ArrayList<>();
 
         CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.SWITCH);
-        item.setBody("Test item with switch");
+        String body = "Test item with switch";
+        item.setBody(body);
         item.setChecked(true);
         item.setActionDividerVisible(true);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_switch_widget)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_action_divider)).check(matches(isDisplayed()));
+        onView(withText(body)).check(matches(isDisplayed()));
 
         // List item with checkbox should be initially checked.
-        onView(withId(R.id.car_ui_list_item_switch_widget)).check(matches(isChecked()));
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(matches(isChecked()));
         // Clicks anywhere on the item should toggle the switch
-        onView(withId(R.id.car_ui_list_item_switch_widget)).perform(click());
-        onView(withId(R.id.car_ui_list_item_switch_widget)).check(matches(isNotChecked()));
-        // Uncheck checkbox with click on the action container
-        onView(withId(R.id.car_ui_list_item_body)).perform(click());
-        onView(withId(R.id.car_ui_list_item_switch_widget)).check(matches(isChecked()));
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).perform(click());
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(
+                matches(isNotChecked()));
+        // Uncheck checkbox with click on the body text
+        onView(withText(body)).perform(click());
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(matches(isChecked()));
     }
 
     @Test
@@ -320,27 +318,27 @@ public class CarUiListItemTest {
 
         CarUiContentListItem item = new CarUiContentListItem(
                 CarUiContentListItem.Action.RADIO_BUTTON);
-        item.setTitle("Test item with radio button");
+        String title = "Test item with radio button";
+        item.setTitle(title);
         item.setChecked(false);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_radio_button_widget)).check(matches(isDisplayed()));
+        onView(withText(title)).check(matches(isDisplayed()));
 
         // List item with checkbox should be initially not checked.
-        onView(withId(R.id.car_ui_list_item_radio_button_widget)).check(matches(isNotChecked()));
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(
+                matches(isNotChecked()));
         // Clicks anywhere on the item should toggle the radio button.
-        onView(withId(R.id.car_ui_list_item_radio_button_widget)).perform(click());
-        onView(withId(R.id.car_ui_list_item_radio_button_widget)).check(matches(isChecked()));
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).perform(click());
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(matches(isChecked()));
 
         // Repeated clicks on a selected radio button should not toggle the element once checked.
-        onView(withId(R.id.car_ui_list_item_title)).perform(click());
-        onView(withId(R.id.car_ui_list_item_radio_button_widget)).check(matches(isChecked()));
+        onView(withText(title)).perform(click());
+        onView(allOf(instanceOf(CompoundButton.class), isDisplayed())).check(matches(isChecked()));
     }
-
 
     @Test
     public void testItem_withCompactLayout() {
@@ -357,8 +355,8 @@ public class CarUiListItemTest {
         mCarUiRecyclerView.post(
                 () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items, true)));
 
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(withText(titleText)));
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(withText(bodyText)));
+        onView(withText(titleText)).check(matches(isDisplayed()));
+        onView(withText(bodyText)).check(matches(isDisplayed()));
     }
 
     @Test
@@ -368,28 +366,33 @@ public class CarUiListItemTest {
         CarUiContentListItem.OnClickListener mockOnCheckedChangeListener = mock(
                 CarUiContentListItem.OnClickListener.class);
 
+        Drawable close = mActivity.getDrawable(R.drawable.car_ui_icon_close);
+
         CarUiContentListItem item = new CarUiContentListItem(
                 CarUiContentListItem.Action.NONE);
-        item.setIcon(mActivity.getDrawable(R.drawable.car_ui_icon_close));
+        item.setIcon(close);
         item.setPrimaryIconType(CarUiContentListItem.IconType.AVATAR);
-        item.setTitle("Test item with listener");
-        item.setBody("Body text");
+        String title = "Test item with listener";
+        String body = "Body text";
+        item.setTitle(title);
+        item.setBody(body);
         item.setOnItemClickedListener(mockOnCheckedChangeListener);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(isDisplayed()));
+        onView(withText(title)).check(matches(isDisplayed()));
 
         // Clicks anywhere on the item should toggle the listener
-        onView(withId(R.id.car_ui_list_item_title)).perform(click());
+        onView(withText(title)).perform(click());
         verify(mockOnCheckedChangeListener, times(1)).onClick(item);
 
-        onView(withId(R.id.car_ui_list_item_body)).perform(click());
+        onView(withText(body)).perform(click());
         verify(mockOnCheckedChangeListener, times(2)).onClick(item);
 
-        onView(withId(R.id.car_ui_list_item_icon_container)).perform(click());
+        onView(withDrawable(close)).check(matches(isDisplayed()));
+        onView(withDrawable(close)).perform(click());
         verify(mockOnCheckedChangeListener, times(3)).onClick(item);
     }
 
@@ -404,25 +407,30 @@ public class CarUiListItemTest {
 
         CarUiContentListItem item = new CarUiContentListItem(
                 CarUiContentListItem.Action.ICON);
-        item.setTitle("Test item with two listeners");
+        String title = "Test item with two listeners";
+        item.setTitle(title);
         item.setOnItemClickedListener(clickListener);
+        Drawable close = mActivity.getDrawable(R.drawable.car_ui_icon_close);
+
+
         item.setSupplementalIcon(
-                mActivity.getDrawable(R.drawable.car_ui_icon_close),
+                close,
                 supplementalIconClickListener);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(isDisplayed()));
+        onView(withText(title)).check(matches(isDisplayed()));
 
         // Clicks anywhere on the item (except supplemental icon) should trigger the item click
         // listener.
-        onView(withId(R.id.car_ui_list_item_title)).perform(click());
+        onView(withText(title)).perform(click());
         verify(clickListener, times(1)).onClick(item);
         verify(supplementalIconClickListener, times(0)).onClick(item);
 
-        onView(withId(R.id.car_ui_list_item_supplemental_icon)).perform(click());
+        onView(withDrawable(close)).check(matches(isDisplayed()));
+        onView(withDrawable(close)).perform(click());
         // Check that icon is argument for single call to click listener.
         verify(supplementalIconClickListener, times(1)).onClick(item);
 
@@ -439,18 +447,21 @@ public class CarUiListItemTest {
 
         CarUiContentListItem item = new CarUiContentListItem(
                 CarUiContentListItem.Action.ICON);
-        item.setSupplementalIcon(mActivity.getDrawable(R.drawable.car_ui_icon_close));
+        Drawable close = mActivity.getDrawable(R.drawable.car_ui_icon_close);
+
+        item.setSupplementalIcon(close);
         item.setOnItemClickedListener(mockedItemOnClickListener);
-        item.setTitle("Test item with listener");
+        String title = "Test item with listener";
+        item.setTitle(title);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(isDisplayed()));
+        onView(withText(title)).check(matches(isDisplayed()));
 
         // Clicks anywhere on the icon should invoke listener.
-        onView(withId(R.id.car_ui_list_item_action_container)).perform(click());
+        onView(withDrawable(close)).perform(click());
         verify(mockedItemOnClickListener, times(1)).onClick(item);
     }
 
@@ -464,7 +475,7 @@ public class CarUiListItemTest {
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
     }
 
     @Test
@@ -476,27 +487,31 @@ public class CarUiListItemTest {
         CarUiContentListItem.OnClickListener mockedIconListener = mock(
                 CarUiContentListItem.OnClickListener.class);
 
+        Drawable close = mActivity.getDrawable(R.drawable.car_ui_icon_close);
+
         CarUiContentListItem item = new CarUiContentListItem(
                 CarUiContentListItem.Action.ICON);
         item.setSupplementalIcon(
-                mActivity.getDrawable(R.drawable.car_ui_icon_close),
+                close,
                 mockedIconListener);
         item.setOnItemClickedListener(mockedItemOnClickListener);
-        item.setTitle("Test item with listeners");
+        String title = "Test item with listeners";
+        item.setTitle(title);
         items.add(item);
 
         mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
+                () -> mCarUiRecyclerView.setAdapter(CarUi.createListItemAdapter(mActivity, items)));
 
-        onView(withId(R.id.car_ui_list_item_title)).check(matches(isDisplayed()));
+        onView(withText(title)).check(matches(isDisplayed()));
 
         // Clicks anywhere on the item (outside of the icon) should only invoke the item click
         // listener.
-        onView(withId(R.id.car_ui_list_item_title)).perform(click());
+        onView(withText(title)).perform(click());
         verify(mockedItemOnClickListener, times(1)).onClick(item);
 
         // Clicks anywhere on the icon should invoke both listeners.
-        onView(withId(R.id.car_ui_list_item_action_container)).perform(click());
+        onView(withDrawable(close)).check(matches(isDisplayed()));
+        onView(withDrawable(close)).perform(click());
         verify(mockedItemOnClickListener, times(1)).onClick(item);
         verify(mockedIconListener, times(1)).onClick(item);
     }
@@ -616,293 +631,6 @@ public class CarUiListItemTest {
                 () -> mCarUiRecyclerView.setAdapter(adapter));
     }
 
-    @Test
-    public void testTextTruncation_twoShortLines() {
-        List<CarUiText> lines = new ArrayList<>();
-        lines.add(new CarUiText.Builder("Short text string").setMaxLines(2).build());
-        lines.add(new CarUiText.Builder("Second short string").setMaxLines(2).build());
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(lines);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        // Check for no manual truncation ellipsis.
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(not(withText(containsString(ELLIPSIS)))));
-    }
-
-    @Test
-    public void testTextTruncation_oneLongOneShort_withMaxLines() {
-        List<CarUiText> lines = new ArrayList<>();
-        lines.add(new CarUiText.Builder(LONG_CHAR_SEQUENCE).setMaxLines(2).build());
-        lines.add(new CarUiText.Builder("Second short string").setMaxLines(2).build());
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(lines);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        // Check for manual truncation ellipsis.
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(withText(containsString(ELLIPSIS))));
-
-        TextView bodyTextView = mCarUiRecyclerView.requireViewById(R.id.car_ui_list_item_body);
-        assertEquals(3, bodyTextView.getLineCount());
-    }
-
-    @Test
-    public void testTextTruncation_oneLongOneShort_noMaxLines() {
-        List<CarUiText> lines = new ArrayList<>();
-        lines.add(new CarUiText.Builder(LONG_CHAR_SEQUENCE).setMaxLines(Integer.MAX_VALUE).build());
-        lines.add(new CarUiText.Builder("Second short string").setMaxLines(2).build());
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(lines);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        // Check for no manual truncation ellipsis.
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(not(withText(containsString(ELLIPSIS)))));
-    }
-
-    @Test
-    public void testTextTruncation_twoLong_withMaxLines() {
-        List<CarUiText> lines = new ArrayList<>();
-        lines.add(new CarUiText.Builder(LONG_CHAR_SEQUENCE).setMaxLines(3).build());
-        lines.add(new CarUiText.Builder(LONG_CHAR_SEQUENCE).setMaxLines(3).build());
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(lines);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        // Check for manual truncation ellipsis.
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(withText(containsString(ELLIPSIS))));
-
-        TextView bodyTextView = mCarUiRecyclerView.requireViewById(R.id.car_ui_list_item_body);
-        assertEquals(6, bodyTextView.getLineCount());
-    }
-
-    @Test
-    public void testTitleTextTruncation_withMaxLines() {
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setTitle(new CarUiText.Builder(LONG_CHAR_SEQUENCE).setMaxLines(2).build());
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        // Check for manual truncation ellipsis.
-        onView(withId(R.id.car_ui_list_item_title)).check(
-                matches(withText(containsString(ELLIPSIS))));
-
-        TextView bodyTextView = mCarUiRecyclerView.requireViewById(R.id.car_ui_list_item_title);
-        assertEquals(2, bodyTextView.getLineCount());
-    }
-
-    @Test
-    public void testTextTruncation_twoLong_differentMaxLines() {
-        List<CarUiText> lines = new ArrayList<>();
-        lines.add(new CarUiText(LONG_CHAR_SEQUENCE, 1));
-        lines.add(new CarUiText(LONG_CHAR_SEQUENCE, 4));
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(lines);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        // Check for manual truncation ellipsis.
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(withText(containsString(ELLIPSIS))));
-
-        TextView bodyTextView = mCarUiRecyclerView.requireViewById(R.id.car_ui_list_item_body);
-        assertEquals(5, bodyTextView.getLineCount());
-    }
-
-    @Test
-    public void testMultipleBodyTextLines() {
-        CharSequence line1 = "First short string";
-        CharSequence line2 = "Second short string";
-        CharSequence line3 = "Third short string";
-
-        List<CarUiText> lines = new ArrayList<>();
-        lines.add(new CarUiText.Builder(line1).build());
-        lines.add(new CarUiText.Builder(line2).build());
-        lines.add(new CarUiText.Builder(line3).build());
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(lines);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        String expectedText = line1 + "\n" + line2 + "\n" + line3;
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(withText(containsString(expectedText))));
-    }
-
-    @Test
-    public void testBodyTextSpans() {
-        int color = ContextCompat.getColor(mCarUiRecyclerView.getContext(),
-                R.color.car_ui_color_accent);
-
-        Spannable line1 = new SpannableString("This text contains color");
-        line1.setSpan(new ForegroundColorSpan(color), 19, 24, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-
-        List<CarUiText> lines = new ArrayList<>();
-        lines.add(new CarUiText(line1, Integer.MAX_VALUE));
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(lines);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(isDisplayed()));
-        TextView bodyTextView = mCarUiRecyclerView.requireViewById(R.id.car_ui_list_item_body);
-        assertEquals(line1, bodyTextView.getText());
-    }
-
-    @Test
-    public void testTextWithLineBreak() {
-        List<CarUiText> lines = new ArrayList<>();
-        String firstTwoLines = "This is first line\nThis is the second line";
-        String thirdLine = "\nThis is the third line";
-        lines.add(new CarUiText(firstTwoLines + thirdLine, 2));
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(lines);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(isDisplayed()));
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(withText(firstTwoLines)));
-        onView(withId(R.id.car_ui_list_item_body)).check(matches(not(withText(thirdLine))));
-    }
-
-    @Test
-    public void testTextVariants() {
-        List<CharSequence> variants = new ArrayList<>();
-        variants.add(LONG_CHAR_SEQUENCE);
-        variants.add("Short string");
-        CarUiText text = new CarUiText(variants, 1);
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(text);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        // Check for no manual truncation ellipsis.
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(not(withText(containsString(ELLIPSIS)))));
-
-        TextView bodyTextView = mCarUiRecyclerView.requireViewById(R.id.car_ui_list_item_body);
-        assertEquals(1, bodyTextView.getLineCount());
-    }
-
-    @Test
-    public void testTextVariants_withCharLimit() {
-        List<CharSequence> variants = new ArrayList<>();
-        variants.add("Long string");
-        variants.add("Short");
-        CarUiText text = new CarUiText(variants, 1, 5);
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(text);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        // Check for no manual truncation ellipsis.
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(not(withText(containsString(ELLIPSIS)))));
-
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(withText(containsString("Short"))));
-    }
-
-    @Test
-    public void testTextVariants_withCharLimitNoMaxLines() {
-        List<CharSequence> variants = new ArrayList<>();
-        variants.add("Long string");
-        variants.add("Short");
-        CarUiText text = new CarUiText(variants, Integer.MAX_VALUE, 5);
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(text);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        // Check for no manual truncation ellipsis.
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(not(withText(containsString(ELLIPSIS)))));
-
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(withText(containsString("Short"))));
-    }
-
-    @Test
-    public void testTextVariants_noFit() {
-        List<CharSequence> variants = new ArrayList<>();
-        String marker = "MARKING AS PREFERRED VARIANT";
-        variants.add(marker + LONG_CHAR_SEQUENCE);
-        variants.add(LONG_CHAR_SEQUENCE);
-        variants.add(LONG_CHAR_SEQUENCE);
-        CarUiText text = new CarUiText(variants, 2);
-
-        CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
-        item.setBody(text);
-        List<CarUiListItem> items = new ArrayList<>();
-        items.add(item);
-
-        mCarUiRecyclerView.post(
-                () -> mCarUiRecyclerView.setAdapter(new CarUiListItemAdapter(items)));
-
-        // Check for manual truncation ellipsis.
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(withText(containsString(ELLIPSIS))));
-
-        TextView bodyTextView = mCarUiRecyclerView.requireViewById(R.id.car_ui_list_item_body);
-        assertEquals(2, bodyTextView.getLineCount());
-
-        onView(withId(R.id.car_ui_list_item_body)).check(
-                matches(withText(containsString(marker))));
-    }
-
     @Test()
     public void testListItemAdapter_getCount() {
         List<CarUiRadioButtonListItem> items = new ArrayList<>();
@@ -929,26 +657,25 @@ public class CarUiListItemTest {
         onView(withText(itemOneTitle)).check(matches(isDisplayed()));
         onView(withText(itemTwoTitle)).check(matches(isDisplayed()));
         onView(withText(itemThreeTitle)).check(matches(isDisplayed()));
-
         assertEquals(adapter.getItemCount(), 3);
 
         adapter.setMaxItems(2);
-
         assertEquals(adapter.getItemCount(), 2);
     }
 
+    @SuppressWarnings("AssertThrowsMultipleStatements")
     @Test
     public void testUnknownCarUiListItemType_throwsException() {
         List<CarUiListItem> items = new ArrayList<>();
-
         CarUiListItem item = new UnknownCarUiListItem();
         items.add(item);
-
-        CarUiListItemAdapter adapter = new CarUiListItemAdapter(items);
-
         assertThrows("Unknown view type.", IllegalStateException.class,
-                () -> adapter.getItemViewType(0));
+                () -> {
+                    RecyclerView.Adapter adapter = CarUi.createListItemAdapter(mActivity, items);
+                    adapter.getItemViewType(0);
+                });
     }
 
-    private static class UnknownCarUiListItem extends CarUiListItem {}
+    private static class UnknownCarUiListItem extends CarUiListItem {
+    }
 }

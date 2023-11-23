@@ -21,14 +21,8 @@ import android.content.Context;
 import android.database.Cursor;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import androidx.lifecycle.LiveData;
-
-import com.android.car.apps.common.log.L;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 /**
  * Asynchronously queries a {@link ContentResolver} for a given query and observes the loaded data
@@ -39,36 +33,23 @@ import java.util.concurrent.Future;
 public abstract class AsyncQueryLiveData<T> extends LiveData<T> {
 
     private static final String TAG = "CD.AsyncQueryLiveData";
-    private final ExecutorService mExecutorService;
-
-    private final ObservableAsyncQuery mObservableAsyncQuery;
-    private CursorRunnable mCurrentCursorRunnable;
-    private Future<?> mCurrentRunnableFuture;
+    private AsyncEntityLoader<T> mAsyncEntityLoader;
 
     public AsyncQueryLiveData(Context context, QueryParam.Provider provider) {
-        this(context, provider, WorkerExecutor.getInstance().getSingleThreadExecutor());
-    }
-
-    public AsyncQueryLiveData(Context context, QueryParam.Provider provider,
-            ExecutorService executorService) {
-        mObservableAsyncQuery = new ObservableAsyncQuery(context, provider, this::onCursorLoaded);
-        mExecutorService = executorService;
+        mAsyncEntityLoader = new AsyncEntityLoader<>(context, provider,
+                this::convertToEntity, (loader, entity) -> setValue(entity));
     }
 
     @Override
     protected void onActive() {
         super.onActive();
-        mObservableAsyncQuery.startQuery();
+        mAsyncEntityLoader.startLoading();
     }
 
     @Override
     protected void onInactive() {
         super.onInactive();
-        if (mCurrentCursorRunnable != null) {
-            mCurrentCursorRunnable.closeCursorIfNecessary();
-            mCurrentRunnableFuture.cancel(false);
-        }
-        mObservableAsyncQuery.stopQuery();
+        mAsyncEntityLoader.reset();
     }
 
     /**
@@ -76,44 +57,4 @@ public abstract class AsyncQueryLiveData<T> extends LiveData<T> {
      */
     @WorkerThread
     protected abstract T convertToEntity(@NonNull Cursor cursor);
-
-    private void onCursorLoaded(Cursor cursor) {
-        L.d(TAG, "onCursorLoaded: " + this);
-        if (mCurrentCursorRunnable != null) {
-            mCurrentCursorRunnable.closeCursorIfNecessary();
-            mCurrentRunnableFuture.cancel(false);
-        }
-        mCurrentCursorRunnable = new CursorRunnable(cursor);
-        mCurrentRunnableFuture = mExecutorService.submit(mCurrentCursorRunnable);
-    }
-
-    private class CursorRunnable implements Runnable {
-        private final Cursor mCursor;
-        private boolean mIsActive;
-
-        private CursorRunnable(@Nullable Cursor cursor) {
-            mCursor = cursor;
-            mIsActive = true;
-        }
-
-        @Override
-        public void run() {
-            // Bypass the workload to convert to entity and UI change triggered by post value if
-            // cursor is not current.
-            if (mIsActive) {
-                T entity = mCursor == null ? null : convertToEntity(mCursor);
-                if (mIsActive) {
-                    postValue(entity);
-                }
-            }
-            closeCursorIfNecessary();
-        }
-
-        public synchronized void closeCursorIfNecessary() {
-            if (!mIsActive && mCursor != null) {
-                mCursor.close();
-            }
-            mIsActive = false;
-        }
-    }
 }

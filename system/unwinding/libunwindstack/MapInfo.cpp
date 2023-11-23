@@ -166,6 +166,8 @@ Memory* MapInfo::CreateMemory(const std::shared_ptr<Memory>& process_memory) {
   // option is used.
   std::unique_ptr<MemoryRange> memory(new MemoryRange(process_memory, start(), end() - start(), 0));
   if (Elf::IsValidElf(memory.get())) {
+    set_elf_start_offset(offset());
+
     // Might need to peek at the next map to create a memory object that
     // includes that map too.
     if (offset() != 0 || name().empty() || next_real_map() == nullptr ||

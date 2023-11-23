@@ -30,6 +30,7 @@ import static android.server.wm.app.Components.SHOW_WHEN_LOCKED_WITH_DIALOG_NO_P
 import static android.server.wm.app.Components.WALLPAPAER_ACTIVITY;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
@@ -37,6 +38,9 @@ import android.platform.test.annotations.Presubmit;
 
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Build/Install/Run:
@@ -50,19 +54,25 @@ public class KeyguardTransitionTests extends ActivityManagerTestBase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-
+        assumeFalse(ENABLE_SHELL_TRANSITIONS);
         assumeTrue(supportsInsecureLock());
         assumeFalse(isUiModeLockedToVrHeadset());
     }
 
     @Test
     public void testUnlock() {
+        List<String> expectedTransitionList = Arrays.asList(TRANSIT_KEYGUARD_GOING_AWAY,
+                TRANSIT_KEYGUARD_GOING_AWAY_ON_WALLPAPER);
         final LockScreenSession lockScreenSession = createManagedLockScreenSession();
         launchActivity(DISABLE_PREVIEW_ACTIVITY);
         lockScreenSession.gotoKeyguard().unlockDevice();
         mWmState.computeState(DISABLE_PREVIEW_ACTIVITY);
-        assertEquals("Picked wrong transition", TRANSIT_KEYGUARD_GOING_AWAY,
-                mWmState.getDefaultDisplayLastTransition());
+        // The AOSP flow is checking if the current transit is TRANSIT_KEYGUARD_GOING_AWAY and
+        // if the visible apps have FLAG_SHOW_WALLPAPER and if both conditions are true the transit
+        // will be changed to TRANSIT_KEYGUARD_GOING_AWAY_ON_WALLPAPER. For multiple screen devices,
+        // both conditions are true, because the launcher is visible and has this flag.
+        assertTrue("Picked wrong transition",
+                expectedTransitionList.contains(mWmState.getDefaultDisplayLastTransition()));
     }
 
     @Test

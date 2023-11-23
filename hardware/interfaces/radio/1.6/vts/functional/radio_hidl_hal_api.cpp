@@ -32,23 +32,17 @@ TEST_P(RadioHidlTest_v1_6, setAllowedNetworkTypesBitmap) {
     EXPECT_EQ(std::cv_status::no_timeout, wait());
     EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_v1_6->rspInfo.type);
     EXPECT_EQ(serial, radioRsp_v1_6->rspInfo.serial);
-
-    if (getRadioHalCapabilities()) {
-        ASSERT_TRUE(CheckAnyOfErrors(
-                radioRsp_v1_6->rspInfo.error,
-                {::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED}));
-    } else {
-        ASSERT_TRUE(CheckAnyOfErrors(
-                radioRsp_v1_6->rspInfo.error,
-                {::android::hardware::radio::V1_6::RadioError::NONE,
-                 ::android::hardware::radio::V1_6::RadioError::RADIO_NOT_AVAILABLE,
-                 ::android::hardware::radio::V1_6::RadioError::OPERATION_NOT_ALLOWED,
-                 ::android::hardware::radio::V1_6::RadioError::MODE_NOT_SUPPORTED,
-                 ::android::hardware::radio::V1_6::RadioError::INTERNAL_ERR,
-                 ::android::hardware::radio::V1_6::RadioError::INVALID_ARGUMENTS,
-                 ::android::hardware::radio::V1_6::RadioError::MODEM_ERR,
-                 ::android::hardware::radio::V1_6::RadioError::NO_RESOURCES}));
-    }
+    ASSERT_TRUE(
+            CheckAnyOfErrors(radioRsp_v1_6->rspInfo.error,
+                             {::android::hardware::radio::V1_6::RadioError::NONE,
+                              ::android::hardware::radio::V1_6::RadioError::RADIO_NOT_AVAILABLE,
+                              ::android::hardware::radio::V1_6::RadioError::OPERATION_NOT_ALLOWED,
+                              ::android::hardware::radio::V1_6::RadioError::MODE_NOT_SUPPORTED,
+                              ::android::hardware::radio::V1_6::RadioError::INTERNAL_ERR,
+                              ::android::hardware::radio::V1_6::RadioError::INVALID_ARGUMENTS,
+                              ::android::hardware::radio::V1_6::RadioError::MODEM_ERR,
+                              ::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED,
+                              ::android::hardware::radio::V1_6::RadioError::NO_RESOURCES}));
 }
 
 /*
@@ -74,23 +68,17 @@ TEST_P(RadioHidlTest_v1_6, getAllowedNetworkTypesBitmap) {
         EXPECT_EQ(std::cv_status::no_timeout, wait());
         EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_v1_6->rspInfo.type);
         EXPECT_EQ(serial, radioRsp_v1_6->rspInfo.serial);
-
-        if (getRadioHalCapabilities()) {
-            ASSERT_TRUE(CheckAnyOfErrors(
-                    radioRsp_v1_6->rspInfo.error,
-                    {::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED}));
-        } else {
-            ASSERT_TRUE(CheckAnyOfErrors(
-                    radioRsp_v1_6->rspInfo.error,
-                    {::android::hardware::radio::V1_6::RadioError::NONE,
-                     ::android::hardware::radio::V1_6::RadioError::RADIO_NOT_AVAILABLE,
-                     ::android::hardware::radio::V1_6::RadioError::OPERATION_NOT_ALLOWED,
-                     ::android::hardware::radio::V1_6::RadioError::MODE_NOT_SUPPORTED,
-                     ::android::hardware::radio::V1_6::RadioError::INTERNAL_ERR,
-                     ::android::hardware::radio::V1_6::RadioError::INVALID_ARGUMENTS,
-                     ::android::hardware::radio::V1_6::RadioError::MODEM_ERR,
-                     ::android::hardware::radio::V1_6::RadioError::NO_RESOURCES}));
-        }
+        ASSERT_TRUE(CheckAnyOfErrors(
+                radioRsp_v1_6->rspInfo.error,
+                {::android::hardware::radio::V1_6::RadioError::NONE,
+                 ::android::hardware::radio::V1_6::RadioError::RADIO_NOT_AVAILABLE,
+                 ::android::hardware::radio::V1_6::RadioError::OPERATION_NOT_ALLOWED,
+                 ::android::hardware::radio::V1_6::RadioError::MODE_NOT_SUPPORTED,
+                 ::android::hardware::radio::V1_6::RadioError::INTERNAL_ERR,
+                 ::android::hardware::radio::V1_6::RadioError::INVALID_ARGUMENTS,
+                 ::android::hardware::radio::V1_6::RadioError::MODEM_ERR,
+                 ::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED,
+                 ::android::hardware::radio::V1_6::RadioError::NO_RESOURCES}));
     }
 }
 
@@ -275,7 +263,7 @@ TEST_P(RadioHidlTest_v1_6, sendSms_1_6) {
     msg.smscPdu = "";
     msg.pdu = "01000b916105770203f3000006d4f29c3e9b01";
 
-    radio_v1_6->sendSms(serial, msg);
+    radio_v1_6->sendSms_1_6(serial, msg);
 
     EXPECT_EQ(std::cv_status::no_timeout, wait());
     EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_v1_6->rspInfo.type);
@@ -303,7 +291,7 @@ TEST_P(RadioHidlTest_v1_6, sendSmsExpectMore_1_6) {
     msg.smscPdu = "";
     msg.pdu = "01000b916105770203f3000006d4f29c3e9b01";
 
-    radio_v1_6->sendSMSExpectMore(serial, msg);
+    radio_v1_6->sendSmsExpectMore_1_6(serial, msg);
 
     EXPECT_EQ(std::cv_status::no_timeout, wait());
     EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_v1_6->rspInfo.type);
@@ -351,7 +339,7 @@ TEST_P(RadioHidlTest_v1_6, sendCdmaSms_1_6) {
     cdmaSmsMessage.bearerData =
         (std::vector<uint8_t>){15, 0, 3, 32, 3, 16, 1, 8, 16, 53, 76, 68, 6, 51, 106, 0};
 
-    radio_v1_6->sendCdmaSms(serial, cdmaSmsMessage);
+    radio_v1_6->sendCdmaSms_1_6(serial, cdmaSmsMessage);
 
     EXPECT_EQ(std::cv_status::no_timeout, wait());
     EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_v1_6->rspInfo.type);
@@ -398,7 +386,7 @@ TEST_P(RadioHidlTest_v1_6, sendCdmaSmsExpectMore_1_6) {
     cdmaSmsMessage.bearerData =
             (std::vector<uint8_t>){15, 0, 3, 32, 3, 16, 1, 8, 16, 53, 76, 68, 6, 51, 106, 0};
 
-    radio_v1_6->sendCdmaSmsExpectMore(serial, cdmaSmsMessage);
+    radio_v1_6->sendCdmaSmsExpectMore_1_6(serial, cdmaSmsMessage);
 
     EXPECT_EQ(std::cv_status::no_timeout, wait());
     EXPECT_EQ(RadioResponseType::SOLICITED, radioRsp_v1_6->rspInfo.type);
@@ -464,12 +452,13 @@ TEST_P(RadioHidlTest_v1_6, setNrDualConnectivityState) {
                 radioRsp_v1_6->rspInfo.error,
                 {::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED}));
     } else {
-        ASSERT_TRUE(
-                CheckAnyOfErrors(radioRsp_v1_6->rspInfo.error,
-                                 {::android::hardware::radio::V1_6::RadioError::RADIO_NOT_AVAILABLE,
-                                  ::android::hardware::radio::V1_6::RadioError::INTERNAL_ERR,
-                                  ::android::hardware::radio::V1_6::RadioError::INVALID_STATE,
-                                  ::android::hardware::radio::V1_6::RadioError::NONE}));
+        ASSERT_TRUE(CheckAnyOfErrors(
+                radioRsp_v1_6->rspInfo.error,
+                {::android::hardware::radio::V1_6::RadioError::RADIO_NOT_AVAILABLE,
+                 ::android::hardware::radio::V1_6::RadioError::INTERNAL_ERR,
+                 ::android::hardware::radio::V1_6::RadioError::INVALID_STATE,
+                 ::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED,
+                 ::android::hardware::radio::V1_6::RadioError::NONE}));
     }
 }
 
@@ -514,7 +503,8 @@ TEST_P(RadioHidlTest_v1_6, setDataThrottling) {
     if (getRadioHalCapabilities()) {
         ASSERT_TRUE(CheckAnyOfErrors(
                 radioRsp_v1_6->rspInfo.error,
-                {::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED}));
+                {::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED,
+                 ::android::hardware::radio::V1_6::RadioError::NONE}));
     } else {
         ASSERT_TRUE(CheckAnyOfErrors(
                 radioRsp_v1_6->rspInfo.error,
@@ -536,7 +526,8 @@ TEST_P(RadioHidlTest_v1_6, setDataThrottling) {
     if (getRadioHalCapabilities()) {
         ASSERT_TRUE(CheckAnyOfErrors(
                 radioRsp_v1_6->rspInfo.error,
-                {::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED}));
+                {::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED,
+                 ::android::hardware::radio::V1_6::RadioError::NONE}));
     } else {
         ASSERT_TRUE(CheckAnyOfErrors(
                 radioRsp_v1_6->rspInfo.error,
@@ -558,7 +549,8 @@ TEST_P(RadioHidlTest_v1_6, setDataThrottling) {
     if (getRadioHalCapabilities()) {
         ASSERT_TRUE(CheckAnyOfErrors(
                 radioRsp_v1_6->rspInfo.error,
-                {::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED}));
+                {::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED,
+                 ::android::hardware::radio::V1_6::RadioError::NONE}));
     } else {
         ASSERT_TRUE(CheckAnyOfErrors(
                 radioRsp_v1_6->rspInfo.error,
@@ -579,7 +571,8 @@ TEST_P(RadioHidlTest_v1_6, setDataThrottling) {
     if (getRadioHalCapabilities()) {
         ASSERT_TRUE(CheckAnyOfErrors(
                 radioRsp_v1_6->rspInfo.error,
-                {::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED}));
+                {::android::hardware::radio::V1_6::RadioError::REQUEST_NOT_SUPPORTED,
+                 ::android::hardware::radio::V1_6::RadioError::NONE}));
     } else {
         ASSERT_TRUE(CheckAnyOfErrors(
                 radioRsp_v1_6->rspInfo.error,
@@ -608,12 +601,16 @@ TEST_P(RadioHidlTest_v1_6, setSimCardPower_1_6) {
                               ::android::hardware::radio::V1_6::RadioError::INVALID_ARGUMENTS,
                               ::android::hardware::radio::V1_6::RadioError::RADIO_NOT_AVAILABLE}));
 
+    // Give some time for modem to fully power up the SIM card
+    sleep(MODEM_SET_SIM_POWER_DELAY_IN_SECONDS);
+
     // setSimCardPower_1_6 does not return  until the request is handled, and should not trigger
     // CardState::ABSENT when turning off power
     if (radioRsp_v1_6->rspInfo.error == ::android::hardware::radio::V1_6::RadioError::NONE) {
         /* Wait some time for setting sim power down and then verify it */
         updateSimCardStatus();
-        EXPECT_EQ(CardState::PRESENT, cardStatus.base.base.base.cardState);
+        // We cannot assert the consistency of CardState here due to b/203031664
+        // EXPECT_EQ(CardState::PRESENT, cardStatus.base.base.base.cardState);
         // applications should be an empty vector of AppStatus
         EXPECT_EQ(0, cardStatus.applications.size());
     }
@@ -630,6 +627,9 @@ TEST_P(RadioHidlTest_v1_6, setSimCardPower_1_6) {
                               ::android::hardware::radio::V1_6::RadioError::INVALID_ARGUMENTS,
                               ::android::hardware::radio::V1_6::RadioError::RADIO_NOT_AVAILABLE}));
 
+    // Give some time for modem to fully power up the SIM card
+    sleep(MODEM_SET_SIM_POWER_DELAY_IN_SECONDS);
+
     // setSimCardPower_1_6 does not return  until the request is handled. Just verify that we still
     // have CardState::PRESENT after turning the power back on
     if (radioRsp_v1_6->rspInfo.error == ::android::hardware::radio::V1_6::RadioError::NONE) {
@@ -644,6 +644,10 @@ TEST_P(RadioHidlTest_v1_6, setSimCardPower_1_6) {
 TEST_P(RadioHidlTest_v1_6, emergencyDial_1_6) {
     if (!deviceSupportsFeature(FEATURE_VOICE_CALL)) {
         ALOGI("Skipping emergencyDial because voice call is not supported in device");
+        return;
+    } else if (!deviceSupportsFeature(FEATURE_TELEPHONY_GSM) &&
+               !deviceSupportsFeature(FEATURE_TELEPHONY_CDMA)) {
+        ALOGI("Skipping emergencyDial because gsm/cdma radio is not supported in device");
         return;
     } else {
         ALOGI("Running emergencyDial because voice call is supported in device");
@@ -699,6 +703,10 @@ TEST_P(RadioHidlTest_v1_6, emergencyDial_1_6_withServices) {
     if (!deviceSupportsFeature(FEATURE_VOICE_CALL)) {
         ALOGI("Skipping emergencyDial because voice call is not supported in device");
         return;
+    } else if (!deviceSupportsFeature(FEATURE_TELEPHONY_GSM) &&
+               !deviceSupportsFeature(FEATURE_TELEPHONY_CDMA)) {
+        ALOGI("Skipping emergencyDial because gsm/cdma radio is not supported in device");
+        return;
     } else {
         ALOGI("Running emergencyDial because voice call is supported in device");
     }
@@ -751,6 +759,10 @@ TEST_P(RadioHidlTest_v1_6, emergencyDial_1_6_withServices) {
 TEST_P(RadioHidlTest_v1_6, emergencyDial_1_6_withEmergencyRouting) {
     if (!deviceSupportsFeature(FEATURE_VOICE_CALL)) {
         ALOGI("Skipping emergencyDial because voice call is not supported in device");
+        return;
+    } else if (!deviceSupportsFeature(FEATURE_TELEPHONY_GSM) &&
+               !deviceSupportsFeature(FEATURE_TELEPHONY_CDMA)) {
+        ALOGI("Skipping emergencyDial because gsm/cdma radio is not supported in device");
         return;
     } else {
         ALOGI("Running emergencyDial because voice call is supported in device");

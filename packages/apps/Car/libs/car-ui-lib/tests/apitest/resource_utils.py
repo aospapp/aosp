@@ -104,6 +104,13 @@ def get_resources_from_single_file(filename):
     result = set()
     for resource in root:
         if resource.tag == 'declare-styleable' or resource.tag is etree.Comment:
+            attrs = resource.findall("attr")
+            for attr in attrs:
+                resName = attr.get('name')
+                resType = "attr"
+                if "android:" not in attr.get('name'):
+                    add_resource_to_set(result, Resource(resName, resType,
+                                                        ResourceLocation(filename, resource.sourceline)))
             continue
 
         resName = resource.get('name')

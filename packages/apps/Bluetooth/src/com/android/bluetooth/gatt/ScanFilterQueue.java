@@ -181,13 +181,12 @@ import java.util.UUID;
             addName(filter.getDeviceName());
         }
         if (filter.getDeviceAddress() != null) {
-            byte addressType = (byte) filter.getAddressType();
-            // If addressType == iADDRESS_TYPE_PUBLIC (0) then this is the original
-            // setDeviceAddress(address) API path which provided DEVICE_TYPE_ALL (2) which might map
-            // to the stack value for address type of BTM_BLE_STATIC (2)
-            // Additionally, we shouldn't confuse device type with address type.
-            addDeviceAddress(filter.getDeviceAddress(),
-                    ((addressType == 0) ? DEVICE_TYPE_ALL : addressType), filter.getIrk());
+            /*
+             * Pass the addres type here.  This address type will be used for the resolving address,
+             * however, the host stack will force the type to 0x02 for the APCF filter in
+             * btm_ble_adv_filter.cc#BTM_LE_PF_addr_filter(...)
+             */
+            addDeviceAddress(filter.getDeviceAddress(), (byte) filter.getAddressType(), filter.getIrk());
         }
         if (filter.getServiceUuid() != null) {
             if (filter.getServiceUuidMask() == null) {

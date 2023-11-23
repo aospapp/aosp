@@ -91,6 +91,7 @@ public class PeriodicProvisioner extends JobService {
                 ConnectivityManager cm = (ConnectivityManager) mContext.getSystemService(
                         Context.CONNECTIVITY_SERVICE);
                 boolean isMetered = cm.isActiveNetworkMetered();
+                Log.i(TAG, "Connection is metered: " + isMetered);
                 long expiringBy;
                 if (isMetered) {
                     // Check a shortened duration to attempt to avoid metered connection
@@ -156,6 +157,7 @@ public class PeriodicProvisioner extends JobService {
                     int keysToCertify = keysNeededForSecLevel[i];
                     while (keysToCertify != 0) {
                         int batchSize = min(keysToCertify, SAFE_CSR_BATCH_SIZE);
+                        Log.i(TAG, "Requesting " + batchSize + " keys to be provisioned.");
                         Provisioner.provisionCerts(batchSize,
                                                    implInfos[i].secLevel,
                                                    resp.getGeekChain(implInfos[i].supportedCurve),
@@ -223,7 +225,16 @@ public class PeriodicProvisioner extends JobService {
          */
         private int generateNumKeysNeeded(IRemoteProvisioning binder, long expiringBy, int secLevel)
                 throws InterruptedException, RemoteException {
-            AttestationPoolStatus pool = binder.getPoolStatus(expiringBy, secLevel);
+            AttestationPoolStatus pool =
+                    SystemInterface.getPoolStatus(expiringBy, secLevel, binder);
+            if (pool == null) {
+                Log.e(TAG, "Failed to fetch pool status.");
+                return 0;
+            }
+            Log.i(TAG, "Pool status.\nTotal: " + pool.total
+                       + "\nAttested: " + pool.attested
+                       + "\nUnassigned: " + pool.unassigned
+                       + "\nExpiring: " + pool.expiring);
             int unattestedKeys = pool.total - pool.attested;
             int keysInUse = pool.attested - pool.unassigned;
             int totalSignedKeys = keysInUse + SettingsManager.getExtraSignedKeysAvailable(mContext);
@@ -233,12 +244,14 @@ public class PeriodicProvisioner extends JobService {
             // reduce network usage if the app just provisions an entire new batch in one go, rather
             // than consistently grabbing just a few at a time as the expiration dates become
             // misaligned.
-            if (pool.expiring > pool.unassigned && pool.attested == totalSignedKeys) {
+            if (pool.expiring < pool.unassigned && pool.attested >= totalSignedKeys) {
+                Log.i(TAG,
+                        "No keys expiring and the expected number of attested keys are available");
                 return 0;
             }
             for (generated = 0;
                     generated + unattestedKeys < totalSignedKeys; generated++) {
-                binder.generateKeyPair(false /* isTestMode */, secLevel);
+                SystemInterface.generateKeyPair(false /* isTestMode */, secLevel, binder);
                 // Prioritize provisioning if there are no keys available. No keys being available
                 // indicates that this is the first time a device is being brought online.
                 if (pool.total != 0) {
@@ -246,8 +259,11 @@ public class PeriodicProvisioner extends JobService {
                 }
             }
             if (totalSignedKeys > 0) {
+                Log.i(TAG, "Generated " + generated + " keys. "
+                        + (generated + unattestedKeys) + " keys are now available for signing.");
                 return generated + unattestedKeys;
             }
+            Log.i(TAG, "No keys generated.");
             return 0;
         }
     }

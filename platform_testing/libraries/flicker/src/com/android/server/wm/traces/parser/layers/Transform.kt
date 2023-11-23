@@ -17,6 +17,7 @@
 package com.android.server.wm.traces.parser.layers
 
 import android.surfaceflinger.nano.Layers
+import android.surfaceflinger.nano.Common.TransformProto
 import com.android.server.wm.traces.common.layers.Transform
 import com.android.server.wm.traces.common.layers.Transform.Companion.FLIP_H_VAL
 import com.android.server.wm.traces.common.layers.Transform.Companion.FLIP_V_VAL
@@ -26,13 +27,13 @@ import com.android.server.wm.traces.common.layers.Transform.Companion.SCALE_VAL
 import com.android.server.wm.traces.common.layers.Transform.Companion.isFlagClear
 import com.android.server.wm.traces.common.layers.Transform.Companion.isFlagSet
 
-class Transform(transform: Layers.TransformProto?, position: Layers.PositionProto?) :
+class Transform(transform: TransformProto?, position: Layers.PositionProto?) :
         Transform(
             transform?.type,
             getMatrix(transform, position)
         )
 
-private fun getMatrix(transform: Layers.TransformProto?, position: Layers.PositionProto?):
+private fun getMatrix(transform: TransformProto?, position: Layers.PositionProto?):
         Transform.Matrix {
     val x = position?.x ?: 0f
     val y = position?.y ?: 0f

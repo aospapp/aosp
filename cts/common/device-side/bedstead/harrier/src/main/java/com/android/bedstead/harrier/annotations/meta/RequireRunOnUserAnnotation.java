@@ -30,6 +30,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.ANNOTATION_TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RequireRunOnUserAnnotation {
-    /** The name of the user type which the test should be run on. */
-    String value();
+    /** The name of the user types which the test should be run on. */
+    String[] value();
 }

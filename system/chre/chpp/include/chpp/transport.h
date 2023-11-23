@@ -27,6 +27,7 @@
 #include "chpp/mutex.h"
 #include "chpp/notifier.h"
 #include "chpp/transport_signals.h"
+#include "chpp/work_monitor.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -443,6 +444,10 @@ struct ChppTransportState {
 
   struct ChppConditionVariable
       resetCondVar;  // Condvar specifically to wait for resetState
+
+#ifdef CHPP_ENABLE_WORK_MONITOR
+  struct ChppWorkMonitor workMonitor;  // Monitor used for the transport thread
+#endif
 
   //! This MUST be the last field in the ChppTransportState structure, otherwise
   //! chppResetTransportContext() will not work properly.

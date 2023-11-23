@@ -65,7 +65,7 @@ public class UserSwitchTransitionViewMediator implements OverlayViewMediator,
     }
 
     @Override
-    public void setupOverlayContentViewControllers() {
+    public void setUpOverlayContentViewControllers() {
         // no-op.
     }
 

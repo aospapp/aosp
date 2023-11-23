@@ -73,9 +73,9 @@
     <string name="connections" msgid="8895413761760117180">"Forbindelser"</string>
     <string name="wifi_direct_problem" msgid="8995174986718516990">"Standardtjenesten til udskrivning kan ikke finde printere med Wi-Fi Direct"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Deaktiver Wi-Fi Direct"</string>
-    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Standardtjenesten til udskrivning skal have adgangstilladelse til din placering for at finde enheder i nærheden."</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Standardtjenesten til udskrivning skal have adgangstilladelse til din lokation for at finde enheder i nærheden."</string>
     <string name="fix" msgid="7784394272611365393">"Gennemgå tilladelsen"</string>
-    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Placeringstjenester skal være aktiveret, før standardtjenesten til udskrivning kan finde enheder i nærheden."</string>
-    <string name="enable_location" msgid="3627841004298863140">"Aktivér Placering"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Lokationstjenester skal være aktiveret, før standardtjenesten til udskrivning kan finde enheder i nærheden."</string>
+    <string name="enable_location" msgid="3627841004298863140">"Aktivér Lokation"</string>
     <string name="print" msgid="7851318072404916362">"Udskriv"</string>
 </resources>

@@ -23,6 +23,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.UserHandle;
 
+import androidx.annotation.Nullable;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
 import com.android.car.ui.AlertDialogBuilder;
@@ -36,11 +38,20 @@ final class ActionDisabledLearnMoreButtonLauncherImpl
         extends ActionDisabledLearnMoreButtonLauncher {
 
     private static final Logger LOG = new Logger(ActionDisabledLearnMoreButtonLauncherImpl.class);
-
+    /**
+     * The {@link UserHandle} which is preferred for launching the help page or admin policies in
+     */
+    @Nullable private final UserHandle mPreferredUser;
     private final AlertDialogBuilder mBuilder;
 
     ActionDisabledLearnMoreButtonLauncherImpl(AlertDialogBuilder builder) {
+        this(builder, /* preferredUser= */ null);
+    }
+
+    ActionDisabledLearnMoreButtonLauncherImpl(AlertDialogBuilder builder,
+            UserHandle preferredUser) {
         mBuilder = requireNonNull(builder, "builder cannot be null");
+        mPreferredUser = preferredUser;
     }
 
     @Override
@@ -51,17 +62,24 @@ final class ActionDisabledLearnMoreButtonLauncherImpl
     }
 
     @Override
-    protected void launchShowAdminPolicies(Context context, UserHandle user, ComponentName admin) {
+    protected void launchShowAdminPolicies(Context context, UserHandle adminUser,
+            ComponentName admin) {
         requireNonNull(context, "context cannot be null");
-        requireNonNull(user, "user cannot be null");
+        requireNonNull(adminUser, "user cannot be null");
         requireNonNull(admin, "admin cannot be null");
 
         Intent intent = new Intent()
                 .setClass(context, DeviceAdminAddActivity.class)
                 .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin)
                 .putExtra(DeviceAdminAddActivity.EXTRA_CALLED_FROM_SUPPORT_DIALOG, true);
-        LOG.d("launching " + intent + " for user " + user);
-        context.startActivityAsUser(intent, user);
+        if (mPreferredUser != null) {
+            context.startActivityAsUser(intent, mPreferredUser);
+            LOG.d("launching " + intent + " for preferred user: " + mPreferredUser
+                    + " instead of adminUser");
+            return;
+        }
+        LOG.d("launching " + intent + " for admin user: " + adminUser);
+        context.startActivityAsUser(intent, adminUser);
     }
 
     @Override

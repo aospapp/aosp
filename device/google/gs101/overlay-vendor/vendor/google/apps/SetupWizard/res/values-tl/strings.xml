@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+    Copyright (C) 2018 Google Inc.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="esim_additional_carrier_name" msgid="2016054563889185083">"Sprint"</string>
+    <string name="sim_missing_content_description" msgid="8674668505396985731">"Mahahanap ang tray ng SIM card sa kaliwang gilid sa ibaba ng iyong telepono.\n\nGamitin ang tool sa pag-eject ng SIM na kasama ng iyong telepono para i-eject ang tray at maglagay ng nano SIM card.\n\nKapag nailagay mo ang iyong SIM card, maaaring tumagal nang ilang segundo bago ito mag-activate."</string>
+</resources>

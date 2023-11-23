@@ -13,7 +13,7 @@ namespace
 {
 
 // Refer to the following link
-// https://source.chromium.org/chromium/chromium/src/+/master:ui/gl/gl_image_native_pixmap.cc;l=24
+// https://source.chromium.org/chromium/chromium/src/+/main:ui/gl/gl_image_native_pixmap.cc;l=24
 #define FOURCC(a, b, c, d)                                          \
     ((static_cast<uint32_t>(a)) | (static_cast<uint32_t>(b) << 8) | \
      (static_cast<uint32_t>(c) << 16) | (static_cast<uint32_t>(d) << 24))
@@ -74,13 +74,14 @@ GLenum FourCCFormatToGLInternalFormat(int format, bool *isYUV)
 namespace rx
 {
 DmaBufImageSiblingEGL::DmaBufImageSiblingEGL(const egl::AttributeMap &attribs)
-    : mAttribs(attribs), mFormat(GL_NONE), mYUV(false)
+    : mAttribs(attribs), mFormat(GL_NONE), mYUV(false), mHasProtectedContent(false)
 {
     ASSERT(mAttribs.contains(EGL_WIDTH));
     mSize.width = mAttribs.getAsInt(EGL_WIDTH);
     ASSERT(mAttribs.contains(EGL_HEIGHT));
-    mSize.height = mAttribs.getAsInt(EGL_HEIGHT);
-    mSize.depth  = 1;
+    mSize.height         = mAttribs.getAsInt(EGL_HEIGHT);
+    mSize.depth          = 1;
+    mHasProtectedContent = false;
 
     int fourCCFormat = mAttribs.getAsInt(EGL_LINUX_DRM_FOURCC_EXT);
     mFormat          = gl::Format(FourCCFormatToGLInternalFormat(fourCCFormat, &mYUV));
@@ -113,6 +114,11 @@ bool DmaBufImageSiblingEGL::isYUV() const
     return mYUV;
 }
 
+bool DmaBufImageSiblingEGL::hasProtectedContent() const
+{
+    return mHasProtectedContent;
+}
+
 gl::Extents DmaBufImageSiblingEGL::getSize() const
 {
     return mSize;
@@ -132,6 +138,7 @@ void DmaBufImageSiblingEGL::getImageCreationAttributes(std::vector<EGLint> *outA
 {
     EGLenum kForwardedAttribs[] = {EGL_WIDTH,
                                    EGL_HEIGHT,
+                                   EGL_PROTECTED_CONTENT_EXT,
                                    EGL_LINUX_DRM_FOURCC_EXT,
                                    EGL_DMA_BUF_PLANE0_FD_EXT,
                                    EGL_DMA_BUF_PLANE0_OFFSET_EXT,

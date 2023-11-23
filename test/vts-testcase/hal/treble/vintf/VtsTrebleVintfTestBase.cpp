@@ -16,6 +16,21 @@
 
 #include "VtsTrebleVintfTestBase.h"
 
+#include <android-base/logging.h>
+#include <android-base/strings.h>
+#include <android/hidl/manager/1.0/IServiceManager.h>
+#include <binder/IServiceManager.h>
+#include <gtest/gtest.h>
+#include <hidl-hash/Hash.h>
+#include <hidl-util/FQName.h>
+#include <hidl-util/FqInstance.h>
+#include <hidl/HidlTransportUtils.h>
+#include <hidl/ServiceManagement.h>
+#include <procpartition/procpartition.h>
+#include <vintf/HalManifest.h>
+#include <vintf/VintfObject.h>
+#include <vintf/parse_string.h>
+
 #include <chrono>
 #include <condition_variable>
 #include <functional>
@@ -28,20 +43,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-
-#include <android-base/logging.h>
-#include <android-base/strings.h>
-#include <android/hidl/manager/1.0/IServiceManager.h>
-#include <gtest/gtest.h>
-#include <hidl-hash/Hash.h>
-#include <hidl-util/FQName.h>
-#include <hidl-util/FqInstance.h>
-#include <hidl/HidlTransportUtils.h>
-#include <hidl/ServiceManagement.h>
-#include <procpartition/procpartition.h>
-#include <vintf/HalManifest.h>
-#include <vintf/VintfObject.h>
-#include <vintf/parse_string.h>
 
 #include "SingleManifestTest.h"
 #include "utils.h"
@@ -134,15 +135,17 @@ void VtsTrebleVintfTestBase::ForEachAidlHalInstance(
   });
 }
 
-sp<IBase> VtsTrebleVintfTestBase::GetHalService(const FQName &fq_name,
-                                                const string &instance_name,
-                                                Transport transport, bool log) {
-  return GetHalService(fq_name.string(), instance_name, transport, log);
+sp<IBase> VtsTrebleVintfTestBase::GetHidlService(const FQName &fq_name,
+                                                 const string &instance_name,
+                                                 Transport transport,
+                                                 bool log) {
+  return GetHidlService(fq_name.string(), instance_name, transport, log);
 }
 
-sp<IBase> VtsTrebleVintfTestBase::GetHalService(const string &fq_name,
-                                                const string &instance_name,
-                                                Transport transport, bool log) {
+sp<IBase> VtsTrebleVintfTestBase::GetHidlService(const string &fq_name,
+                                                 const string &instance_name,
+                                                 Transport transport,
+                                                 bool log) {
   using android::hardware::details::getRawServiceInternal;
 
   if (log) {
@@ -174,6 +177,19 @@ sp<IBase> VtsTrebleVintfTestBase::GetHalService(const string &fq_name,
   if (base->isRemote() != wantRemote) return nullptr;
 
   return base;
+}
+
+sp<IBinder> VtsTrebleVintfTestBase::GetAidlService(const string &name) {
+  auto task = std::packaged_task<sp<IBinder>()>([name]() {
+    return defaultServiceManager()->waitForService(String16(name.c_str()));
+  });
+
+  auto max_time = std::chrono::seconds(2);  // TODO(b/205347235)
+  auto future = task.get_future();
+  std::thread(std::move(task)).detach();
+  auto status = future.wait_for(max_time);
+
+  return status == std::future_status::ready ? future.get() : nullptr;
 }
 
 vector<string> VtsTrebleVintfTestBase::GetInstanceNames(

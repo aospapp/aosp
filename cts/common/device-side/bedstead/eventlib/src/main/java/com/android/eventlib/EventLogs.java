@@ -16,6 +16,10 @@
 
 package com.android.eventlib;
 
+import static com.android.eventlib.truth.EventLogsSubject.assertThat;
+
+import static java.time.temporal.ChronoUnit.SECONDS;
+
 import android.util.Log;
 
 import java.io.Serializable;
@@ -24,9 +28,14 @@ import java.time.Instant;
 
 /** Interface to interact with the results of an {@link EventLogsQuery}. */
 public abstract class EventLogs<E extends Event> implements Serializable {
+
+    private static final long serialVersionUID = 1;
+
     static final Duration DEFAULT_POLL_TIMEOUT = Duration.ofMinutes(5);
 
-    static Instant sEarliestLogTime = Instant.now();
+    // We need to set this earlier than construction otherwise we will skip all events that happen
+    // before creating the first query
+    static Instant sEarliestLogTime = Instant.now().minus(30, SECONDS);
 
     /**
      * Returns the {@link EventQuerier} to be used to interact with the
@@ -58,25 +67,8 @@ public abstract class EventLogs<E extends Event> implements Serializable {
     }
 
     /**
-     * Gets the earliest logged event matching the query, if one has been logged by the time the
-     * call is made, otherwise returns null.
-     */
-    public E get() {
-        return getQuerier().get(sEarliestLogTime);
-    }
-
-    /**
-     * Gets the earliest logged event matching the query which has not been returned by a previous
-     * call to {@link #next()} or {@link #poll()}, if one has been logged by the time the call is
-     * made, otherwise returns null.
-     */
-    public E next() {
-        return getQuerier().next(sEarliestLogTime);
-    }
-
-    /**
      * Gets the earliest logged event matching the query which has not be returned by a previous
-     * call to {@link #next()} or {@link #poll()}, or blocks until a matching event is logged.
+     * call to {@link #poll()}, or blocks until a matching event is logged.
      *
      * <p>This will timeout after {@code timeout} and return null if no matching event is logged.
      */
@@ -86,7 +78,7 @@ public abstract class EventLogs<E extends Event> implements Serializable {
 
     /**
      * Gets the earliest logged event matching the query which has not be returned by a previous
-     * call to {@link #next()} or {@link #poll()}, or blocks until a matching event is logged.
+     * call to {@link #poll()}, or blocks until a matching event is logged.
      *
      * <p>This will timeout after {@link #DEFAULT_POLL_TIMEOUT} and return null if no matching
      * event is logged.
@@ -96,23 +88,19 @@ public abstract class EventLogs<E extends Event> implements Serializable {
     }
 
     /**
-     * Gets the earliest logged event matching the query which has not be returned by a previous
-     * call to {@link #next()} or {@link #poll()}, or blocks until a matching event is logged.
+     * Returns immediately if there is an existing event matching the query which has not be
+     * returned by a previous call to {@link #poll()}, or blocks until a matching event is logged.
      *
      * <p>This will timeout after {@code timeout} and throw an {@link AssertionError} if no
      * matching event is logged.
      */
     public E waitForEvent(Duration timeout) {
-        E event = poll(timeout);
-        if (event == null) {
-            throw new AssertionError("No event was found before timeout");
-        }
-        return event;
+        return assertThat(this).eventOccurredWithin(timeout);
     }
 
     /**
-     * Gets the earliest logged event matching the query which has not be returned by a previous
-     * call to {@link #next()} or {@link #poll()}, or blocks until a matching event is logged.
+     * Returns immediately if there is an existing event matching the query which has not be
+     * returned by a previous call to {@link #poll()}, or blocks until a matching event is logged.
      *
      * <p>This will timeout after {@link #DEFAULT_POLL_TIMEOUT} and throw an {@link AssertionError}
      * if no matching event is logged.

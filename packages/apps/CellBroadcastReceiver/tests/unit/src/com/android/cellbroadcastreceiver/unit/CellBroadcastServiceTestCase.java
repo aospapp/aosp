@@ -165,13 +165,14 @@ public abstract class CellBroadcastServiceTestCase<T extends Service> extends Se
 
         doReturn(mMockedTelephonyManager).when(mMockedTelephonyManager)
                 .createForSubscriptionId(anyInt());
+        doReturn(TelephonyManager.SIM_STATE_UNKNOWN).when(mMockedTelephonyManager)
+                .getSimApplicationState(anyInt());
 
         mMockedServiceManager = new MockedServiceManager();
         mMockedServiceManager.replaceService("isub", mSubService);
 
         mContext = new TestContextWrapper(getContext());
         setContext(mContext);
-        CellBroadcastSettings.setUseResourcesForSubId(false);
     }
 
     @After

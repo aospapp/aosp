@@ -293,7 +293,8 @@ CertificateChain generate_attestation(const EVP_PKEY* evp_key,              //
     if (*error != KM_ERROR_OK) return {};
 
     AuthProxy proxy(tee_enforced, sw_enforced);
-    cert_params.is_signing_key = proxy.Contains(TAG_PURPOSE, KM_PURPOSE_SIGN);
+    cert_params.is_signing_key = (proxy.Contains(TAG_PURPOSE, KM_PURPOSE_SIGN) ||
+                                  proxy.Contains(TAG_PURPOSE, KM_PURPOSE_ATTEST_KEY));
     cert_params.is_encryption_key = proxy.Contains(TAG_PURPOSE, KM_PURPOSE_DECRYPT);
     cert_params.is_agreement_key = proxy.Contains(TAG_PURPOSE, KM_PURPOSE_AGREE_KEY);
 

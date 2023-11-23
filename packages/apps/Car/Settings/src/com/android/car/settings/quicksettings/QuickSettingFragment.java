@@ -34,13 +34,13 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
 import com.android.car.settings.common.CarSettingActivities;
 import com.android.car.settings.profiles.ProfileIconProvider;
 import com.android.car.settings.profiles.ProfileSwitcherActivity;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.toolbar.MenuItem;
 import com.android.car.ui.toolbar.NavButtonMode;
 
@@ -58,7 +58,7 @@ public class QuickSettingFragment extends BaseFragment {
     private UserManager mUserManager;
     private ProfileIconProvider mProfileIconProvider;
     private QuickSettingGridAdapter mGridAdapter;
-    private RecyclerView mListView;
+    private CarUiRecyclerView mListView;
     private MenuItem mFullSettingsBtn;
     private MenuItem mProfileSwitcherBtn;
     private TextView mBuildInfo;

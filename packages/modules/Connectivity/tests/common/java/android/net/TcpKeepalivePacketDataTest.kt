@@ -20,8 +20,7 @@ import android.net.InetAddresses.parseNumericAddress
 import android.os.Build
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRunner
-import com.android.testutils.assertFieldCountEquals
-import com.android.testutils.assertParcelSane
+import com.android.testutils.assertParcelingIsLossless
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.net.InetAddress
@@ -68,15 +67,11 @@ class TcpKeepalivePacketDataTest {
         assertNotEquals(makeData(tcpWndScale = 3), makeData())
         assertNotEquals(makeData(ipTos = 0x14), makeData())
         assertNotEquals(makeData(ipTtl = 11), makeData())
-
-        // Update above assertions if field is added
-        assertFieldCountEquals(5, KeepalivePacketData::class.java)
-        assertFieldCountEquals(6, TcpKeepalivePacketData::class.java)
     }
 
     @Test
     fun testParcelUnparcel() {
-        assertParcelSane(makeData(), fieldCount = 6) { a, b ->
+        assertParcelingIsLossless(makeData()) { a, b ->
             // .equals() does not verify .packet
             a == b && a.packet contentEquals b.packet
         }
@@ -98,9 +93,5 @@ class TcpKeepalivePacketDataTest {
         assertTrue(str.contains(data.getTcpWindowScale().toString()))
         assertTrue(str.contains(data.getIpTos().toString()))
         assertTrue(str.contains(data.getIpTtl().toString()))
-
-        // Update above assertions if field is added
-        assertFieldCountEquals(5, KeepalivePacketData::class.java)
-        assertFieldCountEquals(6, TcpKeepalivePacketData::class.java)
     }
 }

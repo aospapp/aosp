@@ -28,13 +28,13 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"এই এপটোৱে আপোনাৰ ডিভাইচটো পৰিচালনা কৰিব:"</string>
     <string name="next" msgid="1004321437324424398">"পৰৱৰ্তী"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"আপোনাৰ কৰ্মস্থানৰ প্ৰ\'ফাইল ছেট আপ কৰি থকা হৈছে…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"আপোনাৰ আইটি প্ৰশাসকে এই প্ৰ’ফাইলৰ লগত জড়িত ছেটিংসমূহ, কৰ্প’ৰেট আৰু এপ্‌সমূহৰ অনুমতি আৰু ডেটাৰ লগতে নেটৱৰ্কৰ কাৰ্যকলাপ, আপোনাৰ ডিভাইচৰ অৱস্থান, কলৰ ইতিহাস আৰু সম্পৰ্ক সূচীত থকা ব্যক্তিসকলক সন্ধান কৰা ইতিহাস পৰ্যবেক্ষণ আৰু পৰিচালনা কৰিব পাৰিব।<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"আপোনাৰ আইটি প্ৰশাসকে এই প্ৰ’ফাইলৰ লগত জড়িত ছেটিং, কৰ্প’ৰেট আৰু এপ্‌সমূহৰ অনুমতি আৰু ডেটাৰ লগতে নেটৱৰ্কৰ কাৰ্যকলাপ, আপোনাৰ ডিভাইচৰ অৱস্থান, কলৰ ইতিহাস আৰু সম্পৰ্ক সূচীত থকা ব্যক্তিসকলক সন্ধান কৰা ইতিহাস পৰ্যবেক্ষণ আৰু পৰিচালনা কৰিব পাৰিব।<xliff:g id="LINE_BREAK">
 
 </xliff:g>অধিক তথ্যৰ লগতে আপোনাৰ প্ৰতিষ্ঠানৰ গোপনীয়তাৰ নীতিসমূহৰ বিষয়ে জানিবলৈ আপোনাৰ প্ৰশাসকৰ সৈতে যোগাযোগ কৰক।"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"আপোনাৰ আইটি প্ৰশাসকে ছেটিংসমূহ, ক’ৰ্পৰেট প্ৰৱেশাধিকাৰ, এপ্‌সমূহ, অনুমতিসমূহ আৰু ডিভাইচটোৰ লগত জড়িত অন্যান্য ডেটা পৰ্যবেক্ষণ কৰাৰ লগতে পৰিচালনা কৰিবলৈ সক্ষম। সেই ডেটাবিলাকৰ ভিতৰত নেটৱৰ্কৰ কাৰ্যকলাপ, ডিভাইচৰ অৱস্থানৰ তথ্য, কলৰ ইতিহাস আৰু সম্পৰ্কসূচীত আপুনি কৰা অনুসন্ধানৰ ইতিহাস আদিও অন্তৰ্ভুক্ত।<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"আপোনাৰ আইটি প্ৰশাসকে ছেটিং, ক’ৰ্পৰেট এক্সেছ, এপ্‌সমূহ, অনুমতিসমূহ আৰু ডিভাইচটোৰ লগত জড়িত অন্যান্য ডেটা পৰ্যবেক্ষণ কৰাৰ লগতে পৰিচালনা কৰিবলৈ সক্ষম। সেই ডেটাবিলাকৰ ভিতৰত নেটৱৰ্কৰ কাৰ্যকলাপ, ডিভাইচৰ অৱস্থানৰ তথ্য, কলৰ ইতিহাস আৰু সম্পৰ্কসূচীত আপুনি কৰা অনুসন্ধানৰ ইতিহাস আদিও অন্তৰ্ভুক্ত।<xliff:g id="LINE_BREAK">
 
 </xliff:g>অধিক তথ্যৰ বাবে আৰু লগতে আপোনাৰ প্ৰতিষ্ঠানৰ গোপনীয়তাৰ নীতিসমূহৰ বিষয়ে জানিবলৈ আপোনাৰ আইটি প্ৰশাসকৰ সৈতে যোগাযোগ কৰক।"</string>
-    <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"চুৰি প্ৰতিৰোধী সুৰক্ষা সুবিধা ব্যৱহাৰ কৰিবৰ বাবে আপোনাৰ ডিভাইচত পাছৱৰ্ডেৰে সুৰক্ষিত স্ক্ৰীণ ল\'ক থাকিব লাগিব।"</string>
+    <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"চুৰি প্ৰতিৰোধী সুৰক্ষা সুবিধা ব্যৱহাৰ কৰিবৰ বাবে আপোনাৰ ডিভাইচত পাছৱৰ্ডেৰে সুৰক্ষিত এটা স্ক্ৰীন ল\'ক থাকিবই লাগিব।"</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"আপোনাৰ প্ৰতিষ্ঠানৰ গোপনীয়তা নীতিসমূহকে ধৰি অধিক তথ্যৰ বাবে আপোনাৰ আইটি প্ৰশাসকৰ সৈতে যোগাযোগ কৰক।"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"অধিক জানক"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"বাতিল কৰক"</string>
@@ -49,7 +49,7 @@
     <string name="delete_profile_title" msgid="2841349358380849525">"আগৰে পৰা থকা প্ৰ\'ফাইলটো মচিবনে?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"আপোনাৰ ইতিমধ্যে এটা কৰ্মস্থানৰ প্ৰ\'ফাইল আছে। সেইটোক তলত উল্লেখ কৰা এপটোৱে পৰিচালনা কৰে:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"আৰম্ভ কৰাৰ আগতে, "<a href="#read_this_link">"এয়া পঢ়ক"</a>"।"</string>
-    <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"আপুনি এই কার্য অব্যাহত ৰাখিলে এই প্ৰ\'ফাইলৰ সকলো এপ্ আৰু ডেটা মচা হ\'ব।"</string>
+    <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"আপুনি এই কার্য অব্যাহত ৰাখিলে এই প্ৰ\'ফাইলৰ আটাইবোৰ এপ্ আৰু ডেটা মচা হ\'ব।"</string>
     <string name="delete_profile" msgid="2299218578684663459">"মচক"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"বাতিল কৰক"</string>
     <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"আপোনাৰ কৰ্মস্থানৰ প্ৰ\'ফাইলটো ছেট আপ কৰিবলৈ আপোনাৰ ডিভাইচটো এনক্ৰিপ্ট কৰিব লাগিব। এই কাম সম্পূৰ্ণ হ\'বলৈ কিছু সময়ৰ প্ৰয়োজন হ\'ব পাৰে।"</string>
@@ -71,7 +71,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"কৰ্মস্থানৰ ডিভাইচ ছেট আপ কৰি থকা হৈছে…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"এই ডিভাইচটোৱে এনক্ৰিপ্ট কৰিবলৈ অনুমতি নিদিয়ে, যিটো ছেটআপৰ বাবে প্ৰয়োজনীয়। সহায়ৰ বাবে আপোনাৰ আইটি প্ৰশাসকৰ সৈতে যোগাযোগ কৰক।"</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"ছেট আপ বন্ধ কৰি ডিভাইচটো ৰিছেট কৰিবনে?"</string>
-    <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"এই কাৰ্যই আপোনাৰ ডিভাইচটো ৰিছেট কৰিব আৰু আপোনাক আৰম্ভণিৰ স্ক্ৰীণখনলৈ লৈ যাব"</string>
+    <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"এই কাৰ্যই আপোনাৰ ডিভাইচটো ৰিছেট কৰিব আৰু আপোনাক প্ৰথম স্ক্ৰীনখনলৈ লৈ যাব"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"ছেট আপ কার্য বন্ধ কৰেনে আৰু আপোনাৰ ডিভাইচটোৰ ডেটা মচেনে?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"বাতিল কৰক"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"ঠিক আছে"</string>
@@ -145,7 +145,7 @@
     <string name="read_terms" msgid="1745011123626640728">"চৰ্তসমূহ পঢ়ক"</string>
     <string name="close_list" msgid="9053538299788717597">"তালিকা বন্ধ কৰক"</string>
     <string name="cancel_setup_and_factory_reset_dialog_title" msgid="5416045931532004811">"ছেট আপ আৰু ফেক্টৰী ৰিছেট কার্য বন্ধ কৰিবনে?"</string>
-    <string name="cancel_setup_and_factory_reset_dialog_msg" msgid="808442439937994485">"ছেট আপ কার্য বন্ধ কৰিলে আপোনাৰ ডিভাইচটো ফেক্টৰী ৰিছেট কৰা হ\'ব আৰু আপোনাক আৰম্ভণিৰ স্ক্ৰীণলৈ লৈ যোৱা হ\'ব।"</string>
+    <string name="cancel_setup_and_factory_reset_dialog_msg" msgid="808442439937994485">"ছেট আপ কৰা কার্য শেষ কৰিলে আপোনাৰ ডিভাইচটো ফেক্টৰী ৰিছেট কৰা হ\'ব আৰু আপোনাক প্ৰথম স্ক্ৰীনখনলৈ লৈ যোৱা হ\'ব।"</string>
     <string name="cancel_setup_and_factory_reset_dialog_cancel" msgid="2810966091829264727">"বাতিল কৰক"</string>
     <string name="cancel_setup_and_factory_reset_dialog_ok" msgid="7168008267496150529">"ডিভাইচটো ৰিছেট কৰক"</string>
     <string name="join_two_items" msgid="6110273439759895837">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g> আৰু <xliff:g id="SECOND_ITEM">%2$s</xliff:g>"</string>

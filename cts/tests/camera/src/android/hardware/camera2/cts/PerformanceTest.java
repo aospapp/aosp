@@ -296,7 +296,7 @@ public class PerformanceTest {
         testSingleCaptureForFormat(JPEG_FORMAT, "jpeg", /*addPreviewDelay*/ true);
         if (!mTestRule.isPerfMeasure()) {
             int[] YUV_FORMAT = {ImageFormat.YUV_420_888};
-            testSingleCaptureForFormat(YUV_FORMAT, null, /*addPreviewDelay*/ false);
+            testSingleCaptureForFormat(YUV_FORMAT, null, /*addPreviewDelay*/ true);
             int[] PRIVATE_FORMAT = {ImageFormat.PRIVATE};
             testSingleCaptureForFormat(PRIVATE_FORMAT, "private", /*addPreviewDelay*/ true);
             int[] RAW_FORMAT = {ImageFormat.RAW_SENSOR};

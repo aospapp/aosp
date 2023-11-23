@@ -1,4 +1,8 @@
-set(_trout_VHAL_CXX_FLAGS -Wall -Werror -std=c++17)
+set(_trout_VHAL_CXX_FLAGS
+    -std=c++17
+    -Wall -Werror
+    -Wno-reorder-init-list
+)
 
 include(${trout_SRC_ROOT}/cmake/fmtlib.cmake)
 include(${trout_SRC_ROOT}/cmake/android.cmake)
@@ -25,7 +29,7 @@ trout_generate_grpc_cpp_from_proto(
 
 # ========== Protobuf generated code ==================
 
-add_library(vehicle_hal_protobuf_gen
+add_library(vehicle_hal_protobuf_gen STATIC
     ${trout_GENS_DIR}/VehicleHalProto.pb.cc
     ${trout_GENS_DIR}/VehicleHalProto.grpc.pb.cc
     ${trout_GENS_DIR}/VehicleServer.pb.cc

@@ -15,7 +15,6 @@
  */
 package com.android.car.messenger.impl.datamodels;
 
-import androidx.lifecycle.LiveData;
 import android.content.Context;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
@@ -24,6 +23,7 @@ import android.telephony.TelephonyManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.lifecycle.LiveData;
 
 import com.android.car.messenger.core.interfaces.AppFactory;
 import com.android.car.messenger.core.models.UserAccount;
@@ -82,7 +82,7 @@ public class UserAccountLiveData extends LiveData<UserAccountChangeList> {
     /**
      * Refresh the user accounts. Updates listeners if a change is found. Useful to call when
      * something occurs that indicates a change in accounts, such as empty messages. This is useful
-     * as there are occasions when the subscription on change listener is not called after a
+     * as t here are occasions when the subscription on change listener is not called after a
      * subscription is deleted.
      */
     public void refresh() {

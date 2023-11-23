@@ -29,8 +29,6 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 
-import com.android.compatibility.common.util.RequiredServiceRule;
-
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
@@ -39,8 +37,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import java.util.Arrays;
 
 /**
  * Tests related SettingsPanels:
@@ -54,8 +50,10 @@ public class SettingsPanelTest {
     private static final int TIMEOUT = 8000;
 
     private static final String RESOURCE_DONE = "done";
+    private static final String RESOURCE_INTERNET_DIALOG_DONE = "done_button";
     private static final String RESOURCE_SEE_MORE = "see_more";
     private static final String RESOURCE_TITLE = "panel_title";
+    private static final String SYSTEMUI_PACKAGE_NAME = "com.android.systemui";
 
     private String mSettingsPackage;
     private String mLauncherPackage;
@@ -100,12 +98,12 @@ public class SettingsPanelTest {
     // Check correct package is opened
 
     @Test
-    public void internetPanel_correctPackage() {
-        launchInternetPanel();
+    public void internetDialog_correctPackage() {
+        launchInternetDialog();
 
         String currentPackage = mDevice.getCurrentPackageName();
 
-        assertThat(currentPackage).isEqualTo(mSettingsPackage);
+        assertThat(currentPackage).isEqualTo(SYSTEMUI_PACKAGE_NAME);
     }
 
     @Test
@@ -137,18 +135,25 @@ public class SettingsPanelTest {
     }
 
     @Test
-    public void internetPanel_doneClosesPanel() {
+    public void internetDialog_doneClosesDialog() {
+        assumeTrue(mHasTouchScreen);
         // Launch panel
-        launchInternetPanel();
+        launchInternetDialog();
         String currentPackage = mDevice.getCurrentPackageName();
-        assertThat(currentPackage).isEqualTo(mSettingsPackage);
+        assertThat(currentPackage).isEqualTo(SYSTEMUI_PACKAGE_NAME);
 
         // Click the done button
-        pressDone();
+        if (mHasTouchScreen) {
+            mDevice.findObject(
+                    By.res(SYSTEMUI_PACKAGE_NAME, RESOURCE_INTERNET_DIALOG_DONE)).click();
+            mDevice.wait(Until.hasObject(By.pkg(mLauncherPackage).depth(0)), TIMEOUT);
+        } else {
+            mDevice.pressBack();
+        }
 
         // Assert that we have left the panel
         currentPackage = mDevice.getCurrentPackageName();
-        assertThat(currentPackage).isNotEqualTo(mSettingsPackage);
+        assertThat(currentPackage).isNotEqualTo(SYSTEMUI_PACKAGE_NAME);
     }
 
     @Test
@@ -252,8 +257,19 @@ public class SettingsPanelTest {
         launchPanel(Settings.Panel.ACTION_VOLUME);
     }
 
-    private void launchInternetPanel() {
-        launchPanel(Settings.Panel.ACTION_INTERNET_CONNECTIVITY);
+    private void launchInternetDialog() {
+        // Start from the home screen
+        mDevice.pressHome();
+        mDevice.wait(Until.hasObject(By.pkg(mLauncherPackage).depth(0)), TIMEOUT);
+
+        Intent intent = new Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+                .setPackage(SYSTEMUI_PACKAGE_NAME);
+
+        mContext.sendBroadcast(intent);
+
+        // Wait for the app to appear
+        mDevice.wait(Until.hasObject(By.pkg(SYSTEMUI_PACKAGE_NAME).depth(0)), TIMEOUT);
     }
 
     private void launchNfcPanel() {

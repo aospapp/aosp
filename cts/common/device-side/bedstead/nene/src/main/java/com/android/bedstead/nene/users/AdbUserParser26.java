@@ -22,7 +22,6 @@ import android.os.Build;
 
 import androidx.annotation.RequiresApi;
 
-import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.AdbParseException;
 
 import java.util.HashMap;
@@ -89,13 +88,7 @@ import java.util.Set;
 public class AdbUserParser26 implements AdbUserParser {
     static final int USER_LIST_BASE_INDENTATION = 2;
 
-    final TestApis mTestApis;
-
-    AdbUserParser26(TestApis testApis) {
-        if (testApis == null) {
-            throw new NullPointerException();
-        }
-        mTestApis = testApis;
+    AdbUserParser26() {
     }
 
     @Override
@@ -105,12 +98,12 @@ public class AdbUserParser26 implements AdbUserParser {
         return parseResult;
     }
 
-    Map<Integer, User> parseUsers(String dumpsysUsersOutput) throws AdbParseException {
+    Map<Integer, AdbUser> parseUsers(String dumpsysUsersOutput) throws AdbParseException {
         String usersList = extractUsersList(dumpsysUsersOutput);
         Set<String> userStrings = extractUserStrings(usersList);
-        Map<Integer, User> users = new HashMap<>();
+        Map<Integer, AdbUser> users = new HashMap<>();
         for (String userString : userStrings) {
-            User user = new User(mTestApis, parseUser(userString));
+            AdbUser user = new AdbUser(parseUser(userString));
             users.put(user.id(), user);
         }
         return users;
@@ -128,10 +121,10 @@ public class AdbUserParser26 implements AdbUserParser {
         return extractIndentedSections(usersList, USER_LIST_BASE_INDENTATION);
     }
 
-    User.MutableUser parseUser(String userString) throws AdbParseException {
+    AdbUser.MutableUser parseUser(String userString) throws AdbParseException {
         try {
             String userInfo[] = userString.split("UserInfo\\{", 2)[1].split("\\}", 2)[0].split(":");
-            User.MutableUser user = new User.MutableUser();
+            AdbUser.MutableUser user = new AdbUser.MutableUser();
             user.mName = userInfo[1];
             user.mFlags = Integer.parseInt(userInfo[2], 16);
             user.mId = Integer.parseInt(userInfo[0]);
@@ -141,7 +134,7 @@ public class AdbUserParser26 implements AdbUserParser {
                     Boolean.parseBoolean(
                             userString.split("Has profile owner: ", 2)[1].split("\n", 2)[0]);
             user.mState =
-                    User.UserState.fromDumpSysValue(
+                    AdbUser.UserState.fromDumpSysValue(
                             userString.split("State: ", 2)[1].split("\n", 2)[0]);
             user.mIsRemoving = userString.contains("<removing>");
             return user;

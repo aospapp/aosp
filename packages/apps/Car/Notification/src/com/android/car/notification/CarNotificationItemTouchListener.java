@@ -21,6 +21,7 @@ import static com.android.internal.util.Preconditions.checkArgument;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.content.res.Resources;
+import android.os.Build;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.service.notification.NotificationStats;
@@ -35,12 +36,13 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.android.car.notification.template.CarNotificationBaseViewHolder;
 import com.android.car.notification.template.CarNotificationFooterViewHolder;
 import com.android.car.notification.template.CarNotificationHeaderViewHolder;
+import com.android.car.notification.template.CarNotificationOlderViewHolder;
+import com.android.car.notification.template.CarNotificationRecentsViewHolder;
 import com.android.car.notification.template.GroupNotificationViewHolder;
 import com.android.car.ui.recyclerview.ScrollingLimitedViewHolder;
 import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.statusbar.NotificationVisibility;
 
-import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -50,9 +52,9 @@ import java.util.concurrent.TimeUnit;
 public class CarNotificationItemTouchListener extends RecyclerView.SimpleOnItemTouchListener {
 
     private static final String TAG = "CarNotificationItemTouchListener";
+    private static final boolean DEBUG = Build.IS_ENG || Build.IS_USERDEBUG;
 
     private final CarNotificationViewAdapter mAdapter;
-
 
     /** StatusBarService for dismissing a notification. */
     private final IStatusBarService mBarService;
@@ -123,9 +125,6 @@ public class CarNotificationItemTouchListener extends RecyclerView.SimpleOnItemT
                         clearNotification(summaryNotification);
                     }
 
-                    mAdapter.setChildNotificationsBeingCleared(
-                            new HashSet<>(notificationGroup.getChildNotifications()));
-
                     for (AlertEntry alertEntry
                             : notificationGroup.getChildNotifications()) {
                         clearNotification(alertEntry);
@@ -186,7 +185,9 @@ public class CarNotificationItemTouchListener extends RecyclerView.SimpleOnItemT
                         recyclerView.findContainingViewHolder(viewAtPoint);
                 if (viewHolderAtPoint instanceof CarNotificationHeaderViewHolder
                         || viewHolderAtPoint instanceof CarNotificationFooterViewHolder
-                        || viewHolderAtPoint instanceof ScrollingLimitedViewHolder) {
+                        || viewHolderAtPoint instanceof ScrollingLimitedViewHolder
+                        || viewHolderAtPoint instanceof CarNotificationRecentsViewHolder
+                        || viewHolderAtPoint instanceof CarNotificationOlderViewHolder) {
                     return false;
                 }
                 checkArgument(viewHolderAtPoint instanceof CarNotificationBaseViewHolder);
@@ -196,6 +197,10 @@ public class CarNotificationItemTouchListener extends RecyclerView.SimpleOnItemT
                 // restoring back to it's initial state from a previous animation.
                 if (mViewHolder.isAnimating()) {
                     mViewHolder = null;
+                }
+
+                if (isInteractingWithExpandedGroupNotificationList(mInitialY)) {
+                    return false;
                 }
 
                 break;
@@ -234,17 +239,8 @@ public class CarNotificationItemTouchListener extends RecyclerView.SimpleOnItemT
                         return false;
                     }
 
-                    // If a group notification is expanded, we desire a behavior that swiping on the
-                    // header would swipe the entire group away; while swiping on the child
-                    // notifications would swipe individual child notification away.
-                    if (mAdapter.isExpanded(
-                            mViewHolder.getAlertEntry().getStatusBarNotification().getGroupKey())) {
-                        float itemTop = mViewHolder.itemView.getY();
-                        boolean isTouchingGroupHeader =
-                                (currY > itemTop) && (currY < itemTop + mGroupHeaderHeight);
-                        if (!isTouchingGroupHeader) {
-                            return false;
-                        }
+                    if (isInteractingWithExpandedGroupNotificationList(currY)) {
+                        return false;
                     }
 
                     if (absDeltaX > mTouchSlop) {
@@ -276,6 +272,37 @@ public class CarNotificationItemTouchListener extends RecyclerView.SimpleOnItemT
         return mIsSwiping;
     }
 
+    /**
+     * Returns {@code true} if {@code currY} is pointing to an expanded group notification's
+     * notification list. If a group notification is expanded, we desire a behavior that swiping
+     * on the child notifications would swipe individual child notification away.
+     */
+    private boolean isInteractingWithExpandedGroupNotificationList(float currY) {
+        if (!(mViewHolder instanceof GroupNotificationViewHolder)) {
+            return false;
+        }
+
+        GroupNotificationViewHolder groupNotificationViewHolder =
+                (GroupNotificationViewHolder) mViewHolder;
+        NotificationGroup group = groupNotificationViewHolder.getNotificationGroup();
+        if (!mAdapter.isExpanded(group.getGroupKey(), group.isSeen())) {
+            return false;
+        }
+
+        View innerNotificationList = mViewHolder.itemView
+                .requireViewById(R.id.notification_list);
+        int[] screenXY = {0, 0};
+        innerNotificationList.getLocationOnScreen(screenXY);
+        int top = screenXY[1];
+        int bottom = screenXY[1] + innerNotificationList.getHeight();
+        boolean isTouchingNotificationList = currY >= top && currY <= bottom;
+        if (DEBUG) {
+            Log.d(TAG, "Is interaction with inner group list: "
+                    + isTouchingNotificationList);
+        }
+        return isTouchingNotificationList;
+    }
+
     @Override
     public void onTouchEvent(RecyclerView recyclerView, MotionEvent event) {
         // We should only be here if we intercepted the touch due to swipe.
@@ -295,7 +322,7 @@ public class CarNotificationItemTouchListener extends RecyclerView.SimpleOnItemT
                 float translateX = mDismissAnimationHelper.calculateTranslateDistance(mViewHolder,
                         deltaX);
                 float alpha = mDismissAnimationHelper.calculateAlphaValue(mViewHolder, deltaX);
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
+                if (DEBUG) {
                     Log.d(TAG, "ACTION_MOVE translateX=" + translateX + " alpha=" + alpha);
                 }
                 mViewHolder.setSwipeTranslationX(translateX);
@@ -406,14 +433,12 @@ public class CarNotificationItemTouchListener extends RecyclerView.SimpleOnItemT
         boolean isSameDirection = (velocityX > 0) == (translationX > 0);
         boolean hasEnoughMovement = Math.abs(translationX) > minWidthToTranslate;
 
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(
-                    TAG,
-                    "isTargetSwipedFastEnough"
-                            + " isFastEnough=" + isFastEnough
-                            + " isIntentional=" + isIntentional
-                            + " isSameDirection=" + isSameDirection
-                            + " hasEnoughMovement=" + hasEnoughMovement);
+        if (DEBUG) {
+            Log.d(TAG, "isTargetSwipedFastEnough"
+                    + " isFastEnough=" + isFastEnough
+                    + " isIntentional=" + isIntentional
+                    + " isSameDirection=" + isSameDirection
+                    + " hasEnoughMovement=" + hasEnoughMovement);
         }
 
         return isFastEnough && isIntentional && isSameDirection && hasEnoughMovement;
@@ -434,13 +459,11 @@ public class CarNotificationItemTouchListener extends RecyclerView.SimpleOnItemT
         boolean isSameDirection = !isVelocityHighEnough || ((velocityX > 0) == (translationX > 0));
         boolean hasEnoughMovement = Math.abs(translationX) > minWidthToTranslate;
 
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
-            Log.d(
-                    TAG,
-                    "isTargetSwipedFarEnough"
-                            + " isSameDirection=" + isSameDirection
-                            + " hasEnoughMovement=" + hasEnoughMovement
-                            + " velocityX=%f" + velocityX);
+        if (DEBUG) {
+            Log.d(TAG, "isTargetSwipedFarEnough"
+                    + " isSameDirection=" + isSameDirection
+                    + " hasEnoughMovement=" + hasEnoughMovement
+                    + " velocityX=%f" + velocityX);
         }
 
         return isSameDirection && hasEnoughMovement;

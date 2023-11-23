@@ -37,6 +37,7 @@
             android:id="@+id/thumbnail"
             android:layout_width="@dimen/media_browse_grid_icons_item_art_size"
             android:layout_height="@dimen/media_browse_grid_icons_item_art_size"
+            style="@style/MediaIconContainerStyle"
             android:scaleType="centerCrop"/>
 
     </FrameLayout>

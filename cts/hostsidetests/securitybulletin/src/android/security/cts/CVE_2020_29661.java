@@ -30,7 +30,7 @@ public class CVE_2020_29661 extends SecurityTestCase {
      *
      */
     @Test
-    @AsbSecurityTest(cveBugId = 175451767)
+    @AsbSecurityTest(cveBugId = 175451802)
     public void testPocCVE_2020_29661() throws Exception {
         AdbUtils.runPocNoOutput("CVE-2020-29661", getDevice(),60);
     }

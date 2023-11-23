@@ -40,8 +40,8 @@ public:
     MOCK_METHOD(android::base::Result<void>, onBootFinished, (), (override));
     MOCK_METHOD(android::base::Result<void>, onCustomCollection,
                 (int fd, const Vector<android::String16>& args), (override));
-    MOCK_METHOD(android::base::Result<void>, onDump, (int fd), (override));
-    MOCK_METHOD(bool, dumpHelpText, (int fd), (override));
+    MOCK_METHOD(android::base::Result<void>, onDump, (int fd), (const, override));
+    MOCK_METHOD(bool, dumpHelpText, (int fd), (const, override));
     MOCK_METHOD(void, handleMessage, (const Message&), (override));
 };
 

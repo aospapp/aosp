@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+#include <android_audio_policy_configuration_V7_0-enums.h>
 #include <log/log.h>
-#include <cutils/bitops.h>
+//#include <cutils/bitops.h>
 #include <cutils/sched_policy.h>
 #include <system/audio.h>
 #include <sys/resource.h>
@@ -23,10 +24,14 @@
 #include "util.h"
 #include "debug.h"
 
+namespace xsd {
+using namespace ::android::audio::policy::configuration::V7_0;
+}
+
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V6_0 {
+namespace V7_0 {
 namespace implementation {
 namespace util {
 
@@ -36,34 +41,47 @@ const std::array<uint32_t, 8> kSupportedRatesHz = {
     8000, 11025, 16000, 22050, 24000, 32000, 44100, 48000
 };
 
-const std::array<hidl_bitfield<AudioChannelMask>, 4> kSupportedInChannelMask = {
-    AudioChannelMask::IN_LEFT | 0,
-    AudioChannelMask::IN_RIGHT | 0,
-    AudioChannelMask::IN_FRONT | 0,
-    AudioChannelMask::IN_STEREO | 0,
-};
-
-const std::array<hidl_bitfield<AudioChannelMask>, 4> kSupportedOutChannelMask = {
-    AudioChannelMask::OUT_FRONT_LEFT | 0,
-    AudioChannelMask::OUT_FRONT_RIGHT | 0,
-    AudioChannelMask::OUT_FRONT_CENTER | 0,
-    AudioChannelMask::OUT_STEREO | 0,
-};
-
-const std::array<AudioFormat, 1> kSupportedAudioFormats = {
-    AudioFormat::PCM_16_BIT,
-};
-
-bool checkSampleRateHz(uint32_t value, uint32_t &suggest) {
+bool checkSampleRateHz(uint32_t value, uint32_t &suggested) {
     for (const uint32_t supported : kSupportedRatesHz) {
         if (value <= supported) {
-            suggest = supported;
-            return (value == supported);
+            suggested = supported;
+            return value == supported;
         }
     }
 
-    suggest = kSupportedRatesHz.back();
+    suggested = kSupportedRatesHz.back();
     return FAILURE(false);
+}
+
+bool checkChannelMask(const bool isOut,
+                      const AudioChannelMask &value,
+                      AudioChannelMask &suggested) {
+    switch (xsd::stringToAudioChannelMask(value)) {
+    case xsd::AudioChannelMask::AUDIO_CHANNEL_OUT_MONO:
+    case xsd::AudioChannelMask::AUDIO_CHANNEL_OUT_STEREO:
+    case xsd::AudioChannelMask::AUDIO_CHANNEL_IN_MONO:
+    case xsd::AudioChannelMask::AUDIO_CHANNEL_IN_STEREO:
+        suggested = value;
+        return true;
+
+    default:
+        suggested = toString(isOut ?
+            xsd::AudioChannelMask::AUDIO_CHANNEL_OUT_STEREO :
+            xsd::AudioChannelMask::AUDIO_CHANNEL_IN_MONO);
+        return FAILURE(false);
+    }
+}
+
+bool checkFormat(const AudioFormat &value, AudioFormat &suggested) {
+    switch (xsd::stringToAudioFormat(value)) {
+    case xsd::AudioFormat::AUDIO_FORMAT_PCM_16_BIT:
+        suggested = value;
+        return true;
+
+    default:
+        suggested = toString(xsd::AudioFormat::AUDIO_FORMAT_PCM_16_BIT);
+        return FAILURE(false);
+    }
 }
 
 size_t align(size_t v, size_t a) {
@@ -97,56 +115,43 @@ MicrophoneInfo getMicrophoneInfo() {
     return mic;
 }
 
-size_t countChannels(hidl_bitfield<AudioChannelMask> mask) {
-    return popcount(mask);
+size_t countChannels(const AudioChannelMask &mask) {
+    return xsd::getChannelCount(mask);
 }
 
-size_t getBytesPerSample(AudioFormat format) {
-    return audio_bytes_per_sample(static_cast<audio_format_t>(format));
+size_t getBytesPerSample(const AudioFormat &format) {
+    if (format == "AUDIO_FORMAT_PCM_16_BIT") {
+        return 2;
+    } else {
+        ALOGE("util::%s:%d unknown format, '%s'", __func__, __LINE__, format.c_str());
+        return 0;
+    }
 }
 
-bool checkAudioConfig(bool isOut,
+bool checkAudioConfig(const bool isOut,
                       size_t duration_ms,
-                      const AudioConfig &cfg,
+                      const AudioConfig &src,
                       AudioConfig &suggested) {
-    bool valid = checkSampleRateHz(cfg.sampleRateHz, suggested.sampleRateHz);
+    bool result = true;
+    suggested = src;
 
-    if (isOut) {
-        if (std::find(kSupportedOutChannelMask.begin(),
-                      kSupportedOutChannelMask.end(),
-                      cfg.channelMask) == kSupportedOutChannelMask.end()) {
-            suggested.channelMask = AudioChannelMask::OUT_STEREO | 0;
-            valid = FAILURE(false);
-        } else {
-            suggested.channelMask = cfg.channelMask;
-        }
-    } else {
-        if (std::find(kSupportedInChannelMask.begin(),
-                      kSupportedInChannelMask.end(),
-                      cfg.channelMask) == kSupportedInChannelMask.end()) {
-            suggested.channelMask = AudioChannelMask::IN_STEREO | 0;
-            valid = FAILURE(false);
-        } else {
-            suggested.channelMask = cfg.channelMask;
-        }
+    if (!checkSampleRateHz(src.base.sampleRateHz, suggested.base.sampleRateHz)) {
+        result = false;
     }
 
-    if (std::find(kSupportedAudioFormats.begin(),
-                  kSupportedAudioFormats.end(),
-                  cfg.format) == kSupportedAudioFormats.end()) {
-        suggested.format = AudioFormat::PCM_16_BIT;
-        valid = FAILURE(false);
-    } else {
-        suggested.format = cfg.format;
+    if (!checkChannelMask(isOut, src.base.channelMask, suggested.base.channelMask)) {
+        result = false;
     }
 
-    suggested.offloadInfo = cfg.offloadInfo;    // don't care
+    if (!checkFormat(src.base.format, suggested.base.format)) {
+        result = false;
+    }
 
-    suggested.frameCount = (cfg.frameCount == 0)
-        ? getBufferSizeFrames(duration_ms, suggested.sampleRateHz)
-        : cfg.frameCount;
+    if (src.frameCount == 0) {
+        suggested.frameCount = getBufferSizeFrames(duration_ms, src.base.sampleRateHz);
+    }
 
-    return valid;
+    return result;
 }
 
 TimeSpec nsecs2TimeSpec(nsecs_t ns) {
@@ -163,7 +168,7 @@ void setThreadPriority(int prio) {
 
 }  // namespace util
 }  // namespace implementation
-}  // namespace V6_0
+}  // namespace V7_0
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

@@ -18,8 +18,14 @@ package com.android.car.settings.profiles;
 
 import static android.content.pm.UserInfo.FLAG_INITIALIZED;
 
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.car.drivingstate.CarUxRestrictions;
@@ -28,13 +34,15 @@ import android.content.pm.UserInfo;
 import android.os.UserManager;
 
 import androidx.lifecycle.LifecycleOwner;
-import androidx.preference.Preference;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
+import com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment;
+import com.android.car.settings.testutils.EnterpriseTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
+import com.android.car.ui.preference.CarUiPreference;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -44,11 +52,13 @@ import org.mockito.MockitoAnnotations;
 
 @RunWith(AndroidJUnit4.class)
 public class ProfileDetailsDeletePreferenceControllerTest {
+    private static final String TEST_RESTRICTION =
+            android.os.UserManager.DISALLOW_REMOVE_USER;
     private static final String TEST_PROFILE_NAME = "Test Profile Name";
 
-    private Context mContext = ApplicationProvider.getApplicationContext();
+    private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private LifecycleOwner mLifecycleOwner;
-    private Preference mPreference;
+    private CarUiPreference mPreference;
     private CarUxRestrictions mCarUxRestrictions;
     private ProfileDetailsDeletePreferenceController mPreferenceController;
     private RemoveProfileHandler mRemoveProfileHandler;
@@ -68,12 +78,13 @@ public class ProfileDetailsDeletePreferenceControllerTest {
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
 
-        mPreference = new Preference(mContext);
+        mPreference = new CarUiPreference(mContext);
         mRemoveProfileHandler = new RemoveProfileHandler(
                 mContext, mMockProfileHelper, mMockUserManager, mMockFragmentController);
         mPreferenceController = new ProfileDetailsDeletePreferenceController(mContext,
                 /* preferenceKey= */ "key", mMockFragmentController, mCarUxRestrictions,
                 mMockProfileHelper, mRemoveProfileHandler);
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mMockUserManager);
     }
 
     @Test
@@ -88,16 +99,30 @@ public class ProfileDetailsDeletePreferenceControllerTest {
     }
 
     @Test
-    public void onCreate_userRestricted_deleteButtonHidden() {
+    public void onCreate_userRestrictedByUm_deleteButtonHidden() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_PROFILE_NAME, FLAG_INITIALIZED);
         when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
-        when(mMockUserManager.hasUserRestriction(UserManager.DISALLOW_REMOVE_USER))
-                .thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mMockUserManager, TEST_RESTRICTION, true);
         mPreferenceController.setUserInfo(userInfo);
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreference);
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreference.isVisible()).isFalse();
+    }
+
+    @Test
+    public void onCreate_userRestrictedByDpm_deleteButtonVisible() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_PROFILE_NAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        mPreferenceController.setUserInfo(userInfo);
+        PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreference);
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        assertThat(mPreference.isVisible()).isTrue();
+        assertThat(mPreference.isEnabled()).isFalse();
     }
 
     @Test
@@ -134,5 +159,39 @@ public class ProfileDetailsDeletePreferenceControllerTest {
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreference.isVisible()).isFalse();
+    }
+
+    @Test
+    public void onCreate_isDemoUserAndRestrictedByDpm_deleteButtonHidden() {
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_PROFILE_NAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        when(mMockUserManager.isDemoUser()).thenReturn(true);
+        mPreferenceController.setUserInfo(userInfo);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreference);
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        assertThat(mPreference.isVisible()).isFalse();
+    }
+
+    @Test
+    public void disabledClick_restrictedByDpm_dialog() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mMockUserManager, TEST_RESTRICTION, true);
+        UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_PROFILE_NAME, FLAG_INITIALIZED);
+        when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        mPreferenceController.setUserInfo(userInfo);
+        PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreference);
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        mPreference.performClick();
+
+        assertShowingDisabledByAdminDialog();
+    }
+
+    private void assertShowingDisabledByAdminDialog() {
+        verify(mMockFragmentController).showDialog(any(ActionDisabledByAdminDialogFragment.class),
+                eq(DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG));
     }
 }

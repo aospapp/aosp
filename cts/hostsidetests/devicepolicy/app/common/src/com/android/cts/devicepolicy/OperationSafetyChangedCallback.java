@@ -15,6 +15,8 @@
  */
 package com.android.cts.devicepolicy;
 
+import static android.app.admin.DevicePolicyManager.operationToString;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -46,10 +48,13 @@ public final class OperationSafetyChangedCallback {
     private final LinkedBlockingQueue<OperationSafetyChangedEvent> mEvents =
             new LinkedBlockingQueue<>();
 
+    private final boolean mForDeviceOwner;
+
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+            Log.v(TAG, "onReceive(): " + intent);
             if (!ACTION_STATE_CHANGED.equals(action)) {
                 Log.e(TAG, "Invalid action " + action + " on intent " + intent);
                 return;
@@ -70,16 +75,19 @@ public final class OperationSafetyChangedCallback {
         }
     };
 
-    private OperationSafetyChangedCallback() {}
+    private OperationSafetyChangedCallback(boolean forDeviceOwner) {
+        mForDeviceOwner = forDeviceOwner;
+    }
 
     /**
      * Creates and registers a callback in the given context.
      */
-    public static OperationSafetyChangedCallback register(Context context) {
+    public static OperationSafetyChangedCallback register(Context context, boolean forDeviceOwner) {
         Log.d(TAG, "Registering " + ACTION_STATE_CHANGED + " on user " + context.getUserId());
-        OperationSafetyChangedCallback callback = new OperationSafetyChangedCallback();
+        OperationSafetyChangedCallback callback = new OperationSafetyChangedCallback(
+                forDeviceOwner);
         TestAppHelper.registerTestCaseReceiver(context, callback.mReceiver,
-                new IntentFilter(ACTION_STATE_CHANGED));
+                new IntentFilter(ACTION_STATE_CHANGED), forDeviceOwner);
         return callback;
     }
 
@@ -88,7 +96,7 @@ public final class OperationSafetyChangedCallback {
      */
     public void unregister(Context context) {
         Log.d(TAG, "Unregistering " + mReceiver + " on user " + context.getUserId());
-        TestAppHelper.unregisterTestCaseReceiver(context, mReceiver);
+        TestAppHelper.unregisterTestCaseReceiver(context, mReceiver, mForDeviceOwner);
     }
 
     /**
@@ -103,7 +111,7 @@ public final class OperationSafetyChangedCallback {
     /**
      * Gets next event or fail.
      */
-    public OperationSafetyChangedEvent getNextEvent() {
+    public OperationSafetyChangedEvent getNextEvent(int operation) {
         OperationSafetyChangedEvent event = null;
         try {
             event = mEvents.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -114,8 +122,8 @@ public final class OperationSafetyChangedCallback {
             throw new AssertionFailedError(msg);
         }
         if (event == null) {
-            String msg = "didn't receive an OperationSafetyChangedEvent in "
-                    + TIMEOUT_MS + "ms on " + this;
+            String msg = "didn't receive an OperationSafetyChangedEvent for "
+                    + operationToString(operation) + " in " + TIMEOUT_MS + "ms on " + this;
             Log.e(TAG, msg);
             throw new AssertionFailedError(msg);
         }

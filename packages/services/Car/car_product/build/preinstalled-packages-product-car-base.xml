@@ -271,6 +271,11 @@
     <install-in-user-type package="com.android.bluetoothmidiservice">
         <install-in user-type="FULL" />
     </install-in-user-type>
+    <!-- ManagedProvisioning app is used for provisioning the device. It
+         requires UX for the provisioning flow. -->
+    <install-in-user-type package="com.android.managedprovisioning">
+        <install-in user-type="FULL" />
+    </install-in-user-type>
     <install-in-user-type package="com.android.statementservice">
         <install-in user-type="FULL" />
     </install-in-user-type>

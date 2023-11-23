@@ -22,13 +22,12 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.dialer.R;
 import com.android.car.dialer.ui.common.ContactResultsLiveData;
 import com.android.car.dialer.ui.common.DialerUtils;
 import com.android.car.dialer.ui.common.OnItemClickedListener;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.recyclerview.ContentLimitingAdapter;
 
 import java.util.ArrayList;
@@ -38,7 +37,8 @@ import java.util.List;
  * An adapter that will parse a list of contacts given by a {@link Cursor} that display the
  * results as a list.
  */
-public class ContactResultsAdapter extends ContentLimitingAdapter<ContactResultViewHolder> {
+public class ContactResultsAdapter extends ContentLimitingAdapter<ContactResultViewHolder>
+        implements CarUiRecyclerView.OnAttachListener {
 
     private Integer mSortMethod;
 
@@ -46,7 +46,7 @@ public class ContactResultsAdapter extends ContentLimitingAdapter<ContactResultV
             new ArrayList<>();
     private final OnItemClickedListener<ContactResultsLiveData.ContactResultListItem>
             mOnItemClickedListener;
-    private LinearLayoutManager mLayoutManager;
+    private CarUiRecyclerView mRrecyclerView;
 
     public ContactResultsAdapter(
             OnItemClickedListener<ContactResultsLiveData.ContactResultListItem> listener) {
@@ -122,19 +122,17 @@ public class ContactResultsAdapter extends ContentLimitingAdapter<ContactResultV
 
     @Override
     public int computeAnchorIndexWhenRestricting() {
-        return DialerUtils.getFirstVisibleItemPosition(mLayoutManager);
+        return DialerUtils.getFirstVisibleItemPosition(mRrecyclerView);
     }
 
     @Override
-    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
-        super.onAttachedToRecyclerView(recyclerView);
-        mLayoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+    public void onAttachedToCarUiRecyclerView(@NonNull CarUiRecyclerView recyclerView) {
+        mRrecyclerView = recyclerView;
     }
 
     @Override
-    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
-        mLayoutManager = null;
-        super.onDetachedFromRecyclerView(recyclerView);
+    public void onDetachedFromCarUiRecyclerView(@NonNull CarUiRecyclerView recyclerView) {
+        mRrecyclerView = null;
     }
 
     /**

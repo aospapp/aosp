@@ -51,6 +51,7 @@ import com.android.car.settings.testutils.BluetoothTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.CachedBluetoothDeviceManager;
+import com.android.settingslib.bluetooth.LocalBluetoothAdapter;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
 import com.android.settingslib.bluetooth.LocalBluetoothProfile;
 
@@ -63,6 +64,7 @@ import org.mockito.MockitoAnnotations;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
 public class BluetoothBondedDevicesPreferenceControllerTest {
@@ -86,6 +88,8 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
     private UserManager mUserManager;
     @Mock
     private CachedBluetoothDeviceManager mCachedDeviceManager;
+    @Mock
+    private LocalBluetoothAdapter mLocalBluetoothAdapter;
 
     @Before
     @UiThreadTest
@@ -117,6 +121,8 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
         mLocalBluetoothManager = spy(BluetoothUtils.getLocalBtManager(mContext));
         when(mLocalBluetoothManager.getCachedDeviceManager()).thenReturn(mCachedDeviceManager);
         when(mCachedDeviceManager.getCachedDevicesCopy()).thenReturn(mCachedDevices);
+        when(mLocalBluetoothManager.getBluetoothAdapter()).thenReturn(mLocalBluetoothAdapter);
+        when(mLocalBluetoothAdapter.getBondedDevices()).thenReturn(Set.of(mBondedDevice));
 
         PreferenceManager preferenceManager = new PreferenceManager(mContext);
         PreferenceScreen screen = preferenceManager.createPreferenceScreen(mContext);
@@ -148,6 +154,7 @@ public class BluetoothBondedDevicesPreferenceControllerTest {
         // Unbond the only bonded device.
         when(mBondedCachedDevice.getBondState()).thenReturn(BluetoothDevice.BOND_NONE);
         when(mBondedDevice.getBondState()).thenReturn(BluetoothDevice.BOND_NONE);
+        when(mLocalBluetoothAdapter.getBondedDevices()).thenReturn(Set.of());
         mPreferenceController.onDeviceBondStateChanged(mBondedCachedDevice,
                 BluetoothDevice.BOND_NONE);
 

@@ -17,12 +17,14 @@
 PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/sdk_car_arm64.mk \
     $(LOCAL_DIR)/sdk_car_arm.mk \
+    $(LOCAL_DIR)/sdk_car_portrait_x86_64.mk \
     $(LOCAL_DIR)/sdk_car_x86.mk \
     $(LOCAL_DIR)/sdk_car_x86_64.mk \
 
 COMMON_LUNCH_CHOICES := \
     sdk_car_arm-userdebug \
     sdk_car_arm64-userdebug \
+    sdk_car_portrait_x86_64-userdebug \
     sdk_car_x86-userdebug \
     sdk_car_x86_64-userdebug \
 

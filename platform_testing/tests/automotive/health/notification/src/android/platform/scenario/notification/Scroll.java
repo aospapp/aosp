@@ -17,10 +17,9 @@ package android.platform.test.scenario.notification;
 
 import android.platform.helpers.HelperAccessor;
 import android.platform.helpers.IAutoNotificationHelper;
+import android.platform.helpers.IAutoNotificationMockingHelper;
 import android.platform.test.scenario.annotation.Scenario;
-import android.platform.test.rule.NotificationPressureRule;
 
-import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,10 +31,8 @@ public class Scroll {
     static HelperAccessor<IAutoNotificationHelper> sHelper =
             new HelperAccessor<>(IAutoNotificationHelper.class);
 
-    // Populate notification before scrolling.
-    @ClassRule
-    public static NotificationPressureRule NotificationPressureRule =
-            new NotificationPressureRule(5);
+    static HelperAccessor<IAutoNotificationMockingHelper> sNotificationsMockingHelper =
+            new HelperAccessor<>(IAutoNotificationMockingHelper.class);
 
     @Test
     public void testScrollUpAndDown() {

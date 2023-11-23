@@ -18,8 +18,15 @@ package com.android.car.settings.bluetooth;
 
 import static android.os.UserManager.DISALLOW_BLUETOOTH;
 
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.bluetooth.BluetoothAdapter;
@@ -32,9 +39,10 @@ import androidx.preference.SwitchPreference;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
-import com.android.car.settings.common.ClickableWhileDisabledSwitchPreference;
+import com.android.car.settings.common.ColoredSwitchPreference;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
+import com.android.car.settings.testutils.EnterpriseTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
 
@@ -46,8 +54,11 @@ import org.mockito.MockitoAnnotations;
 
 @RunWith(AndroidJUnit4.class)
 public class BluetoothStateSwitchPreferenceControllerTest {
+    private static final String TEST_RESTRICTION =
+            android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
+
     private LifecycleOwner mLifecycleOwner;
-    private Context mContext = ApplicationProvider.getApplicationContext();
+    private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private SwitchPreference mSwitchPreference;
     private BluetoothStateSwitchPreferenceController mPreferenceController;
     private LocalBluetoothManager mLocalBluetoothManager;
@@ -70,7 +81,7 @@ public class BluetoothStateSwitchPreferenceControllerTest {
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
 
-        mSwitchPreference = new ClickableWhileDisabledSwitchPreference(mContext);
+        mSwitchPreference = new ColoredSwitchPreference(mContext);
         mPreferenceController = new BluetoothStateSwitchPreferenceController(mContext,
                 /* preferenceKey= */ "key", mFragmentController, mCarUxRestrictions);
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mSwitchPreference);
@@ -113,6 +124,46 @@ public class BluetoothStateSwitchPreferenceControllerTest {
 
         assertThat(mSwitchPreference.isChecked()).isTrue();
         assertThat(mSwitchPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void restrictedByDpm_availabilityIsAvailableForViewing() {
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void restrictedByDpm_disableSwitchPreference() {
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        mSwitchPreference.setEnabled(true);
+        BluetoothAdapter.getDefaultAdapter().enable();
+
+        mSwitchPreference.performClick();
+
+        assertThat(mSwitchPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void restrictedByDpm_showsDisabledByAdminDialog() {
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
+        EnterpriseTestUtils.mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.onStart(mLifecycleOwner);
+        BluetoothAdapter.getDefaultAdapter().enable();
+
+        mSwitchPreference.performClick();
+
+        assertShowingDisabledByAdminDialog();
+    }
+
+    private void assertShowingDisabledByAdminDialog() {
+        verify(mFragmentController).showDialog(any(), eq(DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG));
     }
 
     @Test

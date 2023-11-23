@@ -1,0 +1,110 @@
+# for rild
+persist.vendor.debug_level       u:object_r:vendor_rild_prop:s0
+persist.vendor.ril.              u:object_r:vendor_rild_prop:s0
+persist.vendor.radio.            u:object_r:vendor_rild_prop:s0
+vendor.radio.ril.                u:object_r:vendor_rild_prop:s0
+vendor.sys.rild_reset            u:object_r:vendor_rild_prop:s0
+vendor.ril.                      u:object_r:vendor_rild_prop:s0
+vendor.radio.                    u:object_r:vendor_rild_prop:s0
+ro.vendor.build.svn              u:object_r:vendor_rild_prop:s0
+
+# Ramdump
+persist.vendor.sys.crash_rcu    u:object_r:vendor_ramdump_prop:s0
+
+# SSR Detector
+vendor.debug.ssrdump.           u:object_r:vendor_ssrdump_prop:s0
+persist.vendor.sys.ssr.         u:object_r:vendor_ssrdump_prop:s0
+
+# Kernel modules related
+vendor.common.modules.ready     u:object_r:vendor_device_prop:s0
+vendor.device.modules.ready     u:object_r:vendor_device_prop:s0
+vendor.all.modules.ready        u:object_r:vendor_device_prop:s0
+vendor.all.devices.ready        u:object_r:vendor_device_prop:s0
+
+# for codec2
+vendor.debug.c2.level       u:object_r:vendor_codec2_debug_prop:s0
+vendor.debug.c2.dump        u:object_r:vendor_codec2_debug_prop:s0
+vendor.debug.c2.dump.opt    u:object_r:vendor_codec2_debug_prop:s0
+
+# USB HAL
+persist.vendor.usb.    u:object_r:vendor_usb_config_prop:s0
+vendor.usb.            u:object_r:vendor_usb_config_prop:s0
+
+# for logger app
+vendor.pixellogger.          u:object_r:vendor_logger_prop:s0
+persist.vendor.pixellogger.  u:object_r:vendor_logger_prop:s0
+persist.vendor.verbose_logging_enabled u:object_r:vendor_logger_prop:s0
+
+# for cbd
+vendor.cbd.                  u:object_r:vendor_cbd_prop:s0
+persist.vendor.cbd.          u:object_r:vendor_cbd_prop:s0
+
+# for slog
+vendor.sys.silentlog.            u:object_r:vendor_slog_prop:s0
+vendor.sys.exynos.slog.          u:object_r:vendor_slog_prop:s0
+persist.vendor.sys.silentlog     u:object_r:vendor_slog_prop:s0
+
+# vendor default
+vendor.config.               u:object_r:vendor_config_default_prop:s0
+ro.vendor.config.            u:object_r:vendor_ro_config_default_prop:s0
+persist.vendor.config.       u:object_r:vendor_persist_config_default_prop:s0
+vendor.sys.                  u:object_r:vendor_sys_default_prop:s0
+ro.vendor.sys.               u:object_r:vendor_ro_sys_default_prop:s0
+persist.vendor.sys.          u:object_r:vendor_persist_sys_default_prop:s0
+
+
+# for audio
+vendor.audio_hal.period_multiplier      u:object_r:vendor_audio_prop:s0
+vendor.audiodump.enable                 u:object_r:vendor_audio_prop:s0
+persist.vendor.audio.                   u:object_r:vendor_audio_prop:s0
+vendor.audiodump.log.ondemand           u:object_r:vendor_audio_prop:s0
+vendor.audiodump.log.config             u:object_r:vendor_audio_prop:s0
+vendor.audiodump.output.dir             u:object_r:vendor_audio_prop:s0
+
+
+# for display
+ro.vendor.hwc.drm.device                u:object_r:vendor_display_prop:s0
+
+# for camera
+persist.vendor.camera.               u:object_r:vendor_camera_prop:s0
+vendor.camera.                       u:object_r:vendor_camera_prop:s0
+vendor.camera.debug.                 u:object_r:vendor_camera_debug_prop:s0
+vendor.camera.fatp.                  u:object_r:vendor_camera_fatp_prop:s0
+
+# for gps
+vendor.gps                   u:object_r:vendor_gps_prop:s0
+
+# SecureElement
+persist.vendor.se.                              u:object_r:vendor_secure_element_prop:s0
+
+# NFC
+persist.vendor.nfc.                             u:object_r:vendor_nfc_prop:s0
+
+# Battery
+vendor.battery.defender.                        u:object_r:vendor_battery_defender_prop:s0
+
+# test battery profile
+persist.vendor.testing_battery_profile          u:object_r:vendor_battery_profile_prop:s0
+
+# AoC
+vendor.aoc.firmware.version                     u:object_r:vendor_aoc_prop:s0
+
+# WiFi
+vendor.wlan.driver.version                      u:object_r:vendor_wifi_version:s0
+vendor.wlan.firmware.version                    u:object_r:vendor_wifi_version:s0
+
+# Touchpanel
+vendor.mfgapi.touchpanel.permission             u:object_r:vendor_touchpanel_prop:s0
+
+# Tcpdump_logger
+persist.vendor.tcpdump.log.alwayson             u:object_r:vendor_tcpdump_log_prop:s0
+vendor.tcpdump.log.ondemand                     u:object_r:vendor_tcpdump_log_prop:s0
+vendor.tcpdump.log.alwayson                     u:object_r:vendor_tcpdump_log_prop:s0
+vendor.tcpdump.output.dir                       u:object_r:vendor_tcpdump_log_prop:s0
+
+# Fingerprint
+vendor.fingerprint.disable.fake                 u:object_r:vendor_fingerprint_fake_prop:s0
+
+# Dynamic sensor
+vendor.dynamic_sensor.                          u:object_r:vendor_dynamic_sensor_prop:s0
+

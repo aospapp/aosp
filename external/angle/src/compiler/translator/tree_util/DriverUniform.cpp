@@ -54,7 +54,7 @@ bool DriverUniform::addComputeDriverUniformsToShader(TIntermBlock *root, TSymbol
     TFieldList *driverFieldList = new TFieldList;
 
     const std::array<TType *, kNumComputeDriverUniforms> kDriverUniformTypes = {{
-        new TType(EbtUInt, 4),
+        new TType(EbtUInt, EbpHigh, EvqGlobal, 4),
     }};
 
     for (size_t uniformIndex = 0; uniformIndex < kNumComputeDriverUniforms; ++uniformIndex)
@@ -67,9 +67,12 @@ bool DriverUniform::addComputeDriverUniformsToShader(TIntermBlock *root, TSymbol
     }
 
     // Define a driver uniform block "ANGLEUniformBlock" with instance name "ANGLEUniforms".
+    TLayoutQualifier layoutQualifier = TLayoutQualifier::Create();
+    layoutQualifier.blockStorage     = EbsStd140;
+
     mDriverUniforms = DeclareInterfaceBlock(root, symbolTable, driverFieldList, EvqUniform,
-                                            TLayoutQualifier::Create(), TMemoryQualifier::Create(),
-                                            0, ImmutableString(vk::kDriverUniformsBlockName),
+                                            layoutQualifier, TMemoryQualifier::Create(), 0,
+                                            ImmutableString(vk::kDriverUniformsBlockName),
                                             ImmutableString(vk::kDriverUniformsVarName));
     return mDriverUniforms != nullptr;
 }
@@ -85,13 +88,14 @@ TFieldList *DriverUniform::createUniformFields(TSymbolTable *symbolTable)
     TFieldList *driverFieldList = new TFieldList;
 
     const std::array<TType *, kNumGraphicsDriverUniforms> kDriverUniformTypes = {{
-        new TType(EbtFloat, 4),
-        new TType(EbtUInt),  // uint clipDistancesEnabled;  // 32 bits for 32 clip distances max
-        new TType(EbtUInt),
-        new TType(EbtInt),
-        new TType(EbtInt),
-        new TType(EbtInt, 4),
-        new TType(EbtUInt, 4),
+        new TType(EbtFloat, EbpHigh, EvqGlobal, 4),
+        new TType(EbtUInt, EbpHigh,
+                  EvqGlobal),  // uint clipDistancesEnabled;  // 32 bits for 32 clip distances max
+        new TType(EbtUInt, EbpLow, EvqGlobal),  // uint xfbActiveUnpaused;  // 1 bit
+        new TType(EbtInt, EbpHigh, EvqGlobal),
+        new TType(EbtInt, EbpLow, EvqGlobal),  // uint numSamples;         // Up to 16
+        new TType(EbtInt, EbpHigh, EvqGlobal, 4),
+        new TType(EbtUInt, EbpHigh, EvqGlobal, 4),
         createEmulatedDepthRangeType(symbolTable),
     }};
 
@@ -117,19 +121,16 @@ TType *DriverUniform::createEmulatedDepthRangeType(TSymbolTable *symbolTable)
 
     // Create the depth range type.
     TFieldList *depthRangeParamsFields = new TFieldList();
-    depthRangeParamsFields->push_back(new TField(new TType(EbtFloat, EbpHigh, EvqGlobal, 1, 1),
-                                                 ImmutableString("near"), TSourceLoc(),
-                                                 SymbolType::AngleInternal));
-    depthRangeParamsFields->push_back(new TField(new TType(EbtFloat, EbpHigh, EvqGlobal, 1, 1),
-                                                 ImmutableString("far"), TSourceLoc(),
-                                                 SymbolType::AngleInternal));
-    depthRangeParamsFields->push_back(new TField(new TType(EbtFloat, EbpHigh, EvqGlobal, 1, 1),
-                                                 ImmutableString("diff"), TSourceLoc(),
-                                                 SymbolType::AngleInternal));
+    TType *floatType                   = new TType(EbtFloat, EbpHigh, EvqGlobal, 1, 1);
+    depthRangeParamsFields->push_back(
+        new TField(floatType, ImmutableString("near"), TSourceLoc(), SymbolType::AngleInternal));
+    depthRangeParamsFields->push_back(
+        new TField(floatType, ImmutableString("far"), TSourceLoc(), SymbolType::AngleInternal));
+    depthRangeParamsFields->push_back(
+        new TField(floatType, ImmutableString("diff"), TSourceLoc(), SymbolType::AngleInternal));
     // This additional field might be used by subclass such as TranslatorMetal.
-    depthRangeParamsFields->push_back(new TField(new TType(EbtFloat, EbpHigh, EvqGlobal, 1, 1),
-                                                 ImmutableString("reserved"), TSourceLoc(),
-                                                 SymbolType::AngleInternal));
+    depthRangeParamsFields->push_back(new TField(floatType, ImmutableString("reserved"),
+                                                 TSourceLoc(), SymbolType::AngleInternal));
 
     TStructure *emulatedDepthRangeParams = new TStructure(
         symbolTable, kEmulatedDepthRangeParams, depthRangeParamsFields, SymbolType::AngleInternal);
@@ -164,10 +165,13 @@ bool DriverUniform::addGraphicsDriverUniformsToShader(TIntermBlock *root, TSymbo
     if (mMode == DriverUniformMode::InterfaceBlock)
     {
         // Define a driver uniform block "ANGLEUniformBlock" with instance name "ANGLEUniforms".
-        mDriverUniforms = DeclareInterfaceBlock(
-            root, symbolTable, driverFieldList, EvqUniform, TLayoutQualifier::Create(),
-            TMemoryQualifier::Create(), 0, ImmutableString(vk::kDriverUniformsBlockName),
-            ImmutableString(vk::kDriverUniformsVarName));
+        TLayoutQualifier layoutQualifier = TLayoutQualifier::Create();
+        layoutQualifier.blockStorage     = EbsStd140;
+
+        mDriverUniforms = DeclareInterfaceBlock(root, symbolTable, driverFieldList, EvqUniform,
+                                                layoutQualifier, TMemoryQualifier::Create(), 0,
+                                                ImmutableString(vk::kDriverUniformsBlockName),
+                                                ImmutableString(vk::kDriverUniformsVarName));
     }
     else
     {
@@ -202,7 +206,7 @@ TIntermBinary *DriverUniform::createDriverUniformRef(const char *fieldName) cons
     TConstantUnion *uniformIndex    = new TConstantUnion;
     uniformIndex->setIConst(static_cast<int>(fieldIndex));
     TIntermConstantUnion *indexRef =
-        new TIntermConstantUnion(uniformIndex, *StaticType::GetBasic<EbtInt>());
+        new TIntermConstantUnion(uniformIndex, *StaticType::GetBasic<EbtInt, EbpLow>());
     if (mMode == DriverUniformMode::InterfaceBlock)
     {
         return new TIntermBinary(EOpIndexDirectInterfaceBlock, angleUniformsRef, indexRef);
@@ -271,13 +275,13 @@ TFieldList *DriverUniformExtended::createUniformFields(TSymbolTable *symbolTable
                                            kPreRotation}};
 
     const std::array<TType *, kNumGraphicsDriverUniformsExt> kDriverUniformTypesExt = {{
-        new TType(EbtFloat, 2),
-        new TType(EbtFloat, 2),
-        new TType(EbtFloat, 2),
-        new TType(EbtUInt),
-        new TType(EbtUInt),
-        new TType(EbtFloat, 2, 2),
-        new TType(EbtFloat, 2, 2),
+        new TType(EbtFloat, EbpHigh, EvqGlobal, 2),
+        new TType(EbtFloat, EbpLow, EvqGlobal, 2),
+        new TType(EbtFloat, EbpLow, EvqGlobal, 2),
+        new TType(EbtUInt, EbpHigh, EvqGlobal),
+        new TType(EbtUInt, EbpHigh, EvqGlobal),
+        new TType(EbtFloat, EbpLow, EvqGlobal, 2, 2),
+        new TType(EbtFloat, EbpLow, EvqGlobal, 2, 2),
     }};
 
     for (size_t uniformIndex = 0; uniformIndex < kNumGraphicsDriverUniformsExt; ++uniformIndex)

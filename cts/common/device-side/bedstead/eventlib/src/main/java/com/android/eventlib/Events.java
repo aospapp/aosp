@@ -26,24 +26,27 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Collections;
-import java.util.List;
+import java.util.Deque;
+import java.util.Queue;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Event store for the current package. */
 class Events {
 
-    private static final String TAG = "Events";
+    private static final String TAG = "EventLibEvents";
     private static final String EVENT_LOG_FILE_NAME = "Events";
     private static final Duration MAX_LOG_AGE = Duration.ofMinutes(5);
     private static final int BYTES_PER_INT = 4;
 
     private static final ExecutorService sExecutor = Executors.newSingleThreadExecutor();
+    private AtomicBoolean mLoadedHistory = new AtomicBoolean(false);
 
     /** Interface used to be informed when new events are logged. */
     interface EventListener {
@@ -52,15 +55,19 @@ class Events {
 
     private static Events mInstance;
 
-    static Events getInstance(Context context) {
+    static Events getInstance(Context context, boolean needsHistory) {
         if (mInstance == null) {
             synchronized (Events.class) {
                 if (mInstance == null) {
                     mInstance = new Events(context.getApplicationContext());
-                    mInstance.initialiseFiles();
                 }
             }
         }
+
+        if (needsHistory) {
+            mInstance.loadHistory();
+        }
+
         return mInstance;
     }
 
@@ -71,42 +78,37 @@ class Events {
         this.mContext = context;
     }
 
-    private void initialiseFiles() {
-//        sExecutor.execute(() -> {
-//            loadEventsFromFile();
-//            try {
-//                mOutputStream = mContext.openFileOutput(EVENT_LOG_FILE_NAME, Context.MODE_PRIVATE);
-//                // We clear the file and write the logs again so we can exclude old logs
-//                // This avoids the file growing without limit
-//                writeAllEventsToFile();
-//            } catch (FileNotFoundException e) {
-//                throw new IllegalStateException("Could not write event log", e);
-//            }
-//        });
+    private void loadHistory() {
+        if (mLoadedHistory.getAndSet(true)) {
+            return;
+        }
+
+        loadEventsFromFile();
     }
 
     private void loadEventsFromFile() {
+        mEventList.clear();
         Instant now = Instant.now();
+        Deque<Event> eventQueue = new ArrayDeque<>();
         try (FileInputStream fileInputStream = mContext.openFileInput(EVENT_LOG_FILE_NAME)) {
             Event event = readEvent(fileInputStream);
 
             while (event != null) {
-                if (event.mTimestamp.plus(MAX_LOG_AGE).isBefore(now)) {
-                    continue;
+                // I'm not sure if we need this
+                if (event.mTimestamp.plus(MAX_LOG_AGE).isAfter(now)) {
+                    eventQueue.addFirst(event);
                 }
-                mEventList.add(event);
                 event = readEvent(fileInputStream);
+            }
+
+            for (Event e : eventQueue) {
+                mEventList.addFirst(e);
             }
         } catch (FileNotFoundException e) {
             // Ignore this exception as if there's no file there's nothing to load
+            Log.i(TAG, "No existing event file");
         } catch (IOException e) {
             Log.e(TAG, "Error when loading events from file", e);
-        }
-    }
-
-    private void writeAllEventsToFile() {
-        for (Event event : mEventList) {
-            writeEventToFile(event);
         }
     }
 
@@ -131,6 +133,7 @@ class Events {
             Log.d(TAG, event.toString());
             synchronized (mEventList) {
                 mEventList.add(event); // TODO: This should be made immutable before adding
+                writeEventToFile(event);
             }
             triggerEventListeners(event);
         });
@@ -138,6 +141,12 @@ class Events {
 
     private void writeEventToFile(Event event) {
         try {
+            if (mOutputStream == null) {
+                mOutputStream = mContext.openFileOutput(
+                        EVENT_LOG_FILE_NAME, Context.MODE_PRIVATE | Context.MODE_APPEND);
+            }
+
+            Log.e(TAG, "writing event to file: " + event);
             byte[] eventBytes = event.toBytes();
             mOutputStream.write(
                     ByteBuffer.allocate(BYTES_PER_INT).putInt(eventBytes.length).array());
@@ -147,27 +156,25 @@ class Events {
         }
     }
 
-    private final List<Event> mEventList = new ArrayList<>();
+    private final Deque<Event> mEventList = new ConcurrentLinkedDeque<>();
     // This is a weak set so we don't retain listeners from old tests
     private final Set<EventListener> mEventListeners
             = Collections.newSetFromMap(new WeakHashMap<>());
 
     /** Get all logged events. */
-    public List<Event> getEvents() {
-        synchronized (mEventList) {
+    public Queue<Event> getEvents() {
             return mEventList;
-        }
     }
 
     /** Register an {@link EventListener} to be called when a new {@link Event} is logged. */
     public void registerEventListener(EventListener listener) {
-        synchronized (Events.class) {
+        synchronized (mEventListeners) {
             mEventListeners.add(listener);
         }
     }
 
     private void triggerEventListeners(Event event) {
-        synchronized (Events.class) {
+        synchronized (mEventListeners) {
             for (EventListener listener : mEventListeners) {
                 listener.onNewEvent(event);
             }

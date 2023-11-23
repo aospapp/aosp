@@ -67,7 +67,7 @@ public class FullscreenUserSwitcherViewMediator implements OverlayViewMediator {
     }
 
     @Override
-    public void setupOverlayContentViewControllers() {
+    public void setUpOverlayContentViewControllers() {
         mFullScreenUserSwitcherViewController.setUserGridSelectionListener(this::onUserSelected);
     }
 

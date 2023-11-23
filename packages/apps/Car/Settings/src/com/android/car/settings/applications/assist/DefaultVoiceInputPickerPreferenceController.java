@@ -23,6 +23,7 @@ import android.provider.Settings;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.applications.defaultapps.DefaultAppsPickerBasePreferenceController;
 import com.android.car.settings.common.FragmentController;
@@ -45,9 +46,17 @@ public class DefaultVoiceInputPickerPreferenceController extends
 
     public DefaultVoiceInputPickerPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions, new AssistUtils(context),
+                new VoiceInputInfoProvider(context));
+    }
+
+    @VisibleForTesting
+    DefaultVoiceInputPickerPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            AssistUtils assistUtils, VoiceInputInfoProvider voiceInputInfoProvider) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mAssistUtils = new AssistUtils(context);
-        mVoiceInputInfoProvider = new VoiceInputInfoProvider(context);
+        mAssistUtils = assistUtils;
+        mVoiceInputInfoProvider = voiceInputInfoProvider;
         if (Objects.equals(mAssistUtils.getAssistComponentForUser(getCurrentProcessUserId()),
                 VoiceInputUtils.getCurrentService(getContext()))) {
             ComponentName cn = mAssistUtils.getAssistComponentForUser(getCurrentProcessUserId());

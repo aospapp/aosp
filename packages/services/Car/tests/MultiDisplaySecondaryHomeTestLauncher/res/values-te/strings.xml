@@ -19,10 +19,10 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="3477029631237519798">"మల్టీడిస్‌ప్లే"</string>
     <string name="md_launcher" msgid="327845696688732506">"MD లాంచర్"</string>
-    <string name="couldnt_launch" msgid="7815676424138012351">"కార్యకలాపాన్ని ప్రారంభించడం సాధ్యం కాలేదు"</string>
+    <string name="couldnt_launch" msgid="7815676424138012351">"యాక్టివిటీని ప్రారంభించడం సాధ్యం కాలేదు"</string>
     <string name="select_display" msgid="1682700853391296117">"డిస్‌ప్లేను ఎంచుకోండి"</string>
     <string name="add_app_shortcut" msgid="8873512136913188432">"యాప్ షార్ట్‌కట్‌ని జోడించు"</string>
     <string name="set_wallpaper" msgid="3650915172749345197">"వాల్‌పేపర్‌ను సెట్ చేయి"</string>
-    <string name="new_instance" msgid="1924479866055190730">"కొత్త సందర్భంలో ప్రారంభించడానికి అభ్యర్థించండి"</string>
+    <string name="new_instance" msgid="1924479866055190730">"కొత్త సందర్భంలో ప్రారంభించడానికి రిక్వెస్ట్ చేయండి"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"మల్టీ డిస్‌ప్లే వాల్‌పేపర్ నమూనా"</string>
 </resources>

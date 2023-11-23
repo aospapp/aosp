@@ -16,13 +16,13 @@
 package com.android.car.messenger.core.ui.conversationlist;
 
 import android.app.Activity;
-import androidx.lifecycle.ViewModelProvider;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.messenger.R;
 import com.android.car.messenger.common.Conversation;
@@ -87,7 +87,7 @@ public class ConversationListFragment extends MessageListBaseFragment
                                     || conversationLog.getData().isEmpty()) {
                                 mLoadingFrameLayout.showEmpty(
                                         MessageConstants.INVALID_RES_ID,
-                                        R.string.no_new_messages,
+                                        R.string.no_messages,
                                         MessageConstants.INVALID_RES_ID);
                                 setMenuItems();
                             } else {
@@ -110,6 +110,15 @@ public class ConversationListFragment extends MessageListBaseFragment
                 R.string.connect_bluetooth_button_text,
                 v -> startActivity(launchIntent),
                 true);
+        removeMenuItems();
+    }
+
+    private void removeMenuItems() {
+        Activity activity = getActivity();
+        if (activity == null || mToolbar == null) {
+            return;
+        }
+        mToolbar.setMenuItems(new ArrayList<>());
     }
 
     private void setMenuItems() {
@@ -117,15 +126,19 @@ public class ConversationListFragment extends MessageListBaseFragment
         if (activity == null || mUserAccount == null || mToolbar == null) {
             return;
         }
+        if (!mToolbar.getMenuItems().isEmpty()) {
+            return;
+        }
         if (!getResources().getBoolean(R.bool.direct_send_supported)) {
             return;
         }
         MenuItem newMessageButton =
                 new MenuItem.Builder(activity)
-                        .setIcon(R.drawable.car_ui_icon_edit)
-                        .setTinted(true)
+                        .setIcon(R.drawable.ui_icon_edit)
+                        .setTinted(false)
                         .setShowIconAndTitle(true)
                         .setTitle(R.string.new_message)
+                        .setPrimary(true)
                         .setOnClickListener(
                                 item ->
                                         VoiceUtil.voiceRequestGenericCompose(
@@ -150,6 +163,14 @@ public class ConversationListFragment extends MessageListBaseFragment
             return;
         }
         VoiceUtil.voiceRequestReplyConversation(requireActivity(), mUserAccount, conversation);
+    }
+
+    @Override
+    public void onPlayIconClicked(@NonNull Conversation conversation) {
+        if (mUserAccount == null) {
+            return;
+        }
+        VoiceUtil.voiceRequestReadConversation(requireActivity(), mUserAccount, conversation);
     }
 
     /**

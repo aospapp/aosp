@@ -75,18 +75,20 @@
     <string name="sort_order_title" msgid="975104366728292702">"Contactvolgorde"</string>
     <string name="pref_connected_phone_title" msgid="5472866963149472593">"Gekoppelde telefoon"</string>
     <string name="pref_no_incoming_call_hun_title" msgid="2314257779205958332">"Privacy"</string>
-    <string name="pref_no_incoming_call_hun_summary" msgid="8833377984331845097">"Alleen gespreksmeldingen in cluster weergeven"</string>
+    <string name="pref_no_incoming_call_hun_summary" msgid="8833377984331845097">"Alleen gespreksmeldingen in cluster tonen"</string>
     <string name="pref_show_fullscreen_active_call_ui_title" msgid="6924304583510509581">"Actief gesprek"</string>
-    <string name="pref_show_fullscreen_active_call_ui_summary" msgid="1629142960991476502">"Weergave \'Actief gesprek\' weergeven bij beantwoorden gesprek"</string>
+    <string name="pref_show_fullscreen_active_call_ui_summary" msgid="1629142960991476502">"Weergave \'Actief gesprek\' tonen bij beantwoorden gesprek"</string>
     <string name="given_name_first_title" msgid="8072187841056104968">"Voornaam"</string>
     <string name="family_name_first_title" msgid="7721976826282427987">"Achternaam"</string>
     <!-- no translation found for sort_order_default_value (5876201942256731358) -->
     <skip />
-    <string name="audio_route_dialog_title" msgid="2904553846970171054">"Gespreksaudio uitvoeren naar:"</string>
+    <string name="audio_route_dialog_title" msgid="2262715267187794363"></string>
     <string name="audio_route_dialog_subtitle" msgid="8780526104805330121"></string>
     <string name="ongoing_conf_title" msgid="4161590966144000887">"Conferentie"</string>
     <string name="ongoing_conf_title_format" msgid="7667048745156395220">"%1$s (%2$d) - "</string>
     <string name="dialing_disabled_warning" msgid="8094136040809498594">"Je kunt geen nummers intoetsen"</string>
     <string name="restricted_dialing_mode_label" msgid="2439439835180117206">"Het gebruik van het toetsenblok is beperkt tijdens het rijden"</string>
     <string name="comma_delimiter" msgid="7949695553572428165">", "</string>
+    <string name="sms_notification_title" msgid="5980540487139970307">"Sms via Dialer"</string>
+    <string name="sms_notification_text" msgid="9193883830187173056">"Sms sturen"</string>
 </resources>

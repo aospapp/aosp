@@ -18,6 +18,7 @@ package android.hdmicec.cts.playback;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.hdmicec.cts.BaseHdmiCecCtsTest;
@@ -119,6 +120,35 @@ public final class HdmiCecSystemInformationTest extends BaseHdmiCecCtsTest {
         try {
             hdmiCecClient.sendCecMessage(LogicalAddress.RECORDER_1, LogicalAddress.BROADCAST,
                     CecOperand.SET_MENU_LANGUAGE, CecMessage.convertStringToHexParams(language));
+            assertThat(extractLanguage(getSystemLocale())).isEqualTo(originalLanguage);
+        } finally {
+            setSystemLocale(locale);
+        }
+    }
+
+    /**
+     * ro.hdmi.set_menu_language should always be false, due to issues with misbehaving TVs.
+     * To be removed when better handling for <SET MENU LANGUAGE> is implemented in b/195504595.
+     */
+    @Test
+    public void setMenuLanguageIsDisabled() throws Exception {
+        assertThat(isLanguageEditable()).isFalse();
+    }
+
+    /**
+     * Tests that <SET MENU LANGUAGE> from a valid source is ignored when ro.hdmi.set_menu_language
+     * is false.
+     */
+    @Test
+    public void setMenuLanguageNotHandledWhenDisabled() throws Exception {
+        assumeFalse(isLanguageEditable());
+        final String locale = getSystemLocale();
+        final String originalLanguage = extractLanguage(locale);
+        final String language = originalLanguage.equals("spa") ? "eng" : "spa";
+        try {
+            hdmiCecClient.sendCecMessage(LogicalAddress.TV, LogicalAddress.BROADCAST,
+                    CecOperand.SET_MENU_LANGUAGE, CecMessage.convertStringToHexParams(language));
+            TimeUnit.SECONDS.sleep(5);
             assertThat(extractLanguage(getSystemLocale())).isEqualTo(originalLanguage);
         } finally {
             setSystemLocale(locale);

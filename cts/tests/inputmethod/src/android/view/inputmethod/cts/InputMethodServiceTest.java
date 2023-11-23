@@ -501,7 +501,7 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
     public void testGetDisplay() throws Exception {
         try (MockImeSession imeSession = MockImeSession.create(
                 mInstrumentation.getContext(), mInstrumentation.getUiAutomation(),
-                new ImeSettings.Builder().setVerifyGetDisplayOnCreate(true))) {
+                new ImeSettings.Builder().setVerifyUiContextApisInOnCreate(true))) {
             final ImeEventStream stream = imeSession.openEventStream();
 
             // Verify if getDisplay doesn't throw exception before InputMethodService's
@@ -690,6 +690,43 @@ public class InputMethodServiceTest extends EndToEndImeTestBase {
                     activity.setRequestedOrientation(initialOrientation);
                 }
             }
+        }
+    }
+
+    /** Verify if {@link InputMethodService#isUiContext()} returns {@code true}. */
+    @Test
+    public void testIsUiContext() throws Exception {
+        try (MockImeSession imeSession = MockImeSession.create(
+                mInstrumentation.getContext(), mInstrumentation.getUiAutomation(),
+                new ImeSettings.Builder().setVerifyUiContextApisInOnCreate(true))) {
+            final ImeEventStream stream = imeSession.openEventStream();
+
+            // Verify if InputMethodService#isUiContext returns true in #onCreate
+            assertTrue(expectEvent(stream, verificationMatcher("isUiContext"),
+                    CHECK_EXIT_EVENT_ONLY, TIMEOUT).getReturnBooleanValue());
+            createTestActivity(SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+
+            expectEvent(stream, event -> "onStartInput".equals(event.getEventName()), TIMEOUT);
+            // Verify if InputMethodService#isUiContext returns true
+            assertTrue(expectCommand(stream, imeSession.callVerifyIsUiContext(), TIMEOUT)
+                    .getReturnBooleanValue());
+        }
+    }
+
+    @Test
+    public void testNoConfigurationChangedOnStartInput() throws Exception {
+        try (MockImeSession imeSession = MockImeSession.create(
+                mInstrumentation.getContext(), mInstrumentation.getUiAutomation(),
+                new ImeSettings.Builder())) {
+            final ImeEventStream stream = imeSession.openEventStream();
+
+            createTestActivity(SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+
+            final ImeEventStream forkedStream = stream.copy();
+            expectEvent(stream, event -> "onStartInput".equals(event.getEventName()), TIMEOUT);
+            // Verify if InputMethodService#isUiContext returns true
+            notExpectEvent(forkedStream, event -> "onConfigurationChanged".equals(
+                    event.getEventName()), EXPECTED_TIMEOUT);
         }
     }
 

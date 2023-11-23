@@ -1229,6 +1229,9 @@ class CodecDecoderTestBase extends CodecTestBase {
             mOutputBuff.saveInPTS(info.presentationTimeUs);
             mInputCount++;
         }
+        if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+            mSawInputEOS = true;
+        }
     }
 
     void dequeueOutput(int bufferIndex, MediaCodec.BufferInfo info) {

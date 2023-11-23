@@ -154,7 +154,7 @@ public class RecyclerMixin implements Mixin {
       int dividerInsetEnd =
           a.getDimensionPixelSize(R.styleable.SudRecyclerMixin_sudDividerInsetEnd, 0);
 
-      if (PartnerStyleHelper.shouldApplyPartnerHeavyThemeResource(templateLayout)) {
+      if (PartnerStyleHelper.shouldApplyPartnerResource(templateLayout)) {
         if (PartnerConfigHelper.get(context)
             .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_START)) {
           dividerInsetStart =
@@ -267,6 +267,11 @@ public class RecyclerMixin implements Mixin {
   /** @return The number of pixels inset on the end side of the divider. */
   public int getDividerInsetEnd() {
     return dividerInsetEnd;
+  }
+
+  /** Remove the divider inset from this RecyclerView. */
+  public void removeDividerInset() {
+    recyclerView.removeItemDecoration(dividerDecoration);
   }
 
   private void updateDivider() {

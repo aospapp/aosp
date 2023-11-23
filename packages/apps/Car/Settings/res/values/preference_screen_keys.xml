@@ -38,13 +38,18 @@
     <string name="psk_choose_account" translatable="false">choose_account_screen</string>
     <string name="psk_choose_lock_type" translatable="false">choose_lock_type_screen</string>
     <string name="psk_choose_new_admin" translatable="false">choose_new_admin_screen</string>
-    <string name="psk_data_usage" translatable="false">data_usage_screen</string>
+    <string name="psk_data_usage_set_threshold" translatable="false">data_usage_set_threshold_screen</string>
     <string name="psk_data_warning_and_limit" translatable="false">data_warning_and_limit_screen</string>
     <string name="psk_datetime_settings" translatable="false">datetime_settings_screen</string>
     <string name="psk_default_autofill_picker" translatable="false">default_autofill_picker_screen</string>
     <string name="psk_default_voice_input_picker" translatable="false">default_voice_input_picker_screen</string>
     <string name="psk_developer_options" translatable="false">developer_options_screen</string>
     <string name="psk_device_admin_add" translatable="false">device_admin_add_screen</string>
+    <string name="psk_device_admin_apps" translatable="false">device_admin_apps_screen</string>
+    <string name="psk_enterprise_privacy_device_access_category" translatable="false">enterprise_privacy_device_access_category</string>
+    <string name="psk_enterprise_privacy_exposure_category" translatable="false">enterprise_privacy_exposure_category</string>
+    <string name="psk_enterprise_privacy_exposure_changes_category" translatable="false">enterprise_privacy_exposure_changes_category</string>
+    <string name="psk_enterprise_privacy_settings" translatable="false">enterprise_privacy_settings</string>
     <string name="psk_display_settings" translatable="false">display_settings_screen</string>
     <string name="psk_hardware_info" translatable="false">hardware_info_screen</string>
     <string name="psk_homepage" translatable="false">homepage_screen</string>
@@ -55,6 +60,9 @@
     <string name="psk_legal_information" translatable="false">legal_information_screen</string>
     <string name="psk_location_recent_requests" translatable="false">location_recent_requests_screen</string>
     <string name="psk_location_settings" translatable="false">location_settings_screen</string>
+    <string name="psk_adas_settings" translatable="false">adas_settings_screen</string>
+    <string name="psk_microphone_recent_requests" translatable="false">microphone_recent_requests_screen</string>
+    <string name="psk_microphone_settings" translatable="false">microphone_settings_screen</string>
     <string name="psk_assistant_and_voice_settings" translatable="false">assistant_and_voice_settings</string>
     <string name="psk_manage_domain_urls" translatable="false">manage_domain_urls_screen</string>
     <string name="psk_factory_reset_confirm" translatable="false">factory_reset_confirm_screen</string>
@@ -73,6 +81,7 @@
     <string name="psk_reset_network_confirm" translatable="false">reset_network_confirm_screen</string>
     <string name="psk_reset_network" translatable="false">reset_network_screen</string>
     <string name="psk_reset_options" translatable="false">reset_options_screen</string>
+    <string name="psk_app_specific_data_usage" translatable="false">app_specific_data_usage</string>
     <string name="psk_security_settings" translatable="false">security_settings_screen</string>
     <string name="psk_sound_ringtone_picker" translatable="false">sound_ringtone_picker_screen</string>
     <string name="psk_sound_settings" translatable="false">sound_settings_screen</string>
@@ -93,4 +102,6 @@
     <string name="psk_wifi_list" translatable="false">wifi_list_screen</string>
     <string name="psk_wifi_preferences" translatable="false">wifi_preferences_screen</string>
     <string name="psk_wifi_tether" translatable="false">wifi_tether_screen</string>
+    <string name="psk_accessibility_settings" translatable="false">accessibility_settings_screen</string>
+    <string name="psk_captions_settings" translatable="false">captions_settings_screen</string>
 </resources>

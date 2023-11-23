@@ -3,12 +3,13 @@
 // found in the LICENSE file.
 
 use std::io::Write;
+use std::os::unix::net::UnixStream;
+use std::path::Path;
 
 use base::{AsRawDescriptor, Event};
 use vm_memory::GuestMemory;
 use vmm_vhost::vhost_user::message::{
     VhostUserConfigFlags, VhostUserProtocolFeatures, VhostUserVirtioFeatures,
-    VHOST_USER_CONFIG_OFFSET,
 };
 use vmm_vhost::vhost_user::{Master, VhostUserMaster};
 use vmm_vhost::{VhostBackend, VhostUserMemoryRegionInfo, VringConfigData};
@@ -30,8 +31,42 @@ pub struct VhostUserHandler {
 }
 
 impl VhostUserHandler {
+    /// Creates a `VhostUserHandler` instance attached to the provided UDS path
+    /// with features and protocol features initialized.
+    pub fn new_from_path<P: AsRef<Path>>(
+        path: P,
+        max_queue_num: u64,
+        allow_features: u64,
+        init_features: u64,
+        allow_protocol_features: VhostUserProtocolFeatures,
+    ) -> Result<Self> {
+        Self::new(
+            Master::connect(path, max_queue_num).map_err(Error::SocketConnectOnMasterCreate)?,
+            allow_features,
+            init_features,
+            allow_protocol_features,
+        )
+    }
+
+    /// Creates a `VhostUserHandler` instance attached to the provided
+    /// UnixStream with features and protocol features initialized.
+    pub fn new_from_stream(
+        sock: UnixStream,
+        max_queue_num: u64,
+        allow_features: u64,
+        init_features: u64,
+        allow_protocol_features: VhostUserProtocolFeatures,
+    ) -> Result<Self> {
+        Self::new(
+            Master::from_stream(sock, max_queue_num),
+            allow_features,
+            init_features,
+            allow_protocol_features,
+        )
+    }
+
     /// Creates a `VhostUserHandler` instance with features and protocol features initialized.
-    pub fn new(
+    fn new(
         mut vu: Master,
         allow_features: u64,
         init_features: u64,
@@ -100,12 +135,7 @@ impl VhostUserHandler {
         let buf = vec![0u8; config_len as usize];
         let (_, config) = self
             .vu
-            .get_config(
-                VHOST_USER_CONFIG_OFFSET,
-                config_len as u32,
-                VhostUserConfigFlags::WRITABLE,
-                &buf,
-            )
+            .get_config(0, config_len as u32, VhostUserConfigFlags::WRITABLE, &buf)
             .map_err(Error::GetConfig)?;
 
         data.write_all(
@@ -114,7 +144,8 @@ impl VhostUserHandler {
         .map_err(Error::CopyConfig)
     }
 
-    fn set_mem_table(&mut self, mem: &GuestMemory) -> Result<()> {
+    /// Sets the memory map regions so it can translate the vring addresses.
+    pub fn set_mem_table(&mut self, mem: &GuestMemory) -> Result<()> {
         let mut regions: Vec<VhostUserMemoryRegionInfo> = Vec::new();
         mem.with_regions::<_, ()>(
             |_idx, guest_phys_addr, memory_size, userspace_addr, mmap, mmap_offset| {
@@ -138,13 +169,14 @@ impl VhostUserHandler {
         Ok(())
     }
 
-    fn activate_vring(
+    /// Activates a vring for the given `queue`.
+    pub fn activate_vring(
         &mut self,
         mem: &GuestMemory,
         queue_index: usize,
         queue: &Queue,
         queue_evt: &Event,
-        interrupt: &Interrupt,
+        irqfd: &Event,
     ) -> Result<()> {
         self.vu
             .set_vring_num(queue_index, queue.actual_size())
@@ -173,18 +205,9 @@ impl VhostUserHandler {
             .set_vring_base(queue_index, 0)
             .map_err(Error::SetVringBase)?;
 
-        let msix_config_opt = interrupt
-            .get_msix_config()
-            .as_ref()
-            .ok_or(Error::MsixConfigUnavailable)?;
-        let msix_config = msix_config_opt.lock();
-        let irqfd = msix_config
-            .get_irqfd(queue.vector as usize)
-            .ok_or(Error::MsixIrqfdUnavailable)?;
         self.vu
             .set_vring_call(queue_index, &irqfd.0)
             .map_err(Error::SetVringCall)?;
-
         self.vu
             .set_vring_kick(queue_index, &queue_evt.0)
             .map_err(Error::SetVringKick)?;
@@ -205,9 +228,18 @@ impl VhostUserHandler {
     ) -> Result<()> {
         self.set_mem_table(&mem)?;
 
+        let msix_config_opt = interrupt
+            .get_msix_config()
+            .as_ref()
+            .ok_or(Error::MsixConfigUnavailable)?;
+        let msix_config = msix_config_opt.lock();
+
         for (queue_index, queue) in queues.iter().enumerate() {
             let queue_evt = &queue_evts[queue_index];
-            self.activate_vring(&mem, queue_index, queue, queue_evt, &interrupt)?;
+            let irqfd = msix_config
+                .get_irqfd(queue.vector as usize)
+                .unwrap_or_else(|| interrupt.get_interrupt_evt());
+            self.activate_vring(&mem, queue_index, queue, queue_evt, &irqfd)?;
         }
 
         Ok(())

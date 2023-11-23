@@ -1,0 +1,17 @@
+type chre, domain;
+type chre_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(chre)
+
+# Permit communication with AoC
+allow chre aoc_device:chr_file rw_file_perms;
+
+# Allow CHRE to determine AoC's current clock
+allow chre sysfs_aoc:dir search;
+allow chre sysfs_aoc_boottime:file r_file_perms;
+
+# Allow CHRE to create thread to watch AOC's device
+allow chre device:dir r_dir_perms;
+
+# Allow CHRE to use the USF low latency transport
+usf_low_latency_transport(chre)
+

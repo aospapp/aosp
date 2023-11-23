@@ -90,7 +90,13 @@ std::vector<std::string> BootconfigArgsFromConfig(
 
   bootconfig_args.push_back(
       concat("androidboot.serialno=", instance.serial_number()));
-  bootconfig_args.push_back(concat("androidboot.lcd_density=", config.dpi()));
+
+  // TODO(b/131884992): update to specify multiple once supported.
+  const auto display_configs = config.display_configs();
+  CHECK_GE(display_configs.size(), 1);
+  bootconfig_args.push_back(
+      concat("androidboot.lcd_density=", display_configs[0].dpi));
+
   bootconfig_args.push_back(
       concat("androidboot.setupwizard_mode=", config.setupwizard_mode()));
   if (!config.guest_enforce_security()) {
@@ -141,6 +147,13 @@ std::vector<std::string> BootconfigArgsFromConfig(
   if (instance.frames_server_port()) {
     bootconfig_args.push_back(concat("androidboot.vsock_frames_port=",
                                      instance.frames_server_port()));
+  }
+
+  if (instance.camera_server_port()) {
+    bootconfig_args.push_back(concat("androidboot.vsock_camera_port=",
+                                     instance.camera_server_port()));
+    bootconfig_args.push_back(
+        concat("androidboot.vsock_camera_cid=", instance.vsock_guest_cid()));
   }
 
   if (config.enable_modem_simulator() &&

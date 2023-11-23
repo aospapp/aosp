@@ -29,11 +29,28 @@
 #include "chre/util/time.h"
 #include "chre_cross_validation_sensor.nanopb.h"
 
-#define LOG_TAG "ChreCrossValidator"
+#define LOG_TAG "[ChreCrossValidator]"
 
 namespace chre {
 
 namespace cross_validator_sensor {
+
+namespace {
+
+bool decodeSensorName(pb_istream_t *stream, const pb_field_s *field,
+                      void **arg) {
+  unsigned char *name = static_cast<unsigned char *>(*arg);
+
+  if (stream->bytes_left > kMaxSensorNameSize - 1) return false;
+
+  size_t bytesToCopy = stream->bytes_left;
+  if (!pb_read(stream, name, stream->bytes_left)) return false;
+  name[bytesToCopy] = '\0';
+
+  return true;
+}
+
+}  // namespace
 
 Manager::~Manager() {
   cleanup();
@@ -97,6 +114,9 @@ void Manager::handleEvent(uint32_t senderInstanceId, uint16_t eventType,
     case CHRE_EVENT_SENSOR_STEP_COUNTER_DATA:
       handleStepCounterData(
           static_cast<const chreSensorUint64Data *>(eventData));
+      break;
+    case CHRE_EVENT_SENSOR_SAMPLING_CHANGE:
+      // Ignore sampling state changes
       break;
     default:
       LOGE("Got unknown event type from senderInstanceId %" PRIu32
@@ -312,11 +332,17 @@ bool Manager::handleStartSensorMessage(
   uint64_t latencyInNs =
       startSensorCommand.latencyInMs * kOneMillisecondInNanoseconds;
   bool isContinuous = startSensorCommand.isContinuous;
+  uint32_t sensorIndex = startSensorCommand.sensorIndex;
+
   uint32_t handle;
-  if (!chreSensorFindDefault(sensorType, &handle)) {
-    LOGE("Could not find default sensor for sensorType %" PRIu8, sensorType);
+  if (!getSensor(sensorType, sensorIndex, &handle)) {
+    LOGE("Could not find default sensor for sensorType %" PRIu8
+         " index %" PRIu32,
+         sensorType, sensorIndex);
     // TODO(b/146052784): Test other sensor configure modes
   } else {
+    LOGI("Starting x-validation for sensor type %" PRIu8 " index %" PRIu32,
+         sensorType, sensorIndex);
     chreSensorInfo sensorInfo;
     if (!chreGetSensorInfo(handle, &sensorInfo)) {
       LOGE("Error getting sensor info for sensor");
@@ -391,6 +417,10 @@ void Manager::handleInfoMessage(uint16_t hostEndpoint,
       static_cast<const pb_byte_t *>(hostData->message), hostData->messageSize);
   chre_cross_validation_sensor_SensorInfoCommand infoCommand =
       chre_cross_validation_sensor_SensorInfoCommand_init_default;
+
+  infoCommand.sensorName.funcs.decode = decodeSensorName;
+  infoCommand.sensorName.arg = mSensorNameArray;
+
   if (!pb_decode(&istream,
                  chre_cross_validation_sensor_SensorInfoCommand_fields,
                  &infoCommand)) {
@@ -400,8 +430,31 @@ void Manager::handleInfoMessage(uint16_t hostEndpoint,
     infoResponse.has_chreSensorType = true;
     infoResponse.chreSensorType = infoCommand.chreSensorType;
     infoResponse.has_isAvailable = true;
-    infoResponse.isAvailable =
-        chreSensorFindDefault(infoResponse.chreSensorType, &handle);
+    infoResponse.isAvailable = false;
+    infoResponse.has_sensorIndex = false;
+
+    bool supportsMultiSensors =
+        chreSensorFind(infoCommand.chreSensorType, 1, &handle);
+    for (uint8_t i = 0; chreSensorFind(infoCommand.chreSensorType, i, &handle);
+         i++) {
+      struct chreSensorInfo info;
+      if (!chreGetSensorInfo(handle, &info)) {
+        LOGE("Failed to get sensor info");
+      } else {
+        bool equal = true;
+        if (supportsMultiSensors) {
+          equal = (strcmp(info.sensorName, mSensorNameArray) == 0);
+          LOGI("Got sensor name %s in-name %s, equal %d", info.sensorName,
+               mSensorNameArray, equal);
+        }
+        if (equal) {
+          infoResponse.isAvailable = true;
+          infoResponse.has_sensorIndex = true;
+          infoResponse.sensorIndex = i;
+          break;
+        }
+      }
+    }
   }
 
   sendInfoResponse(hostEndpoint, infoResponse);
@@ -607,6 +660,22 @@ bool Manager::processSensorData(const chreSensorDataHeader &header,
 
 bool Manager::sensorTypeIsValid(uint8_t sensorType) {
   return sensorType == mCrossValidatorState->sensorType;
+}
+
+bool Manager::getSensor(uint32_t sensorType, uint32_t sensorIndex,
+                        uint32_t *handle) {
+  bool success = false;
+
+  bool supportsMultiSensor = (chreGetApiVersion() >= CHRE_API_VERSION_1_5);
+  if (sensorIndex > UINT8_MAX) {
+    LOGE("CHRE only supports max of 255 sensor indices");
+  } else if (!supportsMultiSensor && sensorIndex != 0) {
+    LOGW("CHRE API does not support multi-sensors");
+  } else {
+    success = chreSensorFind(sensorType, sensorIndex, handle);
+  }
+
+  return success;
 }
 
 }  // namespace cross_validator_sensor

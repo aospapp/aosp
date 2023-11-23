@@ -25,7 +25,6 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
-import android.telephony.TelephonyManager;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.TwoStatePreference;
@@ -33,14 +32,13 @@ import androidx.preference.TwoStatePreference;
 import com.android.car.settings.R;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
-import com.android.car.settings.common.PreferenceController;
 
 /**
  * Business logic to control the toggle that enables/disables usage of mobile data. Does not have
  * support for multi-sim.
  */
 public class MobileDataTogglePreferenceController extends
-        PreferenceController<TwoStatePreference> implements
+        NetworkBasePreferenceController<TwoStatePreference> implements
         MobileNetworkUpdateManager.MobileNetworkUpdateListener {
 
     @VisibleForTesting
@@ -50,8 +48,6 @@ public class MobileDataTogglePreferenceController extends
             ConfirmationDialogFragment.TAG + "_EnableMultisim";
 
     private final SubscriptionManager mSubscriptionManager;
-    private TelephonyManager mTelephonyManager;
-    private int mSubId;
 
     private final ContentObserver mMobileDataChangeObserver = new ContentObserver(
             new Handler(Looper.getMainLooper())) {
@@ -73,8 +69,16 @@ public class MobileDataTogglePreferenceController extends
 
     public MobileDataTogglePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                context.getSystemService(SubscriptionManager.class));
+    }
+
+    @VisibleForTesting
+    MobileDataTogglePreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            SubscriptionManager subscriptionManager) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mSubscriptionManager = getContext().getSystemService(SubscriptionManager.class);
+        mSubscriptionManager = subscriptionManager;
     }
 
     @Override
@@ -82,15 +86,9 @@ public class MobileDataTogglePreferenceController extends
         return TwoStatePreference.class;
     }
 
-    /** Sets the subscription id to be controlled by this controller. */
-    public void setSubId(int subId) {
-        mSubId = subId;
-        mTelephonyManager = TelephonyManager.from(getContext()).createForSubscriptionId(mSubId);
-    }
-
     @Override
     protected int getAvailabilityStatus() {
-        return mSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID ? AVAILABLE
+        return getSubId() != SubscriptionManager.INVALID_SUBSCRIPTION_ID ? AVAILABLE
                 : CONDITIONALLY_UNAVAILABLE;
     }
 
@@ -113,15 +111,15 @@ public class MobileDataTogglePreferenceController extends
 
     @Override
     protected void onStartInternal() {
-        if (mSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
-            getContext().getContentResolver().registerContentObserver(getObservableUri(mSubId),
+        if (getSubId() != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            getContext().getContentResolver().registerContentObserver(getObservableUri(getSubId()),
                     /* notifyForDescendants= */ false, mMobileDataChangeObserver);
         }
     }
 
     @Override
     protected void onStopInternal() {
-        if (mSubId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+        if (getSubId() != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
             getContext().getContentResolver().unregisterContentObserver(mMobileDataChangeObserver);
         }
     }
@@ -130,16 +128,16 @@ public class MobileDataTogglePreferenceController extends
     protected void updateState(TwoStatePreference preference) {
         preference.setEnabled(!isOpportunistic());
         preference.setChecked(
-                mTelephonyManager != null ? mTelephonyManager.isDataEnabled() : false);
+                getTelephonyManager() != null ? getTelephonyManager().isDataEnabled() : false);
     }
 
     @Override
     protected boolean handlePreferenceChanged(TwoStatePreference preference, Object newValue) {
         boolean newToggleValue = (boolean) newValue;
-        boolean isMultiSim = (mTelephonyManager.getSimCount() > 1);
-        int defaultSubId = mSubscriptionManager.getDefaultDataSubscriptionId();
+        boolean isMultiSim = (getTelephonyManager().getSimCount() > 1);
+        int defaultSubId = SubscriptionManager.getDefaultDataSubscriptionId();
         boolean needToDisableOthers = mSubscriptionManager.isActiveSubscriptionId(defaultSubId)
-                && mSubId != defaultSubId;
+                && getSubId() != defaultSubId;
 
         if (!newToggleValue && !isMultiSim) {
             getFragmentController().showDialog(getConfirmDataDisableDialog(), DISABLE_DIALOG_TAG);
@@ -154,23 +152,24 @@ public class MobileDataTogglePreferenceController extends
 
     @Override
     public void onMobileNetworkUpdated(int subId) {
-        setSubId(subId);
+        setFields(subId);
         refreshUi();
     }
 
     private void setMobileDataEnabled(boolean enabled, boolean disableOtherSubscriptions) {
-        NetworkUtils.setMobileDataEnabled(getContext(), mSubId, enabled, disableOtherSubscriptions);
+        NetworkUtils.setMobileDataEnabled(getContext(), getSubId(), enabled,
+                disableOtherSubscriptions);
         refreshUi();
     }
 
     private boolean isOpportunistic() {
-        SubscriptionInfo info = mSubscriptionManager.getActiveSubscriptionInfo(mSubId);
+        SubscriptionInfo info = mSubscriptionManager.getActiveSubscriptionInfo(getSubId());
         return info != null && info.isOpportunistic();
     }
 
     private Uri getObservableUri(int subId) {
         Uri uri = Settings.Global.getUriFor(Settings.Global.MOBILE_DATA);
-        if (TelephonyManager.from(getContext()).getSimCount() != 1) {
+        if (getTelephonyManager().getSimCount() != 1) {
             uri = Settings.Global.getUriFor(Settings.Global.MOBILE_DATA + subId);
         }
         return uri;
@@ -188,7 +187,7 @@ public class MobileDataTogglePreferenceController extends
         SubscriptionInfo previousSubInfo =
                 mSubscriptionManager.getDefaultDataSubscriptionInfo();
         SubscriptionInfo newSubInfo =
-                mSubscriptionManager.getActiveSubscriptionInfo(mSubId);
+                mSubscriptionManager.getActiveSubscriptionInfo(getSubId());
 
         String previousName = (previousSubInfo == null)
                 ? getContext().getResources().getString(R.string.sim_selection_required_pref)

@@ -18,24 +18,27 @@ package com.android.car.settings.system;
 
 import static android.os.UserManager.DISALLOW_NETWORK_RESET;
 
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
+
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.os.UserManager;
+import android.widget.Toast;
 
 import androidx.preference.Preference;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 
 /** Controller which determines if network reset should be displayed based on user status. */
 public class ResetNetworkEntryPreferenceController extends PreferenceController<Preference> {
 
-    private final UserManager mUserManager;
-
     public ResetNetworkEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mUserManager = UserManager.get(context);
     }
 
     @Override
@@ -44,12 +47,41 @@ public class ResetNetworkEntryPreferenceController extends PreferenceController<
     }
 
     @Override
-    public int getAvailabilityStatus() {
-        return isUserRestricted() ? DISABLED_FOR_PROFILE : AVAILABLE;
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> {
+            if (hasUserRestrictionByDpm(getContext(), DISALLOW_NETWORK_RESET)) {
+                showActionDisabledByAdminDialog();
+            } else {
+                // Currently, there is no use case when AVAILABLE_FOR_VIEWING other than restricted
+                // by DPM
+                Toast.makeText(getContext(), getContext().getString(R.string.action_unavailable),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
-    private boolean isUserRestricted() {
-        return !mUserManager.isAdminUser()
-                || mUserManager.hasUserRestriction(DISALLOW_NETWORK_RESET);
+    @Override
+    public int getAvailabilityStatus() {
+        if (!isAlwaysAvailableForUser()
+                || hasUserRestrictionByUm(getContext(), DISALLOW_NETWORK_RESET)) {
+            return DISABLED_FOR_PROFILE;
+        }
+
+        if (hasUserRestrictionByDpm(getContext(), DISALLOW_NETWORK_RESET)) {
+            return AVAILABLE_FOR_VIEWING;
+        }
+        return AVAILABLE;
+    }
+
+    private boolean isAlwaysAvailableForUser() {
+        return EnterpriseUtils.isAdminUser(getContext());
+    }
+
+    private void showActionDisabledByAdminDialog() {
+        getFragmentController().showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(getContext(),
+                        DISALLOW_NETWORK_RESET),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
     }
 }

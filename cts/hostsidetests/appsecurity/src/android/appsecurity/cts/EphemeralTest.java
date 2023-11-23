@@ -406,7 +406,7 @@ public class EphemeralTest extends BaseAppSecurityTest {
             return;
         }
         // Make sure the test package does not have INSTANT_APP_FOREGROUND_SERVICE
-        getDevice().executeShellCommand("cmd package revoke " + EPHEMERAL_1_PKG
+        getDevice().executeShellCommand("cmd package revoke --user cur " + EPHEMERAL_1_PKG
                 + " android.permission.INSTANT_APP_FOREGROUND_SERVICE");
         Utils.runDeviceTestsAsCurrentUser(getDevice(), EPHEMERAL_1_PKG, TEST_CLASS,
                 "testStartForegroundService");

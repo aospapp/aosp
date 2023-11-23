@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
+import static android.os.UserHandle.myUserId;
+
 import static com.android.cts.verifier.managedprovisioning.Utils.createInteractiveTestItem;
 
 import android.app.Activity;
@@ -24,8 +26,9 @@ import android.app.admin.DevicePolicyManager;
 import android.content.Intent;
 import android.database.DataSetObserver;
 import android.os.Bundle;
+import android.os.UserManager;
+import android.util.Log;
 import android.view.View;
-import android.view.View.OnClickListener;
 
 import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
 import com.android.cts.verifier.ArrayTestListAdapter;
@@ -46,11 +49,20 @@ public class DeviceOwnerRequestingBugreportTestActivity extends PassFailButtons.
     private static final String TAG = "DeviceOwnerRequestingBugreportTestActivity";
 
     private static final String ACTION_CHECK_DEVICE_OWNER_FOR_REQUESTING_BUGREPORT =
-            "com.android.cts.verifier.managedprovisioning.action" +
-            ".CHECK_DEVICE_OWNER_FOR_REQUESTING_BUGREPORT";
+            "com.android.cts.verifier.managedprovisioning.action"
+                    + ".CHECK_DEVICE_OWNER_FOR_REQUESTING_BUGREPORT";
+    private static final String ACTION_CHECK_PROFILE_OWNER_FOR_REQUESTING_BUGREPORT =
+            "com.android.cts.verifier.managedprovisioning.action"
+                    + ".CHECK_PROFILE_OWNER_FOR_REQUESTING_BUGREPORT";
+    private static final String ACTION_CHECK_CURRENT_USER_AFFILIATED_FOR_REQUESTING_BUGREPORT =
+            "com.android.cts.verifier.managedprovisioning.action"
+                    + ".CHECK_CURRENT_USER_AFFILIATED_FOR_REQUESTING_BUGREPORT";
+
     static final String EXTRA_TEST_ID = "extra-test-id";
 
     private static final String CHECK_DEVICE_OWNER_TEST_ID = "CHECK_DEVICE_OWNER";
+    private static final String CHECK_PROFILE_OWNER_TEST_ID = "CHECK_PROFILE_OWNER";
+    private static final String CHECK_USER_AFFILIATED_TEST_ID = "CHECK_USER_AFFILIATED";
     private static final String DEVICE_ADMIN_SETTINGS_ID = "DEVICE_ADMIN_SETTINGS";
     private static final String BUGREPORT_SHARING_DECLINED_WHILE_BEING_TAKEN =
             "BUGREPORT_SHARING_DECLINED_WHILE_RUNNING";
@@ -65,18 +77,58 @@ public class DeviceOwnerRequestingBugreportTestActivity extends PassFailButtons.
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (ACTION_CHECK_DEVICE_OWNER_FOR_REQUESTING_BUGREPORT.equals(getIntent().getAction())) {
-            DevicePolicyManager dpm = TestAppSystemServiceFactory.getDevicePolicyManager(this,
-                    DeviceAdminTestReceiver.class);
-            if (dpm.isDeviceOwnerApp(getPackageName())) {
-                TestResult.setPassedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
-                        null, null);
-            } else {
-                TestResult.setFailedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
-                        getString(R.string.device_owner_incorrect_device_owner), null);
+
+        String action = getIntent().getAction();
+        Log.d(TAG, "onCreate(): action = " + action);
+        boolean validAction = true;
+        if (action != null) {
+            DevicePolicyManager dpm = null;
+            switch (action) {
+                case ACTION_CHECK_DEVICE_OWNER_FOR_REQUESTING_BUGREPORT:
+                    dpm = TestAppSystemServiceFactory.getDevicePolicyManager(this,
+                            DeviceAdminTestReceiver.class, /* forDeviceOwner= */ true);
+                    if (dpm.isDeviceOwnerApp(getPackageName())) {
+                        TestResult.setPassedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
+                                null, null);
+                    } else {
+                        TestResult.setFailedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
+                                getString(R.string.device_owner_incorrect_device_owner, myUserId()),
+                                null);
+                    }
+                    break;
+                case ACTION_CHECK_PROFILE_OWNER_FOR_REQUESTING_BUGREPORT:
+                    dpm = getSystemService(DevicePolicyManager.class);
+                    if (dpm.isProfileOwnerApp(getPackageName())) {
+                        TestResult.setPassedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
+                                null, null);
+                    } else {
+                        TestResult.setFailedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
+                                getString(R.string.device_owner_incorrect_profile_owner,
+                                        myUserId()),
+                                null);
+                    }
+                    break;
+                case ACTION_CHECK_CURRENT_USER_AFFILIATED_FOR_REQUESTING_BUGREPORT:
+                    dpm = getSystemService(DevicePolicyManager.class);
+                    if (dpm.isAffiliatedUser()) {
+                        TestResult.setPassedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
+                                null, null);
+                    } else {
+                        TestResult.setFailedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
+                                getString(R.string.device_owner_user_not_affiliated, myUserId()),
+                                null);
+                    }
+                    break;
+                default:
+                    Log.w(TAG, "invalid action on intent: " + action);
+                    validAction = false;
+                    break;
             }
-            finish();
-            return;
+            if (validAction) {
+                Log.d(TAG, "Finishing activity");
+                finish();
+                return;
+            }
         }
 
         // Tidy up in case previous run crashed.
@@ -103,28 +155,34 @@ public class DeviceOwnerRequestingBugreportTestActivity extends PassFailButtons.
         setTestListAdapter(adapter);
 
         View setDeviceOwnerButton = findViewById(R.id.set_device_owner_button);
-        setDeviceOwnerButton.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                new AlertDialog.Builder(
-                        DeviceOwnerRequestingBugreportTestActivity.this)
+        setDeviceOwnerButton.setOnClickListener((v) -> new AlertDialog.Builder(
+                DeviceOwnerRequestingBugreportTestActivity.this)
                         .setIcon(android.R.drawable.ic_dialog_info)
                         .setTitle(R.string.set_device_owner_dialog_title)
-                        .setMessage(R.string.set_device_owner_dialog_text)
+                        .setMessage(UserManager.isHeadlessSystemUserMode()
+                                ? R.string.set_device_owner_headless_dialog_text
+                                : R.string.set_device_owner_dialog_text)
                         .setPositiveButton(android.R.string.ok, null)
-                        .show();
-            }
-        });
+                        .show());
     }
 
     @Override
     public void finish() {
-        // If this activity was started for checking device owner status, then no need to do any
-        // tear down.
-        if (!ACTION_CHECK_DEVICE_OWNER_FOR_REQUESTING_BUGREPORT.equals(getIntent().getAction())) {
-            // Pass and fail buttons are known to call finish() when clicked,
-            // and this is when we want to remove the device owner.
-            startActivity(createTearDownIntent());
+        String action = getIntent().getAction();
+        switch(action != null ? action : "") {
+            case ACTION_CHECK_DEVICE_OWNER_FOR_REQUESTING_BUGREPORT:
+            case ACTION_CHECK_PROFILE_OWNER_FOR_REQUESTING_BUGREPORT:
+            case ACTION_CHECK_CURRENT_USER_AFFILIATED_FOR_REQUESTING_BUGREPORT:
+                // If this activity was started for checking device / profile owner status, then no
+                // need to do any tear down.
+                Log.d(TAG, "NOT starting createTearDownIntent() due to " + action);
+                break;
+            default:
+                // Pass and fail buttons are known to call finish() when clicked,
+                // and this is when we want to remove the device owner.
+                Log.d(TAG, "Starting createTearDownIntent() due to " + action);
+                startActivity(createTearDownIntent());
+                break;
         }
         super.finish();
     }
@@ -134,6 +192,16 @@ public class DeviceOwnerRequestingBugreportTestActivity extends PassFailButtons.
                 R.string.device_owner_check_device_owner_test,
                 new Intent(ACTION_CHECK_DEVICE_OWNER_FOR_REQUESTING_BUGREPORT)
                         .putExtra(EXTRA_TEST_ID, getIntent().getStringExtra(EXTRA_TEST_ID))));
+        if (UserManager.isHeadlessSystemUserMode()) {
+            adapter.add(createTestItem(this, CHECK_PROFILE_OWNER_TEST_ID,
+                    R.string.device_owner_check_profile_owner_test,
+                    new Intent(ACTION_CHECK_PROFILE_OWNER_FOR_REQUESTING_BUGREPORT)
+                            .putExtra(EXTRA_TEST_ID, getIntent().getStringExtra(EXTRA_TEST_ID))));
+            adapter.add(createTestItem(this, CHECK_USER_AFFILIATED_TEST_ID,
+                    R.string.device_owner_check_user_affiliation_test,
+                    new Intent(ACTION_CHECK_CURRENT_USER_AFFILIATED_FOR_REQUESTING_BUGREPORT)
+                            .putExtra(EXTRA_TEST_ID, getIntent().getStringExtra(EXTRA_TEST_ID))));
+        }
 
         // bugreport sharing declined while running test
         adapter.add(createInteractiveTestItem(this, BUGREPORT_SHARING_DECLINED_WHILE_BEING_TAKEN,

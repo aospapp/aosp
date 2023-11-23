@@ -16,11 +16,17 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.car.ui">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.android.car.ui">
+    <!-- This is set to 16, because this is the lowest supported version across all our clients.
+     We're setting this so we don't get lint errors for non-gradle builds. -->
+    <uses-sdk
+        android:minSdkVersion="16" />
     <queries>
-        <intent>
-            <action android:name="com.android.car.ui.intent.action.SHARED_LIBRARY"/>
-        </intent>
+      <provider
+          android:name="com.android.car.ui.plugin.PluginNameProvider"
+          android:authorities="com.android.car.ui.plugin"
+          tools:ignore="ExportedContentProvider,MissingClass" />
     </queries>
     <application>
         <provider

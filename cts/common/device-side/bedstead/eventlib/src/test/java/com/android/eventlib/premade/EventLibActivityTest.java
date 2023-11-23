@@ -52,8 +52,7 @@ public class EventLibActivityTest {
 
     private static final Instrumentation sInstrumentation =
             InstrumentationRegistry.getInstrumentation();
-    private static final TestApis sTestApis = new TestApis();
-    private static final Context sContext = sTestApis.context().instrumentedContext();
+    private static final Context sContext = TestApis.context().instrumentedContext();
 
     @Before
     public void setUp() {

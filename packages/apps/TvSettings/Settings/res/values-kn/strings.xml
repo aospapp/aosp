@@ -36,7 +36,7 @@
     <string name="header_category_general_settings" msgid="3897615781153506434">"ಸಾಮಾನ್ಯ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="dismiss_suggestion" msgid="6200814545590126814">"ಸಲಹೆಯನ್ನು ವಜಾಗೊಳಿಸಿ"</string>
     <string name="hotwording_title" msgid="2606899304616599026">"\"Ok Google\" ಪತ್ತೆಹಚ್ಚುವಿಕೆ"</string>
-    <string name="hotwording_summary" msgid="2170375928302175449">"ಯಾವುದೇ ಸಮಯದಲ್ಲಿ Google ಸಹಾಯಕರೊಂದಿಗೆ ಮಾತನಾಡಿ"</string>
+    <string name="hotwording_summary" msgid="2170375928302175449">"ಯಾವುದೇ ಸಮಯದಲ್ಲಿ Google Assistant ಜೊತೆಗೆ ಮಾತನಾಡಿ"</string>
     <string name="header_category_device" msgid="3023893663454705969">"ಸಾಧನ"</string>
     <string name="header_category_preferences" msgid="3738388885555798797">"ಪ್ರಾಶಸ್ತ್ಯಗಳು"</string>
     <string name="header_category_accessories" msgid="6479803330480847199">"ರಿಮೋಟ್ &amp; ಪರಿಕರಗಳು"</string>
@@ -895,7 +895,7 @@
     <string name="device_apps_app_management_uninstall" msgid="4171103696233332967">"ಅಸ್ಥಾಪಿಸು"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5647988075828648951">"ಅಪ್‌ಡೇಟ್‌ಗಳನ್ನು ಅನ್‌ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿ"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="4508586498292236706">"ಈ Android ಸಿಸ್ಟಂ ಅಪ್ಲಿಕೇಶನ್‌ಗೆ ಆಗಿರುವ ಎಲ್ಲ ಅಪ್‌ಡೇಟ್‌ಗಳನ್ನು ಅಸ್ಥಾಪಿಸಲಾಗುವುದು."</string>
-    <string name="device_apps_app_management_disable" msgid="819003297535493633">"ನಿಷ್ಕ್ರಿಯಗೊಳಿಸು"</string>
+    <string name="device_apps_app_management_disable" msgid="819003297535493633">"ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ"</string>
     <string name="device_apps_app_management_disable_desc" msgid="9143166267511427607">"ನೀವು ಈ ಅಪ್ಲಿಕೇಶನ್ ಅನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲು ಬಯಸುವಿರಾ?"</string>
     <string name="device_apps_app_management_enable" msgid="9173340340253029114">"ಸಕ್ರಿಯಗೊಳಿಸು"</string>
     <string name="device_apps_app_management_enable_desc" msgid="8686291003061136476">"ನೀವು ಈ ಅಪ್ಲಿಕೇಶನ್ ಅನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಲು ಬಯಸುವಿರಾ?"</string>

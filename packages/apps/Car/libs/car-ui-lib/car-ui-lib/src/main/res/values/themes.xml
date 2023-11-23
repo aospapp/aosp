@@ -21,6 +21,7 @@
         <!-- TODO(b/150230923) change to true when other apps are ready -->
         <item name="carUiBaseLayout">false</item>
         <item name="carUiToolbar">false</item>
+        <item name="carUiActivity">true</item>
 
         <!-- Attributes from: Base.V7.Theme.AppCompat -->
 
@@ -205,9 +206,6 @@
         <item name="listChoiceIndicatorMultipleAnimated">?android:attr/listChoiceIndicatorMultiple</item>
 
         <item name="preferenceTheme">@style/CarUiPreferenceTheme</item>
-
-        <!-- Used by CarUiRecyclerView -->
-        <item name="carUiRecyclerViewStyle">@style/Widget.CarUi.CarUiRecyclerView</item>
 
         <!-- textAppearance -->
         <item name="android:textAppearance">@style/TextAppearance.CarUi</item>

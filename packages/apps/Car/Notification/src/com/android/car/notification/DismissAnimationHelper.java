@@ -22,6 +22,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.IntDef;
 import android.content.Context;
+import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 import android.view.ViewPropertyAnimator;
@@ -33,6 +34,7 @@ import java.lang.annotation.Retention;
 /** A general animation tool kit to dismiss {@link CarNotificationBaseViewHolder} */
 class DismissAnimationHelper {
     private static final String TAG = "CarDismissHelper";
+    private static final boolean DEBUG = Build.IS_ENG || Build.IS_USERDEBUG;
     /**
      * The weight of how much swipe distance plays on the alpha value of the view.
      * A weight of 1F will make the view completely transparent if the swipe distance is larger
@@ -91,7 +93,7 @@ class DismissAnimationHelper {
             CarNotificationBaseViewHolder viewHolder,
             @Direction int swipeDirection,
             float velocityX) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
+        if (DEBUG) {
             Log.d(TAG, "animateDismiss direction=" + swipeDirection + " velocityX=" + velocityX);
         }
 
@@ -111,7 +113,7 @@ class DismissAnimationHelper {
 
     /** Animate the restore back of the given item back to it's initial state. */
     void animateRestore(CarNotificationBaseViewHolder viewHolder, float velocityX) {
-        if (Log.isLoggable(TAG, Log.DEBUG)) {
+        if (DEBUG) {
             Log.d(TAG, "animateRestore velocityX=" + velocityX);
         }
         viewHolder.setIsAnimating(true);

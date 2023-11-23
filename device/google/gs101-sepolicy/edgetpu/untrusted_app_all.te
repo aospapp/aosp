@@ -1,0 +1,7 @@
+# Allows applications to discover the EdgeTPU service.
+allow untrusted_app_all edgetpu_app_service:service_manager find;
+
+# Allows applications to access the EdgeTPU device, except open, which is guarded
+# by the EdgeTPU service.
+allow untrusted_app_all edgetpu_device:chr_file { getattr read write ioctl map };
+

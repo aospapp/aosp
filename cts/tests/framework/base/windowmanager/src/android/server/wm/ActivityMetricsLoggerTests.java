@@ -16,6 +16,7 @@
 
 package android.server.wm;
 
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.os.SystemClock.sleep;
 import static android.server.wm.ActivityLauncher.KEY_LAUNCH_ACTIVITY;
 import static android.server.wm.ActivityLauncher.KEY_TARGET_COMPONENT;
@@ -437,6 +438,7 @@ public class ActivityMetricsLoggerTests extends ActivityManagerTestBase {
         getLaunchActivityBuilder()
                 .setUseInstrumentation()
                 .setTargetActivity(activity)
+                .setWindowingMode(WINDOWING_MODE_FULLSCREEN)
                 .setWaitForLaunched(true)
                 .execute();
     }

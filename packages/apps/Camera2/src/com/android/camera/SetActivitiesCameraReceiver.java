@@ -38,8 +38,7 @@ public class SetActivitiesCameraReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         // Disable camera-related activities if there is no camera.
         int component_state = (CHECK_BACK_CAMERA_ONLY
-            ? hasBackCamera()
-            : (hasCamera() || supportExternalCamera(context)))
+            ? hasBackCamera(context) : hasCamera(context))
             ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
             : PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
 
@@ -50,29 +49,16 @@ public class SetActivitiesCameraReceiver extends BroadcastReceiver {
         }
     }
 
-    private boolean supportExternalCamera(Context context) {
+    private boolean hasCamera(Context context) {
         PackageManager pm = context.getPackageManager();
-        return pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_EXTERNAL);
+        return pm.hasSystemFeature(PackageManager.FEATURE_CAMERA)
+            || pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT)
+            || pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_EXTERNAL);
     }
 
-    private boolean hasCamera() {
-        int n = android.hardware.Camera.getNumberOfCameras();
-        Log.i(TAG, "number of camera: " + n);
-        return (n > 0);
-    }
-
-    private boolean hasBackCamera() {
-        int n = android.hardware.Camera.getNumberOfCameras();
-        CameraInfo info = new CameraInfo();
-        for (int i = 0; i < n; i++) {
-            android.hardware.Camera.getCameraInfo(i, info);
-            if (info.facing == CameraInfo.CAMERA_FACING_BACK) {
-                Log.i(TAG, "back camera found: " + i);
-                return true;
-            }
-        }
-        Log.i(TAG, "no back camera");
-        return false;
+    private boolean hasBackCamera(Context context) {
+        PackageManager pm = context.getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_CAMERA);
     }
 
     private void setComponent(Context context, String klass, final int enabledState) {

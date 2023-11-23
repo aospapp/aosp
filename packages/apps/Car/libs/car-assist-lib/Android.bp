@@ -29,6 +29,10 @@ android_library {
 
     sdk_version: "current",
 
+    min_sdk_version: "28",
+
+    target_sdk_version: "31",
+
     static_libs: [
         // ensure unbundled
         "car-messaging-models",

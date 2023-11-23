@@ -77,6 +77,8 @@ import java.util.stream.Collectors;
 
 import javax.security.auth.x500.X500Principal;
 
+import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+
 public class KeyChainActivity extends AppCompatActivity {
     private static final String TAG = "KeyChain";
 
@@ -128,6 +130,7 @@ public class KeyChainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedState) {
         super.onCreate(savedState);
         setContentView(R.layout.keychain_activity);
+        getWindow().addSystemFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
     }
 
     @Override public void onResume() {
@@ -552,6 +555,9 @@ public class KeyChainActivity extends AppCompatActivity {
                 finish(null);
             }
         });
+        dialog.create();
+        // Prevents screen overlay attack.
+        dialog.getButton(DialogInterface.BUTTON_POSITIVE).setFilterTouchesWhenObscured(true);
         dialog.show();
     }
 

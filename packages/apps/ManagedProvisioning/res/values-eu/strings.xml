@@ -78,7 +78,7 @@
     <string name="reset" msgid="6467204151306265796">"Berrezarri jatorrizko datuak"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Ezin da konfiguratu profila"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Ezin da konfiguratu gailua"</string>
-    <string name="something_went_wrong" msgid="3593223774041784329">"Arazoren bat izan da"</string>
+    <string name="something_went_wrong" msgid="3593223774041784329">"Arazo bat izan da"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Ezin izan da konfiguratu gailua. Laguntza lortzeko, jarri IKT saileko administratzailearekin harremanetan."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Laguntza lortzeko, jarri IKT saileko administratzailearekin harremanetan"</string>
     <string name="reset_device" msgid="5483853913241939262">"Berrezarri gailua eta saiatu berriro konfiguratzen"</string>

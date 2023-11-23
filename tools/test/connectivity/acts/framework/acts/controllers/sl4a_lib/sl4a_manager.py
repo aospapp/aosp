@@ -109,12 +109,12 @@ class Sl4aManager(object):
         self._listen_for_port_lock = threading.Lock()
         self._sl4a_ports = set()
         self.adb = adb
-        self.log = logger.create_logger(
-            lambda msg: '[SL4A Manager|%s] %s' % (adb.serial, msg))
+        self.log = logger.create_logger(lambda msg: '[SL4A Manager|%s] %s' % (
+            adb.serial, msg))
         self.sessions = {}
         self._started = False
-        self.error_reporter = error_reporter.ErrorReporter(
-            'SL4A %s' % adb.serial)
+        self.error_reporter = error_reporter.ErrorReporter('SL4A %s' %
+                                                           adb.serial)
 
     @property
     def sl4a_ports_in_use(self):
@@ -161,8 +161,8 @@ class Sl4aManager(object):
 
         raise rpc_client.Sl4aConnectionError(
             'Unable to find a valid open port for a new server connection. '
-            'Expected port: %s. Open ports: %s' % (device_port,
-                                                   self._sl4a_ports))
+            'Expected port: %s. Open ports: %s' %
+            (device_port, self._sl4a_ports))
 
     def _get_all_ports_command(self):
         """Returns the list of all ports from the command to get ports."""
@@ -203,9 +203,8 @@ class Sl4aManager(object):
     def is_sl4a_installed(self):
         """Returns True if SL4A is installed on the AndroidDevice."""
         return bool(
-            self.adb.shell(
-                'pm path com.googlecode\.android_scripting',
-                ignore_status=True))
+            self.adb.shell('pm path com.googlecode\.android_scripting',
+                           ignore_status=True))
 
     def start_sl4a_service(self):
         """Starts the SL4A Service on the device.
@@ -219,7 +218,8 @@ class Sl4aManager(object):
                 raise rpc_client.Sl4aNotInstalledError(
                     'SL4A is not installed on device %s' % self.adb.serial)
             if self.adb.shell(
-                    '(ps | grep "S com.googlecode.android_scripting") || true'):
+                    '(ps | grep "S com.googlecode.android_scripting") || true'
+            ):
                 # Close all SL4A servers not opened by this manager.
                 # TODO(markdr): revert back to closing all ports after
                 # b/76147680 is resolved.
@@ -244,6 +244,7 @@ class Sl4aManager(object):
     def create_session(self,
                        max_connections=None,
                        client_port=0,
+                       forwarded_port=0,
                        server_port=None):
         """Creates an SL4A server with the given ports if possible.
 
@@ -252,7 +253,9 @@ class Sl4aManager(object):
         be randomized.
 
         Args:
-            client_port: The port on the host machine
+            client_port: The client port on the host machine
+            forwarded_port: The server port on the host machine forwarded
+                            by adb from the Android device
             server_port: The port on the Android device.
             max_connections: The max number of client connections for the
                 session.
@@ -268,14 +271,17 @@ class Sl4aManager(object):
             # Otherwise, open a new server on a random port.
             else:
                 server_port = 0
+        self.log.debug(
+            "Creating SL4A session client_port={}, forwarded_port={}, server_port={}"
+            .format(client_port, forwarded_port, server_port))
         self.start_sl4a_service()
-        session = sl4a_session.Sl4aSession(
-            self.adb,
-            client_port,
-            server_port,
-            self.obtain_sl4a_server,
-            self.diagnose_failure,
-            max_connections=max_connections)
+        session = sl4a_session.Sl4aSession(self.adb,
+                                           client_port,
+                                           server_port,
+                                           self.obtain_sl4a_server,
+                                           self.diagnose_failure,
+                                           forwarded_port,
+                                           max_connections=max_connections)
         self.sessions[session.uid] = session
         return session
 

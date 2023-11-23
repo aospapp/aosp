@@ -34,7 +34,7 @@ tradefed_binary_host {
     wrapper: "etc/cts-tradefed",
     short_name: "CTS",
     full_name: "Compatibility Test Suite",
-    version: "12_r1",
+    version: "12.1_r1",
     static_libs: ["cts-tradefed-harness"],
     required: ["compatibility-host-util"],
 }

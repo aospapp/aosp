@@ -42,10 +42,6 @@
         the one bundled with selected Theme [CHAR LIMIT=35]-->
     <string name="keep_my_wallpaper">Keep current wallpaper</string>
 
-    <!-- Label for a button that allows the user to apply the currently selected customization option.
-        [CHAR LIMIT=20] -->
-    <string name="apply_btn">Apply</string>
-
     <!-- Content description of theme preview card. [CHAR_LIMIT=30]-->
     <string name="theme_preview_card_content_description">Style preview</string>
 
@@ -72,6 +68,9 @@
 
     <!-- Content description indicating that the selected option is currently being previewed. [CHAR_LIMIT=NONE] -->
     <string name="option_previewed_description"><xliff:g name="style_name">%1$s</xliff:g>, currently previewed</string>
+
+    <!-- Content description indicating that the focused option can be selected and previewed if clicked. [CHAR_LIMIT=NONE] -->
+    <string name="option_change_applied_previewed_description"><xliff:g name="style_name">%1$s</xliff:g>, change selected and previewed</string>
 
     <!-- Sample text used to show a preview of a selected font [CHAR LIMIT=3] -->
     <string name="theme_font_example" translatable="false">ABC</string>
@@ -237,6 +236,8 @@
     <!-- The title of mode section view. [CHAR_LIMIT=20] -->
     <string name="mode_title" msgid="1000319159005403986">Dark theme</string>
     <string name="mode_disabled_msg" msgid="1926077857799715086">Temporarily disabled due to Battery Saver</string>
+    <!-- The text for A11y announcement when theme changes. -->
+    <string name="mode_changed">Theme changed</string>
 
     <!-- Title of a section of the customization where the user can select color override for icon. [CHAR LIMIT=30] -->
     <string name="themed_icon_title" msgid="4305612684940220645">Themed icons</string>

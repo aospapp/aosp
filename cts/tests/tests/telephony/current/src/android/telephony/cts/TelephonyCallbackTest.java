@@ -1041,6 +1041,9 @@ public class TelephonyCallbackTest {
         // Test unregister
         unRegisterTelephonyCallback(mOnOutgoingSmsEmergencyNumberChanged == null,
                 mOutgoingEmergencySmsCallback);
+
+        // Disable suppressing blocking.
+        TelephonyUtils.endBlockSuppression(InstrumentationRegistry.getInstrumentation());
     }
 
     private ActiveDataSubscriptionIdListener mActiveDataSubscriptionIdCallback;

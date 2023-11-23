@@ -246,7 +246,7 @@
     <string name="system_keyboard_autofill" msgid="8530944165814838255">"কীবোর্ড ও আপনা-আপনি পূরণ করা"</string>
     <string name="system_autofill" msgid="6983989261108020046">"আপনা-আপনি পূরণ করুন"</string>
     <string name="system_home" msgid="2149349845791104094">"হোম স্ক্রিন"</string>
-    <string name="system_search" msgid="3170169128257586925">"Search"</string>
+    <string name="system_search" msgid="3170169128257586925">"সার্চ"</string>
     <string name="system_google" msgid="945985164023885276">"Google"</string>
     <string name="system_security" msgid="1012999639810957132">"নিরাপত্তা ও বিধিনিষেধ"</string>
     <string name="system_speech" msgid="8779582280374089518">"কথন"</string>
@@ -765,7 +765,7 @@
     <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"মুখ্য থ্রেডে অ্যাপ্লিকেশানগুলির দীর্ঘ অ্যাক্টিভিটির সময় স্ক্রিন ফ্ল্যাশ করুন"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="1594070211030991">"adb shell dumpsys gfxinfo এ রেন্ডারিং সময় পরিমাপ করুন"</string>
     <string name="security_unknown_sources_title" msgid="2012801664240314305">"অজানা উৎসগুলি"</string>
-    <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Play স্টোর ছাড়াও অন্য উৎস থেকে অ্যাপ্লিকেশন ইনস্টল করার অনুমতি দিন"</string>
+    <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Play Store ছাড়াও অন্য উৎস থেকে অ্যাপ্লিকেশন ইনস্টল করার অনুমতি দিন"</string>
     <string name="security_unknown_sources_confirm_title" msgid="4600896691987804985">"অজানা উৎসগুলিকে অনুমতি দিন"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7883820068140189584">"অজানা উৎসের অ্যাপ দ্বারা আপনার ডিভাইস এবং ব্যক্তিগত তথ্য আক্রান্ত হওয়ার সম্ভাবনা বেশি। আপনি সম্মত হচ্ছেন যে এই অ্যাপ ব্যবহারের ফলে আপনার ফোনের কোনও ক্ষতি হলে বা ডেটা হারিয়ে গেলে তার জন্য আপনিই দায়ী থাকবেন।"</string>
     <string name="system_hdcp_checking_never" msgid="3251512398865365135">"কখনো নয়"</string>

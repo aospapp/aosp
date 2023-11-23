@@ -297,7 +297,7 @@
     <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Account SIP deprecati trovati e rimossi"</string>
     <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Le chiamate SIP non sono più supportate dalla piattaforma Android.\nI tuoi account SIP esistenti (<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>) sono stati rimossi.\nConferma l\'impostazione del tuo account predefinito per le chiamate."</string>
     <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Vai alle impostazioni"</string>
-    <string name="data_usage_title" msgid="8438592133893837464">"Utilizzo dei dati delle app"</string>
+    <string name="data_usage_title" msgid="8438592133893837464">"Utilizzo dati delle app"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"Dati mobili usati: <xliff:g id="ID_1">%1$s</xliff:g> nel periodo <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Avanzate"</string>
     <string name="carrier_settings_euicc" msgid="1190237227261337749">"Operatore"</string>
@@ -638,12 +638,12 @@
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"Connessione dati disabilitata"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"Nessuna connessione dati fino alle ore <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
     <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
+      <item quantity="one">The phone will be in Emergency Callback mode for <xliff:g id="COUNT_1">%s</xliff:g> minutes. While in this mode no applications using a data connection can be used. Do you want to exit now?</item>
       <item quantity="other">Il telefono sarà in modalità Richiamata di emergenza per <xliff:g id="COUNT_1">%s</xliff:g> minuti. In questa modalità non è possibile utilizzare applicazioni che impiegano una connessione dati. Vuoi uscire ora?</item>
-      <item quantity="one">Il telefono sarà in modalità Richiamata di emergenza per <xliff:g id="COUNT_0">%s</xliff:g> minuto. In questa modalità non è possibile utilizzare app che impiegano una connessione dati. Vuoi uscire ora?</item>
     </plurals>
     <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
+      <item quantity="one">The selected action isn\'t available while in the Emergency Callback mode. The phone will be in this mode for <xliff:g id="COUNT_1">%s</xliff:g> minutes. Do you want to exit now?</item>
       <item quantity="other">L\'azione selezionata non è disponibile in modalità Richiamata di emergenza. Il telefono sarà in questa modalità per <xliff:g id="COUNT_1">%s</xliff:g> minuti. Vuoi uscire ora?</item>
-      <item quantity="one">L\'azione selezionata non è disponibile in modalità Richiamata di emergenza. Il telefono sarà in questa modalità per <xliff:g id="COUNT_0">%s</xliff:g> minuto. Vuoi uscire ora?</item>
     </plurals>
     <string name="alert_dialog_in_ecm_call" msgid="1207545603149771978">"L\'azione selezionata non è disponibile in modalità di chiamata di emergenza."</string>
     <string name="progress_dialog_exiting_ecm" msgid="9159080081676927217">"Uscita dalla modalità di richiamata di emergenza"</string>
@@ -653,8 +653,8 @@
     <string name="phone_in_ecm_call_notification_text_without_data_restriction_hint" msgid="3747860785153531225">"Il telefono è in modalità di richiamata di emergenza"</string>
     <string name="phone_in_ecm_notification_complete_time_without_data_restriction_hint" msgid="3690292264812050858">"Fino alle ore <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
     <plurals name="alert_dialog_exit_ecm_without_data_restriction_hint" formatted="false" msgid="6477733043040328640">
+      <item quantity="one">Il telefono sarà in modalità di richiamata di emergenza per <xliff:g id="COUNT_1">%s</xliff:g> minuti.\nVuoi uscire ora?</item>
       <item quantity="other">Il telefono sarà in modalità di richiamata di emergenza per <xliff:g id="COUNT_1">%s</xliff:g> minuti.\nVuoi uscire ora?</item>
-      <item quantity="one">Il telefono sarà in modalità di richiamata di emergenza per <xliff:g id="COUNT_0">%s</xliff:g> minuto.\nVuoi uscire ora?</item>
     </plurals>
     <string name="voicemail_provider" msgid="4158806657253745294">"Servizio"</string>
     <string name="voicemail_settings" msgid="4451045613238972776">"Configurazione"</string>

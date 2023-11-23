@@ -22,125 +22,30 @@
 #include <ui/GraphicBufferMapper.h>
 
 #include "bufferinfo/BufferInfoGetter.h"
-#include "drm/DrmGenericImporter.h"
+#include "drm/DrmFbImporter.h"
 #include "drmhwcomposer.h"
 
 #define UNUSED(x) (void)(x)
 
 namespace android {
 
-const hwc_drm_bo *DrmHwcBuffer::operator->() const {
-  if (importer_ == NULL) {
-    ALOGE("Access of non-existent BO");
-    exit(1);
-    return NULL;
-  }
-  return &bo_;
-}
+int DrmHwcLayer::ImportBuffer(DrmDevice *drmDevice) {
+  buffer_info = hwc_drm_bo_t{};
 
-void DrmHwcBuffer::Clear() {
-  if (importer_ != NULL) {
-    importer_->ReleaseBuffer(&bo_);
-    importer_ = NULL;
-  }
-}
-
-int DrmHwcBuffer::ImportBuffer(buffer_handle_t handle, Importer *importer) {
-  hwc_drm_bo tmp_bo{};
-
-  int ret = BufferInfoGetter::GetInstance()->ConvertBoInfo(handle, &tmp_bo);
+  int ret = BufferInfoGetter::GetInstance()->ConvertBoInfo(sf_handle,
+                                                           &buffer_info);
   if (ret) {
     ALOGE("Failed to convert buffer info %d", ret);
     return ret;
   }
 
-  ret = importer->ImportBuffer(&tmp_bo);
-  if (ret) {
-    ALOGE("Failed to import buffer %d", ret);
-    return ret;
+  FbIdHandle = drmDevice->GetDrmFbImporter().GetOrCreateFbId(&buffer_info);
+  if (!FbIdHandle) {
+    ALOGE("Failed to import buffer");
+    return -EINVAL;
   }
-
-  if (importer_ != NULL) {
-    importer_->ReleaseBuffer(&bo_);
-  }
-
-  importer_ = importer;
-
-  bo_ = tmp_bo;
 
   return 0;
-}
-
-int DrmHwcNativeHandle::CopyBufferHandle(buffer_handle_t handle) {
-  native_handle_t *handle_copy;
-  GraphicBufferMapper &gm(GraphicBufferMapper::get());
-  int ret;
-
-  ret = gm.getGrallocMapper().importBuffer(handle,
-                                           const_cast<buffer_handle_t *>(
-                                               &handle_copy));
-
-  if (ret) {
-    ALOGE("Failed to import buffer handle %d", ret);
-    return ret;
-  }
-
-  Clear();
-
-  handle_ = handle_copy;
-
-  return 0;
-}
-
-DrmHwcNativeHandle::~DrmHwcNativeHandle() {
-  Clear();
-}
-
-void DrmHwcNativeHandle::Clear() {
-  if (handle_ != NULL) {
-    GraphicBufferMapper &gm(GraphicBufferMapper::get());
-    int ret = gm.freeBuffer(handle_);
-    if (ret) {
-      ALOGE("Failed to free buffer handle %d", ret);
-    }
-    handle_ = NULL;
-  }
-}
-
-int DrmHwcLayer::ImportBuffer(Importer *importer) {
-  int ret = buffer.ImportBuffer(sf_handle, importer);
-  if (ret)
-    return ret;
-
-  const hwc_drm_bo *bo = buffer.operator->();
-
-  ret = handle.CopyBufferHandle(sf_handle);
-  if (ret)
-    return ret;
-
-  gralloc_buffer_usage = bo->usage;
-
-  return 0;
-}
-
-int DrmHwcLayer::InitFromDrmHwcLayer(DrmHwcLayer *src_layer,
-                                     Importer *importer) {
-  blending = src_layer->blending;
-  sf_handle = src_layer->sf_handle;
-  acquire_fence = -1;
-  display_frame = src_layer->display_frame;
-  alpha = src_layer->alpha;
-  source_crop = src_layer->source_crop;
-  transform = src_layer->transform;
-  return ImportBuffer(importer);
-}
-
-void DrmHwcLayer::SetSourceCrop(hwc_frect_t const &crop) {
-  source_crop = crop;
-}
-
-void DrmHwcLayer::SetDisplayFrame(hwc_rect_t const &frame) {
-  display_frame = frame;
 }
 
 void DrmHwcLayer::SetTransform(int32_t sf_transform) {

@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"Apply"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Tap to edit"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Keep current wallpaper"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"Apply"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Style preview"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Grid preview"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"Font preview"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, currently applied"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, currently applied and previewed"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, currently previewed"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, change selected and previewed"</string>
     <string name="theme_description" msgid="3697012391785254635">"Font: <xliff:g id="ID_1">%1$s</xliff:g>, icons: <xliff:g id="ID_2">%2$s</xliff:g>, shape: <xliff:g id="ID_3">%3$s</xliff:g>, colour: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"Default"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"Font"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Custom style name"</string>
     <string name="mode_title" msgid="2394873501427436055">"Dark theme"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"Temporarily disabled due to Battery Saver"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"Theme changed"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"Themed icons"</string>
     <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Change app grid"</string>

@@ -21,12 +21,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.INetworkPolicyManager;
-import android.net.NetworkTemplate;
 import android.os.ServiceManager;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionPlan;
-import android.telephony.TelephonyManager;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;
@@ -40,7 +38,7 @@ import androidx.annotation.VisibleForTesting;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
-import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.network.NetworkBasePreferenceController;
 import com.android.car.settings.network.NetworkUtils;
 import com.android.settingslib.net.DataUsageController;
 import com.android.settingslib.utils.StringUtil;
@@ -53,7 +51,7 @@ import java.util.concurrent.TimeUnit;
  * the appropriate summary text.
  */
 public class DataUsageSummaryPreferenceController extends
-        PreferenceController<DataUsageSummaryPreference> {
+        NetworkBasePreferenceController<DataUsageSummaryPreference> {
     private static final Logger LOG = new Logger(DataUsageSummaryPreferenceController.class);
 
     private static final long MILLIS_IN_A_DAY = TimeUnit.DAYS.toMillis(1);
@@ -66,9 +64,7 @@ public class DataUsageSummaryPreferenceController extends
     static final long WARNING_AGE = TimeUnit.HOURS.toMillis(6L);
 
     private final SubscriptionManager mSubscriptionManager;
-    private final TelephonyManager mTelephonyManager;
     private final DataUsageController mDataUsageController;
-    private final NetworkTemplate mDefaultTemplate;
 
     /** Name of the carrier, or null if not available */
     @Nullable
@@ -92,13 +88,18 @@ public class DataUsageSummaryPreferenceController extends
 
     public DataUsageSummaryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
-        super(context, preferenceKey, fragmentController, uxRestrictions);
-        mSubscriptionManager = context.getSystemService(SubscriptionManager.class);
-        mTelephonyManager = context.getSystemService(TelephonyManager.class);
-        mDataUsageController = new DataUsageController(context);
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                context.getSystemService(SubscriptionManager.class),
+                new DataUsageController(context));
+    }
 
-        int defaultSubId = DataUsageUtils.getDefaultSubscriptionId(mSubscriptionManager);
-        mDefaultTemplate = DataUsageUtils.getMobileNetworkTemplate(mTelephonyManager, defaultSubId);
+    @VisibleForTesting
+    DataUsageSummaryPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            SubscriptionManager subscriptionManager, DataUsageController dataUsageController) {
+        super(context, preferenceKey, fragmentController, uxRestrictions);
+        mSubscriptionManager = subscriptionManager;
+        mDataUsageController = dataUsageController;
     }
 
     @Override
@@ -108,7 +109,7 @@ public class DataUsageSummaryPreferenceController extends
 
     @Override
     protected int getAvailabilityStatus() {
-        return NetworkUtils.hasSim(mTelephonyManager) ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
+        return NetworkUtils.hasSim(getTelephonyManager()) ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
     }
 
     @Override
@@ -120,7 +121,7 @@ public class DataUsageSummaryPreferenceController extends
     @Override
     protected void updateState(DataUsageSummaryPreference preference) {
         DataUsageController.DataUsageInfo info = mDataUsageController.getDataUsageInfo(
-                mDefaultTemplate);
+                getNetworkTemplate());
 
         if (mSubscriptionManager != null) {
             refreshDataplanInfo(info);
@@ -128,9 +129,6 @@ public class DataUsageSummaryPreferenceController extends
 
         preference.setTitle(getUsageText());
         preference.setManageSubscriptionIntent(mManageSubscriptionIntent);
-
-        preference.setDataLimitText(getLimitText(info));
-        preference.setRemainingBillingCycleText(getRemainingBillingCycleTimeText());
 
         // Carrier Info has special styling based on when it was last updated.
         preference.setCarrierInfoText(getCarrierInfoText());
@@ -164,37 +162,6 @@ public class DataUsageSummaryPreferenceController extends
         CharSequence usageText = TextUtils.expandTemplate(template, usageNumberText,
                 usedResult.units);
         return usageText;
-    }
-
-
-    private CharSequence getLimitText(DataUsageController.DataUsageInfo info) {
-        if (info.warningLevel > 0 && info.limitLevel > 0) {
-            return TextUtils.expandTemplate(
-                    getContext().getText(R.string.cell_data_warning_and_limit),
-                    DataUsageUtils.bytesToIecUnits(getContext(), info.warningLevel),
-                    DataUsageUtils.bytesToIecUnits(getContext(), info.limitLevel));
-        } else if (info.warningLevel > 0) {
-            return TextUtils.expandTemplate(getContext().getText(R.string.cell_data_warning),
-                    DataUsageUtils.bytesToIecUnits(getContext(), info.warningLevel));
-        } else if (info.limitLevel > 0) {
-            return TextUtils.expandTemplate(getContext().getText(R.string.cell_data_limit),
-                    DataUsageUtils.bytesToIecUnits(getContext(), info.limitLevel));
-        }
-
-        return null;
-    }
-
-    private CharSequence getRemainingBillingCycleTimeText() {
-        long millisLeft = mCycleEnd - System.currentTimeMillis();
-        if (millisLeft <= 0) {
-            return getContext().getString(R.string.billing_cycle_none_left);
-        } else {
-            int daysLeft = (int) (millisLeft / MILLIS_IN_A_DAY);
-            return daysLeft < 1
-                    ? getContext().getString(R.string.billing_cycle_less_than_one_day_left)
-                    : getContext().getResources().getQuantityString(
-                            R.plurals.billing_cycle_days_left, daysLeft, daysLeft);
-        }
     }
 
     private CharSequence getCarrierInfoText() {
@@ -235,13 +202,12 @@ public class DataUsageSummaryPreferenceController extends
         mDataplanUse = info.usageLevel;
         mCycleEnd = info.cycleEnd;
 
-        int defaultSubId = SubscriptionManager.getDefaultSubscriptionId();
-        SubscriptionInfo subInfo = mSubscriptionManager.getDefaultDataSubscriptionInfo();
+        SubscriptionInfo subInfo = mSubscriptionManager.getActiveSubscriptionInfo(getSubId());
         if (subInfo != null) {
             mCarrierName = subInfo.getCarrierName();
-            List<SubscriptionPlan> plans = mSubscriptionManager.getSubscriptionPlans(defaultSubId);
+            List<SubscriptionPlan> plans = mSubscriptionManager.getSubscriptionPlans(getSubId());
             SubscriptionPlan primaryPlan = DataUsageUtils.getPrimaryPlan(mSubscriptionManager,
-                    defaultSubId);
+                    getSubId());
             if (primaryPlan != null) {
                 mDataplanCount = plans.size();
                 mDataplanSize = primaryPlan.getDataLimitBytes();
@@ -258,7 +224,7 @@ public class DataUsageSummaryPreferenceController extends
                 mSnapshotTime = primaryPlan.getDataUsageTime();
             }
         }
-        mManageSubscriptionIntent = createManageSubscriptionIntent(defaultSubId);
+        mManageSubscriptionIntent = createManageSubscriptionIntent(getSubId());
     }
 
     /**

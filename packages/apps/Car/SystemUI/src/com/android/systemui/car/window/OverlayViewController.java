@@ -28,6 +28,8 @@ import androidx.annotation.IdRes;
 
 import com.android.car.ui.FocusArea;
 
+import java.util.ArrayList;
+
 /**
  * Owns a {@link View} that is present in SystemUIOverlayWindow.
  */
@@ -39,6 +41,9 @@ public class OverlayViewController {
     private final OverlayViewGlobalStateController mOverlayViewGlobalStateController;
 
     private View mLayout;
+
+    protected final ArrayList<OverlayViewStateListener> mViewStateListeners =
+            new ArrayList<>();
 
     public OverlayViewController(int stubId,
             OverlayViewGlobalStateController overlayViewGlobalStateController) {
@@ -104,6 +109,9 @@ public class OverlayViewController {
      */
     protected void showInternal() {
         mLayout.setVisibility(View.VISIBLE);
+        for (OverlayViewStateListener l : mViewStateListeners) {
+            l.onVisibilityChanged(/* isVisible= */ true);
+        }
     }
 
     private void hide() {
@@ -122,6 +130,9 @@ public class OverlayViewController {
      */
     protected void hideInternal() {
         mLayout.setVisibility(View.GONE);
+        for (OverlayViewStateListener l : mViewStateListeners) {
+            l.onVisibilityChanged(/* isVisible= */ false);
+        }
     }
 
     /**
@@ -279,5 +290,26 @@ public class OverlayViewController {
     @WindowInsets.Side.InsetsSide
     protected int getInsetSidesToFit() {
         return INVALID_INSET_SIDE;
+    }
+
+    /** Interface for listening to the state of the overlay panel view. */
+    public interface OverlayViewStateListener {
+
+        /** Called when the panel's visibility changes. */
+        void onVisibilityChanged(boolean isVisible);
+    }
+
+    /**
+     * Add a new listener to the state of this overlay panel view.
+     */
+    public void registerViewStateListener(OverlayViewStateListener listener) {
+        mViewStateListeners.add(listener);
+    }
+
+    /**
+     * Removes listener for state of this overlay panel view.
+     */
+    public void removePanelViewStateListener(OverlayViewStateListener listener) {
+        mViewStateListeners.remove(listener);
     }
 }

@@ -32,6 +32,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.TelecomManager;
 
+import androidx.test.InstrumentationRegistry;
+
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -107,7 +109,11 @@ public class TelecomManagerTest extends BaseTelecomTestWithMockServices {
                 TelecomManager.TTY_MODE_FULL);
 
         try {
-            runWithShellPermissionIdentity(() -> mContext.sendBroadcast(changePreferredTtyMode));
+            // Hold SHELL permission identity to ensure CTS tests have READ_PRIVILEGED_PHONE_STATE
+            // during delivery of ACTION_CURRENT_TTY_MODE_CHANGED.
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .adoptShellPermissionIdentity();
+            mContext.sendBroadcast(changePreferredTtyMode);
             Intent intent = ttyModeQueue.poll(
                     TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
             assertTrue(intent.hasExtra(TelecomManager.EXTRA_CURRENT_TTY_MODE));
@@ -120,7 +126,9 @@ public class TelecomManagerTest extends BaseTelecomTestWithMockServices {
                     new Intent(TelecomManager.ACTION_TTY_PREFERRED_MODE_CHANGED);
             revertPreferredTtyMode.putExtra(TelecomManager.EXTRA_TTY_PREFERRED_MODE,
                     TelecomManager.TTY_MODE_OFF);
-            runWithShellPermissionIdentity(() -> mContext.sendBroadcast(revertPreferredTtyMode));
+            mContext.sendBroadcast(revertPreferredTtyMode);
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .dropShellPermissionIdentity();
         }
     }
 

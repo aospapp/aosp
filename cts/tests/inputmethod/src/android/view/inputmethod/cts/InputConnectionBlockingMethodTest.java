@@ -18,7 +18,6 @@ package android.view.inputmethod.cts;
 
 import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
 
-import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.editorMatcher;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectBindInput;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectCommand;
@@ -42,6 +41,7 @@ import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputConnectionWrapper;
 import android.view.inputmethod.InputContentInfo;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
+import android.view.inputmethod.cts.util.MockTestActivityUtil;
 import android.view.inputmethod.cts.util.TestActivity;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -143,14 +143,13 @@ public class InputConnectionBlockingMethodTest extends EndToEndImeTestBase {
     }
 
     /**
-     * Tries to trigger {@link com.android.cts.mockime.MockIme#onUnbindInput()} by showing the
-     * Launcher.
+     * Tries to trigger {@link com.android.cts.mockime.MockIme#onUnbindInput()} by showing another
+     * Activity in a different process.
      */
     private void triggerUnbindInput() {
-        // Note: We hope showing the launcher is sufficient to trigger onUnbindInput() in MockIme,
-        // but if it turns out to be not sufficient, consider launching a different Activity in a
-        // separate process.
-        runShellCommand("input keyevent KEYCODE_HOME");
+        final boolean isInstant = InstrumentationRegistry.getInstrumentation().getTargetContext()
+                .getPackageManager().isInstantApp();
+        MockTestActivityUtil.launchSync(isInstant, TIMEOUT);
     }
 
     /**

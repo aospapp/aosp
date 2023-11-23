@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"ପ୍ରୟୋଗ କରନ୍ତୁ"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"ଏଡିଟ୍ କରିବା ପାଇଁ ଟାପ୍ କରନ୍ତୁ"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"ବର୍ତ୍ତମାନର ୱାଲ୍‌ପେପର୍‌କୁ ରଖନ୍ତୁ"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"ପ୍ରୟୋଗ କରନ୍ତୁ"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"ଷ୍ଟାଇଲ୍ ପ୍ରିଭ୍ୟୁ"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"ଗ୍ରିଡ୍ ପ୍ରିଭ୍ୟୁ"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"ଫଣ୍ଟ ପ୍ରିଭ୍ୟୁ"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, ବର୍ତ୍ତମାନ ଲାଗୁ ହୋଇଛି"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, ବର୍ତ୍ତମାନ ଲାଗୁ ହୋଇଛି ଏବଂ ଏହାର ପ୍ରିଭ୍ୟୁ କରାଯାଇଛି"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>ର, ବର୍ତ୍ତମାନ ପ୍ରିଭ୍ୟୁ କରାଯାଇଛି"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, ପରିବର୍ତ୍ତନକୁ ଚୟନ କରାଯାଇଛି ଏବଂ ପ୍ରିଭ୍ୟୁ କରାଯାଇଛି"</string>
     <string name="theme_description" msgid="3697012391785254635">"ଫଣ୍ଟ: <xliff:g id="ID_1">%1$s</xliff:g>, ଆଇକନ୍‌ଗୁଡ଼ିକ: <xliff:g id="ID_2">%2$s</xliff:g>, ଆକାର: <xliff:g id="ID_3">%3$s</xliff:g>, ରଙ୍ଗ: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"ଡିଫଲ୍ଟ"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"ଫଣ୍ଟ"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"କଷ୍ଟମ୍ ଷ୍ଟାଇଲ୍ ନାମ"</string>
     <string name="mode_title" msgid="2394873501427436055">"ଗାଢ଼ା ଥିମ୍"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"ବ୍ୟାଟେରୀ ସେଭର୍ ଯୋଗୁଁ ଅସ୍ଥାୟୀ ଭାବେ ଅକ୍ଷମ କରାଯାଇଛି"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"ଥିମ ପରିବର୍ତ୍ତନ କରାଯାଇଛି"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"ଥିମ୍ ଯୁକ୍ତ ଆଇକନ୍"</string>
     <string name="beta_title" msgid="8703819523760746458">"ବିଟା"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ଆପ୍ ଗ୍ରିଡ୍ ପରିବର୍ତ୍ତନ କରନ୍ତୁ"</string>

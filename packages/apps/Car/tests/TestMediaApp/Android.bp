@@ -27,9 +27,11 @@ android_app {
 
     resource_dirs: ["res"],
 
+    min_sdk_version: "28",
+    target_sdk_version: "31",
     sdk_version: "system_current",
 
-    certificate: "platform",
+    certificate: ":com-android-car-apps-test",
 
     // Do NOT add dependencies preventing the app from being unbundled (compiled with gradle in Studio).
     static_libs: [

@@ -41,12 +41,6 @@ class SchemaUtil {
                          std::unordered_set<std::string_view>>;
 
   struct SchemaDelta {
-    // Whether an indexing config has changed, requiring the index to be
-    // regenerated. We don't list out all the types that make the index
-    // incompatible because our index isn't optimized for that. It's much easier
-    // to reset the entire index and reindex every document.
-    bool index_incompatible = false;
-
     // Which schema types were present in the old schema, but were deleted from
     // the new schema.
     std::unordered_set<std::string> schema_types_deleted;
@@ -55,10 +49,28 @@ class SchemaUtil {
     // could invalidate existing Documents of that schema type.
     std::unordered_set<std::string> schema_types_incompatible;
 
+    // Schema types that were added in the new schema. Represented by the
+    // `schema_type` field in the SchemaTypeConfigProto.
+    std::unordered_set<std::string> schema_types_new;
+
+    // Schema types that were changed in a way that was backwards compatible and
+    // didn't invalidate the index. Represented by the `schema_type` field in
+    // the SchemaTypeConfigProto.
+    std::unordered_set<std::string> schema_types_changed_fully_compatible;
+
+    // Schema types that were changed in a way that was backwards compatible,
+    // but invalidated the index. Represented by the `schema_type` field in the
+    // SchemaTypeConfigProto.
+    std::unordered_set<std::string> schema_types_index_incompatible;
+
     bool operator==(const SchemaDelta& other) const {
-      return index_incompatible == other.index_incompatible &&
-             schema_types_deleted == other.schema_types_deleted &&
-             schema_types_incompatible == other.schema_types_incompatible;
+      return schema_types_deleted == other.schema_types_deleted &&
+             schema_types_incompatible == other.schema_types_incompatible &&
+             schema_types_new == other.schema_types_new &&
+             schema_types_changed_fully_compatible ==
+                 other.schema_types_changed_fully_compatible &&
+             schema_types_index_incompatible ==
+                 other.schema_types_index_incompatible;
     }
   };
 

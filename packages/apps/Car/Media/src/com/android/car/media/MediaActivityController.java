@@ -37,9 +37,9 @@ import androidx.lifecycle.ViewModelProviders;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.car.apps.common.util.FutureData;
 import com.android.car.apps.common.util.ViewUtils;
 import com.android.car.apps.common.util.ViewUtils.ViewAnimEndListener;
-import com.android.car.arch.common.FutureData;
 import com.android.car.media.common.MediaItemMetadata;
 import com.android.car.media.common.browse.MediaBrowserViewModelImpl;
 import com.android.car.media.common.browse.MediaItemsRepository;
@@ -50,7 +50,9 @@ import com.android.car.media.widgets.AppBarController;
 import com.android.car.ui.FocusParkingView;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.recyclerview.CarUiRecyclerView;
-import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.NavButtonMode;
+import com.android.car.ui.toolbar.SearchConfig;
+import com.android.car.ui.toolbar.SearchMode;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -203,6 +205,10 @@ public class MediaActivityController extends ViewControllerBase {
     }
 
     private void onMediaBrowsingStateChanged(BrowsingState newBrowsingState) {
+        if (newBrowsingState == null) {
+            Log.e(TAG, "Null browsing state (no media source!)");
+            return;
+        }
         switch (newBrowsingState.mConnectionStatus) {
             case CONNECTING:
                 break;
@@ -255,7 +261,7 @@ public class MediaActivityController extends ViewControllerBase {
 
         mAppBarController.setListener(mAppBarListener);
         mAppBarController.setSearchQuery(mViewModel.getSearchQuery());
-        if (mAppBarController.canShowSearchResultsView()) {
+        if (mAppBarController.getSearchCapabilities().canShowSearchResultsView()) {
             // TODO(b/180441965) eliminate the need to create a different view and use
             //     mSearchResultsController.getContent() instead.
             RecyclerView toolbarSearchResultsView = new RecyclerView(activity);
@@ -268,7 +274,9 @@ public class MediaActivityController extends ViewControllerBase {
             toolbarSearchResultsView.setBackground(
                     activity.getDrawable(R.drawable.car_ui_ime_wide_screen_background));
 
-            mAppBarController.setSearchResultsView(toolbarSearchResultsView);
+            mAppBarController.setSearchConfig(SearchConfig.builder()
+                    .setSearchResultsView(toolbarSearchResultsView)
+                    .build());
         }
 
         updateAppBar();
@@ -442,7 +450,12 @@ public class MediaActivityController extends ViewControllerBase {
         CarUiRecyclerView carUiRecyclerView =
                 controller.getContent().findViewById(R.id.browse_list);
         if (carUiRecyclerView != null && carUiRecyclerView instanceof LazyLayoutView
-                && !carUiRecyclerView.hasFocus() && !carUiRecyclerView.isInTouchMode()) {
+                && !carUiRecyclerView.getView().hasFocus()
+                && !carUiRecyclerView.getView().isInTouchMode()) {
+            // Park the focus on the FocusParkingView to ensure that it can restore focus inside
+            // the LazyLayoutView successfully later.
+            mFpv.performAccessibilityAction(ACTION_FOCUS, null);
+
             LazyLayoutView lazyLayoutView = (LazyLayoutView) carUiRecyclerView;
             com.android.car.ui.utils.ViewUtils.initFocus(lazyLayoutView);
         }
@@ -452,18 +465,18 @@ public class MediaActivityController extends ViewControllerBase {
             @Nullable ViewAnimEndListener listener) {
         CarUiRecyclerView carUiRecyclerView = content.findViewById(R.id.browse_list);
         if (carUiRecyclerView != null && carUiRecyclerView instanceof LazyLayoutView
-                && !carUiRecyclerView.isInTouchMode()) {
+                && !carUiRecyclerView.getView().isInTouchMode()) {
             // If a CarUiRecyclerView is about to hide and it has focus, park the focus on the
             // FocusParkingView before hiding the CarUiRecyclerView. Otherwise hiding the focused
             // view will cause the Android framework to move focus to another view, causing visual
             // jank.
-            if (!show && carUiRecyclerView.hasFocus()) {
+            if (!show && carUiRecyclerView.getView().hasFocus()) {
                 mFpv.performAccessibilityAction(ACTION_FOCUS, null);
             }
             // If a new CarUiRecyclerView is about to show and there is no view focused or the
             // FocusParkingView is focused, restore focus in the new CarUiRecyclerView.
             if (show) {
-                View focusedView = carUiRecyclerView.getRootView().findFocus();
+                View focusedView = carUiRecyclerView.getView().getRootView().findFocus();
                 if (focusedView == null || focusedView instanceof FocusParkingView) {
                     LazyLayoutView lazyLayoutView = (LazyLayoutView) carUiRecyclerView;
                     com.android.car.ui.utils.ViewUtils.initFocus(lazyLayoutView);
@@ -616,13 +629,14 @@ public class MediaActivityController extends ViewControllerBase {
         updateAppBar();
     }
 
-    private void updateAppBarTitle() {
+    private CharSequence getAppBarTitle() {
         boolean isStacked = !isAtTopStack();
 
         final CharSequence title;
         if (isStacked) {
             // If not at top level, show the current item as title
-            title = getCurrentMediaItem().getTitle();
+            MediaItemMetadata item = getCurrentMediaItem();
+            title = item != null ? item.getTitle() : "";
         } else if (mTopItems == null) {
             // If still loading the tabs, force to show an empty bar.
             title = "";
@@ -635,7 +649,7 @@ public class MediaActivityController extends ViewControllerBase {
             title = getAppBarDefaultTitle(mediaSource);
         }
 
-        mAppBarController.setTitle(title);
+        return title;
     }
 
     /**
@@ -647,9 +661,11 @@ public class MediaActivityController extends ViewControllerBase {
         if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "App bar is in stacked state: " + isStacked);
         }
-        Toolbar.State unstackedState = isSearching ? Toolbar.State.SEARCH : Toolbar.State.HOME;
-        updateAppBarTitle();
-        mAppBarController.setState(isStacked ? Toolbar.State.SUBPAGE : unstackedState);
+
+        mAppBarController.setSearchMode(isSearching ? SearchMode.SEARCH : SearchMode.DISABLED);
+        mAppBarController.setNavButtonMode(isStacked || isSearching
+                ? NavButtonMode.BACK : NavButtonMode.DISABLED);
+        mAppBarController.setTitle(!isSearching ? getAppBarTitle() : null);
         mAppBarController.showSearchIfSupported(!isSearching || isStacked);
     }
 

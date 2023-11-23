@@ -426,6 +426,7 @@ public class RttServiceImpl extends IWifiRttManager.Stub {
         // permission checks
         enforceAccessPermission();
         enforceChangePermission();
+        mWifiPermissionsUtil.checkPackage(uid, callingPackage);
         mWifiPermissionsUtil.enforceFineLocationPermission(callingPackage, callingFeatureId, uid);
 
         final WorkSource ws;

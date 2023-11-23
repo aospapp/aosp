@@ -20,28 +20,37 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.os.Process;
 import android.os.UserManager;
+import android.util.Log;
 import android.widget.TextView;
 
 /**
  * An activity that displays the serial number of the user that it is running into.
  */
-public class MainActivity extends Activity {
+public final class MainActivity extends Activity {
+
+    private static final String TAG = MainActivity.class.getSimpleName();
+
+    private TextView mTextView;
+    private long mSerialNumber;
 
     @Override
     public void onCreate(Bundle bundle) {
         super.onCreate(bundle);
+
         setContentView(R.layout.main);
+        mTextView = findViewById(R.id.user_textview);
+
+        UserManager userManager = getSystemService(UserManager.class);
+        mSerialNumber = userManager.getSerialNumberForUser(Process.myUserHandle());
+
+        Log.v(TAG, "onCreate(): serial number is " + mSerialNumber);
     }
 
     @Override
     public void onStart() {
         super.onStart();
-        TextView textView = findViewById(R.id.user_textview);
-        textView.setText(Long.toString(getCurrentUserSerialNumber()));
-    }
 
-    private long getCurrentUserSerialNumber() {
-        UserManager userManager = getSystemService(UserManager.class);
-        return userManager.getSerialNumberForUser(Process.myUserHandle());
+        Log.v(TAG, "updateState(): displaying serial number as " + mSerialNumber);
+        mTextView.setText(Long.toString(mSerialNumber));
     }
 }

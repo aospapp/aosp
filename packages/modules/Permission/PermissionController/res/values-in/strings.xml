@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"Izin aplikasi"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Aplikasi tidak digunakan"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Tak ada apl yang tidak dipakai"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"0 aplikasi tidak digunakan"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Nonaktifkan aplikasi"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Jika Anda menonaktifkan aplikasi ini, Android dan aplikasi lain mungkin tidak berfungsi lagi sesuai harapan. Perlu diingat, Anda tidak dapat menghapus aplikasi yang disertakan oleh pabrikan di perangkat Anda. Namun, Anda dapat menonaktifkannya, yang berarti mematikan dan menyembunyikan aplikasi tersebut di perangkat Anda."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Pengelola izin"</string>
@@ -361,7 +362,7 @@
     <string name="role_browser_description" msgid="3465253637499842671">"Aplikasi yang memberi Anda akses ke internet dan menampilkan link yang Anda ketuk"</string>
     <string name="role_browser_request_title" msgid="2895200507835937192">"Tetapkan <xliff:g id="APP_NAME">%1$s</xliff:g> sebagai aplikasi browser default Anda?"</string>
     <string name="role_browser_request_description" msgid="5888803407905985941">"Tidak ada izin yang diperlukan"</string>
-    <string name="role_dialer_label" msgid="1100224146343237968">"Aplikasi ponsel default"</string>
+    <string name="role_dialer_label" msgid="1100224146343237968">"Aplikasi telepon default"</string>
     <string name="role_dialer_short_label" msgid="7186888549465352489">"Aplikasi telepon"</string>
     <string name="role_dialer_description" msgid="8768708633696539612">"Aplikasi yang memungkinkan Anda melakukan dan menerima panggilan telepon di perangkat"</string>
     <string name="role_dialer_request_title" msgid="5959618560705912058">"Tetapkan <xliff:g id="APP_NAME">%1$s</xliff:g> sebagai aplikasi telepon default Anda?"</string>

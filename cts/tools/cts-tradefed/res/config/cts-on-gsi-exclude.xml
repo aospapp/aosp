@@ -65,6 +65,9 @@
     <!-- b/183654427 Remove CtsTelecomTestCases from cts-on-gsi -->
     <option name="compatibility:exclude-filter" value="CtsTelecomTestCases" />
 
+    <!-- b/183655483 Remove CtsTelephonySdk28TestCases from cts-on-gsi -->
+    <option name="compatibility:exclude-filter" value="CtsTelephonySdk28TestCases" />
+
     <!-- b/183234756, b/80388296, b/110260628, b/159295445, b/159294948 CtsDevicePolicyManagerTestCases -->
     <option name="compatibility:exclude-filter" value="CtsDevicePolicyManagerTestCases" />
 
@@ -77,9 +80,6 @@
     <!-- b/183659262 Remove CtsPreferenceTestCases from cts-on-gsi -->
     <option name="compatibility:exclude-filter" value="CtsPreferenceTestCases" />
 
-    <!-- b/183636777 Remove CtsShortcutManagerPackage4 from cts-on-gsi -->
-    <option name="compatibility:exclude-filter" value="CtsShortcutManagerPackage4" />
-
     <!-- b/185451791. Can't have single overlay package for both AOSP version and Google-signed mainline modules -->
     <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.cts.ConcurrencyTest#testPersistentGroupOperation" />
     <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.cts.ConcurrencyTest#testRequestNetworkInfo" />
@@ -89,5 +89,18 @@
 
     <!-- b/194146521 -->
     <option name="compatibility:exclude-filter" value="CtsPermission3TestCases android.permission3.cts.PermissionTest23#testNoResidualPermissionsOnUninstall" />
+
+      <!-- b/199996926 - No UWB stack support in AOSP for Android S -->
+    <option name="compatibility:exclude-filter" value="CtsUwbTestCases" />
+
+    <!-- b/183653612: CtsTransitionTestCases -->
+    <option name="compatibility:exclude-filter" value="CtsTransitionTestCases" />
+
+    <!-- b/198226244 -->
+    <option name="compatibility:exclude-filter" value="CtsVideoTestCases android.video.cts.CodecEncoderPerformanceTest#testPerformanceOfHardwareVideoEncoders" />
+
+    <!-- b/203177211 -->
+    <option name="compatibility:exclude-filter" value="CtsAppSecurityHostTestCases android.appsecurity.cts.ListeningPortsTest#testNoRemotelyAccessibleListeningUdpPorts" />
+
 
 </configuration>

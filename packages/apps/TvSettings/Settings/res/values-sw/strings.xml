@@ -160,7 +160,7 @@
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Ikihitajika na programu, kifaa chako kitalinganisha kasi yake ya utoaji maudhui na kasi halisi ya picha ya maudhui unayotazama. Huenda hii ikasababisha skrini kutoonyesha maudhui yoyote kwa muda mfupi unapoanza kucheza au unapositisha video."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Kamwe"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Hata ikihitajika na programu, kifaa chako kamwe hakitajaribu kulinganisha kasi yake ya utoaji maudhui na kasi halisi ya picha ya maudhui unayotazama."</string>
-    <string name="font_scale_settings_title" msgid="4114019544800225980">"Ubadilishaji ukubwa wa maandishi"</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"Kubadilisha ukubwa wa maandishi"</string>
     <string name="font_scale_item_detail" msgid="1558315053348778805">"Weka ukubwa kuwa <xliff:g id="SCALE">%1$d</xliff:g>%%"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"Sampuli ya maandishi"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"Wachawi wa Ajabu kutoka Oz"</string>

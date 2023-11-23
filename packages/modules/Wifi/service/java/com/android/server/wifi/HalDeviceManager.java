@@ -1522,9 +1522,13 @@ public class HalDeviceManager {
 
         @Override
         public void onSubsystemRestart(WifiStatus status) throws RemoteException {
+            Log.i(TAG, "onSubsystemRestart");
             mEventHandler.post(() -> {
+                Log.i(TAG, "IWifiEventCallback.onSubsystemRestart: " + statusString(status));
                 synchronized (mLock) {
+                    Log.i(TAG, "Attempting to invoke mSubsystemRestartListener");
                     for (SubsystemRestartListenerProxy cb : mSubsystemRestartListener) {
+                        Log.i(TAG, "Invoking mSubsystemRestartListener");
                         cb.action();
                     }
                 }

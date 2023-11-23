@@ -12,19 +12,19 @@ use crate::{
     AsyncResult, FdExecutor, IntoAsync, IoSourceExt, PollSource, URingExecutor, UringSource,
 };
 
-pub(crate) fn async_uring_from<'a, F: IntoAsync + 'a>(
+pub(crate) fn async_uring_from<'a, F: IntoAsync + Send + 'a>(
     f: F,
     ex: &URingExecutor,
-) -> AsyncResult<Box<dyn IoSourceExt<F> + 'a>> {
-    Ok(UringSource::new(f, ex).map(|u| Box::new(u) as Box<dyn IoSourceExt<F>>)?)
+) -> AsyncResult<Box<dyn IoSourceExt<F> + Send + 'a>> {
+    Ok(UringSource::new(f, ex).map(|u| Box::new(u) as Box<dyn IoSourceExt<F> + Send>)?)
 }
 
 /// Creates a concrete `IoSourceExt` using the fd_executor.
-pub(crate) fn async_poll_from<'a, F: IntoAsync + 'a>(
+pub(crate) fn async_poll_from<'a, F: IntoAsync + Send + 'a>(
     f: F,
     ex: &FdExecutor,
-) -> AsyncResult<Box<dyn IoSourceExt<F> + 'a>> {
-    Ok(PollSource::new(f, ex).map(|u| Box::new(u) as Box<dyn IoSourceExt<F>>)?)
+) -> AsyncResult<Box<dyn IoSourceExt<F> + Send + 'a>> {
+    Ok(PollSource::new(f, ex).map(|u| Box::new(u) as Box<dyn IoSourceExt<F> + Send>)?)
 }
 
 /// An executor for scheduling tasks that poll futures to completion.
@@ -50,7 +50,7 @@ pub(crate) fn async_poll_from<'a, F: IntoAsync + 'a>(
 /// // Write all bytes from `data` to `f`.
 /// async fn write_file(f: &dyn IoSourceExt<File>, mut data: Vec<u8>) -> AsyncResult<()> {
 ///     while data.len() > 0 {
-///         let (count, mut buf) = f.write_from_vec(0, data).await?;
+///         let (count, mut buf) = f.write_from_vec(None, data).await?;
 ///
 ///         data = buf.split_off(count);
 ///     }
@@ -68,7 +68,7 @@ pub(crate) fn async_poll_from<'a, F: IntoAsync + 'a>(
 ///
 ///     while rem > 0 {
 ///         let buf = vec![0u8; min(rem, CHUNK_SIZE)];
-///         let (count, mut data) = from.read_to_vec(0, buf).await?;
+///         let (count, mut data) = from.read_to_vec(None, buf).await?;
 ///
 ///         if count == 0 {
 ///             // End of file. Return the number of bytes transferred.
@@ -137,10 +137,10 @@ impl Executor {
     /// Create a new `Box<dyn IoSourceExt<F>>` associated with `self`. Callers may then use the
     /// returned `IoSourceExt` to directly start async operations without needing a separate
     /// reference to the executor.
-    pub fn async_from<'a, F: IntoAsync + 'a>(
+    pub fn async_from<'a, F: IntoAsync + Send + 'a>(
         &self,
         f: F,
-    ) -> AsyncResult<Box<dyn IoSourceExt<F> + 'a>> {
+    ) -> AsyncResult<Box<dyn IoSourceExt<F> + Send + 'a>> {
         match self {
             Executor::Uring(ex) => async_uring_from(f, ex),
             Executor::Fd(ex) => async_poll_from(f, ex),
@@ -224,6 +224,46 @@ impl Executor {
         match self {
             Executor::Uring(ex) => ex.spawn_local(f),
             Executor::Fd(ex) => ex.spawn_local(f),
+        }
+    }
+
+    /// Run the provided closure on a dedicated thread where blocking is allowed.
+    ///
+    /// Callers may `await` on the returned `Task` to wait for the result of `f`. Dropping or
+    /// canceling the returned `Task` may not cancel the operation if it was already started on a
+    /// worker thread.
+    ///
+    /// # Panics
+    ///
+    /// `await`ing the `Task` after the `Executor` is dropped will panic if the work was not already
+    /// completed.
+    ///
+    /// # Examples
+    ///
+    /// ```edition2018
+    /// # use cros_async::Executor;
+    ///
+    /// # async fn do_it(ex: &Executor) {
+    ///     let res = ex.spawn_blocking(move || {
+    ///         // Do some CPU-intensive or blocking work here.
+    ///
+    ///         42
+    ///     }).await;
+    ///
+    ///     assert_eq!(res, 42);
+    /// # }
+    ///
+    /// # let ex = Executor::new().unwrap();
+    /// # ex.run_until(do_it(&ex)).unwrap();
+    /// ```
+    pub fn spawn_blocking<F, R>(&self, f: F) -> Task<R>
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        match self {
+            Executor::Uring(ex) => ex.spawn_blocking(f),
+            Executor::Fd(ex) => ex.spawn_blocking(f),
         }
     }
 

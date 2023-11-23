@@ -1,0 +1,4 @@
+# b/185723618
+dontaudit dumpstate hal_power_stats_vendor_service:service_manager { find };
+# b/190337283
+dontaudit dumpstate debugfs_wakeup_sources:file read;

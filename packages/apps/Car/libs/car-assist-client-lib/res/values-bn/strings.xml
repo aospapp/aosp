@@ -16,6 +16,6 @@ limitations under the License.
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="assist_action_failed_toast" msgid="3250146468076483714">"নির্দেশ অনুসারে অ্যাসিস্ট্যান্ট কাজ করতে পারেনি!"</string>
+    <string name="assist_action_failed_toast" msgid="3250146468076483714">"নির্দেশ অনুসারে Assistant কাজ করতে পারেনি!"</string>
     <string name="says" msgid="8575666015622916107">"বলেছেন"</string>
 </resources>

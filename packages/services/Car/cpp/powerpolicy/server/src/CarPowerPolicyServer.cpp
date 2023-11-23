@@ -135,7 +135,7 @@ Return<void> PropertyChangeListener::onPropertyEvent(const hidl_vec<VehiclePropV
         } else if (value.prop == static_cast<int32_t>(VehicleProperty::POWER_POLICY_REQ)) {
             const auto& ret = mService->applyPowerPolicy(value.value.stringValue,
                                                          /*carServiceExpected=*/false,
-                                                         /*overridePreemptive=*/false);
+                                                         /*force=*/false);
             if (!ret.ok()) {
                 ALOGW("Failed to apply power policy(%s): %s", value.value.stringValue.c_str(),
                       ret.error().message().c_str());
@@ -179,8 +179,9 @@ Status CarServiceNotificationHandler::notifyCarServiceReady(PolicyState* policyS
     return mService->notifyCarServiceReady(policyState);
 }
 
-Status CarServiceNotificationHandler::notifyPowerPolicyChange(const std::string& policyId) {
-    return mService->notifyPowerPolicyChange(policyId);
+Status CarServiceNotificationHandler::notifyPowerPolicyChange(const std::string& policyId,
+                                                              bool force) {
+    return mService->notifyPowerPolicyChange(policyId, force);
 }
 
 Status CarServiceNotificationHandler::notifyPowerPolicyDefinition(
@@ -316,20 +317,19 @@ Status CarPowerPolicyServer::notifyCarServiceReady(PolicyState* policyState) {
     return Status::ok();
 }
 
-Status CarPowerPolicyServer::notifyPowerPolicyChange(const std::string& policyId) {
+Status CarPowerPolicyServer::notifyPowerPolicyChange(const std::string& policyId, bool force) {
     Status status = checkSystemPermission();
     if (!status.isOk()) {
         return status;
     }
-    const auto& ret =
-            applyPowerPolicy(policyId, /*carServiceExpected=*/true, /*overridePreemptive=*/false);
+    const auto& ret = applyPowerPolicy(policyId, /*carServiceExpected=*/true, force);
     if (!ret.ok()) {
         return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE,
                                          StringPrintf("Failed to notify power policy change: %s",
                                                       ret.error().message().c_str())
                                                  .c_str());
     }
-    ALOGD("Policy(%s) is applied at CarService", policyId.c_str());
+    ALOGD("Policy change(%s) is notified by CarService", policyId.c_str());
     return Status::ok();
 }
 
@@ -476,7 +476,7 @@ void CarPowerPolicyServer::handleHidlDeath(const wp<IBase>& who) {
 
 Result<void> CarPowerPolicyServer::applyPowerPolicy(const std::string& policyId,
                                                     const bool carServiceInOperation,
-                                                    const bool overridePreemptive) {
+                                                    const bool force) {
     auto policyMeta = mPolicyManager.getPowerPolicy(policyId);
     if (!policyMeta.ok()) {
         return Error() << "Failed to apply power policy: " << policyMeta.error().message();
@@ -507,7 +507,7 @@ Result<void> CarPowerPolicyServer::applyPowerPolicy(const std::string& policyId,
             }
             mIsPowerPolicyLocked = true;
         } else {
-            if (overridePreemptive) {
+            if (force) {
                 mPendingPowerPolicyId.clear();
                 mIsPowerPolicyLocked = false;
             } else if (mIsPowerPolicyLocked) {
@@ -559,10 +559,10 @@ void CarPowerPolicyServer::notifySilentModeChange(const bool isSilent) {
     Result<void> ret;
     if (isSilent) {
         ret = applyPowerPolicy(kSystemPolicyIdNoUserInteraction,
-                               /*carServiceExpected=*/false, /*overridePreemptive=*/false);
+                               /*carServiceExpected=*/false, /*force=*/false);
     } else {
         ret = applyPowerPolicy(pendingPowerPolicyId,
-                               /*carServiceExpected=*/false, /*overridePreemptive=*/true);
+                               /*carServiceExpected=*/false, /*force=*/true);
     }
     if (!ret.ok()) {
         ALOGW("Failed to apply power policy: %s", ret.error().message().c_str());
@@ -655,8 +655,7 @@ void CarPowerPolicyServer::applyInitialPowerPolicy() {
             policyId = kSystemPolicyIdInitialOn;
         }
     }
-    if (const auto& ret = applyPowerPolicy(policyId, /*carServiceExpected=*/false,
-                                           /*overridePreemptive=*/false);
+    if (const auto& ret = applyPowerPolicy(policyId, /*carServiceExpected=*/false, /*force=*/false);
         !ret.ok()) {
         ALOGW("Cannot apply the initial power policy(%s): %s", policyId.c_str(),
               ret.error().message().c_str());
@@ -670,7 +669,7 @@ void CarPowerPolicyServer::subscribeToVhal() {
                             if (value.value.stringValue.size() > 0) {
                                 const auto& ret = applyPowerPolicy(value.value.stringValue,
                                                                    /*carServiceExpected=*/false,
-                                                                   /*overridePreemptive=*/false);
+                                                                   /*force=*/false);
                                 if (!ret.ok()) {
                                     ALOGW("Failed to apply power policy(%s): %s",
                                           value.value.stringValue.c_str(),

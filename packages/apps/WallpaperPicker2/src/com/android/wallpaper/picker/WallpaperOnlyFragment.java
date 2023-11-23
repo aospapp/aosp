@@ -15,6 +15,7 @@
  */
 package com.android.wallpaper.picker;
 
+import com.android.wallpaper.R;
 import com.android.wallpaper.model.CustomizationSectionController;
 import com.android.wallpaper.model.WallpaperSectionController;
 
@@ -24,11 +25,9 @@ import java.util.stream.Collectors;
 /** The Fragment UI for wallpaper only section. */
 public class WallpaperOnlyFragment extends CustomizationPickerFragment {
 
-    /** Initiates WallpaperOnlyFragment instance. */
-    public static WallpaperOnlyFragment newInstance(CharSequence title) {
-        WallpaperOnlyFragment fragment = new WallpaperOnlyFragment();
-        fragment.setArguments(AppbarFragment.createArguments(title));
-        return fragment;
+    @Override
+    public CharSequence getDefaultTitle() {
+        return getString(R.string.wallpaper_app_name);
     }
 
     @Override

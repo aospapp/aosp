@@ -1720,7 +1720,7 @@ public class AudioTrackTest {
 
         playOnceStreamData(TEST_NAME, TEST_MODE, TEST_STREAM_TYPE, TEST_SWEEP,
                 TEST_IS_LOW_RAM_DEVICE, TEST_FORMAT, TEST_FREQUENCY, TEST_SR, TEST_CONF,
-                NO_WAIT);
+                NO_WAIT, 0 /* mask */);
     }
 
     @Test
@@ -1762,7 +1762,7 @@ public class AudioTrackTest {
                 for (int TEST_CONF : TEST_CONF_ARRAY) {
                     playOnceStreamData(TEST_NAME, TEST_MODE, TEST_STREAM_TYPE, TEST_SWEEP,
                             TEST_IS_LOW_RAM_DEVICE, TEST_FORMAT, frequency, TEST_SR, TEST_CONF,
-                            WAIT_MSEC);
+                            WAIT_MSEC, 0 /* mask */);
                     frequency += 50; // increment test tone frequency
                 }
             }
@@ -1771,7 +1771,8 @@ public class AudioTrackTest {
 
     private void playOnceStreamData(String testName, int testMode, int testStream,
             float testSweep, boolean isLowRamDevice, int testFormat, double testFrequency,
-            int testSr, int testConf, long waitMsec) throws InterruptedException {
+            int testSr, int testConf, long waitMsec, int mask)
+            throws InterruptedException {
         final int channelCount = Integer.bitCount(testConf);
         if (isLowRamDevice
                 && (testSr > 96000 || channelCount > 4)) {
@@ -1790,9 +1791,9 @@ public class AudioTrackTest {
         assertEquals(testName, testConf, format.getChannelMask());
         assertEquals(testName, channelCount, format.getChannelCount());
         assertEquals(testName, testFormat, format.getEncoding());
-        final int sourceSamples = channelCount
-                * AudioHelper.frameCountFromMsec(500,
-                format); // duration of test tones
+        // duration of test tones
+        final int frames = AudioHelper.frameCountFromMsec(500 /* ms */, format);
+        final int sourceSamples = channelCount * frames;
         final double frequency = testFrequency / channelCount;
 
         int written = 0;
@@ -1815,6 +1816,9 @@ public class AudioTrackTest {
                 byte data[] = AudioHelper.createSoundDataInByteArray(
                         sourceSamples, testSr,
                         frequency, testSweep);
+                if (mask != 0) {
+                    AudioHelper.maskArray(data, testConf, mask);
+                }
                 while (written < data.length) {
                     int samples = Math.min(data.length - written, samplesPerWrite);
                     int ret = track.write(data, written, samples);
@@ -1827,6 +1831,9 @@ public class AudioTrackTest {
                 short data[] = AudioHelper.createSoundDataInShortArray(
                         sourceSamples, testSr,
                         frequency, testSweep);
+                if (mask != 0) {
+                    AudioHelper.maskArray(data, testConf, mask);
+                }
                 while (written < data.length) {
                     int samples = Math.min(data.length - written, samplesPerWrite);
                     int ret = track.write(data, written, samples);
@@ -1839,6 +1846,9 @@ public class AudioTrackTest {
                 float data[] = AudioHelper.createSoundDataInFloatArray(
                         sourceSamples, testSr,
                         frequency, testSweep);
+                if (mask != 0) {
+                    AudioHelper.maskArray(data, testConf, mask);
+                }
                 while (written < data.length) {
                     int samples = Math.min(data.length - written, samplesPerWrite);
                     int ret = track.write(data, written, samples,
@@ -3204,7 +3214,10 @@ public class AudioTrackTest {
         };
         final int TEST_CONF_ARRAY[] = {
             AudioFormat.CHANNEL_OUT_5POINT1POINT2, // 8 ch (includes height channels vs 7.1).
+            AudioFormat.CHANNEL_OUT_7POINT1POINT2, // 10ch
             AudioFormat.CHANNEL_OUT_7POINT1POINT4, // 12 ch
+            AudioFormat.CHANNEL_OUT_9POINT1POINT4, // 14 ch
+            AudioFormat.CHANNEL_OUT_9POINT1POINT6, // 16 ch
             AudioFormat.CHANNEL_OUT_22POINT2,      // 24 ch
         };
 
@@ -3222,7 +3235,7 @@ public class AudioTrackTest {
                     }
                     playOnceStreamData(TEST_NAME, TEST_MODE, TEST_STREAM_TYPE, TEST_SWEEP,
                             TEST_IS_LOW_RAM_DEVICE, TEST_FORMAT, frequency, TEST_SR, TEST_CONF,
-                            WAIT_MSEC);
+                            WAIT_MSEC, 0 /* mask */);
                     frequency += 50; // increment test tone frequency
                 }
             }
@@ -3244,9 +3257,9 @@ public class AudioTrackTest {
         };
         final int MAX_CHANNEL_BIT = 1 << (AudioSystem.FCC_24 - 1); // highest allowed channel.
         final int TEST_CONF_ARRAY[] = {
-                (1 << AudioSystem.OUT_CHANNEL_COUNT_MAX) - 1,
                 MAX_CHANNEL_BIT,      // likely silent - no physical device on top channel.
                 MAX_CHANNEL_BIT | 1,  // first channel will likely have physical device.
+                (1 << AudioSystem.OUT_CHANNEL_COUNT_MAX) - 1,
         };
         final int TEST_WRITE_MODE_ARRAY[] = {
                 AudioTrack.WRITE_BLOCKING,
@@ -3258,10 +3271,12 @@ public class AudioTrackTest {
 
         double frequency = 200; // frequency changes for each test
         for (int TEST_FORMAT : TEST_FORMAT_ARRAY) {
-            for (int TEST_CONF : TEST_CONF_ARRAY) {
-                for (int TEST_SR : TEST_SR_ARRAY) {
-                    for (int TEST_WRITE_MODE : TEST_WRITE_MODE_ARRAY) {
-                        for (int useDirect = 0; useDirect < 2; ++useDirect) {
+            for (int TEST_SR : TEST_SR_ARRAY) {
+                for (int TEST_WRITE_MODE : TEST_WRITE_MODE_ARRAY) {
+                    for (int useDirect = 0; useDirect < 2; ++useDirect) {
+                        for (int TEST_CONF : TEST_CONF_ARRAY) {
+                            // put TEST_CONF in the inner loop to avoid
+                            // back-to-back creation of large tracks.
                             playOnceStreamByteBuffer(
                                     TEST_NAME, frequency, TEST_SWEEP,
                                     TEST_STREAM_TYPE, TEST_SR, TEST_CONF, TEST_FORMAT,
@@ -3271,6 +3286,199 @@ public class AudioTrackTest {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Verifies downmixer works with different AudioTrack surround channel masks.
+     *
+     * Also a listening test: on a stereo output device, you should hear sine wave tones
+     * instead of silence if the downmixer is working.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testDownmix() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+
+        final String TEST_NAME = "testDownmix";
+        final int TEST_FORMAT_ARRAY[] = {
+            // AudioFormat.ENCODING_PCM_8BIT,  // sounds a bit tinny
+            AudioFormat.ENCODING_PCM_16BIT,
+            AudioFormat.ENCODING_PCM_FLOAT,
+        };
+        final int TEST_SR_ARRAY[] = {
+            48000,
+        };
+        final int TEST_CONF_ARRAY[] = {
+            // This test will play back FRONT_WIDE_LEFT, then FRONT_WIDE_RIGHT.
+            AudioFormat.CHANNEL_OUT_FRONT_LEFT | AudioFormat.CHANNEL_OUT_FRONT_RIGHT |
+            AudioFormat.CHANNEL_OUT_FRONT_WIDE_LEFT | AudioFormat.CHANNEL_OUT_FRONT_WIDE_RIGHT,
+        };
+
+        final int TEST_MODE = AudioTrack.MODE_STREAM;
+        final int TEST_STREAM_TYPE = AudioManager.STREAM_MUSIC;
+        final float TEST_SWEEP = 0; // sine wave only
+        final boolean TEST_IS_LOW_RAM_DEVICE = false;
+        for (int TEST_FORMAT : TEST_FORMAT_ARRAY) {
+            double frequency = 400; // Note: frequency changes for each test
+            for (int TEST_SR : TEST_SR_ARRAY) {
+                for (int TEST_CONF : TEST_CONF_ARRAY) {
+                    // Remove the front left and front right channels.
+                    int signalMask = TEST_CONF & ~(AudioFormat.CHANNEL_OUT_FRONT_LEFT
+                            | AudioFormat.CHANNEL_OUT_FRONT_RIGHT);
+                    // Play all the "surround channels" in the mask individually
+                    // at different frequencies.
+                    while (signalMask != 0) {
+                        final int lowbit = signalMask & -signalMask;
+                        playOnceStreamData(TEST_NAME, TEST_MODE, TEST_STREAM_TYPE, TEST_SWEEP,
+                                TEST_IS_LOW_RAM_DEVICE, TEST_FORMAT, frequency, TEST_SR,
+                                TEST_CONF, WAIT_MSEC, lowbit);
+                        signalMask -= lowbit;
+                        frequency += 50; // increment test tone frequency
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Ensure AudioTrack.getMinBufferSize invalid arguments return BAD_VALUE instead
+     * of throwing exception.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testInvalidMinBufferSize() throws Exception {
+        int TEST_SAMPLE_RATE = 24000;
+        int TEST_CHANNEL_CONFIGURATION = AudioFormat.CHANNEL_OUT_STEREO;
+        int TEST_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+
+        for (int i = 1; i < 8; ++i) {
+            int minBuffSize = AudioTrack.getMinBufferSize(
+                    (i & 1) != 0 ? 0 : TEST_SAMPLE_RATE,
+                    (i & 2) != 0 ? AudioFormat.CHANNEL_INVALID : TEST_CHANNEL_CONFIGURATION,
+                    (i & 4) != 0 ? AudioFormat.ENCODING_INVALID :TEST_ENCODING);
+            assertEquals("Invalid configuration " + i + " should return ERROR_BAD_VALUE",
+                    AudioTrack.ERROR_BAD_VALUE, minBuffSize);
+        }
+    }
+
+    /**
+     * Test AudioTrack Builder error handling.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testAudioTrackBuilderError() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+
+        final AudioTrack[] audioTrack = new AudioTrack[1]; // pointer to audio track.
+        final int BIGNUM = Integer.MAX_VALUE; // large value that should be invalid.
+        final int INVALID_SESSION_ID = 1024;  // can never occur (wrong type in 3 lsbs)
+        final int INVALID_CHANNEL_MASK = -1;
+
+        try {
+            // NOTE:
+            // Tuner Configuration builder error tested in testTunerConfiguration (same file).
+            // AudioAttributes tested in AudioAttributesTest#testAudioAttributesBuilderError.
+            // AudioFormat tested in AudioFormatTest#testAudioFormatBuilderError.
+
+            // We must be able to create the AudioTrack.
+            audioTrack[0] = new AudioTrack.Builder().build();
+            audioTrack[0].release();
+
+            // Out of bounds buffer size.  A large size will fail in AudioTrack creation.
+            assertThrows(UnsupportedOperationException.class, () -> {
+                audioTrack[0] = new AudioTrack.Builder()
+                        .setBufferSizeInBytes(BIGNUM)
+                        .build();
+            });
+
+            // 0 and negative buffer size throw IllegalArgumentException
+            for (int bufferSize : new int[] {-BIGNUM, -1, 0}) {
+                assertThrows(IllegalArgumentException.class, () -> {
+                    audioTrack[0] = new AudioTrack.Builder()
+                            .setBufferSizeInBytes(bufferSize)
+                            .build();
+                });
+            }
+
+            assertThrows(IllegalArgumentException.class, () -> {
+                audioTrack[0] = new AudioTrack.Builder()
+                        .setEncapsulationMode(BIGNUM)
+                        .build();
+            });
+
+            assertThrows(IllegalArgumentException.class, () -> {
+                audioTrack[0] = new AudioTrack.Builder()
+                        .setPerformanceMode(BIGNUM)
+                        .build();
+            });
+
+            // Invalid session id that is positive.
+            // (logcat error message vague)
+            assertThrows(UnsupportedOperationException.class, () -> {
+                audioTrack[0] = new AudioTrack.Builder()
+                        .setSessionId(INVALID_SESSION_ID)
+                        .build();
+            });
+
+            assertThrows(IllegalArgumentException.class, () -> {
+                audioTrack[0] = new AudioTrack.Builder()
+                        .setTransferMode(BIGNUM)
+                        .build();
+            });
+
+            // Specialty AudioTrack build errors.
+
+            // Bad audio encoding DRA expected unsupported.
+            try {
+                audioTrack[0] = new AudioTrack.Builder()
+                        .setAudioFormat(new AudioFormat.Builder()
+                                .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                                .setEncoding(AudioFormat.ENCODING_DRA)
+                                .build())
+                        .build();
+                // Don't throw an exception, maybe it is supported somehow, but warn.
+                // Note: often specialty audio formats are offloaded (see setOffloadedPlayback).
+                // AudioTrackSurroundTest and AudioTrackOffloadedTest can be used as examples.
+                Log.w(TAG, "ENCODING_DRA is expected to be unsupported");
+                audioTrack[0].release();
+                audioTrack[0] = null;
+            } catch (UnsupportedOperationException e) {
+                ; // OK expected
+            }
+
+            // Sample rate out of bounds.
+            // System levels caught on AudioFormat.
+            assertThrows(IllegalArgumentException.class, () -> {
+                audioTrack[0] = new AudioTrack.Builder()
+                        .setAudioFormat(new AudioFormat.Builder()
+                                .setSampleRate(BIGNUM)
+                                .build())
+                        .build();
+            });
+
+            // Invalid channel mask - caught here on use.
+            assertThrows(IllegalArgumentException.class, () -> {
+                audioTrack[0] = new AudioTrack.Builder()
+                        .setAudioFormat(new AudioFormat.Builder()
+                                .setChannelMask(INVALID_CHANNEL_MASK)
+                                .build())
+                        .build();
+            });
+        } finally {
+            // Did we successfully complete for some reason but did not
+            // release?
+            if (audioTrack[0] != null) {
+                audioTrack[0].release();
+                audioTrack[0] = null;
             }
         }
     }

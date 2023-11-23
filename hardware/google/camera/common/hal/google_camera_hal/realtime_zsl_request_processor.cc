@@ -195,8 +195,7 @@ status_t RealtimeZslRequestProcessor::ConfigureStreams(
   // checked the size is supported in capture session.
   if (pixel_format_ == android_pixel_format_t::HAL_PIXEL_FORMAT_YCBCR_420_888) {
     for (const auto& stream : stream_config.streams) {
-      if (utils::IsJPEGSnapshotStream(stream) ||
-          utils::IsYUVSnapshotStream(stream)) {
+      if (utils::IsSoftwareDenoiseEligibleSnapshotStream(stream)) {
         if (SelectWidthAndHeight(stream.width, stream.height,
                                  *device_session_hwl_, active_array_width_,
                                  active_array_height_) != OK) {

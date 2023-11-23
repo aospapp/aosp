@@ -1,0 +1,9 @@
+{
+  "add-module-block": "cargo2android_target.bp",
+  "add_workspace": true,
+  "device": true,
+  "features": "gfxstream,virgl_renderer,virgl_renderer_next",
+  "global_defaults": "crosvm_defaults",
+  "run": true,
+  "tests": true
+}

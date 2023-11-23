@@ -40,6 +40,14 @@ public enum PartnerConfig {
   // The min height of the footer buttons
   CONFIG_FOOTER_BAR_MIN_HEIGHT(PartnerConfigKey.KEY_FOOTER_BAR_MIN_HEIGHT, ResourceType.DIMENSION),
 
+  // The padding start of the footer bar
+  CONFIG_FOOTER_BAR_PADDING_START(
+      PartnerConfigKey.KEY_FOOTER_BAR_PADDING_START, ResourceType.DIMENSION),
+
+  // The padding end of the footer bar
+  CONFIG_FOOTER_BAR_PADDING_END(
+      PartnerConfigKey.KEY_FOOTER_BAR_PADDING_END, ResourceType.DIMENSION),
+
   // The same as "windowLightNavigationBar". If set true, the navigation bar icons will be drawn
   // such that it is compatible with a light navigation bar background.
   CONFIG_LIGHT_NAVIGATION_BAR(PartnerConfigKey.KEY_LIGHT_NAVIGATION_BAR, ResourceType.BOOL),
@@ -108,6 +116,10 @@ public enum PartnerConfig {
   CONFIG_FOOTER_BUTTON_MIN_HEIGHT(
       PartnerConfigKey.KEY_FOOTER_BUTTON_MIN_HEIGHT, ResourceType.DIMENSION),
 
+  // Make the footer buttons all aligned the end
+  CONFIG_FOOTER_BUTTON_ALIGNED_END(
+      PartnerConfigKey.KEY_FOOTER_BUTTON_ALIGNED_END, ResourceType.BOOL),
+
   // Disabled background alpha of the footer buttons
   CONFIG_FOOTER_BUTTON_DISABLED_ALPHA(
       PartnerConfigKey.KEY_FOOTER_BUTTON_DISABLED_ALPHA, ResourceType.FRACTION),
@@ -115,6 +127,14 @@ public enum PartnerConfig {
   // Disabled background color of the footer buttons
   CONFIG_FOOTER_BUTTON_DISABLED_BG_COLOR(
       PartnerConfigKey.KEY_FOOTER_BUTTON_DISABLED_BG_COLOR, ResourceType.COLOR),
+
+  // Disabled text color of the primary footer button
+  CONFIG_FOOTER_PRIMARY_BUTTON_DISABLED_TEXT_COLOR(
+      PartnerConfigKey.KEY_PRIMARY_BUTTON_DISABLED_TEXT_COLOR, ResourceType.COLOR),
+
+  // Disabled text color of the secondary footer button
+  CONFIG_FOOTER_SECONDARY_BUTTON_DISABLED_TEXT_COLOR(
+      PartnerConfigKey.KEY_SECONDARY_BUTTON_DISABLED_TEXT_COLOR, ResourceType.COLOR),
 
   // Background color of the primary footer button
   CONFIG_FOOTER_PRIMARY_BUTTON_BG_COLOR(
@@ -124,6 +144,10 @@ public enum PartnerConfig {
   CONFIG_FOOTER_PRIMARY_BUTTON_TEXT_COLOR(
       PartnerConfigKey.KEY_FOOTER_PRIMARY_BUTTON_TEXT_COLOR, ResourceType.COLOR),
 
+  // Margin start of the primary footer button
+  CONFIG_FOOTER_PRIMARY_BUTTON_MARGIN_START(
+      PartnerConfigKey.KEY_FOOTER_PRIMARY_BUTTON_MARGIN_START, ResourceType.DIMENSION),
+
   // Background color of the secondary footer button
   CONFIG_FOOTER_SECONDARY_BUTTON_BG_COLOR(
       PartnerConfigKey.KEY_FOOTER_SECONDARY_BUTTON_BG_COLOR, ResourceType.COLOR),
@@ -131,6 +155,10 @@ public enum PartnerConfig {
   // Text color of the secondary footer button
   CONFIG_FOOTER_SECONDARY_BUTTON_TEXT_COLOR(
       PartnerConfigKey.KEY_FOOTER_SECONDARY_BUTTON_TEXT_COLOR, ResourceType.COLOR),
+
+  // Margin start of the secondary footer button
+  CONFIG_FOOTER_SECONDARY_BUTTON_MARGIN_START(
+      PartnerConfigKey.KEY_FOOTER_SECONDARY_BUTTON_MARGIN_START, ResourceType.DIMENSION),
 
   // Background color of layout
   CONFIG_LAYOUT_BACKGROUND_COLOR(PartnerConfigKey.KEY_LAYOUT_BACKGROUND_COLOR, ResourceType.COLOR),
@@ -140,6 +168,10 @@ public enum PartnerConfig {
 
   // Margin end of the layout
   CONFIG_LAYOUT_MARGIN_END(PartnerConfigKey.KEY_LAYOUT_MARGIN_END, ResourceType.DIMENSION),
+
+  // Middle horizontal spacing of the landscape layout
+  CONFIG_LAND_MIDDLE_HORIZONTAL_SPACING(
+      PartnerConfigKey.KEY_LAND_MIDDLE_HORIZONTAL_SPACING, ResourceType.DIMENSION),
 
   // Text color of the header
   CONFIG_HEADER_TEXT_COLOR(PartnerConfigKey.KEY_HEADER_TEXT_COLOR, ResourceType.COLOR),
@@ -206,6 +238,10 @@ public enum PartnerConfig {
 
   // Font family of the description
   CONFIG_DESCRIPTION_FONT_FAMILY(PartnerConfigKey.KEY_DESCRIPTION_FONT_FAMILY, ResourceType.STRING),
+
+  // Font family of the link text
+  CONFIG_DESCRIPTION_LINK_FONT_FAMILY(
+      PartnerConfigKey.KEY_DESCRIPTION_LINK_FONT_FAMILY, ResourceType.STRING),
 
   // Margin top of the description text
   CONFIG_DESCRIPTION_TEXT_MARGIN_TOP(
@@ -291,11 +327,11 @@ public enum PartnerConfig {
   // The divider of list items are showing on the pages.
   CONFIG_ITEMS_DIVIDER_SHOWN(PartnerConfigKey.KEY_ITEMS_DIVIDER_SHOWN, ResourceType.BOOL),
 
-  // The intrinsic width of the card view for foldabe/tablet.
+  // The intrinsic width of the card view for foldable/tablet.
   CONFIG_CARD_VIEW_INTRINSIC_WIDTH(
       PartnerConfigKey.KEY_CARD_VIEW_INTRINSIC_WIDTH, ResourceType.DIMENSION),
 
-  // The intrinsic height of the card view for foldabe/tablet.
+  // The intrinsic height of the card view for foldable/tablet.
   CONFIG_CARD_VIEW_INTRINSIC_HEIGHT(
       PartnerConfigKey.KEY_CARD_VIEW_INTRINSIC_HEIGHT, ResourceType.DIMENSION),
 
@@ -414,7 +450,19 @@ public enum PartnerConfig {
 
   // The height of the header of the loading layout.
   CONFIG_LOADING_LAYOUT_HEADER_HEIGHT(
-      PartnerConfigKey.KEY_LOADING_LAYOUT_HEADER_HEIGHT, ResourceType.DIMENSION);
+      PartnerConfigKey.KEY_LOADING_LAYOUT_HEADER_HEIGHT, ResourceType.DIMENSION),
+
+  // Use the fullscreen style lottie animation.
+  CONFIG_LOADING_LAYOUT_FULL_SCREEN_ILLUSTRATION_ENABLED(
+      PartnerConfigKey.KEY_LOADING_LAYOUT_FULL_SCREEN_ILLUSTRATION_ENABLED, ResourceType.BOOL),
+
+  // The margin top of progress bar.
+  CONFIG_PROGRESS_BAR_MARGIN_TOP(
+      PartnerConfigKey.KEY_PROGRESS_BAR_MARGIN_TOP, ResourceType.DIMENSION),
+
+  // The margin bottom of progress bar.
+  CONFIG_PROGRESS_BAR_MARGIN_BOTTOM(
+      PartnerConfigKey.KEY_PROGRESS_BAR_MARGIN_BOTTOM, ResourceType.DIMENSION);
 
   /** Resource type of the partner resources type. */
   public enum ResourceType {

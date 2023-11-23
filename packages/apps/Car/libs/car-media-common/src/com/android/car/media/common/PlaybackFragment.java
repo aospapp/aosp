@@ -18,7 +18,7 @@ package com.android.car.media.common;
 
 import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_PLAYBACK;
 
-import static com.android.car.arch.common.LiveDataFunctions.mapNonNull;
+import static com.android.car.apps.common.util.LiveDataFunctions.mapNonNull;
 
 import android.app.Application;
 import android.app.PendingIntent;
@@ -49,8 +49,8 @@ import com.android.car.apps.common.CrossfadeImageView;
 import com.android.car.apps.common.imaging.ImageBinder;
 import com.android.car.apps.common.imaging.ImageBinder.PlaceholderType;
 import com.android.car.apps.common.util.CarPackageManagerUtils;
+import com.android.car.apps.common.util.FutureData;
 import com.android.car.apps.common.util.ViewUtils;
-import com.android.car.arch.common.FutureData;
 import com.android.car.media.common.browse.MediaBrowserViewModelImpl;
 import com.android.car.media.common.browse.MediaItemsRepository;
 import com.android.car.media.common.playback.PlaybackViewModel;

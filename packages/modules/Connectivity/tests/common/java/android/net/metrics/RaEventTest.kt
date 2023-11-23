@@ -18,7 +18,7 @@ package android.net.metrics
 
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
-import com.android.testutils.assertParcelSane
+import com.android.testutils.assertParcelingIsLossless
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -67,6 +67,6 @@ class RaEventTest {
         assertEquals(5, raEvent.rdnssLifetime)
         assertEquals(6, raEvent.dnsslLifetime)
 
-        assertParcelSane(raEvent, 6)
+        assertParcelingIsLossless(raEvent)
     }
 }

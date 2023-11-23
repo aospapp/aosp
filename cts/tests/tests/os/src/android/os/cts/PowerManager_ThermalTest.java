@@ -32,6 +32,7 @@ import android.support.test.uiautomator.UiDevice;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.ThermalUtils;
 
 import org.junit.After;
@@ -126,6 +127,12 @@ public class PowerManager_ThermalTest {
                 .times(1)).onThermalStatusChanged(status);
     }
 
+    /**
+     * Test that getThermalHeadroom works
+     *
+     * @throws Exception
+     */
+    @CddTest(requirement="7.3.6")
     @Test
     public void testGetThermalHeadroom() throws Exception {
         float headroom = mPowerManager.getThermalHeadroom(0);

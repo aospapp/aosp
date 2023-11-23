@@ -48,6 +48,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoSession;
 
+import java.util.Arrays;
+
 @RunWith(AndroidJUnit4.class)
 public class ActionButtonsPreferenceTest {
 
@@ -208,17 +210,25 @@ public class ActionButtonsPreferenceTest {
         mPref.onBindViewHolder(mHolder);
 
         assertThat(mRootView.findViewById(R.id.button1).isEnabled()).isTrue();
-        assertThat(mRootView.findViewById(R.id.button1Icon).isEnabled()).isTrue();
-        assertThat(mRootView.findViewById(R.id.button1Text).isEnabled()).isTrue();
+        assertThat(containsDrawableState(mRootView.findViewById(R.id.button1Icon),
+                        android.R.attr.state_enabled)).isTrue();
+        assertThat(containsDrawableState(mRootView.findViewById(R.id.button1Text),
+                        android.R.attr.state_enabled)).isTrue();
         assertThat(mRootView.findViewById(R.id.button2).isEnabled()).isFalse();
-        assertThat(mRootView.findViewById(R.id.button2Icon).isEnabled()).isFalse();
-        assertThat(mRootView.findViewById(R.id.button2Text).isEnabled()).isFalse();
+        assertThat(containsDrawableState(mRootView.findViewById(R.id.button2Icon),
+                        android.R.attr.state_enabled)).isFalse();
+        assertThat(containsDrawableState(mRootView.findViewById(R.id.button2Text),
+                        android.R.attr.state_enabled)).isFalse();
         assertThat(mRootView.findViewById(R.id.button3).isEnabled()).isTrue();
-        assertThat(mRootView.findViewById(R.id.button3Icon).isEnabled()).isTrue();
-        assertThat(mRootView.findViewById(R.id.button3Text).isEnabled()).isTrue();
+        assertThat(containsDrawableState(mRootView.findViewById(R.id.button3Icon),
+                android.R.attr.state_enabled)).isTrue();
+        assertThat(containsDrawableState(mRootView.findViewById(R.id.button3Text),
+                android.R.attr.state_enabled)).isTrue();
         assertThat(mRootView.findViewById(R.id.button4).isEnabled()).isFalse();
-        assertThat(mRootView.findViewById(R.id.button4Icon).isEnabled()).isFalse();
-        assertThat(mRootView.findViewById(R.id.button4Text).isEnabled()).isFalse();
+        assertThat(containsDrawableState(mRootView.findViewById(R.id.button4Icon),
+                android.R.attr.state_enabled)).isFalse();
+        assertThat(containsDrawableState(mRootView.findViewById(R.id.button4Text),
+                android.R.attr.state_enabled)).isFalse();
     }
 
     @Test
@@ -327,5 +337,13 @@ public class ActionButtonsPreferenceTest {
         Drawable icon = ((ImageView) mRootView.findViewById(R.id.button1Icon)).getDrawable();
 
         assertThat(icon).isNull();
+    }
+
+    private boolean containsDrawableState(View view, int state) {
+        if (view == null) {
+            return false;
+        }
+        int[] drawableStates = view.getDrawableState();
+        return Arrays.stream(drawableStates).anyMatch(x -> x == state);
     }
 }

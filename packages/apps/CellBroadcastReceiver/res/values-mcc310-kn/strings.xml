@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"ಸುರಕ್ಷತಾ ಎಚ್ಚರಿಕೆ ವ್ಯವಸ್ಥೆಯಿಂದ ಅಗತ್ಯವಾದ ಮಾಸಿಕ ಪರೀಕ್ಷೆಗಳನ್ನು ಸ್ವೀಕರಿಸಿ"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"ರಾಷ್ಟ್ರೀಯ ಎಚ್ಚರಿಕೆ"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"ಮೊದಲ ಎಚ್ಚರಿಕೆಯನ್ನು (ರಾಷ್ಟ್ರೀಯ ಎಚ್ಚರಿಕೆ ಹೊರತುಪಡಿಸಿ) ಪ್ರದರ್ಶಿಸಿದ ಬಳಿಕ ಆಯ್ಕೆಯಿಂದ ಹೊರಗುಳಿದ ಸಂವಾದ ತೋರಿಸಿ."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"ರಾಷ್ಟ್ರೀಯ ಎಚ್ಚರಿಕೆಗಳು"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"ರಾಷ್ಟ್ರೀಯ ಎಚ್ಚರಿಕೆ ಸಂದೇಶಗಳು. ಆಫ್ ಮಾಡಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
 </resources>

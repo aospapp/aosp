@@ -16,5 +16,38 @@
 
 package com.android.queryable;
 
+import androidx.annotation.Nullable;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.stream.Collectors;
+
 public interface Queryable {
+    /**
+     * Generate a string representation of the query.
+     *
+     * <p>For example, if {@code fieldName} was age, we might generate "age > 5, age < 10"
+     */
+    @Nullable
+    String describeQuery(String fieldName);
+
+    /**
+     * Join sub-parts of a query for use in {@link #describeQuery(String)}.
+     *
+     * <p>Queries which are not set should be null.
+     */
+    static String joinQueryStrings(String... queryStrings) {
+        return Arrays.stream(queryStrings).filter(i -> i != null && !i.isEmpty())
+                .collect(Collectors.joining(", "));
+    }
+
+    /**
+     * Join sub-parts of a query for use in {@link #describeQuery(String)}.
+     *
+     * <p>Queries which are not set should be null.
+     */
+    static String joinQueryStrings(Collection<String> queryStrings) {
+        return queryStrings.stream().filter(i -> i != null && !i.isEmpty())
+                .collect(Collectors.joining(", "));
+    }
 }

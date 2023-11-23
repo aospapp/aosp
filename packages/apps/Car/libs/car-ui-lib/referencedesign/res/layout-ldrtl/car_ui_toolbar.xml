@@ -17,6 +17,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/car_ui_toolbar_background"
     android:layout_width="match_parent"
     android:layout_height="96dp">
@@ -37,7 +38,8 @@
             android:layout_width="@dimen/car_ui_toolbar_nav_icon_size"
             android:layout_height="@dimen/car_ui_toolbar_nav_icon_size"
             android:layout_gravity="center"
-            android:scaleType="fitXY" />
+            android:scaleType="fitXY"
+            tools:ignore="UseAppTint" />
 
         <ImageView
             android:id="@+id/car_ui_toolbar_logo"

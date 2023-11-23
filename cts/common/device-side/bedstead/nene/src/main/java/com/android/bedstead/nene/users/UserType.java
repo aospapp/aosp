@@ -29,13 +29,16 @@ public final class UserType {
 
     public static final int UNLIMITED = -1;
 
-    public enum BaseType {
-        SYSTEM, PROFILE, FULL
+    /** Default base types. */
+    public static final class BaseType {
+        public static final String SYSTEM = "SYSTEM";
+        public static final String PROFILE = "PROFILE";
+        public static final String FULL = "FULL";
     }
 
     static final class MutableUserType {
         String mName;
-        Set<BaseType> mBaseType;
+        Set<String> mBaseType;
         Boolean mEnabled;
         Integer mMaxAllowed;
         Integer mMaxAllowedPerParent;
@@ -51,7 +54,8 @@ public final class UserType {
         return mMutableUserType.mName;
     }
 
-    public Set<BaseType> baseType() {
+    /** Get the base type(s) of this type. */
+    public Set<String> baseType() {
         return mMutableUserType.mBaseType;
     }
 

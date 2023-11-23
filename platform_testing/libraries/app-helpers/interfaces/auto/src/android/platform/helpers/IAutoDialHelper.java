@@ -16,8 +16,7 @@
 
 package android.platform.helpers;
 
-
-public interface IAutoDialHelper extends IAppHelper {
+public interface IAutoDialHelper extends IAppHelper, Scrollable {
 
     /** enum class for contact list order type. */
     enum OrderType {

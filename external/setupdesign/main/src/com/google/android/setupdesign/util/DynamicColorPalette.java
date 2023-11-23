@@ -19,7 +19,6 @@ package com.google.android.setupdesign.util;
 import android.content.Context;
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
-import androidx.annotation.VisibleForTesting;
 import com.google.android.setupdesign.R;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -27,7 +26,7 @@ import java.lang.annotation.RetentionPolicy;
 /** The class to get dynamic colors. */
 public final class DynamicColorPalette {
 
-  @VisibleForTesting static int colorRes = 0;
+  private static int colorRes = 0;
 
   private DynamicColorPalette() {}
 

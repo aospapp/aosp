@@ -19,7 +19,11 @@ package com.android.ims.rcs.uce.presence.publish;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.refEq;
 import static org.mockito.Mockito.verify;
 
 import android.content.BroadcastReceiver;
@@ -39,12 +43,18 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 
 import com.android.ims.ImsTestBase;
+import com.android.ims.rcs.uce.UceStatsWriter;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 
 @RunWith(AndroidJUnit4.class)
 public class DeviceCapabilityListenerTest extends ImsTestBase {
@@ -60,6 +70,7 @@ public class DeviceCapabilityListenerTest extends ImsTestBase {
     @Mock DeviceCapabilityListener.ImsMmTelManagerFactory mImsMmTelMgrFactory;
     @Mock DeviceCapabilityListener.ImsRcsManagerFactory mImsRcsMgrFactory;
     @Mock DeviceCapabilityListener.ProvisioningManagerFactory mProvisioningMgrFactory;
+    @Mock UceStatsWriter mUceStatsWriter;
 
     int mSubId = 1;
 
@@ -77,6 +88,10 @@ public class DeviceCapabilityListenerTest extends ImsTestBase {
         doReturn(true).when(mDeviceCapability).updateVtSetting(anyBoolean());
         doReturn(true).when(mDeviceCapability).updateVtSetting(anyBoolean());
         doReturn(true).when(mDeviceCapability).updateMmtelCapabilitiesChanged(any());
+
+        doNothing().when(mUceStatsWriter).setImsRegistrationFeatureTagStats(
+                anyInt(), anyList(), anyInt());
+        doNothing().when(mUceStatsWriter).setStoreCompleteImsRegistrationFeatureTagStats(anyInt());
     }
 
     @After
@@ -183,8 +198,18 @@ public class DeviceCapabilityListenerTest extends ImsTestBase {
         DeviceCapabilityListener deviceCapListener = createDeviceCapabilityListener();
         deviceCapListener.setImsCallbackRegistered(true);
         RegistrationCallback registrationCallback = deviceCapListener.mRcsRegistrationCallback;
+
+        List<String> list = new ArrayList<>();
+        list.add("+g.3gpp.iari-ref=\"urn%3Aurn-7%3A3gpp-application.ims.iari.rcse.im\"");
+        list.add("+g.3gpp.icsi-ref=\"urn%3Aurn-7%3A3gpp-service.ims.icsi.oma.cpm.session\"");
+        list.add("+g.3gpp.iari-ref=\"urn%3Aurn-7%3A3gpp-application.ims.iari.rcs.ftsms\"");
+        Set<String> featureTags = new HashSet<String>(list);
+
         ImsRegistrationAttributes attr = new ImsRegistrationAttributes.Builder(
-                ImsRegistrationImplBase.REGISTRATION_TECH_LTE).build();
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE)
+                .setFeatureTags(featureTags)
+                .build();
+
         // Notify DeviceCapabilityListener that registered has caused a change and requires publish
         doReturn(true).when(mDeviceCapability).updateImsRcsRegistered(attr);
 
@@ -195,6 +220,8 @@ public class DeviceCapabilityListenerTest extends ImsTestBase {
         verify(mDeviceCapability).updateImsRcsRegistered(attr);
         verify(mCallback).requestPublishFromInternal(
                 PublishController.PUBLISH_TRIGGER_RCS_REGISTERED);
+        verify(mUceStatsWriter).setImsRegistrationFeatureTagStats(anyInt(),
+            refEq(list), eq(ImsRegistrationImplBase.REGISTRATION_TECH_LTE));
     }
 
     @Test
@@ -216,6 +243,7 @@ public class DeviceCapabilityListenerTest extends ImsTestBase {
         verify(mDeviceCapability).updateImsRcsUnregistered();
         verify(mCallback).requestPublishFromInternal(
                 PublishController.PUBLISH_TRIGGER_RCS_UNREGISTERED);
+        verify(mUceStatsWriter).setStoreCompleteImsRegistrationFeatureTagStats(anyInt());
     }
 
     @Test
@@ -237,7 +265,7 @@ public class DeviceCapabilityListenerTest extends ImsTestBase {
 
     private DeviceCapabilityListener createDeviceCapabilityListener() {
         DeviceCapabilityListener deviceCapListener = new DeviceCapabilityListener(mContext,
-                mSubId, mDeviceCapability, mCallback);
+                mSubId, mDeviceCapability, mCallback, mUceStatsWriter);
         deviceCapListener.setImsMmTelManagerFactory(mImsMmTelMgrFactory);
         deviceCapListener.setImsRcsManagerFactory(mImsRcsMgrFactory);
         deviceCapListener.setProvisioningMgrFactory(mProvisioningMgrFactory);

@@ -12,7 +12,7 @@ use data_model::vec_with_array_field;
 use libc::{EAGAIN, ENODEV, ENOENT};
 use std::convert::TryInto;
 use std::fs::File;
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::mem::size_of_val;
 use std::os::raw::{c_int, c_uint, c_void};
 use std::sync::Arc;
@@ -55,7 +55,10 @@ impl Device {
     /// `fd` should be a file in usbdevfs (e.g. `/dev/bus/usb/001/002`).
     pub fn new(mut fd: File) -> Result<Self> {
         fd.seek(SeekFrom::Start(0)).map_err(Error::DescriptorRead)?;
-        let device_descriptor_tree = descriptor::parse_usbfs_descriptors(&mut fd)?;
+        let mut descriptor_data = Vec::new();
+        fd.read_to_end(&mut descriptor_data)
+            .map_err(Error::DescriptorRead)?;
+        let device_descriptor_tree = descriptor::parse_usbfs_descriptors(&descriptor_data)?;
 
         let device = Device {
             fd: Arc::new(fd),
@@ -269,6 +272,10 @@ impl Device {
         Ok(*self.device_descriptor_tree)
     }
 
+    pub fn get_device_descriptor_tree(&self) -> &DeviceDescriptorTree {
+        &self.device_descriptor_tree
+    }
+
     /// Get active config descriptor of this device.
     pub fn get_config_descriptor(&self, config: u8) -> Result<ConfigDescriptorTree> {
         match self.device_descriptor_tree.get_config_descriptor(config) {
@@ -277,8 +284,31 @@ impl Device {
         }
     }
 
+    /// Get a configuration descriptor by its index within the list of descriptors returned
+    /// by the device.
+    pub fn get_config_descriptor_by_index(&self, config_index: u8) -> Result<ConfigDescriptorTree> {
+        match self
+            .device_descriptor_tree
+            .get_config_descriptor_by_index(config_index)
+        {
+            Some(config_descriptor) => Ok(config_descriptor.clone()),
+            None => Err(Error::NoSuchDescriptor),
+        }
+    }
+
     /// Get bConfigurationValue of the currently active configuration.
     pub fn get_active_configuration(&self) -> Result<u8> {
+        // If the device only exposes a single configuration, bypass the control transfer below
+        // by looking up the configuration value from the descriptor.
+        if self.device_descriptor_tree.bNumConfigurations == 1 {
+            if let Some(config_descriptor) = self
+                .device_descriptor_tree
+                .get_config_descriptor_by_index(0)
+            {
+                return Ok(config_descriptor.bConfigurationValue);
+            }
+        }
+
         // Send a synchronous control transfer to get the active configuration.
         let mut active_config: u8 = 0;
         let ctrl_transfer = usb_sys::usbdevfs_ctrltransfer {

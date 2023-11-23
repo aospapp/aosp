@@ -14,6 +14,7 @@ import android.os.Handler;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.NumberPicker;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationCompat.Action;
@@ -26,7 +27,9 @@ import androidx.fragment.app.Fragment;
 import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * Test fragment that can send all sorts of notifications.
@@ -92,6 +95,7 @@ public class NotificationFragment extends Fragment {
         initOngoingButton(view);
         initMessagingStyleButtonForDiffPerson(view);
         initMessagingStyleButtonForSamePerson(view);
+        initMessagingStyleButtonForLongMessageSamePerson(view);
         initMessagingStyleButtonWithMuteAction(view);
         initTestMessagesButton(view);
         initProgressButton(view);
@@ -100,6 +104,7 @@ public class NotificationFragment extends Fragment {
         initCallButton(view);
         initCustomGroupSummaryButton(view);
         initGroupWithoutSummaryButton(view);
+        initCustomizableMessageButton(view);
 
         return view;
     }
@@ -244,6 +249,83 @@ public class NotificationFragment extends Fragment {
         });
     }
 
+    private void initCustomizableMessageButton(View view) {
+        NumberPicker messagesPicker = view.findViewById(R.id.number_messages);
+        messagesPicker.setMinValue(1);
+        messagesPicker.setMaxValue(25);
+        messagesPicker.setWrapSelectorWheel(true);
+        NumberPicker peoplePicker = view.findViewById(R.id.number_people);
+        peoplePicker.setMinValue(1);
+        peoplePicker.setMaxValue(25);
+        peoplePicker.setWrapSelectorWheel(true);
+
+        view.findViewById(R.id.customizable_message_button).setOnClickListener(v -> {
+            int id = mCurrentNotificationId++;
+
+            int numPeople = peoplePicker.getValue();
+            int numMessages = messagesPicker.getValue();
+
+            PendingIntent replyIntent = createServiceIntent(id, "reply");
+            PendingIntent markAsReadIntent = createServiceIntent(id, "read");
+
+            List<Person> personList = new ArrayList<>();
+
+            for (int i = 1; i <= numPeople; i++) {
+                personList.add(new Person.Builder()
+                        .setName("Person " + i)
+                        .setIcon(IconCompat.createWithResource(v.getContext(),
+                                i % 2 == 1 ? R.drawable.avatar1 : R.drawable.avatar2))
+                        .build());
+            }
+
+            MessagingStyle messagingStyle =
+                    new MessagingStyle(personList.get(0))
+                            .setConversationTitle("Customizable Group chat");
+            if (personList.size() > 1) {
+                messagingStyle.setGroupConversation(true);
+            }
+
+            int messageNumber = 1;
+            for (int i = 0; i < numMessages; i++) {
+                int personNum = i % numPeople;
+                if (personNum == numPeople - 1) {
+                    messageNumber++;
+                }
+                Person person = personList.get(personNum);
+                String messageText = person.getName() + "'s " + messageNumber + " message";
+                messagingStyle.addMessage(
+                        new MessagingStyle.Message(
+                                messageText,
+                                System.currentTimeMillis(),
+                                person));
+            }
+
+            NotificationCompat.Builder notification = new NotificationCompat
+                    .Builder(mContext, IMPORTANCE_HIGH_ID)
+                    .setContentTitle("Customizable Group chat (Title)")
+                    .setContentText("Customizable Group chat (Text)")
+                    .setShowWhen(true)
+                    .setCategory(Notification.CATEGORY_MESSAGE)
+                    .setSmallIcon(R.drawable.car_ic_mode)
+                    .setStyle(messagingStyle)
+                    .setAutoCancel(true)
+                    .setColor(mContext.getColor(android.R.color.holo_green_light))
+                    .addAction(
+                            new Action.Builder(R.drawable.ic_check_box, "read", markAsReadIntent)
+                                    .setSemanticAction(Action.SEMANTIC_ACTION_MARK_AS_READ)
+                                    .setShowsUserInterface(false)
+                                    .build())
+                    .addAction(
+                            new Action.Builder(R.drawable.ic_check_box, "reply", replyIntent)
+                                    .setSemanticAction(Action.SEMANTIC_ACTION_REPLY)
+                                    .setShowsUserInterface(false)
+                                    .addRemoteInput(new RemoteInput.Builder("input").build())
+                                    .build());
+
+            mManager.notify(id, notification.build());
+        });
+    }
+
     private void initMessagingStyleButtonForDiffPerson(View view) {
         view.findViewById(R.id.category_message_diff_person_button).setOnClickListener(v -> {
             int id = mCurrentNotificationId++;
@@ -348,6 +430,54 @@ public class NotificationFragment extends Fragment {
                     builder.setStyle(messagingStyle.addMessage(
                             new MessagingStyle.Message(
                                     "Message " + id,
+                                    System.currentTimeMillis(),
+                                    person)));
+            mManager.notify(12345, updateNotification.build());
+        });
+    }
+
+    private void initMessagingStyleButtonForLongMessageSamePerson(View view) {
+        view.findViewById(R.id.category_long_message_same_person_button).setOnClickListener(v -> {
+            int id = mCurrentNotificationId++;
+
+            PendingIntent replyIntent = createServiceIntent(id, "reply");
+            PendingIntent markAsReadIntent = createServiceIntent(id, "read");
+
+
+
+            Person person = new Person.Builder().setName("John Doe").build();
+            MessagingStyle messagingStyle =
+                    new MessagingStyle(person).setConversationTitle("Hello!");
+            NotificationCompat.Builder builder = new NotificationCompat
+                    .Builder(mContext, IMPORTANCE_HIGH_ID)
+                    .setContentTitle("Message from someone")
+                    .setContentText("hi")
+                    .setShowWhen(true)
+                    .setCategory(Notification.CATEGORY_MESSAGE)
+                    .setSmallIcon(R.drawable.car_ic_mode)
+                    .setAutoCancel(true)
+                    .setColor(mContext.getColor(android.R.color.holo_green_light))
+                    .addAction(
+                            new Action.Builder(R.drawable.ic_check_box, "read", markAsReadIntent)
+                                    .setSemanticAction(Action.SEMANTIC_ACTION_MARK_AS_READ)
+                                    .setShowsUserInterface(false)
+                                    .build())
+                    .addAction(
+                            new Action.Builder(R.drawable.ic_check_box, "reply", replyIntent)
+                                    .setSemanticAction(Action.SEMANTIC_ACTION_REPLY)
+                                    .setShowsUserInterface(false)
+                                    .addRemoteInput(new RemoteInput.Builder("input").build())
+                                    .build());
+
+            String messageText = "";
+            for (int i = 0; i < 100; i++) {
+                messageText += " test";
+            }
+
+            NotificationCompat.Builder updateNotification =
+                    builder.setStyle(messagingStyle.addMessage(
+                            new MessagingStyle.Message(
+                                    id + messageText,
                                     System.currentTimeMillis(),
                                     person)));
             mManager.notify(12345, updateNotification.build());

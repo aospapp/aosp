@@ -86,6 +86,9 @@ void VirtualCamera::shutdown() {
 
             // Give the underlying hardware camera the heads up that it might be time to stop
             pHwCamera->clientStreamEnding(this);
+
+            // Retire from the participating HW camera's client list
+            pHwCamera->disownVirtualCamera(this);
         }
 
         // Join a capture thread
@@ -385,7 +388,6 @@ Return<EvsResult> VirtualCamera::startVideoStream(const ::android::sp<IEvsCamera
                     // This happens when either a new frame does not arrive
                     // before a timer expires or we're requested to stop
                     // capturing frames.
-                    LOG(DEBUG) << "Exiting a capture thread.";
                     break;
                 } else if (mStreamState == RUNNING) {
                     // Fetch frames and forward to the client
@@ -397,6 +399,9 @@ Return<EvsResult> VirtualCamera::startVideoStream(const ::android::sp<IEvsCamera
                         for (auto&& [key, hwCamera] : mHalCamera) {
                             auto pHwCamera = hwCamera.promote();
                             if (pHwCamera == nullptr) {
+                                continue;
+                            }
+                            if (mFramesHeld[key].size() == 0) {
                                 continue;
                             }
 
@@ -678,7 +683,7 @@ Return<EvsResult> VirtualCamera::forceMaster(const sp<IEvsDisplay_1_0>& display)
         return EvsResult::INVALID_ARG;
     }
 
-    if (display.get() == nullptr) {
+    if (display == nullptr) {
         LOG(ERROR) << __FUNCTION__
                    << ": Passed display is invalid";
         return EvsResult::INVALID_ARG;

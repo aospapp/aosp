@@ -15,6 +15,7 @@ WEP_SECURITY = "wep"
 ENT_SECURITY = "wpa2"
 OWE_SECURITY = "owe"
 SAE_SECURITY = "sae"
+SAEMIXED_SECURITY = "sae-mixed"
 ENABLE_RADIO = "0"
 DISABLE_RADIO = "1"
 ENABLE_HIDDEN = "1"
@@ -108,7 +109,8 @@ class WirelessSettingsApplier(object):
       self.ssh.run("uci set wireless.%s.encryption='%s'" %
                    (config.name, config.security))
       if config.security == PSK_SECURITY or config.security == SAE_SECURITY\
-              or config.security == PSK1_SECURITY:
+              or config.security == PSK1_SECURITY\
+              or config.security == SAEMIXED_SECURITY:
         self.ssh.run("uci set wireless.%s.key='%s'" %
                      (config.name, config.password))
       elif config.security == WEP_SECURITY:

@@ -169,7 +169,6 @@ public class ScheduledRunCollectionListener<T extends Number> extends ScheduledR
     /** {@inheritDoc} */
     @Override
     void onStart(DataRecord runData, Description description) {
-        setupAdditionalArgs();
         Path path =
                 Paths.get(
                         OUTPUT_ROOT,
@@ -207,14 +206,6 @@ public class ScheduledRunCollectionListener<T extends Number> extends ScheduledR
         Map<String, T> dataPoint = mHelper.getMetrics();
         mTimeSeriesCsvWriter.write(dataPoint, timeStamp);
         mTimeSeriesStatistics.update(dataPoint);
-    }
-
-    /**
-     * To add listener specific extra args implement this method in the sub class and add the
-     * listener specific args.
-     */
-    public void setupAdditionalArgs() {
-        // NO-OP by default
     }
 
     protected void createHelperInstance(ICollectorHelper helper) {

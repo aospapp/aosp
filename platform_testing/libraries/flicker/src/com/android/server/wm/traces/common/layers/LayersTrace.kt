@@ -27,15 +27,46 @@ import com.android.server.wm.traces.common.ITrace
  * access internal Java/Android functionality
  *
  */
-open class LayersTrace(
-    override val entries: List<LayerTraceEntry>,
-    override val source: String = "",
-    override val sourceChecksum: String = ""
-) : ITrace<LayerTraceEntry>, List<LayerTraceEntry> by entries {
-    constructor(entry: LayerTraceEntry): this(listOf(entry))
+data class LayersTrace(
+    override val entries: Array<LayerTraceEntry>,
+    override val source: String = ""
+) : ITrace<LayerTraceEntry>, List<LayerTraceEntry> by entries.toList() {
+    constructor(entry: LayerTraceEntry): this(arrayOf(entry))
 
     override fun toString(): String {
         return "LayersTrace(Start: ${entries.first()}, " +
             "End: ${entries.last()})"
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is LayersTrace) return false
+
+        if (!entries.contentEquals(other.entries)) return false
+        if (source != other.source) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = entries.contentHashCode()
+        result = 31 * result + source.hashCode()
+        return result
+    }
+
+    /**
+     * Split the trace by the start and end timestamp.
+     *
+     * @param from the start timestamp
+     * @param to the end timestamp
+     * @return the subtrace trace(from, to)
+     */
+    fun filter(from: Long, to: Long): LayersTrace {
+        return LayersTrace(
+            this.entries
+                .dropWhile { it.timestamp < from }
+                .dropLastWhile { it.timestamp > to }
+                .toTypedArray(),
+            source = "")
     }
 }

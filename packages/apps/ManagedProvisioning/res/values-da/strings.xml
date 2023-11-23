@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Den følgende app vil styre din enhed:"</string>
     <string name="next" msgid="1004321437324424398">"Næste"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Arbejdsprofilen konfigureres..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Din it-administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser og data, der er knyttet til denne profil, bl.a. din netværksaktivitet samt enhedens placering, opkaldshistorik og historik for søgning efter kontakter. <xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Din it-administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser og data, der er knyttet til denne profil, bl.a. din netværksaktivitet samt enhedens lokation, opkaldshistorik og historik for søgning efter kontakter. <xliff:g id="LINE_BREAK">
 
 </xliff:g>Kontakt din it-administrator for at få flere oplysninger, bl.a. om din organisations privatlivspolitik."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Din it-administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser og data, der er knyttet til denne enhed, bl.a. din netværksaktivitet samt enhedens placering, opkaldshistorik og historik for søgning efter kontakter. <xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Din it-administrator kan overvåge og administrere indstillinger, virksomhedsadgang, apps, tilladelser og data, der er knyttet til denne enhed, bl.a. din netværksaktivitet samt enhedens lokation, opkaldshistorik og historik for søgning efter kontakter. <xliff:g id="LINE_BREAK">
 
 </xliff:g>Kontakt din it-administrator for at få flere oplysninger, bl.a. om din organisations privatlivspolitikker."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Hvis du vil bruge funktionen, der beskytter mod tyveri, skal din enhed have en skærmlås med en tilhørende adgangskode."</string>
@@ -174,10 +174,10 @@
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Din it-administrator kan muligvis se dine data og din aktivitet på denne enhed."</string>
     <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Din aktivitet og dine data"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Apptilladelser"</string>
-    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Din it-administrator kan angive tilladelser for apps på denne enhed, f.eks. tilladelser for mikrofonen, kameraet og din placering."</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Din it-administrator kan angive tilladelser for apps på denne enhed, f.eks. tilladelser for mikrofonen, kameraet og din lokation."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Konfigurerer din enhed…"</string>
     <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Brug denne enhed til nemt at få adgang til dine arbejdsapps. Denne enhed er ikke privat, så din it-administrator kan muligvis se dine data og din aktivitet."</string>
-    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Brug denne enhed til nemt at få adgang til dine arbejdsapps. Denne enhed er ikke privat, så din it-administrator kan muligvis se din aktivitet og dine data. Din it-administrator kan også angive tilladelser for apps på denne enhed, f.eks. tilladelser for mikrofonen, kameraet og din placering."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Brug denne enhed til nemt at få adgang til dine arbejdsapps. Denne enhed er ikke privat, så din it-administrator kan muligvis se din aktivitet og dine data. Din it-administrator kan også angive tilladelser for apps på denne enhed, f.eks. tilladelser for mikrofonen, kameraet og din lokation."</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Returner denne enhed til din it-adminstrator"</string>
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Gå tilbage til den forrige skærm, eller nulstil enheden, og returner den til din it-administrator."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Annuller konfiguration"</string>

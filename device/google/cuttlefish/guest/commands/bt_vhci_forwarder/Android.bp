@@ -13,8 +13,8 @@ cc_binary {
         "liblog",
     ],
     static_libs: [
+        "h4_packetizer_lib",
         "libgflags",
-        "libbt-rootcanal",
     ],
     defaults: ["cuttlefish_guest_only"]
 }

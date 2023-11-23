@@ -34,6 +34,9 @@ java_test_host {
         "general-tests",
         "mts",
     ],
+    static_libs: [
+        "cts-statsd-atom-host-test-utils",
+    ],
     java_resource_dirs: ["res"],
     data: [":current-api-xml"],
 }

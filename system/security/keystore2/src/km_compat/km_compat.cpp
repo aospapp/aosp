@@ -762,7 +762,21 @@ ScopedAStatus KeyMintOperation::updateAad(const std::vector<uint8_t>& input,
     return convertErrorCode(errorCode);
 }
 
-ScopedAStatus KeyMintOperation::update(const std::vector<uint8_t>& input,
+void KeyMintOperation::setUpdateBuffer(std::vector<uint8_t> data) {
+    mUpdateBuffer = std::move(data);
+}
+
+const std::vector<uint8_t>&
+KeyMintOperation::getExtendedUpdateBuffer(const std::vector<uint8_t>& suffix) {
+    if (mUpdateBuffer.empty()) {
+        return suffix;
+    } else {
+        mUpdateBuffer.insert(mUpdateBuffer.end(), suffix.begin(), suffix.end());
+        return mUpdateBuffer;
+    }
+}
+
+ScopedAStatus KeyMintOperation::update(const std::vector<uint8_t>& input_raw,
                                        const std::optional<HardwareAuthToken>& optAuthToken,
                                        const std::optional<TimeStampToken>& optTimeStampToken,
                                        std::vector<uint8_t>* out_output) {
@@ -772,8 +786,10 @@ ScopedAStatus KeyMintOperation::update(const std::vector<uint8_t>& input,
     size_t inputPos = 0;
     *out_output = {};
     KMV1::ErrorCode errorCode = KMV1::ErrorCode::OK;
+    auto input = getExtendedUpdateBuffer(input_raw);
 
     while (inputPos < input.size() && errorCode == KMV1::ErrorCode::OK) {
+        uint32_t consumed = 0;
         auto result =
             mDevice->update(mOperationHandle, {} /* inParams */,
                             {input.begin() + inputPos, input.end()}, authToken, verificationToken,
@@ -781,13 +797,22 @@ ScopedAStatus KeyMintOperation::update(const std::vector<uint8_t>& input,
                                 const hidl_vec<uint8_t>& output) {
                                 errorCode = convert(error);
                                 out_output->insert(out_output->end(), output.begin(), output.end());
-                                inputPos += inputConsumed;
+                                consumed = inputConsumed;
                             });
 
         if (!result.isOk()) {
             LOG(ERROR) << __func__ << " transaction failed. " << result.description();
             errorCode = KMV1::ErrorCode::UNKNOWN_ERROR;
         }
+
+        if (errorCode == KMV1::ErrorCode::OK && consumed == 0) {
+            // Some very old KM implementations do not buffer sub blocks in certain block modes,
+            // instead, the simply return consumed == 0. So we buffer the input here in the
+            // hope that we complete the bock in a future call to update.
+            setUpdateBuffer({input.begin() + inputPos, input.end()});
+            return convertErrorCode(errorCode);
+        }
+        inputPos += consumed;
     }
 
     if (errorCode != KMV1::ErrorCode::OK) mOperationSlot.freeSlot();
@@ -802,7 +827,8 @@ KeyMintOperation::finish(const std::optional<std::vector<uint8_t>>& in_input,
                          const std::optional<TimeStampToken>& in_timeStampToken,
                          const std::optional<std::vector<uint8_t>>& in_confirmationToken,
                          std::vector<uint8_t>* out_output) {
-    auto input = in_input.value_or(std::vector<uint8_t>());
+    auto input_raw = in_input.value_or(std::vector<uint8_t>());
+    auto input = getExtendedUpdateBuffer(input_raw);
     auto signature = in_signature.value_or(std::vector<uint8_t>());
     V4_0_HardwareAuthToken authToken = convertAuthTokenToLegacy(in_authToken);
     V4_0_VerificationToken verificationToken = convertTimestampTokenToLegacy(in_timeStampToken);
@@ -1314,7 +1340,7 @@ KeymasterDevices initializeKeymasters() {
     CHECK(serviceManager.get()) << "Failed to get ServiceManager";
     auto result = enumerateKeymasterDevices<Keymaster4>(serviceManager.get());
     auto softKeymaster = result[SecurityLevel::SOFTWARE];
-    if (!result[SecurityLevel::TRUSTED_ENVIRONMENT]) {
+    if ((!result[SecurityLevel::TRUSTED_ENVIRONMENT]) && (!result[SecurityLevel::STRONGBOX])) {
         result = enumerateKeymasterDevices<Keymaster3>(serviceManager.get());
     }
     if (softKeymaster) result[SecurityLevel::SOFTWARE] = softKeymaster;

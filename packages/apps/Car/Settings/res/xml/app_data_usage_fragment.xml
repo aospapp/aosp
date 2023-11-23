@@ -20,6 +20,16 @@
     xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/app_data_usage"
     android:key="@string/psk_app_data_usage">
+    <ListPreference
+        android:key="@string/pk_data_usage_usage_history"
+        android:title="@string/data_usage_usage_history_title"
+        android:dialogTitle="@string/data_usage_usage_history_title"
+        settings:controller="com.android.car.settings.datausage.DataUsageCyclePreferenceController"/>
+    <com.android.car.settings.common.DividerPreference/>
+    <com.android.car.ui.preference.CarUiPreference
+        android:key="@string/pk_data_usage_all_apps"
+        android:selectable="false"
+        settings:controller="com.android.car.settings.datausage.AppDataUsageTotalPreferenceController"/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_app_data_usage_detail"
         settings:controller="com.android.car.settings.datausage.AppDataUsagePreferenceController"/>

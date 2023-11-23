@@ -36,6 +36,7 @@ public abstract class ContentLimitingAdapter<T extends RecyclerView.ViewHolder>
     private static final int SCROLLING_LIMITED_MESSAGE_VIEW_TYPE = Integer.MAX_VALUE;
 
     private Integer mScrollingLimitedMessageResId;
+    @NonNull
     private RangeFilter mRangeFilter = new PassThroughFilter();
     private RecyclerView mRecyclerView;
     private boolean mIsLimiting = false;
@@ -247,23 +248,19 @@ public abstract class ContentLimitingAdapter<T extends RecyclerView.ViewHolder>
 
     @Override
     public void setMaxItems(int maxItems) {
+        // remove the original filter first.
+        mRangeFilter.removeFilter();
         if (maxItems >= 0) {
-            if (mRangeFilter != null && mIsLimiting) {
-                Log.w(TAG, "A new filter range received before parked");
-                // remove the original filter first.
-                mRangeFilter.removeFilter();
-            }
             mIsLimiting = true;
             mRangeFilter = new RangeFilterImpl(this, maxItems);
             mRangeFilter.recompute(getUnrestrictedItemCount(), computeAnchorIndexWhenRestricting());
             mRangeFilter.applyFilter();
             autoScrollWhenRestricted();
         } else {
-            mRangeFilter.removeFilter();
-
             mIsLimiting = false;
             mRangeFilter = new PassThroughFilter();
             mRangeFilter.recompute(getUnrestrictedItemCount(), 0);
+            mRangeFilter.applyFilter();
         }
     }
 
@@ -298,10 +295,10 @@ public abstract class ContentLimitingAdapter<T extends RecyclerView.ViewHolder>
     }
 
     /**
-     * Updates the changes from underlying data along with a new anchor.
+     * Updates the changes from underlying data along with a new pivot.
      */
-    public void updateUnderlyingDataChanged(int unrestrictedCount, int newAnchorIndex) {
-        mRangeFilter.recompute(unrestrictedCount, newAnchorIndex);
+    public void updateUnderlyingDataChanged(int unrestrictedCount, int newPivotIndex) {
+        mRangeFilter.recompute(unrestrictedCount, newPivotIndex);
     }
 
     /**

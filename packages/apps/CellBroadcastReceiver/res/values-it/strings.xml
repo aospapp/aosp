@@ -84,7 +84,7 @@
     <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"Disattiva l\'opzione per ricevere messaggi relativi alla sicurezza pubblica soltanto nell\'app per SMS"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Test a livello statale e locale"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Ricevi messaggi di prova da autorità statali e locali"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Avvisi d\'emergenza"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Allerte di emergenza"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Avvisi relativi a eventi potenzialmente letali"</string>
     <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Allerte di prova"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Ricevi test dell\'operatore e test mensili dal sistema di allerte relative alla sicurezza"</string>

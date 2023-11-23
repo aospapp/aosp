@@ -16,10 +16,11 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.car.ui.test">
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <application android:debuggable="true" android:theme="@style/Theme.CarUi.NoToolbar">
         <uses-library android:name="android.test.runner" />
         <activity android:name="com.android.car.ui.TrulyEmptyActivity"
-            android:theme="@android:style/Theme.Material.NoActionBar"/>
+            android:theme="@style/Theme.CarUi"/>
         <activity android:name="com.android.car.ui.TestActivity" />
         <activity android:name="com.android.car.ui.recyclerview.CarUiRecyclerViewTestActivity" />
         <activity android:name="com.android.car.ui.imewidescreen.CarUiImeWideScreenTestActivity" />
@@ -33,7 +34,9 @@
         <activity android:name="com.android.car.ui.utils.ViewUtilsTestActivity" />
         <activity
             android:name="com.android.car.ui.toolbar.ToolbarTestActivity"
-            android:theme="@style/Theme.CarUi.WithToolbar"/>
+            android:theme="@style/Theme.CarUi.WithToolbar">
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
         <provider
             android:name="com.android.car.ui.core.SearchResultsProvider"
             android:authorities="${applicationId}.SearchResultsProvider"

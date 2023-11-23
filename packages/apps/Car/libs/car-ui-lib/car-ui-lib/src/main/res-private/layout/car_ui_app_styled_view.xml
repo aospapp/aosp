@@ -16,9 +16,10 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="20dp"
+    android:padding="0dp"
     android:background="@drawable/car_ui_app_styled_view_background">
 
     <!-- When not in touch mode, if we clear focus in current window, Android will re-focus the
@@ -49,14 +50,14 @@
                 android:layout_height="@dimen/car_ui_toolbar_nav_icon_size"
                 android:tint="@color/car_ui_toolbar_nav_icon_color"
                 android:layout_gravity="center"
-                android:scaleType="fitXY"/>
+                android:scaleType="fitXY"
+                tools:ignore="UseAppTint" />
         </FrameLayout>
     </com.android.car.ui.FocusArea>
-    <com.android.car.ui.recyclerview.CarUiRecyclerView
+    <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/car_ui_app_styled_content"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:carUiSize="small"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/car_ui_focus_area"/>

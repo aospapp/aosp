@@ -62,6 +62,7 @@ public class Provisioner {
      */
     public static int provisionCerts(int numKeys, int secLevel, byte[] geekChain, byte[] challenge,
             @NonNull IRemoteProvisioning binder, Context context) {
+        Log.i(TAG, "Request for " + numKeys + " keys to be provisioned.");
         if (numKeys < 1) {
             Log.e(TAG, "Request at least 1 key to be signed. Num requested: " + numKeys);
             return 0;
@@ -91,6 +92,7 @@ public class Provisioner {
             Log.e(TAG, "Server response failed on provisioning attempt.");
             return 0;
         }
+        Log.i(TAG, "Received " + certChains.size() + " certificate chains from the server.");
         int provisioned = 0;
         for (byte[] certChain : certChains) {
             // DER encoding specifies leaf to root ordering. Pull the public key and expiration
@@ -119,6 +121,8 @@ public class Provisioner {
                 return provisioned;
             }
         }
+        Log.i(TAG, "In provisionCerts: Requested " + numKeys + " keys. "
+                   + provisioned + " were provisioned.");
         return provisioned;
     }
 }

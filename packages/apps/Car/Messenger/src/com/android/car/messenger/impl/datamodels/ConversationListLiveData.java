@@ -59,6 +59,8 @@ class ConversationListLiveData extends ContentProviderLiveData<Collection<Conver
     ConversationListLiveData(@NonNull UserAccount userAccount) {
         super(Telephony.MmsSms.CONTENT_URI);
         mUserAccount = userAccount;
+        // source to refresh the data to avoid stale data when resuming from background
+        addSource(RefreshLiveData.getInstance(), it -> onDataChange());
     }
 
     @Override

@@ -27,10 +27,14 @@ import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.bedstead.nene.TestApis;
+import com.android.bedstead.nene.exceptions.NeneException;
+import com.android.bedstead.nene.users.UserReference;
 import com.android.compatibility.common.util.ShellIdentityUtils.QuadFunction;
 import com.android.compatibility.common.util.ShellIdentityUtils.TriFunction;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -68,45 +72,58 @@ public class ActivityContext extends Activity {
         if (runnable == null) {
             throw new NullPointerException();
         }
-        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
 
-        if (!instrumentation.getContext().getPackageName().equals(
-                instrumentation.getTargetContext().getPackageName())) {
-            throw new IllegalStateException("ActivityContext can only be used in test apps which"
-                    + " instrument themselves. Consider ActivityScenario for this case.");
-        }
+        // As we show an Activity we must be in the foreground
+        UserReference currentUser = TestApis.users().current();
+        try {
+            TestApis.users().instrumented().switchTo();
 
-        synchronized (ActivityContext.class) {
-            sRunnable = runnable;
+            Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
 
-            sLatch = new CountDownLatch(1);
-            sReturnValue = null;
-            sThrowValue = null;
-
-            Intent intent = new Intent();
-            intent.setClass(sContext, ActivityContext.class);
-            intent.setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK);
-            sContext.startActivity(intent);
-        }
-
-        sLatch.await();
-
-        synchronized (ActivityContext.class) {
-            sRunnable = null;
-
-            if (sThrowValue != null) {
-                if (sThrowValue instanceof RuntimeException) {
-                    throw (RuntimeException) sThrowValue;
-                }
-
-                if (sThrowValue instanceof Error) {
-                    throw (Error) sThrowValue;
-                }
-
-                throw new IllegalStateException("Invalid value for sThrowValue");
+            if (!instrumentation.getContext().getPackageName().equals(
+                    instrumentation.getTargetContext().getPackageName())) {
+                throw new IllegalStateException(
+                        "ActivityContext can only be used in test apps which instrument themselves."
+                                + " Consider ActivityScenario for this case.");
             }
 
-            return (E) sReturnValue;
+            synchronized (ActivityContext.class) {
+                sRunnable = runnable;
+
+                sLatch = new CountDownLatch(1);
+                sReturnValue = null;
+                sThrowValue = null;
+
+                Intent intent = new Intent();
+                intent.setClass(sContext, ActivityContext.class);
+                intent.setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK);
+                sContext.startActivity(intent);
+            }
+
+            if (!sLatch.await(5, TimeUnit.MINUTES)) {
+                throw new NeneException("Timed out while waiting for lambda with context to"
+                        + " complete.");
+            }
+
+            synchronized (ActivityContext.class) {
+                sRunnable = null;
+
+                if (sThrowValue != null) {
+                    if (sThrowValue instanceof RuntimeException) {
+                        throw (RuntimeException) sThrowValue;
+                    }
+
+                    if (sThrowValue instanceof Error) {
+                        throw (Error) sThrowValue;
+                    }
+
+                    throw new IllegalStateException("Invalid value for sThrowValue");
+                }
+
+                return (E) sReturnValue;
+            }
+        } finally {
+            currentUser.switchTo();
         }
     }
 

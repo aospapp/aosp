@@ -41,7 +41,6 @@ public class WifiLinkSpeedPreferenceController extends
     protected void updateState(WifiDetailsPreference preference) {
         int linkSpeedMbps = getWifiInfoProvider().getWifiInfo().getLinkSpeed();
         preference.setVisible(linkSpeedMbps >= 0);
-        preference.setDetailText(getContext().getString(
-                R.string.link_speed, getWifiInfoProvider().getWifiInfo().getLinkSpeed()));
+        preference.setDetailText(getContext().getString(R.string.link_speed, linkSpeedMbps));
     }
 }

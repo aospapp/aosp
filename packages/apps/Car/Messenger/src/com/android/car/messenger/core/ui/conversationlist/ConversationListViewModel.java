@@ -18,17 +18,23 @@ package com.android.car.messenger.core.ui.conversationlist;
 
 import android.annotation.SuppressLint;
 import android.app.Application;
-import androidx.lifecycle.AndroidViewModel;
-import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MediatorLiveData;
+import android.car.drivingstate.CarUxRestrictions;
+import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.lifecycle.AndroidViewModel;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MediatorLiveData;
+import androidx.lifecycle.Transformations;
 
+import com.android.car.messenger.common.Conversation;
 import com.android.car.messenger.core.interfaces.AppFactory;
 import com.android.car.messenger.core.interfaces.DataModel;
 import com.android.car.messenger.core.models.UserAccount;
+import com.android.car.messenger.core.util.L;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -75,15 +81,34 @@ public class ConversationListViewModel extends AndroidViewModel {
         MediatorLiveData<UIConversationLog> mutableLiveData = new MediatorLiveData<>();
         mutableLiveData.postValue(UIConversationLog.getLoadingState());
         mutableLiveData.addSource(
-                mDataModel.getConversations(userAccount),
-                list -> {
+                subscribeToConversations(userAccount),
+                pair -> {
+                    CarUxRestrictions uxRestrictions = pair.first;
+                    Collection<Conversation> list = pair.second;
                     List<UIConversationItem> data =
                             list.stream()
-                                    .map(UIConversationItemConverter::convertToUIConversationItem)
+                                    .map(
+                                            conversation ->
+                                                    UIConversationItemConverter
+                                                            .convertToUIConversationItem(
+                                                                    conversation, uxRestrictions))
                                     .collect(Collectors.toList());
                     UIConversationLog log = UIConversationLog.getLoadedState(data);
                     mutableLiveData.postValue(log);
                 });
         return mutableLiveData;
+    }
+
+    private LiveData<Pair<CarUxRestrictions, Collection<Conversation>>> subscribeToConversations(
+            @NonNull UserAccount userAccount) {
+        final LiveData<Collection<Conversation>> liveData =
+                mDataModel.getConversations(userAccount);
+        return Transformations.switchMap(
+                AppFactory.get().getCarStateListener().getUxrRestrictions(),
+                uxRestrictions -> {
+                    L.d("Got new ux restrictions: " + uxRestrictions);
+                    return Transformations.map(
+                            liveData, conversations -> new Pair<>(uxRestrictions, conversations));
+                });
     }
 }

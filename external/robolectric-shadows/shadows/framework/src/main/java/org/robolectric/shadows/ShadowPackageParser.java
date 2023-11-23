@@ -72,5 +72,15 @@ public class ShadowPackageParser {
     public boolean hasFeature(String feature) {
       return false;
     }
+
+    // @Override for SDK < 30
+    public String[] getOverlayPaths(String s, String s1) {
+      return null;
+    }
+
+    // @Override for SDK < 30
+    public String[] getOverlayApks(String s) {
+      return null;
+    }
   }
 }

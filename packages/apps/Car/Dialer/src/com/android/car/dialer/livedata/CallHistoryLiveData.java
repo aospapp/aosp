@@ -16,8 +16,6 @@
 
 package com.android.car.dialer.livedata;
 
-import static com.android.car.dialer.livedata.CallHistoryLiveData.CallType.CALL_TYPE_ALL;
-
 import android.Manifest;
 import android.content.Context;
 import android.database.Cursor;
@@ -27,6 +25,7 @@ import android.text.TextUtils;
 
 import androidx.annotation.IntDef;
 
+import com.android.car.dialer.R;
 import com.android.car.telephony.common.AsyncQueryLiveData;
 import com.android.car.telephony.common.PhoneCallLog;
 import com.android.car.telephony.common.QueryParam;
@@ -37,14 +36,11 @@ import java.util.List;
 /**
  * Live data which loads call history.
  */
-//TODO: Rename to PhoneCallLogLiveData
 public class CallHistoryLiveData extends AsyncQueryLiveData<List<PhoneCallLog>> {
-    /** The default limit of loading call logs */
-    private final static int DEFAULT_CALL_LOG_LIMIT = 100;
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     @IntDef({
-            CALL_TYPE_ALL,
+            CallType.CALL_TYPE_ALL,
             CallType.INCOMING_TYPE,
             CallType.OUTGOING_TYPE,
             CallType.MISSED_TYPE,
@@ -62,7 +58,11 @@ public class CallHistoryLiveData extends AsyncQueryLiveData<List<PhoneCallLog>> 
      * with a limit of 100 logs.
      */
     public static CallHistoryLiveData newInstance(Context context, String accountName) {
-        return newInstance(context, CALL_TYPE_ALL, DEFAULT_CALL_LOG_LIMIT, accountName);
+        return newInstance(
+                context,
+                CallType.CALL_TYPE_ALL,
+                context.getResources().getInteger(R.integer.config_phone_call_log_limit),
+                accountName);
     }
 
     private static CallHistoryLiveData newInstance(Context context, int callType, int limit,
@@ -71,7 +71,7 @@ public class CallHistoryLiveData extends AsyncQueryLiveData<List<PhoneCallLog>> 
         List<String> selectionArgs = new ArrayList<>();
         limit = Math.max(limit, 0);
 
-        if (callType != CALL_TYPE_ALL) {
+        if (callType != CallType.CALL_TYPE_ALL) {
             // add a filter for call type
             where.append(CallLog.Calls.TYPE + " = ?");
             selectionArgs.add(Integer.toString(callType));
@@ -100,6 +100,7 @@ public class CallHistoryLiveData extends AsyncQueryLiveData<List<PhoneCallLog>> 
     }
 
     private final Context mContext;
+
     private CallHistoryLiveData(Context context, QueryParam queryParam) {
         super(context, QueryParam.of(queryParam));
         mContext = context;
@@ -109,13 +110,14 @@ public class CallHistoryLiveData extends AsyncQueryLiveData<List<PhoneCallLog>> 
     protected List<PhoneCallLog> convertToEntity(Cursor cursor) {
         List<PhoneCallLog> resultList = new ArrayList<>();
 
+        PhoneCallLog lastPhoneCallLog = null;
         while (cursor.moveToNext()) {
             PhoneCallLog phoneCallLog = PhoneCallLog.fromCursor(mContext, cursor);
-            PhoneCallLog previousCallLog = resultList.isEmpty() ? null : resultList.get(
-                    resultList.size() - 1);
 
-            if (previousCallLog == null || !previousCallLog.merge(phoneCallLog)) {
+            if (lastPhoneCallLog == null
+                    || !lastPhoneCallLog.merge(phoneCallLog, /*checkTimeRange=*/true)) {
                 resultList.add(phoneCallLog);
+                lastPhoneCallLog = phoneCallLog;
             }
         }
         return resultList;

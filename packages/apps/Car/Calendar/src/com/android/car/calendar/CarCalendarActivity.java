@@ -33,6 +33,8 @@ import androidx.lifecycle.ViewModelProvider;
 import com.android.car.calendar.common.CalendarFormatter;
 import com.android.car.calendar.common.Dialer;
 import com.android.car.calendar.common.Navigator;
+import com.android.car.ui.core.CarUi;
+import com.android.car.ui.toolbar.ToolbarController;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -55,6 +57,9 @@ public class CarCalendarActivity extends FragmentActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         maybeEnableStrictMode();
+
+        ToolbarController toolbar = CarUi.requireToolbar(this);
+        toolbar.setTitle(R.string.app_name);
 
         // Tests can set fake dependencies before onCreate.
         if (mDependencies == null) {

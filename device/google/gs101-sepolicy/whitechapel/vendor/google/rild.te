@@ -1,0 +1,37 @@
+set_prop(rild, vendor_rild_prop)
+
+get_prop(rild, vendor_persist_config_default_prop)
+get_prop(rild, vendor_ro_config_default_prop)
+set_prop(rild, vendor_sys_default_prop)
+
+get_prop(rild, sota_prop)
+get_prop(rild, system_boot_reason_prop)
+
+allow rild proc_net:file rw_file_perms;
+allow rild radio_vendor_data_file:dir create_dir_perms;
+allow rild radio_vendor_data_file:file create_file_perms;
+allow rild rild_vendor_data_file:dir create_dir_perms;
+allow rild rild_vendor_data_file:file create_file_perms;
+allow rild vendor_fw_file:file r_file_perms;
+allow rild mnt_vendor_file:dir r_dir_perms;
+
+r_dir_file(rild, modem_img_file)
+
+binder_call(rild, bipchmgr)
+binder_call(rild, gpsd)
+binder_call(rild, hal_audio_default)
+binder_call(rild, hal_secure_element_default)
+binder_call(rild, platform_app)
+binder_call(rild, modem_svc_sit)
+binder_call(rild, vendor_ims_app)
+binder_call(rild, vendor_rcs_app)
+binder_call(rild, oemrilservice_app)
+
+# for hal service
+add_hwservice(rild, hal_exynos_rild_hwservice)
+allow rild hal_audio_ext_hwservice:hwservice_manager find;
+
+# Allow rild to access files on modem img.
+allow rild modem_img_file:dir r_dir_perms;
+allow rild modem_img_file:file r_file_perms;
+allow rild modem_img_file:lnk_file r_file_perms;

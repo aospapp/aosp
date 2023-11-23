@@ -16,16 +16,19 @@
 
 package com.google.android.car.kitchensink.watchdog;
 
+import android.annotation.IntDef;
 import android.app.AlertDialog;
 import android.car.watchdog.CarWatchdogManager;
 import android.car.watchdog.IoOveruseStats;
 import android.car.watchdog.ResourceOveruseStats;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.FileUtils;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
+import android.text.style.RelativeSizeSpan;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -46,9 +49,12 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.nio.file.Files;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Fragment to test the I/O monitoring of Car Watchdog.
@@ -71,16 +77,46 @@ import java.util.concurrent.Executors;
  */
 public class CarWatchdogTestFragment extends Fragment {
     private static final long TEN_MEGABYTES = 1024 * 1024 * 10;
-    private static final int DISK_DELAY_MS = 3000;
+    private static final int WATCHDOG_IO_EVENT_SYNC_SHORT_DELAY_MS = 3_000;
+    // By default, watchdog daemon syncs the disk I/O events with the CarService once every
+    // 2 minutes unless it is manually changed with the aforementioned `--start_perf` watchdog
+    // daemon's dumpsys command.
+    private static final int WATCHDOG_IO_EVENT_SYNC_LONG_DELAY_MS = 240_000;
+    private static final int USER_APP_SWITCHING_TIMEOUT_MS = 30_000;
     private static final String TAG = "CarWatchdogTestFragment";
+    private static final double WARN_THRESHOLD_PERCENT = 0.8;
     private static final double EXCEED_WARN_THRESHOLD_PERCENT = 0.9;
 
+    private static final int NOTIFICATION_STATUS_NO = 0;
+    private static final int NOTIFICATION_STATUS_INVALID = 1;
+    private static final int NOTIFICATION_STATUS_VALID = 2;
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = {"NOTIFICATION_STATUS"}, value = {
+            NOTIFICATION_STATUS_NO,
+            NOTIFICATION_STATUS_INVALID,
+            NOTIFICATION_STATUS_VALID
+    })
+    private @interface NotificationStatus{}
+
+    private static final int NOTIFICATION_TYPE_WARNING = 0;
+    private static final int NOTIFICATION_TYPE_OVERUSE = 1;
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = {"NOTIFICATION_TYPE"}, value = {
+            NOTIFICATION_TYPE_WARNING,
+            NOTIFICATION_TYPE_OVERUSE,
+    })
+    private @interface NotificationType{}
+
     private final ExecutorService mExecutor = Executors.newSingleThreadExecutor();
+    private final AtomicBoolean mIsAppInForeground = new AtomicBoolean(true);
     private Context mContext;
     private CarWatchdogManager mCarWatchdogManager;
     private KitchenSinkActivity mActivity;
     private File mTestDir;
     private TextView mOveruseTextView;
+    private TextViewSetter mTextViewSetter;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -100,11 +136,15 @@ public class CarWatchdogTestFragment extends Fragment {
             @NonNull LayoutInflater inflater,
             @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
+        mIsAppInForeground.set(true);
+
         View view = inflater.inflate(R.layout.car_watchdog_test, container, false);
 
         mOveruseTextView = view.findViewById(R.id.io_overuse_textview);
-        Button overuseWarningBtn = view.findViewById(R.id.io_overuse_warning_btn);
-        Button overuseKillingBtn = view.findViewById(R.id.io_overuse_killing_btn);
+        Button nonRecurringIoOveruseButton = view.findViewById(R.id.non_recurring_io_overuse_btn);
+        Button recurringIoOveruseButton = view.findViewById(R.id.recurring_io_overuse_btn);
+        Button longRunningRecurringIoOveruseButton =
+                view.findViewById(R.id.long_running_recurring_io_overuse_btn);
 
         try {
             mTestDir =
@@ -114,54 +154,135 @@ public class CarWatchdogTestFragment extends Fragment {
             mActivity.finish();
         }
 
-        overuseWarningBtn.setOnClickListener(
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        mExecutor.execute(
-                                () -> {
-                                    IoOveruseListener listener = addResourceOveruseListener();
+        nonRecurringIoOveruseButton.setOnClickListener(
+                v -> mExecutor.execute(
+                        () -> {
+                            mTextViewSetter = new TextViewSetter(mOveruseTextView, mActivity);
+                            mTextViewSetter.setPermanent("Note: Keep the app in the foreground "
+                                    + "until the test completes." + System.lineSeparator());
+                            mTextViewSetter.set("Starting non-recurring I/O overuse test.");
+                            IoOveruseListener listener = addResourceOveruseListener();
 
-                                    if (!writeToDisk(TEN_MEGABYTES)) {
-                                        mCarWatchdogManager.removeResourceOveruseListener(listener);
-                                        return;
-                                    }
+                            if (overuseDiskIo(listener, WATCHDOG_IO_EVENT_SYNC_SHORT_DELAY_MS)) {
+                                showAlert("Non-recurring I/O overuse test",
+                                        "Test completed successfully.", 0);
+                            } else {
+                                mTextViewSetter.setPermanent(
+                                        "Non-recurring I/O overuse test failed.");
+                            }
 
-                                    long remainingBytes = fetchRemainingBytes(TEN_MEGABYTES);
-                                    if (remainingBytes == 0) {
-                                        mCarWatchdogManager.removeResourceOveruseListener(listener);
-                                        return;
-                                    }
+                            finishTest(listener);
+                            Log.d(TAG, "Non-recurring I/O overuse test completed.");
+                        }));
 
-                                    long bytesToExceedWarnThreshold =
-                                            (long) Math.ceil(remainingBytes
-                                                    * EXCEED_WARN_THRESHOLD_PERCENT);
+        recurringIoOveruseButton.setOnClickListener(v -> mExecutor.execute(
+                () -> {
+                    mTextViewSetter = new TextViewSetter(mOveruseTextView, mActivity);
+                    mTextViewSetter.setPermanent("Note: Keep the app in the foreground "
+                            + "until the test completes." + System.lineSeparator());
+                    recurringIoOveruseTest(WATCHDOG_IO_EVENT_SYNC_SHORT_DELAY_MS);
+                }));
 
-                                    listener.setExpectedMinWrittenBytes(
-                                            TEN_MEGABYTES + bytesToExceedWarnThreshold);
+        // Long-running recurring I/O overuse test is helpful to trigger recurring I/O overuse
+        // behavior in environments where shell access is limited.
+        longRunningRecurringIoOveruseButton.setOnClickListener(v -> mExecutor.execute(
+                () -> {
+                    mTextViewSetter = new TextViewSetter(mOveruseTextView, mActivity);
+                    mTextViewSetter.setPermanent("Note: Please switch the app to the background "
+                            + "and don't bring the app to the foreground until the test completes."
+                            + System.lineSeparator());
 
-                                    if (!writeToDisk(bytesToExceedWarnThreshold)) {
-                                        mCarWatchdogManager.removeResourceOveruseListener(listener);
-                                        return;
-                                    }
-
-                                    listener.checkIsNotified();
-
-                                    mCarWatchdogManager.removeResourceOveruseListener(listener);
-                                    Log.d(TAG, "Test finished.");
-                                });
-                    }
-                });
-
-        overuseKillingBtn.setOnClickListener(
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        // TODO(b/185807690): Implement test
-                    }
-                });
+                    waitFor(USER_APP_SWITCHING_TIMEOUT_MS,
+                            "user to switch the app to the background");
+                    recurringIoOveruseTest(WATCHDOG_IO_EVENT_SYNC_LONG_DELAY_MS);
+                }));
 
         return view;
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        Log.d(TAG, "App switched to background");
+        mIsAppInForeground.set(false);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        Log.d(TAG, "App switched to foreground");
+        mIsAppInForeground.set(true);
+    }
+
+    private void recurringIoOveruseTest(int watchdogSyncDelayMs) {
+        mTextViewSetter.set("Starting recurring I/O overuse test.");
+        IoOveruseListener listener = addResourceOveruseListener();
+
+        if (!overuseDiskIo(listener, watchdogSyncDelayMs)) {
+            mTextViewSetter.setPermanent("First disk I/O overuse failed.");
+            finishTest(listener);
+            return;
+        }
+        mTextViewSetter.setPermanent("First disk I/O overuse completed successfully."
+                + System.lineSeparator());
+
+        if (!overuseDiskIo(listener, watchdogSyncDelayMs)) {
+            mTextViewSetter.setPermanent("Second disk I/O overuse failed.");
+            finishTest(listener);
+            return;
+        }
+        mTextViewSetter.setPermanent("Second disk I/O overuse completed successfully."
+                + System.lineSeparator());
+
+        if (!overuseDiskIo(listener, watchdogSyncDelayMs)) {
+            mTextViewSetter.setPermanent("Third disk I/O overuse failed.");
+            finishTest(listener);
+            return;
+        }
+        mTextViewSetter.setPermanent("Third disk I/O overuse completed successfully.");
+
+        finishTest(listener);
+        showAlert("Recurring I/O overuse test", "Test completed successfully.", 0);
+        Log.d(TAG, "Recurring I/O overuse test completed.");
+    }
+
+    private boolean overuseDiskIo(IoOveruseListener listener, int watchdogSyncDelayMs) {
+        DiskIoStats diskIoStats = fetchInitialDiskIoStats(watchdogSyncDelayMs);
+        if (diskIoStats == null) {
+            return false;
+        }
+        Log.i(TAG, "Fetched initial disk I/O status: " + diskIoStats);
+
+        /*
+         * CarService notifies applications on exceeding 80% of the overuse threshold. The app maybe
+         * notified before completing the following write. Ergo, the minimum expected written bytes
+         * should be the warn threshold rather than the actual amount of bytes written by the app.
+         */
+        long minBytesWritten =
+                (long) Math.ceil((diskIoStats.totalBytesWritten + diskIoStats.remainingBytes)
+                        * WARN_THRESHOLD_PERCENT);
+        listener.expectNewNotification(minBytesWritten, diskIoStats.totalOveruses,
+                NOTIFICATION_TYPE_WARNING);
+        long bytesToExceedWarnThreshold =
+                (long) Math.ceil(diskIoStats.remainingBytes * EXCEED_WARN_THRESHOLD_PERCENT);
+        if (!writeToDisk(bytesToExceedWarnThreshold)
+                || !listener.isValidNotificationReceived(watchdogSyncDelayMs)) {
+            return false;
+        }
+        mTextViewSetter.setPermanent(
+                "80% exceeding I/O overuse notification received successfully.");
+
+        long remainingBytes = listener.getNotifiedRemainingBytes();
+        listener.expectNewNotification(remainingBytes, diskIoStats.totalOveruses + 1,
+                NOTIFICATION_TYPE_OVERUSE);
+        if (!writeToDisk(remainingBytes)
+                || !listener.isValidNotificationReceived(watchdogSyncDelayMs)) {
+            return false;
+        }
+        mTextViewSetter.setPermanent(
+                "100% exceeding I/O overuse notification received successfully.");
+
+        return true;
     }
 
     @Override
@@ -170,34 +291,42 @@ public class CarWatchdogTestFragment extends Fragment {
         super.onDestroyView();
     }
 
-    private long fetchRemainingBytes(long minWrittenBytes) {
-        ResourceOveruseStats stats =
-                mCarWatchdogManager.getResourceOveruseStats(
-                        CarWatchdogManager.FLAG_RESOURCE_OVERUSE_IO,
-                        CarWatchdogManager.STATS_PERIOD_CURRENT_DAY);
+    private @Nullable DiskIoStats fetchInitialDiskIoStats(int watchdogSyncDelayMs) {
+        if (!writeToDisk(TEN_MEGABYTES)) {
+            return null;
+        }
+        waitFor(watchdogSyncDelayMs,
+                "the disk I/O activity to be detected by the watchdog service...");
 
-        IoOveruseStats ioOveruseStats = stats.getIoOveruseStats();
+        ResourceOveruseStats resourceOveruseStats = mCarWatchdogManager.getResourceOveruseStats(
+                CarWatchdogManager.FLAG_RESOURCE_OVERUSE_IO,
+                CarWatchdogManager.STATS_PERIOD_CURRENT_DAY);
+        Log.d(TAG, "Stats fetched from watchdog manager: " + resourceOveruseStats);
+
+        IoOveruseStats ioOveruseStats = resourceOveruseStats.getIoOveruseStats();
         if (ioOveruseStats == null) {
-            showErrorAlert(
-                    "No I/O overuse stats available for the application after writing "
-                            + minWrittenBytes
-                            + " bytes.");
-            return 0;
+            showErrorAlert("No I/O overuse stats available for the application after writing "
+                    + TEN_MEGABYTES + " bytes." + System.lineSeparator() + "Note: Start custom "
+                    + "perf collection with 1 second interval before running the test.");
+            return null;
         }
-        if (ioOveruseStats.getTotalBytesWritten() < minWrittenBytes) {
-            showErrorAlert(
-                    "Actual written bytes to disk '"
-                            + minWrittenBytes
-                            + "' don't match written bytes '"
-                            + ioOveruseStats.getTotalBytesWritten()
-                            + "' returned by get request");
-            return 0;
+        if (ioOveruseStats.getTotalBytesWritten() < TEN_MEGABYTES) {
+            showErrorAlert("Actual written bytes to disk '" + TEN_MEGABYTES
+                    + "' is greater than total bytes written '"
+                    + ioOveruseStats.getTotalBytesWritten() + "' returned by get request.");
+            return null;
         }
-        /*
-         * Check for foreground mode bytes given kitchensink app is running in the foreground
-         * during manual testing.
-         */
-        return ioOveruseStats.getRemainingWriteBytes().getForegroundModeBytes();
+
+        long remainingBytes = mIsAppInForeground.get()
+                ? ioOveruseStats.getRemainingWriteBytes().getForegroundModeBytes()
+                : ioOveruseStats.getRemainingWriteBytes().getBackgroundModeBytes();
+        if (remainingBytes == 0) {
+            showErrorAlert("Zero remaining bytes reported." + System.lineSeparator()
+                    + "Note: Reset resource overuse stats before running the test.");
+            return null;
+        }
+        return new DiskIoStats(ioOveruseStats.getTotalBytesWritten(), remainingBytes,
+                ioOveruseStats.getTotalOveruses());
     }
 
     private IoOveruseListener addResourceOveruseListener() {
@@ -207,136 +336,211 @@ public class CarWatchdogTestFragment extends Fragment {
         return listener;
     }
 
+    private void finishTest(IoOveruseListener listener) {
+        if (FileUtils.deleteContents(mTestDir)) {
+            Log.i(TAG, "Deleted contents of the test directory " + mTestDir.getAbsolutePath());
+        } else {
+            Log.e(TAG, "Failed to delete contents of the test directory "
+                    + mTestDir.getAbsolutePath());
+        }
+        mCarWatchdogManager.removeResourceOveruseListener(listener);
+    }
+
+    private boolean writeToDisk(long bytes) {
+        File uniqueFile = new File(mTestDir, Long.toString(System.nanoTime()));
+        boolean result = writeToFile(uniqueFile, bytes);
+        if (uniqueFile.delete()) {
+            Log.i(TAG, "Deleted file: " + uniqueFile.getAbsolutePath());
+        } else {
+            Log.e(TAG, "Failed to delete file: " + uniqueFile.getAbsolutePath());
+        }
+        return result;
+    }
+
+    private boolean writeToFile(File uniqueFile, long bytes) {
+        long writtenBytes = 0;
+        try (FileOutputStream fos = new FileOutputStream(uniqueFile)) {
+            Log.d(TAG, "Attempting to write " + bytes + " bytes");
+            writtenBytes = writeToFos(fos, bytes);
+            if (writtenBytes < bytes) {
+                showErrorAlert("Failed to write '" + bytes + "' bytes to disk. '"
+                        + writtenBytes + "' bytes were successfully written, while '"
+                        + (bytes - writtenBytes)
+                        + "' bytes were pending at the moment the exception occurred."
+                        + System.lineSeparator()
+                        + "Note: Clear the app's storage and rerun the test.");
+                return false;
+            }
+            fos.getFD().sync();
+            mTextViewSetter.set("Wrote " + bytes + " bytes to disk.");
+            return true;
+        } catch (IOException e) {
+            String message = "I/O exception after successfully writing to disk.";
+            Log.e(TAG, message, e);
+            showErrorAlert(message + System.lineSeparator() + System.lineSeparator()
+                    + e.getMessage());
+        }
+        return false;
+    }
+
+    private long writeToFos(FileOutputStream fos, long remainingBytes) {
+        long totalBytesWritten = 0;
+        while (remainingBytes != 0) {
+            int writeBytes =
+                    (int) Math.min(Integer.MAX_VALUE,
+                                    Math.min(Runtime.getRuntime().freeMemory(), remainingBytes));
+            try {
+                fos.write(new byte[writeBytes]);
+            }  catch (InterruptedIOException e) {
+                Thread.currentThread().interrupt();
+                continue;
+            } catch (IOException e) {
+                Log.e(TAG, "I/O exception while writing " + writeBytes + " to disk", e);
+                return totalBytesWritten;
+            }
+            totalBytesWritten += writeBytes;
+            remainingBytes -= writeBytes;
+            if (writeBytes > 0 && remainingBytes > 0) {
+                Log.i(TAG, "Total bytes written: " + totalBytesWritten + "/"
+                        + (totalBytesWritten + remainingBytes));
+                mTextViewSetter.set("Wrote (" + totalBytesWritten + " / "
+                        + (totalBytesWritten + remainingBytes) + ") bytes. Writing to disk...");
+            }
+        }
+        Log.i(TAG, "Write completed.");
+        return totalBytesWritten;
+    }
+
+    private void waitFor(int waitMs, String reason) {
+        try {
+            mTextViewSetter.set("Waiting " + (waitMs / 1000) + " seconds for " + reason);
+            Thread.sleep(waitMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            String message = "Thread interrupted while waiting for " + reason;
+            Log.e(TAG, message, e);
+            showErrorAlert(message + System.lineSeparator() + System.lineSeparator()
+                    + e.getMessage());
+        }
+    }
+
     private void showErrorAlert(String message) {
+        mTextViewSetter.setPermanent("Error: " + message);
         showAlert("Error", message, android.R.drawable.ic_dialog_alert);
     }
 
     private void showAlert(String title, String message, int iconDrawable) {
         mActivity.runOnUiThread(
                 () -> {
+                    SpannableString messageSpan = new SpannableString(message);
+                    messageSpan.setSpan(new RelativeSizeSpan(1.3f), 0, message.length(), 0);
                     new AlertDialog.Builder(mContext)
                             .setTitle(title)
-                            .setMessage(message)
-                            .setPositiveButton(
-                                    android.R.string.yes,
-                                    new DialogInterface.OnClickListener() {
-                                        public void onClick(DialogInterface dialog, int which) {
-                                            // do nothing
-                                        }
-                                    })
+                            .setMessage(messageSpan)
+                            .setPositiveButton(android.R.string.ok, null)
                             .setIcon(iconDrawable)
                             .show();
                 });
     }
 
-    private void onDiskWrite(long writtenBytes, long pendingBytes) {
-        mActivity.runOnUiThread(() -> {
-            if (pendingBytes != 0) {
-                mOveruseTextView.setText("Writing to disk... (" + writtenBytes + " / "
-                        + (writtenBytes + pendingBytes) + ") bytes");
-            } else {
-                mOveruseTextView.setText("Disk write completed!");
-            }
-        });
-    }
-
-    private boolean writeToDisk(long bytes) {
-        long writtenBytes = 0;
-        File uniqueFile = new File(mTestDir, Long.toString(System.nanoTime()));
-        try (FileOutputStream fos = new FileOutputStream(uniqueFile)) {
-            Log.d(TAG, "Attempting to write " + bytes + " bytes");
-            writtenBytes = writeToFos(fos, bytes);
-            if (writtenBytes < bytes) {
-                showErrorAlert("Failed to write '" + bytes + "' bytes to disk. '" + writtenBytes
-                                + "' bytes were successfully written, while '"
-                                + (bytes - writtenBytes)
-                                + "' bytes were pending at the moment the exception occurred.");
-                return false;
-            }
-            fos.getFD().sync();
-            // Wait for the IO event to propagate to the system
-            Thread.sleep(DISK_DELAY_MS);
-            return true;
-        } catch (IOException | InterruptedException e) {
-            String reason = e instanceof IOException ? "I/O exception" : "Thread interrupted";
-            showErrorAlert(
-                    reason + " after successfully writing to disk.\n\n" + e.getMessage());
-            return false;
+    private static String toNotificationTypeString(@NotificationType int type) {
+        switch (type) {
+            case NOTIFICATION_TYPE_WARNING:
+                return "I/O overuse warning notification";
+            case NOTIFICATION_TYPE_OVERUSE:
+                return "I/O overuse exceeding notification";
         }
-    }
-
-    private long writeToFos(FileOutputStream fos, long maxSize) {
-        long writtenSize = 0;
-        while (maxSize != 0) {
-            int writeSize =
-                    (int) Math.min(Integer.MAX_VALUE,
-                                    Math.min(Runtime.getRuntime().freeMemory(), maxSize));
-            try {
-                fos.write(new byte[writeSize]);
-            } catch (InterruptedIOException e) {
-                Thread.currentThread().interrupt();
-                continue;
-            } catch (IOException e) {
-                e.printStackTrace();
-                return writtenSize;
-            }
-            writtenSize += writeSize;
-            maxSize -= writeSize;
-            if (writeSize > 0) {
-                Log.i(TAG, "writeSize:" + writeSize);
-                onDiskWrite(writtenSize, maxSize);
-            }
-        }
-        Log.i(TAG, "Write completed.");
-        return writtenSize;
+        return "Unknown notification type";
     }
 
     private final class IoOveruseListener
             implements CarWatchdogManager.ResourceOveruseListener {
-        private static final int NOTIFICATION_DELAY_MS = 10000;
+        private static final int NOTIFICATION_DELAY_MS = 10_000;
 
         private final Object mLock = new Object();
         @GuardedBy("mLock")
-        private boolean mNotificationReceived;
-
-        private long mExpectedMinWrittenBytes;
+        private @NotificationStatus int mNotificationStatus;
+        @GuardedBy("mLock")
+        private long mNotifiedRemainingBytes;
+        @GuardedBy("mLock")
+        private long mExpectedMinBytesWritten;
+        @GuardedBy("mLock")
+        private long mExceptedTotalOveruses;
+        @GuardedBy("mLock")
+        private @NotificationType int mExpectedNotificationType;
 
         @Override
         public void onOveruse(@NonNull ResourceOveruseStats resourceOveruseStats) {
             synchronized (mLock) {
-                mNotificationReceived = true;
                 mLock.notifyAll();
+                mNotificationStatus = NOTIFICATION_STATUS_INVALID;
+                Log.d(TAG, "Stats received in the "
+                        + toNotificationTypeString(mExpectedNotificationType) + ": "
+                        + resourceOveruseStats);
+                IoOveruseStats ioOveruseStats = resourceOveruseStats.getIoOveruseStats();
+                if (ioOveruseStats == null) {
+                    showErrorAlert("No I/O overuse stats reported for the application in the "
+                            + toNotificationTypeString(mExpectedNotificationType) + '.');
+                    return;
+                }
+                long totalBytesWritten = ioOveruseStats.getTotalBytesWritten();
+                if (totalBytesWritten < mExpectedMinBytesWritten) {
+                    showErrorAlert("Expected minimum bytes written '" + mExpectedMinBytesWritten
+                            + "' is greater than total bytes written '" + totalBytesWritten
+                            + "' reported in the "
+                            + toNotificationTypeString(mExpectedNotificationType) + '.');
+                    return;
+                }
+                mNotifiedRemainingBytes = mIsAppInForeground.get()
+                        ? ioOveruseStats.getRemainingWriteBytes().getForegroundModeBytes()
+                        : ioOveruseStats.getRemainingWriteBytes().getBackgroundModeBytes();
+                if (mExpectedNotificationType == NOTIFICATION_TYPE_WARNING
+                        && mNotifiedRemainingBytes == 0) {
+                    showErrorAlert("Expected non-zero remaining write bytes in the "
+                            + toNotificationTypeString(mExpectedNotificationType) + '.');
+                    return;
+                } else if (mExpectedNotificationType == NOTIFICATION_TYPE_OVERUSE
+                        && mNotifiedRemainingBytes != 0) {
+                    showErrorAlert("Expected zero remaining write bytes doesn't match remaining "
+                            + "write bytes " + mNotifiedRemainingBytes + " reported in the "
+                            + toNotificationTypeString(mExpectedNotificationType) + ".");
+                    return;
+                }
+                long totalOveruses = ioOveruseStats.getTotalOveruses();
+                if (totalOveruses != mExceptedTotalOveruses) {
+                    showErrorAlert("Expected total overuses " + mExceptedTotalOveruses
+                            + "doesn't match total overuses " + totalOveruses + " reported in the "
+                            + toNotificationTypeString(mExpectedNotificationType) + '.');
+                    return;
+                }
+                mNotificationStatus = NOTIFICATION_STATUS_VALID;
             }
-            Log.d(TAG, resourceOveruseStats.toString());
-            if (resourceOveruseStats.getIoOveruseStats() == null) {
-                showErrorAlert(
-                        "No I/O overuse stats reported for the application in the overuse"
-                                + " notification.");
-                return;
-            }
-            long reportedWrittenBytes =
-                    resourceOveruseStats.getIoOveruseStats().getTotalBytesWritten();
-            if (reportedWrittenBytes < mExpectedMinWrittenBytes) {
-                showErrorAlert(
-                        "Actual written bytes to disk '"
-                                + mExpectedMinWrittenBytes
-                                + "' don't match written bytes '"
-                                + reportedWrittenBytes
-                                + "' reported in overuse notification");
-                return;
-            }
-            showAlert("I/O Overuse", "Overuse notification received!", 0);
         }
 
-        public void setExpectedMinWrittenBytes(long expectedMinWrittenBytes) {
-            mExpectedMinWrittenBytes = expectedMinWrittenBytes;
+        public long getNotifiedRemainingBytes() {
+            synchronized (mLock) {
+                return mNotifiedRemainingBytes;
+            }
         }
 
-        private void checkIsNotified() {
+        public void expectNewNotification(long expectedMinBytesWritten, long expectedTotalOveruses,
+                @NotificationType int notificationType) {
+            synchronized (mLock) {
+                mNotificationStatus = NOTIFICATION_STATUS_NO;
+                mExpectedMinBytesWritten = expectedMinBytesWritten;
+                mExceptedTotalOveruses = expectedTotalOveruses;
+                mExpectedNotificationType = notificationType;
+            }
+        }
+
+        private boolean isValidNotificationReceived(int watchdogSyncDelayMs) {
             synchronized (mLock) {
                 long now = SystemClock.uptimeMillis();
-                long deadline = now + NOTIFICATION_DELAY_MS;
-                while (!mNotificationReceived && now < deadline) {
+                long deadline = now + NOTIFICATION_DELAY_MS + watchdogSyncDelayMs;
+                mTextViewSetter.set("Waiting "
+                        + ((NOTIFICATION_DELAY_MS + watchdogSyncDelayMs) / 1000)
+                        + " seconds to be notified of disk I/O overuse...");
+                while (mNotificationStatus == NOTIFICATION_STATUS_NO && now < deadline) {
                     try {
                         mLock.wait(deadline - now);
                     } catch (InterruptedException e) {
@@ -347,10 +551,59 @@ public class CarWatchdogTestFragment extends Fragment {
                     }
                     break;
                 }
-                if (!mNotificationReceived) {
-                    showErrorAlert("I/O Overuse notification not received.");
+                mTextViewSetter.set("");
+                if (mNotificationStatus == NOTIFICATION_STATUS_NO) {
+                    showErrorAlert("No " + toNotificationTypeString(mExpectedNotificationType)
+                            + " received.");
                 }
+                return mNotificationStatus == NOTIFICATION_STATUS_VALID;
             }
+        }
+    }
+
+    private static final class DiskIoStats {
+        public final long totalBytesWritten;
+        public final long remainingBytes;
+        public final long totalOveruses;
+
+        DiskIoStats(long totalBytesWritten, long remainingBytes, long totalOveruses) {
+            this.totalBytesWritten = totalBytesWritten;
+            this.remainingBytes = remainingBytes;
+            this.totalOveruses = totalOveruses;
+        }
+
+        @Override
+        public String toString() {
+            return new StringBuilder()
+                    .append("DiskIoStats{TotalBytesWritten: ").append(totalBytesWritten)
+                    .append(", RemainingBytes: ").append(remainingBytes)
+                    .append(", TotalOveruses: ").append(totalOveruses)
+                    .append("}").toString();
+        }
+    }
+
+    private static final class TextViewSetter {
+        private final SpannableStringBuilder mPermanentSpannableString =
+                new SpannableStringBuilder();
+        private final TextView mTextView;
+        private final KitchenSinkActivity mActivity;
+
+        TextViewSetter(TextView textView, KitchenSinkActivity activity) {
+            mTextView = textView;
+            mActivity = activity;
+        }
+
+        private void setPermanent(CharSequence charSequence) {
+            mPermanentSpannableString.append(System.lineSeparator()).append(charSequence);
+            mActivity.runOnUiThread(() ->
+                    mTextView.setText(new SpannableStringBuilder(mPermanentSpannableString)));
+        }
+
+        private void set(CharSequence charSequence) {
+            mActivity.runOnUiThread(() ->
+                    mTextView.setText(new SpannableStringBuilder(mPermanentSpannableString)
+                            .append(System.lineSeparator())
+                            .append(charSequence)));
         }
     }
 }

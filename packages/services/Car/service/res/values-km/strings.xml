@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"គ្រប់គ្រង​គោលការណ៍​ថាមពល​រថយន្ត។"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"បំប្លែង​ទម្រង់គំរូ"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"បំប្លែង​ទម្រង់គំរូ។"</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"គ្រប់គ្រង​ការចាប់ផ្ដើម​កម្មវិធី"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"គ្រប់គ្រង​ការចាប់ផ្ដើម​កម្មវិធី។"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"ឧបករណ៍របស់ខ្ញុំ"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"ភ្ញៀវ"</string>
     <string name="importance_default" msgid="8587741629268312938">"កម្រិតសំខាន់​តាមលំនាំដើម"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"ចាប់ផ្ដើមឡើងវិញពេលក្រោយ"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"ប្រព័ន្ធ​ព័ត៌មាន​ និងកម្សាន្តនឹងកំណត់ឡើងវិញ នៅពេលរថយន្តចាប់ផ្ដើមលើកក្រោយ។"</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"ត្រូវតែចតរថយន្ត ដើម្បីចាប់ផ្ដើមការកំណត់ឡើងវិញ។"</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> កំពុងធ្វើឱ្យ​ប៉ះពាល់ដល់​ប្រតិបត្តិការប្រព័ន្ធរបស់អ្នក"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"បិទកម្មវិធី ដើម្បីកែលម្អ​ប្រតិបត្តិការប្រព័ន្ធ។ អ្នកអាចបើក​កម្មវិធីម្ដងទៀត​នៅក្នុងការកំណត់។"</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"កំណត់អាទិភាព​កម្មវិធី ដើម្បីបន្តប្រើ​កម្មវិធី។"</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"លុបកម្មវិធី ដើម្បីកែលម្អ​ប្រតិបត្តិការប្រព័ន្ធ។"</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"បិទកម្មវិធី"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"កំណត់អាទិភាព​កម្មវិធី"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"លុប​កម្មវិធី"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> ត្រូវបានបិទ។ អ្នកអាចបើកវា​ម្ដងទៀតនៅ​ក្នុងការកំណត់។"</string>
 </resources>

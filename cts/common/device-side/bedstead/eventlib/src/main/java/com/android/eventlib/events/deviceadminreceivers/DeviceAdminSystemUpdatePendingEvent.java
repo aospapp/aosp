@@ -37,7 +37,9 @@ import com.android.queryable.util.SerializableParcelWrapper;
 /** Event logged when {@link DeviceAdminReceiver#onSystemUpdatePending} is called. */
 public class DeviceAdminSystemUpdatePendingEvent extends Event {
 
-    /** Begin a query for {@link DeviceAdminSystemUpdatePendingEvent} events. */
+    private static final long serialVersionUID = 1;
+
+    /** Begins a query for {@link DeviceAdminSystemUpdatePendingEvent} events. */
     public static DeviceAdminSystemUpdatePendingEventQuery queryPackage(String packageName) {
         return new DeviceAdminSystemUpdatePendingEventQuery(packageName);
     }
@@ -46,6 +48,9 @@ public class DeviceAdminSystemUpdatePendingEvent extends Event {
     public static final class DeviceAdminSystemUpdatePendingEventQuery
             extends EventLogsQuery<DeviceAdminSystemUpdatePendingEvent,
                     DeviceAdminSystemUpdatePendingEventQuery> {
+
+        private static final long serialVersionUID = 1;
+
         DeviceAdminReceiverQueryHelper<DeviceAdminSystemUpdatePendingEventQuery>
                 mDeviceAdminReceiver = new DeviceAdminReceiverQueryHelper<>(this);
         IntentQueryHelper<DeviceAdminSystemUpdatePendingEventQuery> mIntent =
@@ -58,7 +63,7 @@ public class DeviceAdminSystemUpdatePendingEvent extends Event {
         }
 
         /**
-         * Query {@link Intent} passed into {@link
+         * Queries {@link Intent} passed into {@link
          * DeviceAdminReceiver#onPasswordSucceeded(Context, Intent)}.
          */
         @CheckResult
@@ -66,7 +71,7 @@ public class DeviceAdminSystemUpdatePendingEvent extends Event {
             return mIntent;
         }
 
-        /** Query {@link DeviceAdminReceiver}. */
+        /** Queries {@link DeviceAdminReceiver}. */
         @CheckResult
         public DeviceAdminReceiverQuery<DeviceAdminSystemUpdatePendingEventQuery>
         whereDeviceAdminReceiver() {
@@ -95,9 +100,18 @@ public class DeviceAdminSystemUpdatePendingEvent extends Event {
             }
             return true;
         }
+
+        @Override
+        public String describeQuery(String fieldName) {
+            return toStringBuilder(DeviceAdminSystemUpdatePendingEvent.class, this)
+                    .field("intent", mIntent)
+                    .field("deviceAdminReceiver", mDeviceAdminReceiver)
+                    .field("receivedTime", mReceivedTime)
+                    .toString();
+        }
     }
 
-    /** Begin logging a {@link DeviceAdminSystemUpdatePendingEvent}. */
+    /** Begins logging a {@link DeviceAdminSystemUpdatePendingEvent}. */
     public static DeviceAdminSystemUpdatePendingEventLogger logger(
             DeviceAdminReceiver deviceAdminReceiver,
             Context context,
@@ -121,34 +135,34 @@ public class DeviceAdminSystemUpdatePendingEvent extends Event {
             setReceivedTime(receivedTime);
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminSystemUpdatePendingEventLogger setDeviceAdminReceiver(
                 DeviceAdminReceiver deviceAdminReceiver) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiver);
             return this;
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminSystemUpdatePendingEventLogger setDeviceAdminReceiver(
                 Class<? extends DeviceAdminReceiver> deviceAdminReceiverClass) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiverClass);
             return this;
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminSystemUpdatePendingEventLogger setDeviceAdminReceiver(
                 String deviceAdminReceiverClassName) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiverClassName);
             return this;
         }
 
-        /** Set the {@link Intent} which was received. */
+        /** Sets the {@link Intent} which was received. */
         public DeviceAdminSystemUpdatePendingEventLogger setIntent(Intent intent) {
             mEvent.mIntent = new SerializableParcelWrapper<>(intent);
             return this;
         }
 
-        /** Set the received time. */
+        /** Sets the received time. */
         public DeviceAdminSystemUpdatePendingEventLogger setReceivedTime(long receivedTime) {
             mEvent.mReceivedTime = receivedTime;
             return this;

@@ -52,9 +52,10 @@
     <string name="app_permissions" msgid="3369917736607944781">"アプリの権限"</string>
     <string name="unused_apps" msgid="2058057455175955094">"使用されていないアプリ"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"使用されていないアプリなし"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"使用していないアプリ: 0 個"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"アプリを無効にする"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"このアプリを無効にすると、Android などの他のアプリが正しく動作しなくなるおそれがあります。このアプリはデバイスにプリインストールされているため、削除できません。無効にするには、このアプリをオフにし、デバイスにアプリが表示されないようにします。"</string>
-    <string name="app_permission_manager" msgid="3903811137630909550">"権限マネージャ"</string>
+    <string name="app_permission_manager" msgid="3903811137630909550">"権限マネージャー"</string>
     <string name="never_ask_again" msgid="4728762438198560329">"今後表示しない"</string>
     <string name="no_permissions" msgid="3881676756371148563">"権限がありません"</string>
     <string name="additional_permissions" msgid="5801285469338873430">"その他の権限"</string>

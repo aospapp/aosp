@@ -62,6 +62,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 
@@ -229,8 +230,26 @@ public class CallScreeningServiceFilterTest extends TelecomTestCase {
         CallScreeningServiceFilter filter = new CallScreeningServiceFilter(mCall, PKG_NAME,
                 CallScreeningServiceFilter.PACKAGE_TYPE_CARRIER, mContext, mCallsManager,
                 mAppLabelProxy, mParcelableCallUtilsConverter);
-        filter.startFilterLookup(inputResult);
+        CompletableFuture<CallFilteringResult> result = filter.startFilterLookup(inputResult)
+                .toCompletableFuture();
+
+        assertEquals(result.isDone(), false);
+
         filter.unbindCallScreeningService();
+    }
+
+    @SmallTest
+    @Test
+    public void testBindingFailed() {
+        // Use an empty package name here, which fails in the bindCallScreeningService.
+        CallScreeningServiceFilter filter = new CallScreeningServiceFilter(mCall, "",
+                CallScreeningServiceFilter.PACKAGE_TYPE_CARRIER, mContext, mCallsManager,
+                mAppLabelProxy, mParcelableCallUtilsConverter);
+
+        CompletableFuture<CallFilteringResult> result = filter.startFilterLookup(inputResult)
+                .toCompletableFuture();
+
+        assertEquals(result.isDone(), true);
     }
 
     @SmallTest

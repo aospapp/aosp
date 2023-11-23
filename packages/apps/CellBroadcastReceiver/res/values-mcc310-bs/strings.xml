@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Primanje obaveznih mjesečnih testova sistema sigurnosnih upozorenja"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Nacionalno upozorenje"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Prikaz dijaloškog okvira za isključivanje nakon primanja prvog upozorenja (osim nacionalnog)."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Javna upozorenja"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Javne poruke upozorenja. Nije moguće isključiti."</string>
 </resources>

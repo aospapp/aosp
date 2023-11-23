@@ -16,6 +16,12 @@
 
 package com.android.car.settings.accounts;
 
+import static android.os.UserManager.DISALLOW_MODIFY_ACCOUNTS;
+
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
+
 import android.accounts.AccountManager;
 import android.accounts.AccountManagerCallback;
 import android.accounts.AuthenticatorException;
@@ -34,6 +40,7 @@ import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.ErrorDialog;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 import com.android.car.settings.profiles.ProfileHelper;
 
 import java.io.IOException;
@@ -107,8 +114,12 @@ public class AccountDetailsPreferenceController extends AccountDetailsBasePrefer
                 /* rejectListener= */ null,
                 /* neutralListener= */ null);
 
-        getPreference().setSecondaryActionVisible(getProfileHelper()
-                .canCurrentProcessModifyAccounts());
+        getPreference().setSecondaryActionVisible(
+                getSecondaryActionAvailabilityStatus() == AVAILABLE
+                        || getSecondaryActionAvailabilityStatus() == AVAILABLE_FOR_VIEWING);
+        getPreference().setSecondaryActionEnabled(
+                getSecondaryActionAvailabilityStatus() != DISABLED_FOR_PROFILE);
+
         getPreference().setOnSecondaryActionClickListener(this::onRemoveAccountClicked);
     }
 
@@ -133,7 +144,22 @@ public class AccountDetailsPreferenceController extends AccountDetailsBasePrefer
         }
     }
 
+    private int getSecondaryActionAvailabilityStatus() {
+        ProfileHelper profileHelper = getProfileHelper();
+        if (profileHelper.canCurrentProcessModifyAccounts()) {
+            return AVAILABLE;
+        }
+        if (profileHelper.isDemoOrGuest()
+                || hasUserRestrictionByUm(getContext(), DISALLOW_MODIFY_ACCOUNTS)) {
+            return DISABLED_FOR_PROFILE;
+        }
+        return AVAILABLE_FOR_VIEWING;
+    }
+
     private void onRemoveAccountClicked() {
+        if (hasUserRestrictionByDpm(getContext(), DISALLOW_MODIFY_ACCOUNTS)) {
+            showActionDisabledByAdminDialog();
+        }
         ConfirmationDialogFragment dialog =
                 new ConfirmationDialogFragment.Builder(getContext())
                         .setTitle(R.string.really_remove_account_title)
@@ -148,6 +174,13 @@ public class AccountDetailsPreferenceController extends AccountDetailsBasePrefer
     private void showErrorDialog() {
         getFragmentController().showDialog(
                 ErrorDialog.newInstance(R.string.remove_account_error_title), /* tag= */ null);
+    }
+
+    private void showActionDisabledByAdminDialog() {
+        getFragmentController().showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(getContext(),
+                        DISALLOW_MODIFY_ACCOUNTS),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
     }
 
     @VisibleForTesting

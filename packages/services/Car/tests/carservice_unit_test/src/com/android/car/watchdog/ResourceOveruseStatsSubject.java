@@ -17,6 +17,7 @@
 package com.android.car.watchdog;
 
 import static com.google.common.truth.Truth.assertAbout;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.annotation.Nullable;
 import android.car.watchdog.ResourceOveruseStats;
@@ -40,6 +41,11 @@ public final class ResourceOveruseStatsSubject extends Subject {
     public static ResourceOveruseStatsSubject assertThat(
             @Nullable Iterable<ResourceOveruseStats> stats) {
         return assertAbout(RESOURCE_OVERUSE_STATS_SUBJECT_FACTORY).that(stats);
+    }
+
+    public static void assertEquals(ResourceOveruseStats actual, ResourceOveruseStats expected) {
+        assertWithMessage("Expected stats (%s) equals to actual stats (%s)", expected, actual)
+                .that(isEquals(actual, expected)).isTrue();
     }
 
     public static Subject.Factory<ResourceOveruseStatsSubject, Iterable<ResourceOveruseStats>>
@@ -71,7 +77,7 @@ public final class ResourceOveruseStatsSubject extends Subject {
         if (actual == null || expected == null) {
             return false;
         }
-        return actual.getPackageName() == expected.getPackageName()
+        return actual.getPackageName().equals(expected.getPackageName())
                 && actual.getUserHandle().equals(expected.getUserHandle())
                 && IoOveruseStatsSubject.isEquals(actual.getIoOveruseStats(),
                     expected.getIoOveruseStats());

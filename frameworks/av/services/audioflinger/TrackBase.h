@@ -23,7 +23,7 @@
 class TrackBase : public ExtendedAudioBufferProvider, public RefBase {
 
 public:
-    enum track_state {
+    enum track_state : int32_t {
         IDLE,
         FLUSHED,        // for PlaybackTracks only
         STOPPED,
@@ -106,6 +106,9 @@ public:
             bool        isTerminated() const { return mTerminated; }
 
     audio_attributes_t  attributes() const { return mAttr; }
+
+            bool canBeSpatialized() const { return mIsOut && (mAttr.flags
+                    & (AUDIO_FLAG_CONTENT_SPATIALIZED | AUDIO_FLAG_NEVER_SPATIALIZE)) == 0; }
 
 #ifdef TEE_SINK
            void         dumpTee(int fd, const std::string &reason) const {
@@ -271,6 +274,7 @@ protected:
 
     void releaseCblk() {
         if (mCblk != nullptr) {
+            mState.clear();
             mCblk->~audio_track_cblk_t();   // destroy our shared-structure.
             if (mClient == 0) {
                 free(mCblk);
@@ -355,7 +359,7 @@ protected:
                                     // except for OutputTrack when it is in local memory
     size_t              mBufferSize; // size of mBuffer in bytes
     // we don't really need a lock for these
-    track_state         mState;
+    MirroredVariable<track_state>  mState;
     const audio_attributes_t mAttr;
     const uint32_t      mSampleRate;    // initial sample rate only; for tracks which
                         // support dynamic rates, the current value is in control block

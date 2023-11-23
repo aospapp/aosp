@@ -83,13 +83,16 @@ public class Settings extends SettingsActivity {
     }
 
     public static class VpnSettingsActivity extends SettingsActivity { /* empty */ }
-    public static class DataSaverSummaryActivity extends SettingsActivity{ /* empty */ }
+    /** Activity for Data saver settings. */
+    public static class DataSaverSummaryActivity extends SettingsActivity { /* empty */ }
     public static class DateTimeSettingsActivity extends SettingsActivity { /* empty */ }
     public static class PrivateVolumeForgetActivity extends SettingsActivity { /* empty */ }
     public static class PublicVolumeSettingsActivity extends SettingsActivity { /* empty */ }
     public static class WifiSettingsActivity extends SettingsActivity { /* empty */ }
-    public static class WifiSettings2Activity extends SettingsActivity { /* empty */ }
     public static class NetworkProviderSettingsActivity extends SettingsActivity { /* empty */ }
+    public static class NetworkSelectActivity extends SettingsActivity { /* empty */ }
+    /** Activity for the Wi-Fi network details settings. */
+    public static class WifiDetailsSettingsActivity extends SettingsActivity { /* empty */ }
     public static class WifiP2pSettingsActivity extends SettingsActivity { /* empty */ }
     public static class AvailableVirtualKeyboardActivity extends SettingsActivity { /* empty */ }
     public static class KeyboardLayoutPickerActivity extends SettingsActivity { /* empty */ }
@@ -119,13 +122,11 @@ public class Settings extends SettingsActivity {
     public static class AccessibilityInversionSettingsActivity extends SettingsActivity { /* empty */ }
     public static class AccessibilityContrastSettingsActivity extends SettingsActivity { /* empty */ }
     public static class AccessibilityDaltonizerSettingsActivity extends SettingsActivity { /* empty */ }
-    /**
-     * Activity for lockscreen settings.
-     */
+    /** Activity for lockscreen settings. */
     public static class LockScreenSettingsActivity extends SettingsActivity { /* empty */ }
-    /**
-     * Activity for Reduce Bright Colors.
-     */
+    /** Activity for bluetooth pairing settings. */
+    public static class BlueToothPairingActivity extends SettingsActivity { /* empty */ }
+    /** Activity for Reduce Bright Colors. */
     public static class ReduceBrightColorsSettingsActivity extends SettingsActivity { /* empty */ }
     /** Activity for the security dashboard. */
     public static class SecurityDashboardActivity extends SettingsActivity {
@@ -164,6 +165,7 @@ public class Settings extends SettingsActivity {
     public static class AppUsageAccessSettingsActivity extends SettingsActivity { /* empty */ }
     public static class LocationSettingsActivity extends SettingsActivity { /* empty */ }
     public static class ScanningSettingsActivity extends SettingsActivity { /* empty */ }
+    public static class WifiScanningSettingsActivity extends SettingsActivity { /* empty */ }
     public static class PrivacyDashboardActivity extends SettingsActivity { /* empty */ }
     public static class PrivacySettingsActivity extends SettingsActivity { /* empty */ }
     public static class FactoryResetActivity extends SettingsActivity {

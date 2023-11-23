@@ -76,7 +76,7 @@ public class FirmwareBootHeaderVerification extends BaseHostJUnit4Test {
     }
 
     private boolean isFullfeelPrecondition() throws DeviceNotAvailableException {
-        if (mSupportedAbis.contains("x86")) {
+        if (mSupportedAbis.contains("x86") || mSupportedAbis.contains("x86_64")) {
             mBlockDevPath = "/dev/block";
             String acpio_idx_string = mDevice.getProperty(PROPERTY_ACPIO_IDX);
             if (Strings.isNullOrEmpty(acpio_idx_string)) {

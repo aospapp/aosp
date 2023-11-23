@@ -23,7 +23,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -49,6 +51,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatcher;
+import org.mockito.MockitoAnnotations;
 
 import java.util.List;
 
@@ -73,6 +76,7 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
 
     @Before
     public void setUp() {
+        MockitoAnnotations.initMocks(this);
         mContext = spy(mContext);
         ActivityManager am = mContext.getSystemService(ActivityManager.class);
         mActivityManager = spy(am);
@@ -192,8 +196,8 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
         CarSystemBarButton roleBasedButton = mTestView.findViewById(R.id.role_based_button);
         Drawable appIcon = getContext().getDrawable(R.drawable.ic_android);
 
-        roleBasedButton.setSelected(false);
         roleBasedButton.setAppIcon(appIcon);
+        roleBasedButton.setSelected(false);
 
         Drawable currentDrawable = ((AlphaOptimizedImageView) roleBasedButton.findViewById(
                 R.id.car_nav_button_icon_image)).getDrawable();
@@ -205,14 +209,14 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
     public void onUnselected_withAppIcon_applyUnselectedAlpha() {
         CarSystemBarButton roleBasedButton = mTestView.findViewById(R.id.role_based_button);
 
-        roleBasedButton.setSelected(false);
         roleBasedButton.setAppIcon(getContext().getDrawable(R.drawable.ic_android));
+        roleBasedButton.setSelected(false);
 
         assertThat(roleBasedButton.getIconAlpha()).isEqualTo(roleBasedButton.getUnselectedAlpha());
     }
 
     @Test
-    public void onSelected_withAppIcon_showsAppIconWithSelectedAlpha() {
+    public void onSelected_withAppIcon_showsAppIcon() {
         CarSystemBarButton roleBasedButton = mTestView.findViewById(R.id.role_based_button);
         Drawable appIcon = getContext().getDrawable(R.drawable.ic_android);
 
@@ -229,8 +233,9 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
     public void onSelected_withAppIcon_applySelectedAlpha() {
         CarSystemBarButton roleBasedButton = mTestView.findViewById(R.id.role_based_button);
 
-        roleBasedButton.setSelected(true);
         roleBasedButton.setAppIcon(getContext().getDrawable(R.drawable.ic_android));
+        roleBasedButton.performClick();
+        waitForIdleSync();
 
         assertThat(roleBasedButton.getIconAlpha()).isEqualTo(roleBasedButton.getSelectedAlpha());
     }
@@ -263,7 +268,10 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
     @Test
     public void onClick_useBroadcast_broadcastsIntent() {
         CarSystemBarButton button = mTestView.findViewById(R.id.broadcast);
+        reset(mContext);
+
         button.performClick();
+        waitForIdleSync();
 
         verify(mContext).sendBroadcastAsUser(argThat(new ArgumentMatcher<Intent>() {
             @Override
@@ -307,6 +315,39 @@ public class CarSystemBarButtonTest extends SysuiTestCase {
         ImageView hasUnseenIndicator = mDefaultButton.findViewById(R.id.car_nav_button_unseen_icon);
 
         assertThat(hasUnseenIndicator.getVisibility()).isEqualTo(View.GONE);
+    }
+
+    @Test
+    public void onSetDisabled_enabled_refreshIconAlpha() {
+        mDefaultButton.setDisabled(false, /* runnable= */ null);
+
+        assertThat(mDefaultButton.getAlpha()).isEqualTo(mDefaultButton.getSelectedAlpha());
+    }
+
+    @Test
+    public void onSetDisabled_disdabledAlpha() {
+        mDefaultButton.setDisabled(true, /* runnable= */ null);
+
+        assertThat(mDefaultButton.getIconAlpha()).isEqualTo(mDefaultButton.getDisabledAlpha());
+    }
+
+    @Test
+    public void onSetDisabled_nullRunnable_doesNotSendBroadcast() {
+        mDefaultButton.setDisabled(true, /* runnable= */ null);
+
+        mDefaultButton.performClick();
+
+        verify(mContext, never()).sendBroadcastAsUser(any(Intent.class), any());
+    }
+
+    @Test
+    public void onSetDisabled_runnable() {
+        Runnable mockRunnable = mock(Runnable.class);
+        mDefaultButton.setDisabled(true, /* runnable= */ mockRunnable);
+
+        mDefaultButton.performClick();
+
+        verify(mockRunnable).run();
     }
 
     /**

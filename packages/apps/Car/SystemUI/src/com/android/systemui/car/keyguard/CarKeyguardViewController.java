@@ -16,14 +16,23 @@
 
 package com.android.systemui.car.keyguard;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.content.Context;
+import android.content.res.Resources;
+import android.graphics.PixelFormat;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewRootImpl;
+import android.view.WindowManager;
 
 import androidx.annotation.VisibleForTesting;
 
+import com.android.car.ui.FocusParkingView;
+import com.android.internal.widget.LockPatternView;
 import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.keyguard.KeyguardViewController;
 import com.android.keyguard.ViewMediatorCallback;
@@ -31,6 +40,7 @@ import com.android.systemui.R;
 import com.android.systemui.car.systembar.CarSystemBarController;
 import com.android.systemui.car.window.OverlayViewController;
 import com.android.systemui.car.window.OverlayViewGlobalStateController;
+import com.android.systemui.car.window.SystemUIOverlayWindowController;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.statusbar.phone.BiometricUnlockController;
@@ -39,7 +49,10 @@ import com.android.systemui.statusbar.phone.KeyguardBouncer.Factory;
 import com.android.systemui.statusbar.phone.KeyguardBypassController;
 import com.android.systemui.statusbar.phone.NotificationPanelViewController;
 import com.android.systemui.statusbar.phone.StatusBar;
+import com.android.systemui.statusbar.phone.panelstate.PanelExpansionStateManager;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
+import com.android.systemui.toast.SystemUIToast;
+import com.android.systemui.toast.ToastFactory;
 import com.android.systemui.util.concurrency.DelayableExecutor;
 
 import javax.inject.Inject;
@@ -55,8 +68,14 @@ public class CarKeyguardViewController extends OverlayViewController implements
         KeyguardViewController {
     private static final String TAG = "CarKeyguardViewController";
     private static final boolean DEBUG = true;
+    private static final float TOAST_PARAMS_HORIZONTAL_WEIGHT = 1.0f;
+    private static final float TOAST_PARAMS_VERTICAL_WEIGHT = 1.0f;
 
+    private final Context mContext;
     private final DelayableExecutor mMainExecutor;
+    private final WindowManager mWindowManager;
+    private final ToastFactory mToastFactory;
+    private final FocusParkingView mFocusParkingView;
     private final KeyguardStateController mKeyguardStateController;
     private final KeyguardUpdateMonitor mKeyguardUpdateMonitor;
     private final Lazy<BiometricUnlockController> mBiometricUnlockControllerLazy;
@@ -68,6 +87,17 @@ public class CarKeyguardViewController extends OverlayViewController implements
             new KeyguardBouncer.BouncerExpansionCallback() {
                 @Override
                 public void onFullyShown() {
+                    LockPatternView patternView = getLayout().findViewById(R.id.lockPatternView);
+                    if (patternView != null) {
+                        patternView.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                            @Override
+                            public void onFocusChange(View v, boolean hasFocus) {
+                                if (hasFocus) {
+                                    makeOverlayToast(R.string.lockpattern_does_not_support_rotary);
+                                }
+                            }
+                        });
+                    }
                 }
 
                 @Override
@@ -87,10 +117,16 @@ public class CarKeyguardViewController extends OverlayViewController implements
     private OnKeyguardCancelClickedListener mKeyguardCancelClickedListener;
     private boolean mShowing;
     private boolean mIsOccluded;
+    private boolean mIsSleeping;
+    private int mToastShowDurationMillisecond;
 
     @Inject
     public CarKeyguardViewController(
+            Context context,
             @Main DelayableExecutor mainExecutor,
+            WindowManager windowManager,
+            ToastFactory toastFactory,
+            SystemUIOverlayWindowController systemUIOverlayWindowController,
             OverlayViewGlobalStateController overlayViewGlobalStateController,
             KeyguardStateController keyguardStateController,
             KeyguardUpdateMonitor keyguardUpdateMonitor,
@@ -101,13 +137,21 @@ public class CarKeyguardViewController extends OverlayViewController implements
 
         super(R.id.keyguard_stub, overlayViewGlobalStateController);
 
+        mContext = context;
         mMainExecutor = mainExecutor;
+        mWindowManager = windowManager;
+        mToastFactory = toastFactory;
+        mFocusParkingView = systemUIOverlayWindowController.getBaseLayout().findViewById(
+                R.id.focus_parking_view);
         mKeyguardStateController = keyguardStateController;
         mKeyguardUpdateMonitor = keyguardUpdateMonitor;
         mBiometricUnlockControllerLazy = biometricUnlockControllerLazy;
         mViewMediatorCallback = viewMediatorCallback;
         mCarSystemBarController = carSystemBarController;
         mKeyguardBouncerFactory = keyguardBouncerFactory;
+
+        mToastShowDurationMillisecond = mContext.getResources().getInteger(
+                R.integer.car_keyguard_toast_show_duration_millisecond);
     }
 
     @Override
@@ -155,7 +199,7 @@ public class CarKeyguardViewController extends OverlayViewController implements
 
     @Override
     public void hide(long startTime, long fadeoutDuration) {
-        if (!mShowing) return;
+        if (!mShowing || mIsSleeping) return;
 
         mViewMediatorCallback.readyForKeyguardDone();
         mShowing = false;
@@ -170,6 +214,8 @@ public class CarKeyguardViewController extends OverlayViewController implements
 
     @Override
     public void reset(boolean hideBouncerWhenShowing) {
+        if (mIsSleeping) return;
+
         mMainExecutor.execute(() -> {
             if (mShowing) {
                 if (mBouncer != null) {
@@ -251,6 +297,17 @@ public class CarKeyguardViewController extends OverlayViewController implements
         getOverlayViewGlobalStateController().setWindowNeedsInput(needsInput);
     }
 
+    @Override
+    public void onStartedGoingToSleep() {
+        mIsSleeping = true;
+    }
+
+    @Override
+    public void onStartedWakingUp() {
+        mIsSleeping = false;
+        reset(/* hideBouncerWhenShowing= */ false);
+    }
+
     /**
      * Add listener for keyguard cancel clicked.
      */
@@ -293,16 +350,6 @@ public class CarKeyguardViewController extends OverlayViewController implements
     }
 
     @Override
-    public void onStartedGoingToSleep() {
-        // no-op
-    }
-
-    @Override
-    public void onStartedWakingUp() {
-        // no-op
-    }
-
-    @Override
     public void onScreenTurningOn() {
         // no-op
     }
@@ -314,7 +361,9 @@ public class CarKeyguardViewController extends OverlayViewController implements
 
     @Override
     public boolean shouldDisableWindowAnimationsForUnlock() {
-        return false;
+        // TODO(b/205189147): revert the following change after the proper fix is landed.
+        // Disables the KeyGuard animation to resolve TaskView misalignment issue after display-on.
+        return true;
     }
 
     @Override
@@ -338,10 +387,13 @@ public class CarKeyguardViewController extends OverlayViewController implements
     }
 
     @Override
-    public void registerStatusBar(StatusBar statusBar, ViewGroup container,
+    public void registerStatusBar(
+            StatusBar statusBar,
             NotificationPanelViewController notificationPanelViewController,
+            PanelExpansionStateManager panelExpansionStateManager,
             BiometricUnlockController biometricUnlockController,
-            View notificationContainer, KeyguardBypassController bypassController) {
+            View notificationContainer,
+            KeyguardBypassController bypassController) {
         // no-op
     }
 
@@ -397,6 +449,68 @@ public class CarKeyguardViewController extends OverlayViewController implements
             mBouncer.show(/* resetSecuritySelection= */ true);
             revealKeyguardIfBouncerPrepared();
         });
+    }
+
+    private void makeOverlayToast(int stringId) {
+        Resources res = mContext.getResources();
+
+        SystemUIToast systemUIToast = mToastFactory.createToast(mContext,
+                res.getString(stringId), mContext.getPackageName(), UserHandle.myUserId(),
+                res.getConfiguration().orientation);
+
+        if (systemUIToast == null) {
+            return;
+        }
+
+        View toastView = systemUIToast.getView();
+
+        WindowManager.LayoutParams params = new WindowManager.LayoutParams();
+        params.height = WindowManager.LayoutParams.WRAP_CONTENT;
+        params.width = WindowManager.LayoutParams.WRAP_CONTENT;
+        params.format = PixelFormat.TRANSLUCENT;
+        params.type = WindowManager.LayoutParams.TYPE_STATUS_BAR_SUB_PANEL;
+        params.y = systemUIToast.getYOffset();
+
+        int absGravity = Gravity.getAbsoluteGravity(systemUIToast.getGravity(),
+                res.getConfiguration().getLayoutDirection());
+        params.gravity = absGravity;
+
+        if ((absGravity & Gravity.HORIZONTAL_GRAVITY_MASK) == Gravity.FILL_HORIZONTAL) {
+            params.horizontalWeight = TOAST_PARAMS_HORIZONTAL_WEIGHT;
+        }
+        if ((absGravity & Gravity.VERTICAL_GRAVITY_MASK) == Gravity.FILL_VERTICAL) {
+            params.verticalWeight = TOAST_PARAMS_VERTICAL_WEIGHT;
+        }
+
+        // Make FocusParkingView temporarily unfocusable so it does not steal the focus.
+        // If FocusParkingView is focusable, it first steals focus and then returns it to Pattern
+        // Lock, which causes the Toast to appear repeatedly.
+        mFocusParkingView.setFocusable(false);
+        mWindowManager.addView(toastView, params);
+
+        Animator inAnimator = systemUIToast.getInAnimation();
+        if (inAnimator != null) {
+            inAnimator.start();
+        }
+
+        mMainExecutor.executeDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Animator outAnimator = systemUIToast.getOutAnimation();
+                if (outAnimator != null) {
+                    outAnimator.start();
+                    outAnimator.addListener(new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(Animator animator) {
+                            mWindowManager.removeViewImmediate(toastView);
+                            mFocusParkingView.setFocusable(true);
+                        }
+                    });
+                } else {
+                    mFocusParkingView.setFocusable(true);
+                }
+            }
+        }, mToastShowDurationMillisecond);
     }
 
     /**

@@ -40,7 +40,7 @@ checkFile() {
 
 # All to specify an alternative Java binary, other than the one on PATH
 TF_JAVA="java"
-if [ ! -z "${TF_JAVA_HOME}" ]; then
+if [ -n "${TF_JAVA_HOME}" ]; then
   # following similar convention as JAVA_HOME
   TF_JAVA=${TF_JAVA_HOME}/bin/java
 fi
@@ -92,11 +92,14 @@ if [ -z "${TF_PATH}" ]; then
 fi
 
 # include any host-side test jars from suite
-if [ ! -z "${ANDROID_HOST_OUT_TESTCASES}" ]; then
+if [ -n "${ANDROID_HOST_OUT_TESTCASES}" ]; then
     for folder in ${ANDROID_HOST_OUT_TESTCASES}/*; do
         for entry in "$folder"/*; do
             if [[ "$entry" = *".jar"* ]]; then
-                TF_PATH=${TF_PATH}:$entry
+                # Exclude any jar that looks like robolectric
+                if ! grep -q android/app/Application.class "$entry"; then
+                    TF_PATH=${TF_PATH}:$entry
+                fi
             fi
         done
     done

@@ -52,6 +52,7 @@ public final class DevicePropertyInfo {
     private final String mVersionSdk;
     private final String mVersionSecurityPatch;
     private final String mVersionIncremental;
+    private final String mBootimageFingerprint;
 
     public DevicePropertyInfo(
             String abi,
@@ -100,6 +101,58 @@ public final class DevicePropertyInfo {
         mVersionSdk = versionSdk;
         mVersionSecurityPatch = versionSecurityPatch;
         mVersionIncremental = versionIncremental;
+        mBootimageFingerprint = "unknown";
+    }
+
+    public DevicePropertyInfo(
+            String abi,
+            String abi2,
+            String abis,
+            String abis32,
+            String abis64,
+            String board,
+            String brand,
+            String device,
+            String fingerprint,
+            String vendorFingerprint,
+            String id,
+            String manufacturer,
+            String model,
+            String product,
+            String referenceFingerprint,
+            String serial,
+            String tags,
+            String type,
+            String versionBaseOs,
+            String versionRelease,
+            String versionSdk,
+            String versionSecurityPatch,
+            String versionIncremental,
+            String bootimageFingerprint) {
+        mAbi = abi;
+        mAbi2 = abi2;
+        mAbis = abis;
+        mAbis32 = abis32;
+        mAbis64 = abis64;
+        mBoard = board;
+        mBrand = brand;
+        mDevice = device;
+        mFingerprint = fingerprint;
+        mVendorFingerprint = vendorFingerprint;
+        mId = id;
+        mManufacturer = manufacturer;
+        mModel = model;
+        mProduct = product;
+        mReferenceFingerprint = referenceFingerprint;
+        mSerial = serial;
+        mTags = tags;
+        mType = type;
+        mVersionBaseOs = versionBaseOs;
+        mVersionRelease = versionRelease;
+        mVersionSdk = versionSdk;
+        mVersionSecurityPatch = versionSecurityPatch;
+        mVersionIncremental = versionIncremental;
+        mBootimageFingerprint = bootimageFingerprint;
     }
 
     /**
@@ -120,6 +173,7 @@ public final class DevicePropertyInfo {
         propertyMap.put(prefix + "device", mDevice);
         propertyMap.put(prefix + "fingerprint", mFingerprint);
         propertyMap.put(prefix + "vendor_fingerprint", mVendorFingerprint);
+        propertyMap.put(prefix + "bootimage_fingerprint", mBootimageFingerprint);
         propertyMap.put(prefix + "id", mId);
         propertyMap.put(prefix + "manufacturer", mManufacturer);
         propertyMap.put(prefix + "model", mModel);

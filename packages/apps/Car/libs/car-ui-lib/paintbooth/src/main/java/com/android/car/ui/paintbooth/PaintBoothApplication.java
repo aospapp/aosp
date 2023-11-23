@@ -18,29 +18,29 @@ package com.android.car.ui.paintbooth;
 import android.app.Application;
 import android.content.Context;
 
-import com.android.car.ui.sharedlibrarysupport.SharedLibraryConfigProvider;
-import com.android.car.ui.sharedlibrarysupport.SharedLibrarySpecifier;
+import com.android.car.ui.pluginsupport.PluginConfigProvider;
+import com.android.car.ui.pluginsupport.PluginSpecifier;
 
 import java.util.Collections;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * A {@link Application} subclass that implements {@link SharedLibraryConfigProvider},
- * allowing PaintBooth to disable the shared library.
+ * A {@link Application} subclass that implements {@link PluginConfigProvider},
+ * allowing PaintBooth to disable the plugin.
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
-public class PaintBoothApplication extends Application implements SharedLibraryConfigProvider {
+public class PaintBoothApplication extends Application implements PluginConfigProvider {
     public static final String SHARED_PREFERENCES_FILE = "paintbooth_shared_prefs";
-    public static final String SHARED_PREFERENCES_SHARED_LIB_DENYLIST =
-            "paintbooth_shared_lib_deny";
+    public static final String SHARED_PREFERENCES_PLUGIN_DENYLIST =
+            "paintbooth_plugin_deny";
 
     @Override
-    public Set<SharedLibrarySpecifier> getSharedLibraryDenyList() {
+    public Set<PluginSpecifier> getPluginDenyList() {
         return getSharedPreferences(SHARED_PREFERENCES_FILE, Context.MODE_PRIVATE)
-                .getStringSet(SHARED_PREFERENCES_SHARED_LIB_DENYLIST, Collections.emptySet())
+                .getStringSet(SHARED_PREFERENCES_PLUGIN_DENYLIST, Collections.emptySet())
                 .stream()
-                .map(packageName -> SharedLibrarySpecifier.builder()
+                .map(packageName -> PluginSpecifier.builder()
                         .setPackageName(packageName)
                         .build())
                 .collect(Collectors.toSet());

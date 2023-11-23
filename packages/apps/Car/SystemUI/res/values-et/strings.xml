@@ -19,26 +19,42 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="hvac_min_text" msgid="866677328637088715">"Min"</string>
     <string name="hvac_max_text" msgid="7627950157128770380">"Max"</string>
+    <string name="fan_speed_max" msgid="956683571700419211">"MAX"</string>
+    <string name="fan_speed_off" msgid="3860115181014880798">"VÄLJAS"</string>
+    <string name="hvac_temperature_off" msgid="8370977023494579242">"VÄLJAS"</string>
     <string name="voice_recognition_toast" msgid="7579725862117020349">"Häältuvastust haldab nüüd ühendatud Bluetoothi seade"</string>
     <string name="car_guest" msgid="768913000117469596">"Külaline"</string>
     <string name="start_guest_session" msgid="2759367183497948650">"Külaline"</string>
-    <string name="car_add_user" msgid="8660226923614358478">"Lisa kasutaja"</string>
-    <string name="car_new_user" msgid="304628168515673432">"Uus kasutaja"</string>
-    <string name="user_add_user_message_setup" msgid="2130987756494836929">"Kui lisate uue kasutaja, siis peab ta seadistama oma ruumi."</string>
-    <string name="user_add_user_message_update" msgid="1001907075316748931">"Iga kasutaja saab rakendusi värskendada kõigi teiste kasutajate jaoks."</string>
+    <string name="car_add_user" msgid="6182764665687382136">"Lisa profiil"</string>
+    <string name="car_new_user" msgid="6766334721724989964">"Uus profiil"</string>
+    <string name="user_add_profile_title" msgid="828371911076521952">"Kas lisada uus profiil?"</string>
+    <string name="user_add_user_message_setup" msgid="6136074867764164790">"Pärast uue profiili loomist saab kasutaja selle endale sobivaks kohandada."</string>
+    <string name="user_add_user_message_update" msgid="3310089453006545712">"Rakendusi saab värskendada mis tahes profiililt ja neid saavad kasutada kõik muud profiilid."</string>
+    <string name="profile_limit_reached_title" msgid="7891779218496729653">"Profiilide maksimaalne arv on täis"</string>
+    <plurals name="profile_limit_reached_message" formatted="false" msgid="910608128912533066">
+      <item quantity="other">Võite lisada kuni <xliff:g id="COUNT">%d</xliff:g> profiili.</item>
+      <item quantity="one">Luua saab ainult ühe profiili.</item>
+    </plurals>
     <string name="car_loading_profile" msgid="458961191993686065">"Laadimine"</string>
     <string name="car_loading_profile_developer_message" msgid="737810794567935702">"Kasutaja laadimine (<xliff:g id="FROM_USER">%1$d</xliff:g> &gt; <xliff:g id="TO_USER">%2$d</xliff:g>)"</string>
     <string name="mic_privacy_chip_off_content" msgid="4989623700063721557">"Mikrofon on välja lülitatud."</string>
-    <string name="mic_privacy_chip_mic_enabled" msgid="5667789064187849349">"Mikrofon on lubatud"</string>
-    <string name="mic_privacy_chip_mic_enabled_subtext" msgid="815124399469247109">"Rakendused pääsevad mikrofonile juurde"</string>
-    <string name="mic_privacy_chip_mic_disabled" msgid="2709173475947157320">"Mikrofon on keelatud"</string>
-    <string name="mic_privacy_chip_mic_disabled_subtext" msgid="9059745506470016701">"Mitte ükski rakendus ei pääse mikrofonile juurde"</string>
-    <string name="mic_privacy_chip_privacy_settings" msgid="719293067082198224">"Privaatsusseaded"</string>
+    <string name="mic_privacy_chip_use_microphone" msgid="6766440136862693589">"Kasuta mikrofoni"</string>
+    <string name="mic_privacy_chip_use_microphone_subtext" msgid="3953394014360603987">"Rakendustele, millel on luba"</string>
+    <string name="mic_privacy_chip_microphone_settings" msgid="4520886720588226450">"Mikrofoni seaded"</string>
     <string name="mic_privacy_chip_app_using_mic_suffix" msgid="8355462601492180023">"<xliff:g id="APP">%s</xliff:g> kasutab mikrofoni"</string>
     <string name="mic_privacy_chip_apps_using_mic_suffix" msgid="6656026041668305817">"Rakendused <xliff:g id="APP_LIST">%s</xliff:g> kasutavad mikrofoni"</string>
     <string name="mic_privacy_chip_app_recently_used_mic_suffix" msgid="1819299821245419382">"<xliff:g id="APP">%s</xliff:g> kasutas hiljuti mikrofoni"</string>
+    <string name="mic_privacy_chip_apps_recently_used_mic_suffix" msgid="3451383324549295901">"<xliff:g id="APP_0">%1$s</xliff:g> ja veel <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> kasutasid hiljuti mikrofoni"</string>
     <string name="mic_privacy_chip_on_toast" msgid="7003896860896586181">"Mikrofon lülitati sisse"</string>
     <string name="mic_privacy_chip_off_toast" msgid="8718743873640788032">"Mikrofon lülitati välja"</string>
-    <string name="mic_privacy_chip_dialog_title_mic" msgid="3782090299882049010">"Mikrofoni hiljutine kasutus"</string>
     <string name="mic_privacy_chip_dialog_ok" msgid="2298690833121720237">"OK"</string>
+    <string name="sensor_privacy_start_use_mic_dialog_title" msgid="8774244900043105266">"Kas lülitada sõiduki mikrofon sisse?"</string>
+    <string name="sensor_privacy_start_use_mic_dialog_content" msgid="8382980879434990801">"Jätkamiseks lülitage teabe ja meelelahutuse süsteemi mikrofon sisse. See lülitab mikrofoni sisse kõigi rakenduste jaoks, millel on luba."</string>
+    <string name="qc_footer_settings" msgid="5471523941092316743">"Seaded"</string>
+    <string name="qc_footer_bluetooth_settings" msgid="2870204430643762847">"Bluetoothi seaded"</string>
+    <string name="qc_footer_network_internet_settings" msgid="2480582764252681575">"Võrgu- ja internetiseaded"</string>
+    <string name="qc_footer_display_settings" msgid="2950539240110437704">"Kuvaseaded"</string>
+    <string name="qc_footer_network_sound_settings" msgid="5117011034908775097">"Heliseaded"</string>
+    <string name="qc_footer_profiles_accounts_settings" msgid="4456419248123950232">"Profiili- ja kontoseaded"</string>
+    <string name="lockpattern_does_not_support_rotary" msgid="4605787900312103476">"Muster ei toeta pöördvalijat, kasutage puudutust."</string>
 </resources>

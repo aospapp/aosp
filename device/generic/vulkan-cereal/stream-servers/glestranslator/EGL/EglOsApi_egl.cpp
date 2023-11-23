@@ -115,7 +115,8 @@ static const char* kGLES2LibName = "libGLESv2.dylib";
     X(EGLBoolean, eglSwapInterval,                                             \
       (EGLDisplay display, EGLint interval))                                   \
     X(void, eglSetBlobCacheFuncsANDROID, (EGLDisplay display,                  \
-        EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get))
+        EGLSetBlobFuncANDROID set, EGLGetBlobFuncANDROID get))                 \
+    X(EGLBoolean, eglReleaseThread, (void))                                    \
 
 namespace {
 using namespace EglOS;
@@ -273,6 +274,7 @@ public:
     Surface* createWindowSurface(PixelFormat* pf, EGLNativeWindowType win);
     bool releasePbuffer(Surface* pb);
     bool makeCurrent(Surface* read, Surface* draw, Context* context);
+    EGLBoolean releaseThread();
     void swapBuffers(Surface* srfc);
     bool isValidNativeWin(Surface* win);
     bool isValidNativeWin(EGLNativeWindowType win);
@@ -593,6 +595,11 @@ void EglOsEglDisplay::swapBuffers(Surface* surface) {
     D("%s\n", __FUNCTION__);
     EglOsEglSurface* sfc = (EglOsEglSurface*)surface;
     mDispatcher.eglSwapBuffers(mDisplay, sfc->getHndl());
+}
+
+EGLBoolean EglOsEglDisplay::releaseThread() {
+    D("%s\n", __FUNCTION__);
+    return mDispatcher.eglReleaseThread();
 }
 
 bool EglOsEglDisplay::isValidNativeWin(Surface* win) {

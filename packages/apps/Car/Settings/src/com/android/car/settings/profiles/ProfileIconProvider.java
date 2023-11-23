@@ -35,7 +35,8 @@ import com.android.internal.util.UserIcons;
 public class ProfileIconProvider {
     // TODO (b/179802719) define this constant as MenuItem's attribute in 'Chassis' library
     // Width of managed profile's badge in ratio to profile icon's width
-    private static final float BADGE_WIDTH_TO_ICON_RATIO = 0.15f;
+    private static final float BADGE_WIDTH_TO_ICON_RATIO = 0.09f;
+    private static final float BADGE_PADDING = 1f;
 
     /**
      * Gets a scaled rounded icon for the given profile to use in settings.  If a profile does
@@ -94,6 +95,7 @@ public class ProfileIconProvider {
         Drawable userIcon = getRoundedProfileIcon(userInfo, context);
         UserAvatarView userAvatarView = new UserAvatarView(context);
         userAvatarView.setBadgeDiameter(userIcon.getIntrinsicWidth() * BADGE_WIDTH_TO_ICON_RATIO);
+        userAvatarView.setBadgeMargin(BADGE_PADDING);
         userAvatarView.setDrawableWithBadge(userIcon, userInfo.id);
         return (Drawable) userAvatarView.getUserIconDrawable();
     }

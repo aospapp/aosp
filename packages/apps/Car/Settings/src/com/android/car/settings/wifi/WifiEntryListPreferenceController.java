@@ -28,7 +28,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.preference.PreferenceGroup;
 
 import com.android.car.settings.R;
-import com.android.car.settings.common.CarUxRestrictionsHelper;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.wifi.details.WifiDetailsFragment;
@@ -135,7 +134,7 @@ public class WifiEntryListPreferenceController extends
      * @return List of wifi entries that should be displayed
      */
     protected List<WifiEntry> fetchWifiEntries() {
-        List<WifiEntry> wifiEntries = CarUxRestrictionsHelper.isNoSetup(getUxRestrictions())
+        List<WifiEntry> wifiEntries = shouldApplyUxRestrictions(getUxRestrictions())
                 ? getCarWifiManager().getSavedWifiEntries()
                 : getCarWifiManager().getAllWifiEntries();
 

@@ -1,0 +1,10 @@
+target: {
+    linux_glibc_x86_64: {
+        features: [
+            "gdb",
+        ],
+        rustlibs: [
+            "libgdbstub_arch",
+        ],
+    },
+}

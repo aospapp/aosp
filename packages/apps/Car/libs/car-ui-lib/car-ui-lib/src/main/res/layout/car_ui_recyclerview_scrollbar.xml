@@ -21,6 +21,7 @@
     android:layout_width="@dimen/car_ui_scrollbar_container_width"
     android:layout_height="match_parent"
     android:id="@+id/car_ui_scroll_bar"
+    android:layout_gravity="left"
     android:gravity="center">
 
     <ImageView

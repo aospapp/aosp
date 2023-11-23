@@ -128,7 +128,6 @@
       <intent-filter>
         <action android:name="android.provider.action.SMS_EMERGENCY_CB_RECEIVED" />
         <action android:name="android.provider.Telephony.SMS_CB_RECEIVED" />
-        <action android:name="android.cellbroadcastreceiver.START_CONFIG" />
         <action android:name="android.provider.Telephony.SMS_SERVICE_CATEGORY_PROGRAM_DATA_RECEIVED" />
         <action android:name="android.intent.action.LOCALE_CHANGED" />
         <action android:name="android.telephony.action.DEFAULT_SMS_SUBSCRIPTION_CHANGED" />

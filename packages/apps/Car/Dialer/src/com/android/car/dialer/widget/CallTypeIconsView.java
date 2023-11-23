@@ -122,10 +122,6 @@ public class CallTypeIconsView extends View {
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int mWidth = mIconWidth;
         int mHeight = Math.max(getMeasuredHeight(), mIconHeight);
-        // Add extra end margin if show the count text.
-        if (mCallTypes.size() > MAX_CALL_TYPE_ICONS) {
-            mWidth += mIconResources.iconMargin;
-        }
         setMeasuredDimension(mWidth, mHeight);
     }
 

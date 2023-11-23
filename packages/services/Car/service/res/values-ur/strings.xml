@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"کار کے پاور کی پالیسی کو کنٹرول کریں۔"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"تمثیلات تیار کریں"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"تمثیلات تیار کریں۔"</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"شروع ہونے والی ایپلیکیشنز کو کنٹرول کریں"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"شروع ہونے والی ایپلیکیشنز کو کنٹرول کریں۔"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"میرا آلہ"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"مہمان"</string>
     <string name="importance_default" msgid="8587741629268312938">"ڈیفالٹ اہمیت"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"بعد میں ری سیٹ کریں"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"اگلی بار کار کے شروع ہونے پر معلوماتی انٹرٹینمنٹ سسٹم ری سیٹ ہو جائے گا۔"</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"ری سیٹ شروع کرنے کیلئے کار کا پارک ہونا ضروری ہے۔"</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> سے آپ کے سسٹم کی کارکردگی متاثر ہو رہی ہے"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"سسٹم کی کارکردگی کو بہتر بنانے کے لیے ایپ کو غیر فعال کریں۔ آپ ترتیبات میں پھر سے ایپ کو فعال کر سکتے ہیں۔"</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"ایپ کا استعمال جاری رکھنے کے لیے ایپ کو ترجیح دیں۔"</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"سسٹم کی کارکردگی کو بہتر بنانے کے لیے ایپ کو اَن انسٹال کریں۔"</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"ایپ کو غیر فعال کریں"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"ایپ کی ترتیب کو ترجیح دیں"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"ایپ کو اَن انسٹال کریں"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> کو غیر فعال کر دیا گیا ہے۔ آپ ترتیبات میں اسے دوبارہ فعال کر سکتے ہیں۔"</string>
 </resources>

@@ -17,9 +17,13 @@
 package android.app.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import android.app.WallpaperInfo;
+import android.app.stubs.LiveWallpaper;
+import android.app.stubs.LiveWallpaperNoUnfoldTransition;
 import android.app.stubs.R;
 import android.content.Context;
 import android.content.Intent;
@@ -39,15 +43,24 @@ import java.util.List;
 public class WallpaperInfoTest {
 
     @Test
-    public void test() throws Exception {
+    public void test_wallpaperServiceQuery() {
         Context context = InstrumentationRegistry.getTargetContext();
         Intent intent = new Intent(WallpaperService.SERVICE_INTERFACE);
         intent.setPackage("android.app.stubs");
         PackageManager pm = context.getPackageManager();
+
         List<ResolveInfo> result = pm.queryIntentServices(intent, PackageManager.GET_META_DATA);
-        assertEquals(1, result.size());
-        ResolveInfo info = result.get(0);
-        WallpaperInfo wallpaperInfo = new WallpaperInfo(context, info);
+
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    public void test_wallpaperInfoOptions() {
+        Context context = InstrumentationRegistry.getTargetContext();
+        PackageManager pm = context.getPackageManager();
+
+        WallpaperInfo wallpaperInfo = getInfoForService(LiveWallpaper.class);
+
         assertEquals(context.getString(R.string.wallpaper_title), wallpaperInfo.loadLabel(pm));
         assertEquals(context.getString(R.string.wallpaper_description),
             wallpaperInfo.loadDescription(pm));
@@ -59,9 +72,45 @@ public class WallpaperInfoTest {
             wallpaperInfo.loadContextUri(pm).toString());
         assertEquals(context.getString(R.string.wallpaper_slice_uri),
             wallpaperInfo.getSettingsSliceUri().toString());
-        assertEquals(true, wallpaperInfo.getShowMetadataInPreview());
-        assertEquals(true, wallpaperInfo.supportsMultipleDisplays());
+        assertTrue(wallpaperInfo.getShowMetadataInPreview());
+        assertTrue(wallpaperInfo.supportsMultipleDisplays());
+        assertTrue(wallpaperInfo.shouldUseDefaultUnfoldTransition());
         assertNotNull(wallpaperInfo.loadIcon(pm));
         assertNotNull(wallpaperInfo.loadThumbnail(pm));
+    }
+
+    @Test
+    public void test_defaultUnfoldTransitionDisabled() {
+        WallpaperInfo wallpaperInfo = getInfoForService(LiveWallpaperNoUnfoldTransition.class);
+
+        assertFalse(wallpaperInfo.shouldUseDefaultUnfoldTransition());
+    }
+
+    private <T extends WallpaperService> WallpaperInfo getInfoForService(Class<T> service) {
+        Context context = InstrumentationRegistry.getTargetContext();
+        Intent intent = new Intent(WallpaperService.SERVICE_INTERFACE);
+        intent.setPackage("android.app.stubs");
+        PackageManager pm = context.getPackageManager();
+        List<ResolveInfo> result = pm.queryIntentServices(intent, PackageManager.GET_META_DATA);
+
+        ResolveInfo info = null;
+        for (int i = 0; i < result.size(); i++) {
+            ResolveInfo resolveInfo = result.get(i);
+            if (resolveInfo.serviceInfo.name.equals(service.getName())) {
+                info = resolveInfo;
+                break;
+            }
+        }
+
+        if (info == null) {
+            throw new AssertionError(service.getName() + " was not found in the queried "
+                    + "wallpaper services list " + result);
+        }
+
+        try {
+            return new WallpaperInfo(context, info);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

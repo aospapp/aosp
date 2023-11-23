@@ -16,7 +16,9 @@
 
 package com.android.bedstead.harrier.annotations;
 
+import static com.android.bedstead.harrier.OptionalBoolean.ANY;
 import static com.android.bedstead.harrier.OptionalBoolean.TRUE;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.MIDDLE;
 
 import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.harrier.OptionalBoolean;
@@ -28,8 +30,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Mark that a test method should run on a device which has a secondary user that is not the
- * current user.
+ * Mark that a test method should run on a device which has a secondary user.
  *
  * <p>Your test configuration may be configured so that this test is only run on a device which
  * has a secondary user that is not the current user. Otherwise, you can use {@link DeviceState}
@@ -43,4 +44,21 @@ import java.lang.annotation.Target;
 public @interface EnsureHasSecondaryUser {
     /** Whether the instrumented test app should be installed in the secondary user. */
     OptionalBoolean installInstrumentedApp() default TRUE;
+
+    /**
+     * Should we ensure that we are switched to the given user
+     */
+    OptionalBoolean switchedToUser() default ANY;
+
+    /**
+     * Weight sets the order that annotations will be resolved.
+     *
+     * <p>Annotations with a lower weight will be resolved before annotations with a higher weight.
+     *
+     * <p>If there is an order requirement between annotations, ensure that the weight of the
+     * annotation which must be resolved first is lower than the one which must be resolved later.
+     *
+     * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
+     */
+    int weight() default MIDDLE;
 }

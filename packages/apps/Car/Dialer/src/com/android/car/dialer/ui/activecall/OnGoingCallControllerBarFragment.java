@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
 import android.text.SpannableString;
+import android.text.TextUtils;
 import android.text.style.TextAppearanceSpan;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -117,7 +118,12 @@ public class OnGoingCallControllerBarFragment extends Hilt_OnGoingCallController
 
         AlertDialogBuilder audioRouteSelectionDialogBuilder = new AlertDialogBuilder(getContext())
                 .setAdapter(mAudioRouteAdapter)
-                .setTitle(getString(R.string.audio_route_dialog_title));
+                .setAllowDismissButton(
+                        getResources().getBoolean(R.bool.config_dialog_allow_dismiss_button));
+        String audioRouteDialogTitle = getString(R.string.audio_route_dialog_title);
+        if (!TextUtils.isEmpty(audioRouteDialogTitle)) {
+            audioRouteSelectionDialogBuilder.setTitle(audioRouteDialogTitle);
+        }
 
         String subtitle = getString(R.string.audio_route_dialog_subtitle);
         if (!subtitle.isEmpty()) {

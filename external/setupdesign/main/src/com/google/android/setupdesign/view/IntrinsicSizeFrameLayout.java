@@ -16,13 +16,21 @@
 
 package com.google.android.setupdesign.view;
 
+import static java.lang.Math.min;
+
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.graphics.Rect;
+import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
+import android.view.Display;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.widget.FrameLayout;
+import androidx.annotation.VisibleForTesting;
 import com.google.android.setupcompat.partnerconfig.PartnerConfig;
 import com.google.android.setupcompat.partnerconfig.PartnerConfigHelper;
 import com.google.android.setupcompat.util.BuildCompatUtils;
@@ -40,6 +48,10 @@ public class IntrinsicSizeFrameLayout extends FrameLayout {
 
   private int intrinsicHeight = 0;
   private int intrinsicWidth = 0;
+  private Object lastInsets; // Use generic Object type for compatibility
+
+  // Define here to avoid allocating resource during layout/draw operation.
+  private final Rect windowVisibleDisplayRect = new Rect();
 
   public IntrinsicSizeFrameLayout(Context context) {
     super(context);
@@ -105,9 +117,43 @@ public class IntrinsicSizeFrameLayout extends FrameLayout {
 
   @Override
   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-    super.onMeasure(
-        getIntrinsicMeasureSpec(widthMeasureSpec, intrinsicWidth),
-        getIntrinsicMeasureSpec(heightMeasureSpec, intrinsicHeight));
+    int measureWidth;
+
+    // The the content may be truncated if the layout show in multi-window mode or two pane mode,
+    // because the given width is fixed size which based on the display to compute. So the width
+    // the content may be truncated. Make the layout width align window while window width smaller
+    // than display size.
+    if (isWindowSizeSmallerThanDisplaySize()) {
+      getWindowVisibleDisplayFrame(windowVisibleDisplayRect);
+
+      measureWidth =
+          MeasureSpec.makeMeasureSpec(windowVisibleDisplayRect.width(), MeasureSpec.EXACTLY);
+    } else {
+      measureWidth = getIntrinsicMeasureSpec(widthMeasureSpec, intrinsicWidth);
+    }
+
+    super.onMeasure(measureWidth, getIntrinsicMeasureSpec(heightMeasureSpec, intrinsicHeight));
+  }
+
+  @VisibleForTesting
+  boolean isWindowSizeSmallerThanDisplaySize() {
+    boolean result = false;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+      getWindowVisibleDisplayFrame(windowVisibleDisplayRect);
+
+      Display display = getDisplay();
+      if (display != null) {
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        display.getRealMetrics(displayMetrics);
+
+        if (windowVisibleDisplayRect.width() > 0
+            && windowVisibleDisplayRect.width() < displayMetrics.widthPixels) {
+          result = true;
+        }
+      }
+    }
+
+    return result;
   }
 
   private int getIntrinsicMeasureSpec(int measureSpec, int intrinsicSize) {
@@ -123,9 +169,25 @@ public class IntrinsicSizeFrameLayout extends FrameLayout {
     } else if (mode == MeasureSpec.AT_MOST) {
       // If intrinsic size is within parents constraint, take the intrinsic size.
       // Otherwise take the parents size because that's closest to the intrinsic size.
-      return MeasureSpec.makeMeasureSpec(Math.min(size, intrinsicHeight), MeasureSpec.EXACTLY);
+      return MeasureSpec.makeMeasureSpec(min(size, intrinsicHeight), MeasureSpec.EXACTLY);
     }
     // Parent specified EXACTLY, or in all other cases, just return the original spec
     return measureSpec;
+  }
+
+  @Override
+  protected void onAttachedToWindow() {
+    super.onAttachedToWindow();
+    if (Build.VERSION.SDK_INT >= VERSION_CODES.LOLLIPOP) {
+      if (lastInsets == null) {
+        requestApplyInsets();
+      }
+    }
+  }
+
+  @Override
+  public WindowInsets onApplyWindowInsets(WindowInsets insets) {
+    lastInsets = insets;
+    return super.onApplyWindowInsets(insets);
   }
 }

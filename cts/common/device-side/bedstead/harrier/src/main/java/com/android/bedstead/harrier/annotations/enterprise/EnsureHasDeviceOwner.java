@@ -18,9 +18,10 @@ package com.android.bedstead.harrier.annotations.enterprise;
 
 import static android.content.pm.PackageManager.FEATURE_DEVICE_ADMIN;
 
-import static com.android.bedstead.harrier.DeviceState.UserType.SYSTEM_USER;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.MIDDLE;
 
 import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.harrier.annotations.AnnotationRunPrecedence;
 import com.android.bedstead.harrier.annotations.FailureMode;
 import com.android.bedstead.harrier.annotations.RequireFeature;
 
@@ -37,6 +38,10 @@ import java.lang.annotation.Target;
  * the correct state for the method. If using {@link DeviceState}, you can use
  * {@link DeviceState#deviceOwner()} to interact with the device owner.
  *
+ * <p>When running on a device with a headless system user, enforcing this with {@link DeviceState}
+ * will also result in the profile owner of the current user being set to the same device policy
+ * controller.
+ *
  * <p>If {@link DeviceState} is required to set the device owner (because there isn't one already)
  * then all users and accounts may be removed from the device.
  */
@@ -44,16 +49,17 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @RequireFeature(FEATURE_DEVICE_ADMIN)
 public @interface EnsureHasDeviceOwner {
-    /** Which user type the device owner should be installed on. */
-    DeviceState.UserType onUser() default SYSTEM_USER;
 
-    /** Behaviour if the device owner cannot be set. */
+    int DO_PO_WEIGHT = MIDDLE;
+
+     /** Behaviour if the device owner cannot be set. */
     FailureMode failureMode() default FailureMode.FAIL;
 
     /**
-     * Whether this DPC should be returned by calls to {@link DeviceState#dpc()}.
+     * Whether this DPC should be returned by calls to {@link DeviceState#dpc()} or
+     * {@link DeviceState#policyManager()}}.
      *
-     * <p>Only one device policy controller per test should be marked as primary.
+     * <p>Only one policy manager per test should be marked as primary.
      */
     boolean isPrimary() default false;
 
@@ -61,4 +67,16 @@ public @interface EnsureHasDeviceOwner {
      * Affiliation ids to be set for the device owner.
      */
     String[] affiliationIds() default {};
+
+    /**
+     * Weight sets the order that annotations will be resolved.
+     *
+     * <p>Annotations with a lower weight will be resolved before annotations with a higher weight.
+     *
+     * <p>If there is an order requirement between annotations, ensure that the weight of the
+     * annotation which must be resolved first is lower than the one which must be resolved later.
+     *
+     * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
+     */
+    int weight() default DO_PO_WEIGHT;
 }

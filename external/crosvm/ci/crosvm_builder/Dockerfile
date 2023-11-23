@@ -22,12 +22,13 @@ RUN apt-get install --yes --no-install-recommends \
     libdrm-dev \
     libepoxy-dev \
     libssl-dev \
-    libwayland-dev \
     qemu-system-x86
 
 RUN apt-get install --yes -t testing --no-install-recommends \
     libdrm-dev \
-    libepoxy-dev
+    libepoxy-dev \
+    libwayland-dev \
+    wayland-protocols
 
 # Allow GCC/Rust to find packages and libraries stored on the scratch volume.
 ENV LIBRARY_PATH=/workspace/scratch/lib
@@ -42,7 +43,7 @@ COPY --from=vm \
     /root/.ssh /root/.ssh
 
 # Setup entrypoint and interactive shell
-WORKDIR /workspace/src/platform/crosvm
+WORKDIR /workspace/src/crosvm
 COPY bashrc /root/.bashrc
 COPY entrypoint /workspace
 ENTRYPOINT ["/workspace/entrypoint"]

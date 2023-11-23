@@ -1,0 +1,25 @@
+# Factory specific init.rc
+
+on early-init
+    mount debugfs /sys/kernel/debug /sys/kernel/debug
+
+on init
+    export PATH /product/bin:/apex/com.android.runtime/bin:/apex/com.android.art/bin:/system_ext/bin:/system/bin:/system/xbin:/odm/bin:/vendor/bin:/vendor/xbin:/vendor/bin/factory
+
+    # Set UDFPS default calibration to LHBM
+    setprop persist.vendor.sensors.fingerprint.ghbm 0
+
+on post-fs-data
+    # HBM mode for UDFPS factory apk
+    chmod 666 /d/dri/0/DSI-1/panel/reg/payload
+    chmod 666 /d/dri/0/DSI-1/panel/hbm_mode
+    chmod 666 /sys/class/backlight/panel0-backlight/local_hbm_max_timeout
+    chmod 666 /sys/class/backlight/panel0-backlight/local_hbm_mode
+    chmod 666 /sys/class/backlight/panel0-backlight/hbm_mode
+
+on boot
+    # FTM log folder
+    mkdir /data/ftmlog 0775 system system
+
+    # Audio test folder
+    mkdir /data/AudioTest 0775 system system

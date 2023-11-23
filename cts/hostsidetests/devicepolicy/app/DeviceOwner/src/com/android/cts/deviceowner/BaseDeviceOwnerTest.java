@@ -65,10 +65,14 @@ public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
     protected void setUp() throws Exception {
         super.setUp();
 
+        mUserId = mContext.getUserId();
+        Log.v(TAG, getClass().getSimpleName() + ".setUp(): test=" + getClass() + ", userId="
+                + mUserId);
+
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mDevice = UiDevice.getInstance(mInstrumentation);
         mDevicePolicyManager = TestAppSystemServiceFactory.getDevicePolicyManager(mContext,
-                BasicAdminReceiver.class);
+                BasicAdminReceiver.class, /* forDeviceOwner= */ true);
         mWifiManager = TestAppSystemServiceFactory.getWifiManager(mContext,
                 BasicAdminReceiver.class);
         WifiManager currentUserWifiManager = mContext.getSystemService(WifiManager.class);
@@ -87,10 +91,8 @@ public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
                 PackageManager.FEATURE_TELEPHONY);
         mIsAutomotive = mContext.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_AUTOMOTIVE);
-        mUserId = mContext.getUserId();
 
-        Log.v(TAG, getClass() + ".setUp(): userId=" + mUserId + ", dpm=" + mDevicePolicyManager
-                + ", wifiManager=" + mWifiManager);
+        Log.v(TAG, "dpm=" + mDevicePolicyManager + ", wifiManager=" + mWifiManager);
 
         assertDeviceOwner();
     }

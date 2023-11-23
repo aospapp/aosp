@@ -30,15 +30,14 @@ cc_defaults {
         "system/libbase/include",
     ],
     shared_libs: [
-        "android.automotive.watchdog-V3-cpp",
-        "android.automotive.watchdog.internal-cpp",
-        "android.automotive.watchdog.internal-cpp",
-        "android.automotive.watchdog-V3-cpp",
-        "android.hardware.automotive.vehicle@2.0",
         "libbase",
         "libbinder",
         "liblog",
         "libutils",
+    ],
+    static_libs: [
+        "android.automotive.watchdog.internal-cpp",
+        "android.automotive.watchdog-V3-cpp",
     ],
     header_libs: [
         "libgtest_prod_headers",
@@ -54,6 +53,7 @@ cc_library {
       "carwatchdogd_defaults",
   ],
   shared_libs: [
+      "android.hardware.automotive.vehicle@2.0",
       "libcutils",
   ],
   export_include_dirs: [
@@ -67,7 +67,6 @@ cc_defaults {
         "libcutils",
         "libprocessgroup",
         "libtinyxml2",
-        "libwatchdog_package_info_resolver",
     ],
 }
 
@@ -85,12 +84,17 @@ cc_library {
         "src/LooperWrapper.cpp",
         "src/OveruseConfigurationXmlHelper.cpp",
         "src/ProcDiskStats.cpp",
-        "src/ProcPidStat.cpp",
         "src/ProcStat.cpp",
-        "src/UidIoStats.cpp",
+        "src/UidIoStatsCollector.cpp",
+        "src/UidProcStatsCollector.cpp",
+        "src/UidStatsCollector.cpp",
+    ],
+    shared_libs: [
+        "android.hardware.automotive.vehicle@2.0",
     ],
     whole_static_libs: [
         "libwatchdog_properties",
+        "libwatchdog_package_info_resolver",
     ],
     export_include_dirs: [
         "src",
@@ -120,11 +124,13 @@ cc_test {
         "tests/OveruseConfigurationTestUtils.cpp",
         "tests/OveruseConfigurationXmlHelperTest.cpp",
         "tests/PackageInfoResolverTest.cpp",
+        "tests/PackageInfoTestUtils.cpp",
         "tests/ProcDiskStatsTest.cpp",
         "tests/ProcPidDir.cpp",
-        "tests/ProcPidStatTest.cpp",
         "tests/ProcStatTest.cpp",
-        "tests/UidIoStatsTest.cpp",
+        "tests/UidIoStatsCollectorTest.cpp",
+        "tests/UidProcStatsCollectorTest.cpp",
+        "tests/UidStatsCollectorTest.cpp",
         "tests/WatchdogBinderMediatorTest.cpp",
         "tests/WatchdogInternalHandlerTest.cpp",
         "tests/WatchdogPerfServiceTest.cpp",
@@ -137,7 +143,10 @@ cc_test {
         "libwatchdog_binder_mediator",
         "libwatchdog_perf_service",
         "libwatchdog_process_service",
+    ],
+    whole_static_libs: [
         "libwatchdog_package_info_resolver",
+        "android.hardware.automotive.vehicle@2.0",
     ],
     data: [":watchdog_test_xml_files"],
 }
@@ -158,6 +167,9 @@ cc_library {
         "carwatchdogd_defaults",
         "libwatchdog_process_service_defaults"
     ],
+    shared_libs: [
+        "android.hardware.automotive.vehicle@2.0",
+    ],
 }
 
 cc_library {
@@ -173,6 +185,9 @@ cc_library {
         "src/WatchdogServiceHelper.cpp",
     ],
     shared_libs: [
+        "android.hardware.automotive.vehicle@2.0",
+    ],
+    static_libs: [
         "libwatchdog_perf_service",
         "libwatchdog_process_service",
     ],
@@ -194,10 +209,15 @@ cc_binary {
     ],
     init_rc: ["carwatchdogd.rc"],
     shared_libs: [
-      "libwatchdog_binder_mediator",
-      "libwatchdog_perf_service",
-      "libwatchdog_process_service",
-      "libwatchdog_package_info_resolver",
+        "android.hardware.automotive.vehicle@2.0",
+    ],
+    static_libs: [
+        "libwatchdog_binder_mediator",
+        "libwatchdog_perf_service",
+        "libwatchdog_process_service",
+    ],
+    whole_static_libs: [
+        "libwatchdog_package_info_resolver",
     ],
     vintf_fragments: ["carwatchdogd.xml"],
     required: [

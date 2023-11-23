@@ -19,6 +19,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
     <option name="config-descriptor:metadata" key="mainline-param" value="com.google.android.neuralnetworks.apex" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
@@ -29,11 +30,10 @@
         <option name="native-test-device-path" value="/data/local/tmp" />
         <option name="module-name" value="CtsNNAPITestCases" />
         <option name="runtime-hint" value="10m" />
-        <!-- test-timeout unit is ms, value = 20 min (previous 10min was timing out 
+        <!-- test-timeout unit is ms, value = 20 min (previous 10min was timing out
              in code coverage evaluations) -->
         <option name="native-test-timeout" value="1200000" />
     </test>
-
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
         <option name="mainline-module-package-name" value="com.google.android.neuralnetworks" />
     </object>

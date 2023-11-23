@@ -40,7 +40,9 @@ import com.android.queryable.util.SerializableParcelWrapper;
  */
 public final class DeviceAdminPasswordFailedEvent extends Event {
 
-    /** Begin a query for {@link DeviceAdminPasswordFailedEvent} events. */
+    private static final long serialVersionUID = 1;
+
+    /** Begins a query for {@link DeviceAdminPasswordFailedEvent} events. */
     public static DeviceAdminPasswordFailedEventQuery queryPackage(String packageName) {
         return new DeviceAdminPasswordFailedEventQuery(packageName);
     }
@@ -49,19 +51,22 @@ public final class DeviceAdminPasswordFailedEvent extends Event {
     public static final class DeviceAdminPasswordFailedEventQuery
             extends EventLogsQuery<DeviceAdminPasswordFailedEvent,
             DeviceAdminPasswordFailedEventQuery> {
+
+        private static final long serialVersionUID = 1;
+
         DeviceAdminReceiverQueryHelper<DeviceAdminPasswordFailedEventQuery> mDeviceAdminReceiver =
                 new DeviceAdminReceiverQueryHelper<>(this);
         IntentQueryHelper<DeviceAdminPasswordFailedEventQuery> mIntent =
                 new IntentQueryHelper<>(this);
         UserHandleQueryHelper<DeviceAdminPasswordFailedEventQuery> mUserHandle =
-                new UserHandleQueryHelper<DeviceAdminPasswordFailedEventQuery>(this);
+                new UserHandleQueryHelper<>(this);
 
         private DeviceAdminPasswordFailedEventQuery(String packageName) {
             super(DeviceAdminPasswordFailedEvent.class, packageName);
         }
 
         /**
-         * Query {@link Intent} passed into
+         * Queries {@link Intent} passed into
          * {@link DeviceAdminReceiver#onPasswordFailed(Context, Intent)}.
          */
         @CheckResult
@@ -69,14 +74,14 @@ public final class DeviceAdminPasswordFailedEvent extends Event {
             return mIntent;
         }
 
-        /** Query {@link DeviceAdminReceiver}. */
+        /** Queries {@link DeviceAdminReceiver}. */
         @CheckResult
         public DeviceAdminReceiverQuery<DeviceAdminPasswordFailedEventQuery>
                 whereDeviceAdminReceiver() {
             return mDeviceAdminReceiver;
         }
 
-        /** Query {@link UserHandle} passed into
+        /** Queries {@link UserHandle} passed into
          * {@link DeviceAdminReceiver#onPasswordFailed(Context, Intent, UserHandle)}.
          */
         @CheckResult
@@ -97,9 +102,18 @@ public final class DeviceAdminPasswordFailedEvent extends Event {
             }
             return true;
         }
+
+        @Override
+        public String describeQuery(String fieldName) {
+            return toStringBuilder(DeviceAdminPasswordFailedEvent.class, this)
+                    .field("intent", mIntent)
+                    .field("deviceAdminReceiver", mDeviceAdminReceiver)
+                    .field("userHandle", mUserHandle)
+                    .toString();
+        }
     }
 
-    /** Begin logging a {@link DeviceAdminPasswordFailedEvent}. */
+    /** Begins logging a {@link DeviceAdminPasswordFailedEvent}. */
     public static DeviceAdminPasswordFailedEventLogger logger(
             DeviceAdminReceiver deviceAdminReceiver, Context context, Intent intent) {
         return new DeviceAdminPasswordFailedEventLogger(deviceAdminReceiver, context, intent);
@@ -115,34 +129,34 @@ public final class DeviceAdminPasswordFailedEvent extends Event {
             setDeviceAdminReceiver(deviceAdminReceiver);
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminPasswordFailedEventLogger setDeviceAdminReceiver(
                 DeviceAdminReceiver deviceAdminReceiver) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiver);
             return this;
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminPasswordFailedEventLogger setDeviceAdminReceiver(
                 Class<? extends DeviceAdminReceiver> deviceAdminReceiverClass) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiverClass);
             return this;
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminPasswordFailedEventLogger setDeviceAdminReceiver(
                 String deviceAdminReceiverClassName) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiverClassName);
             return this;
         }
 
-        /** Set the {@link Intent} which was received. */
+        /** Sets the {@link Intent} which was received. */
         public DeviceAdminPasswordFailedEventLogger setIntent(Intent intent) {
             mEvent.mIntent = new SerializableParcelWrapper<>(intent);
             return this;
         }
 
-        /** Set the {@link UserHandle}. */
+        /** Sets the {@link UserHandle}. */
         public DeviceAdminPasswordFailedEventLogger setUserHandle(UserHandle userHandle) {
             mEvent.mUserHandle = new SerializableParcelWrapper<>(userHandle);
             return this;

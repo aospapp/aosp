@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Nhận cảnh báo thử nghiệm bắt buộc hằng tháng của hệ thống cảnh báo an toàn"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Cảnh báo cấp quốc gia"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Hiển thị hộp thoại chọn không nhận sau khi hiện cảnh báo đầu tiên (trừ Cảnh báo cấp quốc gia)."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Cảnh báo cấp quốc gia"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Thông báo cảnh báo cấp quốc gia. Không thể tắt."</string>
 </resources>

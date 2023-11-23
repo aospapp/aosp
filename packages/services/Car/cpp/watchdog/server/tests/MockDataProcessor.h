@@ -30,24 +30,22 @@ public:
     MockDataProcessor() {
         EXPECT_CALL(*this, name()).WillRepeatedly(::testing::Return("MockedDataProcessor"));
     }
-    MOCK_METHOD(std::string, name, (), (override));
+    MOCK_METHOD(std::string, name, (), (const, override));
     MOCK_METHOD(android::base::Result<void>, init, (), (override));
     MOCK_METHOD(void, terminate, (), (override));
     MOCK_METHOD(android::base::Result<void>, onBoottimeCollection,
-                (time_t, const wp<UidIoStats>&, const wp<ProcStat>&, const wp<ProcPidStat>&),
-                (override));
+                (time_t, const wp<UidStatsCollectorInterface>&, const wp<ProcStat>&), (override));
     MOCK_METHOD(android::base::Result<void>, onPeriodicCollection,
-                (time_t, SystemState, const wp<UidIoStats>&, const wp<ProcStat>&,
-                 const wp<ProcPidStat>&),
+                (time_t, SystemState, const wp<UidStatsCollectorInterface>&, const wp<ProcStat>&),
                 (override));
     MOCK_METHOD(android::base::Result<void>, onCustomCollection,
-                (time_t, SystemState, const std::unordered_set<std::string>&, const wp<UidIoStats>&,
-                 const wp<ProcStat>&, const wp<ProcPidStat>&),
+                (time_t, SystemState, const std::unordered_set<std::string>&,
+                 const wp<UidStatsCollectorInterface>&, const wp<ProcStat>&),
                 (override));
     MOCK_METHOD(android::base::Result<void>, onPeriodicMonitor,
                 (time_t, const android::wp<IProcDiskStatsInterface>&, const std::function<void()>&),
                 (override));
-    MOCK_METHOD(android::base::Result<void>, onDump, (int), (override));
+    MOCK_METHOD(android::base::Result<void>, onDump, (int), (const, override));
     MOCK_METHOD(android::base::Result<void>, onCustomCollectionDump, (int), (override));
 };
 

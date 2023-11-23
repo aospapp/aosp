@@ -23,7 +23,14 @@ import static android.media.AudioAttributes.USAGE_GAME;
 import static android.media.AudioAttributes.USAGE_MEDIA;
 import static android.media.AudioAttributes.USAGE_NOTIFICATION;
 import static android.media.AudioAttributes.USAGE_SAFETY;
+import static android.media.AudioAttributes.USAGE_VIRTUAL_SOURCE;
 import static android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT;
+
+import static com.android.car.audio.CarAudioContext.CALL;
+import static com.android.car.audio.CarAudioContext.EMERGENCY;
+import static com.android.car.audio.CarAudioContext.INVALID;
+import static com.android.car.audio.CarAudioContext.MUSIC;
+import static com.android.car.audio.CarAudioContext.NAVIGATION;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -161,6 +168,16 @@ public class CarDuckingUtilsTest {
     }
 
     @Test
+    public void getAddressesToDuck_doesNotConsidersInvalidUsage() {
+        CarAudioZone mockZone = generateAudioZoneMock();
+        int[] usages = new int[]{USAGE_VIRTUAL_SOURCE};
+
+        List<String> addresses = CarDuckingUtils.getAddressesToDuck(usages, mockZone);
+
+        assertThat(addresses).isEmpty();
+    }
+
+    @Test
     public void getAddressesToDuck_withDuckedAndUnduckedContextsSharingDevice_excludesThatDevice() {
         CarAudioZone mockZone = generateAudioZoneMock();
         when(mockZone.getAddressForContext(CarAudioContext.SAFETY)).thenReturn(NAVIGATION_ADDRESS);
@@ -220,12 +237,11 @@ public class CarDuckingUtilsTest {
 
     private static CarAudioZone generateAudioZoneMock() {
         CarAudioZone mockZone = mock(CarAudioZone.class);
-        when(mockZone.getAddressForContext(CarAudioContext.MUSIC)).thenReturn(MEDIA_ADDRESS);
-        when(mockZone.getAddressForContext(CarAudioContext.EMERGENCY)).thenReturn(
-                EMERGENCY_ADDRESS);
-        when(mockZone.getAddressForContext(CarAudioContext.CALL)).thenReturn(CALL_ADDRESS);
-        when(mockZone.getAddressForContext(CarAudioContext.NAVIGATION)).thenReturn(
-                NAVIGATION_ADDRESS);
+        when(mockZone.getAddressForContext(MUSIC)).thenReturn(MEDIA_ADDRESS);
+        when(mockZone.getAddressForContext(EMERGENCY)).thenReturn(EMERGENCY_ADDRESS);
+        when(mockZone.getAddressForContext(CALL)).thenReturn(CALL_ADDRESS);
+        when(mockZone.getAddressForContext(NAVIGATION)).thenReturn(NAVIGATION_ADDRESS);
+        when(mockZone.getAddressForContext(INVALID)).thenThrow(new IllegalArgumentException());
 
         return mockZone;
     }

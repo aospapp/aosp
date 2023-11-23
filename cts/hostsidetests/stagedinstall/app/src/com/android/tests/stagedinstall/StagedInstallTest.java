@@ -166,6 +166,12 @@ public class StagedInstallTest {
     private static final TestApp Apex2SignPayloadWithDifferentKey = new TestApp(
             "StagedInstallTestApexV2_SignPayloadWithDifferentKey", SHIM_APEX_PACKAGE_NAME, 1,
             /*isApex*/true, "com.android.apex.cts.shim.v2_sign_payload_with_different_key.apex");
+    private static final TestApp Apex2Rebootless = new TestApp(
+            "StagedInstallTestApexV2_Rebootless", SHIM_APEX_PACKAGE_NAME, 2,
+            /*isApex*/true, "com.android.apex.cts.shim.v2_rebootless.apex");
+    private static final TestApp Apex3Rebootless = new TestApp(
+            "StagedInstallTestApexV3_Rebootless", SHIM_APEX_PACKAGE_NAME, 3,
+            /*isApex*/true, "com.android.apex.cts.shim.v3_rebootless.apex");
 
     @Before
     public void adoptShellPermissions() {
@@ -1256,6 +1262,173 @@ public class StagedInstallTest {
                 (info.applicationInfo.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0;
         assertThat(isSystemApp).isFalse();
         assertThat(isUpdatedSystemApp).isTrue();
+    }
+
+    @Test
+    public void testRebootlessUpdate() throws Exception {
+        InstallUtils.dropShellPermissionIdentity();
+        InstallUtils.adoptShellPermissionIdentity(Manifest.permission.INSTALL_PACKAGE_UPDATES);
+
+        final PackageManager pm =
+                InstrumentationRegistry.getInstrumentation().getContext().getPackageManager();
+        {
+            PackageInfo apex = pm.getPackageInfo(SHIM_APEX_PACKAGE_NAME, PackageManager.MATCH_APEX);
+            assertThat(apex.getLongVersionCode()).isEqualTo(1);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM)
+                    .isEqualTo(ApplicationInfo.FLAG_SYSTEM);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_INSTALLED)
+                    .isEqualTo(ApplicationInfo.FLAG_INSTALLED);
+            assertThat(apex.applicationInfo.sourceDir).startsWith("/system/apex");
+        }
+
+        Install.single(Apex2Rebootless).commit();
+        {
+            PackageInfo apex = pm.getPackageInfo(SHIM_APEX_PACKAGE_NAME, PackageManager.MATCH_APEX);
+            assertThat(apex.getLongVersionCode()).isEqualTo(2);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM).isEqualTo(0);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_INSTALLED)
+                    .isEqualTo(ApplicationInfo.FLAG_INSTALLED);
+            assertThat(apex.applicationInfo.sourceDir).startsWith("/data/apex/active");
+        }
+        {
+            PackageInfo apex = pm.getPackageInfo(SHIM_APEX_PACKAGE_NAME,
+                    PackageManager.MATCH_APEX | PackageManager.MATCH_FACTORY_ONLY);
+            assertThat(apex.getLongVersionCode()).isEqualTo(1);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM)
+                    .isEqualTo(ApplicationInfo.FLAG_SYSTEM);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_INSTALLED).isEqualTo(0);
+            assertThat(apex.applicationInfo.sourceDir).startsWith("/system/apex");
+        }
+    }
+
+    @Test
+    public void testRebootlessUpdate_installV3() throws Exception {
+        InstallUtils.dropShellPermissionIdentity();
+        InstallUtils.adoptShellPermissionIdentity(Manifest.permission.INSTALL_PACKAGE_UPDATES);
+
+        final PackageManager pm =
+                InstrumentationRegistry.getInstrumentation().getContext().getPackageManager();
+
+        Install.single(Apex3Rebootless).commit();
+        {
+            PackageInfo apex = pm.getPackageInfo(SHIM_APEX_PACKAGE_NAME, PackageManager.MATCH_APEX);
+            assertThat(apex.getLongVersionCode()).isEqualTo(3);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM).isEqualTo(0);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_INSTALLED)
+                    .isEqualTo(ApplicationInfo.FLAG_INSTALLED);
+            assertThat(apex.applicationInfo.sourceDir).startsWith("/data/apex/active");
+        }
+        {
+            PackageInfo apex = pm.getPackageInfo(SHIM_APEX_PACKAGE_NAME,
+                    PackageManager.MATCH_APEX | PackageManager.MATCH_FACTORY_ONLY);
+            assertThat(apex.getLongVersionCode()).isEqualTo(1);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM)
+                    .isEqualTo(ApplicationInfo.FLAG_SYSTEM);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_INSTALLED).isEqualTo(0);
+            assertThat(apex.applicationInfo.sourceDir).startsWith("/system/apex");
+        }
+    }
+
+    @Test
+    public void testRebootlessUpdate_downgradeToV2_fails() throws Exception {
+        InstallUtils.dropShellPermissionIdentity();
+        InstallUtils.adoptShellPermissionIdentity(Manifest.permission.INSTALL_PACKAGE_UPDATES);
+
+        final PackageManager pm =
+                InstrumentationRegistry.getInstrumentation().getContext().getPackageManager();
+
+        {
+            PackageInfo apex = pm.getPackageInfo(SHIM_APEX_PACKAGE_NAME, PackageManager.MATCH_APEX);
+            assertThat(apex.getLongVersionCode()).isEqualTo(3);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM).isEqualTo(0);
+            assertThat(apex.applicationInfo.flags & ApplicationInfo.FLAG_INSTALLED)
+                    .isEqualTo(ApplicationInfo.FLAG_INSTALLED);
+            assertThat(apex.applicationInfo.sourceDir).startsWith("/data/apex/active");
+        }
+
+        InstallUtils.commitExpectingFailure(
+                    AssertionError.class,
+                    "Downgrade of APEX package com.android.apex.cts.shim is not allowed",
+                    Install.single(Apex2Rebootless));
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(3);
+    }
+
+    @Test
+    public void testRebootlessUpdate_noPermission_fails() throws Exception {
+        InstallUtils.dropShellPermissionIdentity();
+
+        InstallUtils.commitExpectingFailure(SecurityException.class,
+                    "Not allowed to perform APEX updates",
+                    Install.single(Apex2Rebootless));
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+    }
+
+    @Test
+    public void testRebootlessUpdate_noPreInstalledApex_fails() throws Exception {
+        assertThat(getInstalledVersion(DIFFERENT_APEX_PACKAGE_NAME)).isEqualTo(-1);
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+
+        InstallUtils.commitExpectingFailure(
+                AssertionError.class,
+                "It is forbidden to install new APEX packages",
+                Install.single(Apex2DifferentPackageName));
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+    }
+
+    @Test
+    public void testRebootlessUpdate_unsignedPayload_fails() throws Exception {
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+
+        InstallUtils.commitExpectingFailure(
+                AssertionError.class,
+                "AVB footer verification failed",
+                Install.single(Apex2UnsignedPayload));
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+    }
+
+    @Test
+    public void testRebootlessUpdate_payloadSignedWithDifferentKey_fails() throws Exception {
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+
+        InstallUtils.commitExpectingFailure(
+                AssertionError.class,
+                "public key doesn't match the pre-installed one",
+                Install.single(Apex2SignPayloadWithDifferentKey));
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+    }
+
+    @Test
+    public void testRebootlessUpdate_outerContainerSignedWithDifferentCert_fails()
+            throws Exception {
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+
+        InstallUtils.commitExpectingFailure(
+                AssertionError.class,
+                "APK container signature of .+ is not compatible with currently installed",
+                Install.single(Apex2DifferentCertificate));
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+    }
+
+    @Test
+    public void testRebootlessUpdate_outerContainerUnsigned_fails() throws Exception {
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+
+        InstallUtils.commitExpectingFailure(
+                AssertionError.class,
+                "Failed collecting certificates for",
+                Install.single(Apex2NoApkSignature));
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+    }
+
+    @Test
+    public void testRebootlessUpdate_targetsOlderSdk_fails() throws Exception {
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+
+        InstallUtils.commitExpectingFailure(
+                AssertionError.class,
+                "Requires development platform P",
+                Install.single(Apex2SdkTargetP));
+        assertThat(getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
     }
 
     // It becomes harder to maintain this variety of install-related helper methods.

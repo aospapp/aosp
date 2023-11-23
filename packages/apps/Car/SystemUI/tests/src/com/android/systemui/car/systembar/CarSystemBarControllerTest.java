@@ -31,12 +31,17 @@ import androidx.test.filters.SmallTest;
 
 import com.android.systemui.R;
 import com.android.systemui.SysuiTestCase;
+import com.android.systemui.broadcast.BroadcastDispatcher;
+import com.android.systemui.car.CarServiceProvider;
 import com.android.systemui.car.CarSystemUiTest;
-import com.android.systemui.car.hvac.HvacController;
+import com.android.systemui.car.privacy.MicQcPanel;
 import com.android.systemui.car.statusbar.UserNameViewController;
+import com.android.systemui.car.statusicon.ui.QuickControlsEntryPointsController;
+import com.android.systemui.car.statusicon.ui.ReadOnlyIconsController;
+import com.android.systemui.flags.FeatureFlags;
 import com.android.systemui.plugins.DarkIconDispatcher;
-import com.android.systemui.statusbar.FeatureFlags;
 import com.android.systemui.statusbar.phone.StatusBarIconController;
+import com.android.systemui.statusbar.policy.ConfigurationController;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -63,21 +68,29 @@ public class CarSystemBarControllerTest extends SysuiTestCase {
     @Mock
     private ButtonRoleHolderController mButtonRoleHolderController;
     @Mock
-    private HvacController mHvacController;
-    @Mock
     private UserNameViewController mUserNameViewController;
     @Mock
     private PrivacyChipViewController mPrivacyChipViewController;
     @Mock
     private FeatureFlags mFeatureFlags;
     @Mock
-    private StatusBarIconController mIconController;
+    private QuickControlsEntryPointsController mQuickControlsEntryPointsController;
+    @Mock
+    private ReadOnlyIconsController mReadOnlyIconsController;
+    @Mock
+    private CarServiceProvider mCarServiceProvider;
+    @Mock
+    private BroadcastDispatcher mBroadcastDispatcher;
+    @Mock
+    private ConfigurationController mConfigurationController;
+    @Mock
+    private MicQcPanel.MicPrivacyElementsProvider mMicPrivacyElementsProvider;
 
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
-        mCarSystemBarViewFactory = new CarSystemBarViewFactory(
-                mContext, mFeatureFlags, mIconController);
+        mCarSystemBarViewFactory = new CarSystemBarViewFactory(mContext, mFeatureFlags,
+                mQuickControlsEntryPointsController, mReadOnlyIconsController);
         mTestableResources = mContext.getOrCreateTestableResources();
 
         // Needed to inflate top navigation bar.
@@ -86,31 +99,13 @@ public class CarSystemBarControllerTest extends SysuiTestCase {
     }
 
     private CarSystemBarController createSystemBarController() {
-        return new CarSystemBarController(mContext, mCarSystemBarViewFactory,
-                mButtonSelectionStateController, () -> mHvacController,
+        return new CarSystemBarController(mContext, mCarSystemBarViewFactory, mCarServiceProvider,
+                mBroadcastDispatcher, mConfigurationController, mButtonSelectionStateController,
                 () -> mUserNameViewController, () -> mPrivacyChipViewController,
                 mButtonRoleHolderController,
-                new SystemBarConfigs(mTestableResources.getResources()));
+                new SystemBarConfigs(mTestableResources.getResources()),
+                () -> mMicPrivacyElementsProvider);
     }
-
-    @Test
-    public void testConnectToHvac_callsConnect() {
-        mCarSystemBar = createSystemBarController();
-
-        mCarSystemBar.connectToHvac();
-
-        verify(mHvacController).connectToCarService();
-    }
-
-    @Test
-    public void testRemoveAll_callsHvacControllerRemoveAllComponents() {
-        mCarSystemBar = createSystemBarController();
-
-        mCarSystemBar.removeAll();
-
-        verify(mHvacController).removeAllComponents();
-    }
-
 
     @Test
     public void testRemoveAll_callsButtonRoleHolderControllerRemoveAll() {
@@ -411,6 +406,34 @@ public class CarSystemBarControllerTest extends SysuiTestCase {
         CarSystemBarView bottomBar = mCarSystemBar.getBottomBar(/* isSetUp= */ true);
         CarSystemBarController.NotificationsShadeController controller =
                 bottomBar.getNotificationsPanelController();
+
+        assertThat(controller).isNotNull();
+    }
+
+    @Test
+    public void testRegisterHvacController_createViewFirst_registrationSuccessful() {
+        mTestableResources.addOverride(R.bool.config_enableBottomSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+
+        CarSystemBarView bottomBar = mCarSystemBar.getBottomBar(/* isSetUp= */ true);
+        CarSystemBarController.HvacPanelController controller = bottomBar.getHvacPanelController();
+        assertThat(controller).isNull();
+        mCarSystemBar.registerHvacPanelController(
+                mock(CarSystemBarController.HvacPanelController.class));
+        controller = bottomBar.getHvacPanelController();
+
+        assertThat(controller).isNotNull();
+    }
+
+    @Test
+    public void testRegisterHvacController_registerFirst_registrationSuccessful() {
+        mTestableResources.addOverride(R.bool.config_enableBottomSystemBar, true);
+        mCarSystemBar = createSystemBarController();
+
+        mCarSystemBar.registerHvacPanelController(
+                mock(CarSystemBarController.HvacPanelController.class));
+        CarSystemBarView bottomBar = mCarSystemBar.getBottomBar(/* isSetUp= */ true);
+        CarSystemBarController.HvacPanelController controller = bottomBar.getHvacPanelController();
 
         assertThat(controller).isNotNull();
     }

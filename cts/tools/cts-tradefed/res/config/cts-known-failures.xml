@@ -194,9 +194,6 @@
     <option name="compatibility:exclude-filter" value="CtsLocation2TestCases android.location2.cts.LocationManagerTest#testGetCoarseLocationUpdates_withListener" />
     <option name="compatibility:exclude-filter" value="CtsLocation2TestCases android.location2.cts.LocationManagerTest#testGetNetworkProviderLocationUpdates_withListener" />
 
-    <!-- b/116002979 -->
-    <option name="compatibility:exclude-filter" value="CtsSecurityTestCases android.security.cts.ListeningPortsTest" />
-
     <!-- b/117107760 -->
     <option name="compatibility:exclude-filter" value="CtsHarmfulAppWarningHostTestCases android.harmfulappwarning.cts.HarmfulAppWarningTest#testDismissDialog" />
     <option name="compatibility:exclude-filter" value="CtsHarmfulAppWarningHostTestCases android.harmfulappwarning.cts.HarmfulAppWarningTest#testLaunchAnyway" />
@@ -237,14 +234,26 @@
     <option name="compatibility:exclude-filter" value="CtsAutoFillServiceTestCases android.autofillservice.cts.inline.InlineSimpleSaveActivityTest#testAutofill_oneDatasetAndSave" />
     <option name="compatibility:exclude-filter" value="CtsAutoFillServiceTestCases[instant] android.autofillservice.cts.inline.InlineSimpleSaveActivityTest#testAutofill_oneDatasetAndSave" />
 
-    <!-- b/195580880 -->
-    <option name="compatibility:exclude-filter" value="CtsAppSecurityHostTestCases android.appsecurity.cts.PkgInstallSignatureVerificationTest#testInstallV4UpdateAfterRotation" />
-
     <!-- b/194293021 -->
     <option name="compatibility:exclude-filter" value="CtsPrintTestCases" />
     <option name="compatibility:exclude-filter" value="CtsPrintTestCases[instant]" />
 
     <!-- b/194146521 -->
     <option name="compatibility:exclude-filter" value="CtsPermission3TestCases android.permission3.cts.PermissionTest23#testNoResidualPermissionsOnUninstall" />
+ 
+    <!-- b/198992105 -->
+    <option name="compatibility:exclude-filter" value="CtsStatsdAtomHostTestCases android.cts.statsd.atom.UidAtomTests#testDangerousPermissionState" />
+    <option name="compatibility:exclude-filter" value="CtsStatsdAtomHostTestCases android.cts.statsd.atom.UidAtomTests#testDangerousPermissionStateSampled" />
+
+    <!-- b/204721335 -->
+    <option name="compatibility:exclude-filter" value="CtsWindowManagerJetpackTestCases android.server.wm.jetpack.SidecarTest#testSidecarInterface_onWindowLayoutChangeListener" />
+
+    <!-- b/209382234 -->
+    <option name="compatibility:exclude-filter" value="CtsDevicePolicyTestCases android.devicepolicy.cts.KeyManagementTest" />
+    <option name="compatibility:exclude-filter" value="CtsDevicePolicyTestCases[run-on-work-profile] android.devicepolicy.cts.KeyManagementTest" />
+    <option name="compatibility:exclude-filter" value="CtsDevicePolicyTestCases[run-on-secondary-user] android.devicepolicy.cts.KeyManagementTest" />
+
+    <!-- b/203177211 -->
+    <option name="compatibility:exclude-filter" value="CtsAppSecurityHostTestCases android.appsecurity.cts.ListeningPortsTest#testNoRemotelyAccessibleListeningUdpPorts" />
 
 </configuration>

@@ -19,7 +19,8 @@
 DEVICE_INFO_PACKAGE := com.android.compatibility.common.deviceinfo
 DEVICE_INFO_INSTRUMENT := androidx.test.runner.AndroidJUnitRunner
 DEVICE_INFO_USES_LIBRARY := android.test.runner
-DEVICE_INFO_USES_OPTIONAL_LIBRARIES := \
+DEVICE_INFO_USES_OPTIONAL_LIBRARIES += \
+  androidx.window.extensions \
   androidx.window.sidecar
 DEVICE_INFO_PERMISSIONS += \
   android.permission.READ_PHONE_STATE \

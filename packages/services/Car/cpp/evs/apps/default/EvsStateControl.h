@@ -36,6 +36,7 @@ using ::android::hardware::Void;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::hidl_handle;
 using ::android::sp;
+using ::android::wp;
 using ::android::hardware::automotive::evs::V1_1::IEvsDisplay;
 using ::android::hardware::camera::device::V3_2::Stream;
 
@@ -90,7 +91,7 @@ private:
 
     sp<IVehicle>                mVehicle;
     sp<IEvsEnumerator>          mEvs;
-    sp<IEvsDisplay>             mDisplay;
+    wp<IEvsDisplay>             mDisplay;
     const ConfigManager&        mConfig;
 
     VehiclePropValue            mGearValue;

@@ -6,8 +6,8 @@
 
 #include "compiler/translator/TranslatorMetalDirect/RewriteUnaddressableReferences.h"
 #include "compiler/translator/TranslatorMetalDirect/AstHelpers.h"
-#include "compiler/translator/TranslatorMetalDirect/IntermRebuild.h"
 #include "compiler/translator/tree_util/AsNode.h"
+#include "compiler/translator/tree_util/IntermRebuild.h"
 
 using namespace sh;
 
@@ -19,8 +19,8 @@ bool IsOutParam(const TType &paramType)
     const TQualifier qual = paramType.getQualifier();
     switch (qual)
     {
-        case TQualifier::EvqInOut:
-        case TQualifier::EvqOut:
+        case TQualifier::EvqParamInOut:
+        case TQualifier::EvqParamOut:
             return true;
 
         default:

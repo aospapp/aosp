@@ -16,12 +16,12 @@
 
 package com.android.car.messenger.impl.datamodels;
 
-import androidx.lifecycle.MediatorLiveData;
 import android.content.Context;
 import android.database.ContentObserver;
 import android.net.Uri;
 
 import androidx.annotation.NonNull;
+import androidx.lifecycle.MediatorLiveData;
 
 import com.android.car.messenger.core.interfaces.AppFactory;
 

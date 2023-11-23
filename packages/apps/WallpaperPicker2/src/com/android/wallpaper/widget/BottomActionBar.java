@@ -20,11 +20,12 @@ import static com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_
 
 import android.app.Activity;
 import android.content.Context;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
+import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
@@ -33,6 +34,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.widget.ImageViewCompat;
 
+import com.android.internal.util.ArrayUtils;
 import com.android.wallpaper.R;
 import com.android.wallpaper.util.ResourceUtils;
 import com.android.wallpaper.util.SizeCalculator;
@@ -146,7 +148,35 @@ public class BottomActionBar extends FrameLayout {
     // TODO(b/154299462): Separate downloadable related actions from WallpaperPicker.
     /** The action items in the bottom action bar. */
     public enum BottomAction {
-        ROTATION, DELETE, INFORMATION, EDIT, CUSTOMIZE, DOWNLOAD, PROGRESS, APPLY, APPLY_TEXT
+        ROTATION,
+        DELETE,
+        INFORMATION(R.string.accessibility_info_shown, R.string.accessibility_info_hidden),
+        EDIT,
+        CUSTOMIZE(R.string.accessibility_customize_shown, R.string.accessibility_customize_hidden),
+        DOWNLOAD,
+        PROGRESS,
+        APPLY,
+        APPLY_TEXT;
+
+        private final int mShownAccessibilityResId;
+        private final int mHiddenAccessibilityResId;
+
+        BottomAction() {
+            this(/* shownAccessibilityLabelResId= */ 0, /* shownAccessibilityLabelResId= */ 0);
+        }
+
+        BottomAction(int shownAccessibilityLabelResId, int hiddenAccessibilityLabelResId) {
+            mShownAccessibilityResId = shownAccessibilityLabelResId;
+            mHiddenAccessibilityResId = hiddenAccessibilityLabelResId;
+        }
+
+        /**
+         * Returns the string resource id of the currently bottom action for its shown or hidden
+         * state.
+         */
+        public int getAccessibilityStringRes(boolean isShown) {
+            return isShown ? mShownAccessibilityResId : mHiddenAccessibilityResId;
+        }
     }
 
     private final Map<BottomAction, View> mActionMap = new EnumMap<>(BottomAction.class);
@@ -161,6 +191,8 @@ public class BottomActionBar extends FrameLayout {
 
     // The current selected action in the BottomActionBar, can be null when no action is selected.
     @Nullable private BottomAction mSelectedAction;
+    // The last selected action in the BottomActionBar.
+    @Nullable private BottomAction mLastSelectedAction;
     @Nullable private AccessibilityCallback mAccessibilityCallback;
 
     public BottomActionBar(@NonNull Context context, @Nullable AttributeSet attrs) {
@@ -224,6 +256,12 @@ public class BottomActionBar extends FrameLayout {
                     windowInsets.getSystemWindowInsetBottom());
             return windowInsets;
         });
+
+        // Skip "info selected" and "customize selected" Talkback while double tapping on info and
+        // customize action.
+        skipAccessibilityEvent(new BottomAction[]{BottomAction.INFORMATION, BottomAction.CUSTOMIZE},
+                new int[]{AccessibilityEvent.TYPE_VIEW_CLICKED,
+                        AccessibilityEvent.TYPE_VIEW_SELECTED});
     }
 
     @Override
@@ -294,7 +332,8 @@ public class BottomActionBar extends FrameLayout {
                 mSelectedAction = null;
             } else {
                 // Select a different action from the current selected action.
-                mSelectedAction = bottomAction;
+                // Also keep the same action for unselected case for a11y.
+                mLastSelectedAction = mSelectedAction = bottomAction;
                 updateSelectedState(mSelectedAction, /* selected= */ true);
                 if (isExpandable(mSelectedAction)) {
                     mBottomSheetBehavior.enqueue(STATE_EXPANDED);
@@ -392,6 +431,15 @@ public class BottomActionBar extends FrameLayout {
                 hideBottomSheetAndDeselectButtonIfExpanded();
             }
         }
+    }
+
+    /**
+     * Focus the specific action.
+     *
+     * @param action the specific action
+     */
+    public void focusAccessibilityAction(BottomAction action) {
+        mActionMap.get(action).sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
     }
 
     /**
@@ -537,9 +585,6 @@ public class BottomActionBar extends FrameLayout {
                         context.getColorStateList(R.color.bottom_action_button_color_tint));
             }
         }
-        Button applyButton = findViewById(R.id.action_apply_text_button);
-        applyButton.setBackground(context.getDrawable(R.drawable.btn_transparent_background));
-        applyButton.setTextColor(ResourceUtils.getColorAttr(context, android.R.attr.colorAccent));
     }
 
     private void updateSelectedState(BottomAction bottomAction, boolean selected) {
@@ -577,9 +622,48 @@ public class BottomActionBar extends FrameLayout {
         }
 
         if (state == STATE_COLLAPSED) {
+            CharSequence text = getAccessibilityText(mLastSelectedAction, /* isShown= */ false);
+            if (!TextUtils.isEmpty(text)) {
+                setAccessibilityPaneTitle(text);
+            }
             mAccessibilityCallback.onBottomSheetCollapsed();
         } else if (state == STATE_EXPANDED) {
+            CharSequence text = getAccessibilityText(mSelectedAction, /* isShown= */ true);
+            if (!TextUtils.isEmpty(text)) {
+                setAccessibilityPaneTitle(text);
+            }
             mAccessibilityCallback.onBottomSheetExpanded();
+        }
+    }
+
+    private CharSequence getAccessibilityText(BottomAction action, boolean isShown) {
+        if (action == null) {
+            return null;
+        }
+        int resId = action.getAccessibilityStringRes(isShown);
+        if (resId != 0) {
+            return mContext.getText(resId);
+        }
+        return null;
+    }
+
+    /**
+     * Skip bottom action's Accessibility event.
+     *
+     * @param actions the {@link BottomAction} actions to be skipped.
+     * @param eventTypes the {@link AccessibilityEvent} event types to be skipped.
+     */
+    private void skipAccessibilityEvent(BottomAction[] actions, int[] eventTypes) {
+        for (BottomAction action : actions) {
+            View view = mActionMap.get(action);
+            view.setAccessibilityDelegate(new AccessibilityDelegate() {
+                @Override
+                public void sendAccessibilityEvent(View host, int eventType) {
+                    if (!ArrayUtils.contains(eventTypes, eventType)) {
+                        super.sendAccessibilityEvent(host, eventType);
+                    }
+                }
+            });
         }
     }
 

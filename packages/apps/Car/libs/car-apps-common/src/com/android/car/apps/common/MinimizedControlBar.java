@@ -16,6 +16,8 @@
 
 package com.android.car.apps.common;
 
+import static com.android.car.apps.common.ControlBar.INVALID_VIEW_INDEX;
+
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
@@ -109,6 +111,24 @@ public class MinimizedControlBar extends ConstraintLayout implements CarControlB
         ImageButton button = (ImageButton) inflater.inflate(viewId, mSlots[0], attachToRoot);
         button.setImageDrawable(icon);
         return button;
+    }
+
+    @Override
+    public int getFocusedViewIndex() {
+        for (int slotIndex = 0; slotIndex < mSlots.length; slotIndex++) {
+            FrameLayout slot = mSlots[slotIndex];
+            if ((slot != null) && slot.hasFocus()) {
+                return slotIndex;
+            }
+        }
+        return INVALID_VIEW_INDEX;
+    }
+
+    @Override
+    public void setFocusAtViewIndex(int i) {
+        if ((INVALID_VIEW_INDEX < i) && (i < mSlots.length) && (mSlots[i] != null)) {
+            mSlots[i].requestFocus();
+        }
     }
 
     private void updateViewsLayout() {

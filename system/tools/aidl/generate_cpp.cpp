@@ -1227,6 +1227,13 @@ void BuildParcelFields(ClassDecl& clazz, const AidlStructuredParcelable& decl,
       } else {
         out << " { ::android::Parcelable::Stability::STABILITY_LOCAL }";
       }
+    } else if (auto type = variable->GetType().GetDefinedType(); type) {
+      if (auto enum_type = type->AsEnumDeclaration(); enum_type) {
+        if (!variable->GetType().IsArray()) {
+          // if an enum doesn't have explicit default value, do zero-initialization
+          out << " = " << cppType << "(0)";
+        }
+      }
     }
     out << ";\n";
 

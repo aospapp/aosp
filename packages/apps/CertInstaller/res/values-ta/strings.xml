@@ -56,7 +56,7 @@
     <string name="user_cert_is_added" msgid="3088794616560630823">"பயனர் சான்றிதழ் நிறுவப்பட்டது"</string>
     <string name="wifi_cert_is_added" msgid="333220613655140428">"வைஃபை சான்றிதழ் நிறுவப்பட்டது"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"சான்றிதழின் அளவு மிகப் பெரிதாக இருப்பதால் நிறுவ முடியவில்லை."</string>
-    <string name="cert_missing_error" msgid="7040527352278728220">"சான்றிதழ் கோப்பைக் கண்டறிய முடியாததால் நிறுவ முடியவில்லை."</string>
+    <string name="cert_missing_error" msgid="7040527352278728220">"சான்றிதழ் ஃபைலைக் கண்டறிய முடியாததால் நிறுவ முடியவில்லை."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"சான்றிதழ் ஃபைலைப் படிக்க முடியாததால் நிறுவ முடியவில்லை."</string>
     <string name="cert_temp_error" msgid="617276803992714550">"தற்காலிகத் தோல்வி . பிறகு முயலவும்."</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"இந்தச் சாதனத்தின் உரிமையாளர் மட்டுமே சான்றிதழ்களை நிறுவலாம்."</string>
@@ -83,8 +83,8 @@
     <string name="install_done" msgid="1522718684172097080">"<xliff:g id="NAME">%1$s</xliff:g> நற்சான்றிதழ், சேமித்த வைஃபை நெட்வொர்க்குகளில் சேர்க்கப்பட்டது."</string>
     <string name="done_label" msgid="5597425930652904250">"முடிந்தது"</string>
     <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> வழியாகக் கிடைக்கும் நெட்வொர்க்குகளுடன் இணைக்க, வைஃபை நற்சான்றிதழை நிறுவவும்."</string>
-    <string name="wifi_installer_download_error" msgid="5429453090956277692">"இறக்கப்பட்ட ஃபைலில் சிக்கல்கள் உள்ளதால், அதை நிறுவ முடியாது. சரியான மூலத்திலிருந்து கோப்பை இறக்கியதை உறுதிப்படுத்திக்கொள்ளவும்."</string>
-    <string name="wifi_installer_fail" msgid="894483173306576331">"வைஃபை நற்சான்றிதழை நிறுவ முடியவில்லை. கோப்பை மீண்டும் இறக்க முயற்சிக்கவும்."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"இறக்கப்பட்ட ஃபைலில் சிக்கல்கள் உள்ளதால், அதை நிறுவ முடியாது. சரியான மூலத்திலிருந்து ஃபைலை இறக்கியதை உறுதிப்படுத்திக்கொள்ளவும்."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"வைஃபை நற்சான்றிதழை நிறுவ முடியவில்லை. ஃபைலை மீண்டும் இறக்க முயற்சிக்கவும்."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"நிறுவுதல் ரத்துசெய்யப்பட்டது"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"நிறுவ முடியவில்லை"</string>
     <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"வைஃபையை இயக்கி, மீண்டும் முயற்சிக்கவும்."</string>

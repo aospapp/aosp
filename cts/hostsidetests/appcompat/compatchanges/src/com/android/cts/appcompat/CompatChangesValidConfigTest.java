@@ -63,10 +63,14 @@ public final class CompatChangesValidConfigTest extends CompatChangeGatingTestCa
             "FGS_BG_START_RESTRICTION_CHANGE_ID",
             "FORCE_NON_RESIZE_APP",
             "FORCE_RESIZE_APP",
+            "OVERRIDE_CAMERA_ROTATE_AND_CROP_DEFAULTS",
+            "OVERRIDE_CAMERA_RESIZABLE_AND_SDK_CHECK",
+            "OVERRIDE_CAMERA_ROTATE_AND_CROP",
             "IGNORE_ALLOW_BACKUP_IN_D2D",
             "IGNORE_FULL_BACKUP_CONTENT_IN_D2D",
             "NEVER_SANDBOX_DISPLAY_APIS",
             "OVERRIDE_MIN_ASPECT_RATIO",
+            "OVERRIDE_MIN_ASPECT_RATIO_PORTRAIT_ONLY",
             "OVERRIDE_MIN_ASPECT_RATIO_LARGE",
             "OVERRIDE_MIN_ASPECT_RATIO_MEDIUM"
     );

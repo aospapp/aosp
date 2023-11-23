@@ -22,5 +22,5 @@
     <string name="wifi_eap_error_message_code_32763" msgid="2668371888408710653">"<xliff:g id="SSID">%1$s</xliff:g> : Du har allerede oprettet forbindelse til Verizon Wi-Fi Access."</string>
     <string name="wifi_eap_error_message_code_32764" msgid="4857239018269450670">"<xliff:g id="SSID">%1$s</xliff:g> : Du kan ikke oprette forbindelse til Verizon Wi-Fi Access. Ring til os på telefonnummer 800-922-0204."</string>
     <string name="wifi_eap_error_message_code_32765" msgid="3223606535554861258">"<xliff:g id="SSID">%1$s</xliff:g> : Der er et problem med din Verizon Wi-Fi Access-konto. Ring til os på telefonnummer 800-922-0204."</string>
-    <string name="wifi_eap_error_message_code_32766" msgid="2703925241673900110">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access er ikke tilgængeligt i dit område. Prøv igen senere eller fra en anden placering."</string>
+    <string name="wifi_eap_error_message_code_32766" msgid="2703925241673900110">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access er ikke tilgængeligt i dit område. Prøv igen senere eller fra en anden lokation."</string>
 </resources>

@@ -24,6 +24,7 @@ PRODUCT_PACKAGES += \
     CarActivityResolver \
     CarDeveloperOptions \
     CarSettingsIntelligence \
+    CarManagedProvisioning \
     OneTimeInitializer \
     CarProvision \
     StatementService \
@@ -45,6 +46,7 @@ PRODUCT_PACKAGES += \
     BugReportApp \
     NetworkPreferenceApp \
     SampleCustomInputService \
+    AdasLocationTestApp \
 
 # SEPolicy for test apps / services
 BOARD_SEPOLICY_DIRS += packages/services/Car/car_product/sepolicy/test
@@ -105,6 +107,11 @@ PRODUCT_PROPERTY_OVERRIDES := \
 PRODUCT_PROPERTY_OVERRIDES += \
     keyguard.no_require_sim=true
 
+# TODO(b/205189147): Remove the following change after the proper fix is landed.
+# Uses the local KeyGuard animation to resolve TaskView misalignment issue after display-on.
+PRODUCT_SYSTEM_PROPERTIES += \
+    persist.wm.enable_remote_keyguard_animation=0
+
 # Automotive specific packages
 PRODUCT_PACKAGES += \
     CarFrameworkPackageStubs \
@@ -128,6 +135,7 @@ PRODUCT_PACKAGES += \
     car-frameworks-service \
     com.android.car.procfsinspector \
     libcar-framework-service-jni \
+    ScriptExecutor \
 
 # RROs
 PRODUCT_PACKAGES += \

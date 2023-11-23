@@ -23,6 +23,10 @@
     android:layoutDirection="ltr"
     tools:context=".CarLauncher">
 
+    <com.android.car.ui.FocusParkingView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
     <com.android.car.ui.FocusArea
         android:id="@+id/top_card"
         android:layout_width="0dp"

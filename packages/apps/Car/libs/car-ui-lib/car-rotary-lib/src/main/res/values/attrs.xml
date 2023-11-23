@@ -14,21 +14,22 @@
  limitations under the License.
 -->
 <resources>
-  <!-- Attributes for FocusArea. -->
-  <declare-styleable name="FocusArea">
+  <!-- Attributes for IFocusArea. -->
+  <declare-styleable name="IFocusArea">
     <!-- The ID of the default focus view. The view will be prioritized when searching for a
          focus target.
-         (1) When the user nudges the rotary controller, it will search for a target FocusArea,
-             then search for a target view within the target FocusArea, and focus on the target
+         (1) When the user nudges the rotary controller, it will search for a target IFocusArea,
+             then search for a target view within the target IFocusArea, and focus on the target
              view. The target view is chosen in the following order:
                1. the "android:focusedByDefault" view, if any
                2. the "app:defaultFocus" view, if any
                3. the selected item in a scrollable container, if any
                4. the first focusable item in a scrollable container, if any
-               5. previously focused view, if any and the cache is not stale
-               6. the first focusable view, if any
-             Note that 5 will be prioritized over 1, 2, 3, and 4 when
-             "app:defaultFocusOverridesHistory" is true.
+               5. the first selected view, if any
+               6. previously focused view, if any and the cache is not stale
+               7. the first focusable view, if any
+             Note that 6 will be prioritized over 1, 2, 3, 4, and 5 when
+             "app:defaultFocusOverridesHistory" is false.
          (2) When it needs to initialize the focus (such as when a window is opened), it will
              search for a view in the window and focus on it. The view is chosen in the
              following order:
@@ -36,56 +37,57 @@
                2. the first "app:defaultFocus" view, if any
                3. the selected item in a scrollable container, if any
                4. the first focusable item in a scrollable container, if any
-               5. the first focusable view that is not a FocusParkingView, if any
-         If there is only one FocusArea that needs to set default focus, you can use either
+               5. the first selected view, if any
+               6. the first focusable view that is not a FocusParkingView, if any
+         If there is only one IFocusArea that needs to set default focus, you can use either
          "app:defaultFocus" or "android:focusedByDefault". If there are more than one, you
-         should use "android:focusedByDefault" in the primary FocusArea, and use
-         "app:defaultFocus" in other FocusAreas. -->
+         should use "android:focusedByDefault" in the primary IFocusArea, and use
+         "app:defaultFocus" in other IFocusAreas. -->
     <attr name="defaultFocus" format="reference"/>
 
-    <!-- Whether to focus on the default focus view when nudging to the FocusArea, even if there
-         was another view in the FocusArea focused before. -->
+    <!-- Whether to focus on the default focus view when nudging to the IFocusArea, even if there
+         was another view in the IFocusArea focused before. -->
     <attr name="defaultFocusOverridesHistory" format="boolean"/>
 
-    <!-- The paddings of FocusArea highlight. It does't impact the paddings on its child views,
+    <!-- The paddings of IFocusArea highlight. It doesn't impact the paddings on its child views,
          or vice versa. -->
-    <!-- The start padding of the FocusArea highlight. -->
+    <!-- The start padding of the IFocusArea highlight. -->
     <attr name="highlightPaddingStart" format="dimension"/>
-    <!-- The end padding of the FocusArea highlight. -->
+    <!-- The end padding of the IFocusArea highlight. -->
     <attr name="highlightPaddingEnd" format="dimension"/>
-    <!-- The top padding of the FocusArea highlight. -->
+    <!-- The top padding of the IFocusArea highlight. -->
     <attr name="highlightPaddingTop" format="dimension"/>
-    <!-- The bottom padding of the FocusArea highlight. -->
+    <!-- The bottom padding of the IFocusArea highlight. -->
     <attr name="highlightPaddingBottom" format="dimension"/>
-    <!-- The horizontal padding of the FocusArea highlight. It can be overridden by
+    <!-- The horizontal padding of the IFocusArea highlight. It can be overridden by
          highlightPaddingStart or highlightPaddingEnd. -->
     <attr name="highlightPaddingHorizontal" format="dimension"/>
-    <!-- The vertical padding of the FocusArea highlight.  It can be overridden by
+    <!-- The vertical padding of the IFocusArea highlight.  It can be overridden by
          highlightPaddingTop or highlightPaddingBottom. -->
     <attr name="highlightPaddingVertical" format="dimension"/>
 
-    <!-- The offset of the FocusArea's bounds. It only affects the perceived bounds for the
-         purposes of finding the nudge target. It doesn't affect the FocusArea's view bounds or
-         highlight bounds. The offset should only be used when FocusAreas are overlapping and
+    <!-- The offset of the IFocusArea's bounds. It only affects the perceived bounds for the
+         purposes of finding the nudge target. It doesn't affect the IFocusArea's view bounds or
+         highlight bounds. The offset should only be used when IFocusAreas are overlapping and
          nudge interaction is ambiguous. -->
-    <!-- The offset of the FocusArea's start bound. -->
+    <!-- The offset of the IFocusArea's start bound. -->
     <attr name="startBoundOffset" format="dimension"/>
-    <!-- The offset of the FocusArea's end bound. -->
+    <!-- The offset of the IFocusArea's end bound. -->
     <attr name="endBoundOffset" format="dimension"/>
-    <!-- The offset of the FocusArea's top bound. -->
+    <!-- The offset of the IFocusArea's top bound. -->
     <attr name="topBoundOffset" format="dimension"/>
-    <!-- The offset of the FocusArea's bottom bound. -->
+    <!-- The offset of the IFocusArea's bottom bound. -->
     <attr name="bottomBoundOffset" format="dimension"/>
-    <!-- The offset of the FocusArea's horizontal bounds. It can be overridden by
+    <!-- The offset of the IFocusArea's horizontal bounds. It can be overridden by
          startBoundOffset or endBoundOffset. -->
     <attr name="horizontalBoundOffset" format="dimension"/>
-    <!-- The offset of the FocusArea's vertical bounds. It can be overridden by topBoundOffset
+    <!-- The offset of the IFocusArea's vertical bounds. It can be overridden by topBoundOffset
          or bottomBoundOffset. -->
     <attr name="verticalBoundOffset" format="dimension"/>
 
     <!-- New attributes for nudge shortcuts. Usually nudge is used to navigate to another
-         FocusArea, but when a nudge shortcut is specified, it's used to navigate to the
-         given view within the same FocusArea. A nudge shortcut can be specified for each
+         IFocusArea, but when a nudge shortcut is specified, it's used to navigate to the
+         given view within the same IFocusArea. A nudge shortcut can be specified for each
          direction. -->
     <!-- The ID of the nudge left shortcut view. -->
     <attr name="nudgeLeftShortcut" format="reference"/>
@@ -97,8 +99,8 @@
     <attr name="nudgeDownShortcut" format="reference"/>
 
     <!-- Legacy attributes for nudge shortcut. Usually nudge is used to navigate to another
-         FocusArea, but when a nudge shortcut is specified, it's used to navigate to the given
-         view within the same FocusArea. If using these legacy attributes, the two must be
+         IFocusArea, but when a nudge shortcut is specified, it's used to navigate to the given
+         view within the same IFocusArea. If using these legacy attributes, the two must be
          specified together and the new attributes cannot be used. -->
     <!-- The ID of the nudge shortcut view. -->
     <attr name="nudgeShortcut" format="reference"/>
@@ -114,18 +116,18 @@
       <flag name="down" value="0x82" />
     </attr>
 
-    <!-- Attributes to specify the target FocusArea for a nudge. -->
-    <!-- The ID of the target FocusArea when nudging to the left. -->
+    <!-- Attributes to specify the target IFocusArea for a nudge. -->
+    <!-- The ID of the target IFocusArea when nudging to the left. -->
     <attr name="nudgeLeft" format="reference"/>
-    <!-- The ID of the target FocusArea when nudging to the right. -->
+    <!-- The ID of the target IFocusArea when nudging to the right. -->
     <attr name="nudgeRight" format="reference"/>
-    <!-- The ID of the target FocusArea when nudging up. -->
+    <!-- The ID of the target IFocusArea when nudging up. -->
     <attr name="nudgeUp" format="reference"/>
-    <!-- The ID of the target FocusArea when nudging down. -->
+    <!-- The ID of the target IFocusArea when nudging down. -->
     <attr name="nudgeDown" format="reference"/>
 
     <!-- Whether rotation wraps around. When true, rotation wraps around, staying within the
-         FocusArea, when it reaches the first or last focusable view in the FocusArea. When
+         IFocusArea, when it reaches the first or last focusable view in the IFocusArea. When
          false, rotation does nothing in this case. -->
     <attr name="wrapAround" format="boolean"/>
   </declare-styleable>

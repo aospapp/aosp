@@ -56,8 +56,7 @@ PRODUCT_PACKAGES += \
     android.hardware.gatekeeper@1.0-service.software \
     android.hardware.graphics.allocator@2.0-service \
     android.hardware.graphics.allocator@2.0-impl \
-    android.hardware.graphics.composer@2.1-service \
-    android.hardware.graphics.composer@2.1-impl \
+    android.hardware.graphics.composer@2.4-service \
     android.hardware.graphics.mapper@2.0-impl \
     android.hardware.health@2.0-service \
     android.hardware.keymaster@4.0-service \

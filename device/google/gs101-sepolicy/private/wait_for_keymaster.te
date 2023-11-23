@@ -1,0 +1,2 @@
+# b/188114822
+dontaudit wait_for_keymaster servicemanager:binder transfer;

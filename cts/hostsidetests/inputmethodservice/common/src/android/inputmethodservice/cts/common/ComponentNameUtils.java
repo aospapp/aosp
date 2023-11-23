@@ -19,7 +19,7 @@ package android.inputmethodservice.cts.common;
 /**
  * Utility class to build Android's component name.
  */
-final class ComponentNameUtils {
+public final class ComponentNameUtils {
 
     // This is utility class, can't instantiate.
     private ComponentNameUtils() {}
@@ -34,5 +34,15 @@ final class ComponentNameUtils {
     static String buildComponentName(String packageName, String className) {
         return packageName + "/" + (className.startsWith(packageName)
                 ? className.substring(packageName.length()) : className);
+    }
+
+    /**
+     * Retrieve a name of a package from an Android {@code componentName}
+     * ({@code packageName/className}).
+     * @param componentName name of an Android component.
+     * @return the name of the package the component belongs.
+     */
+    public static String retrievePackageName(String componentName) {
+        return componentName.substring(0, componentName.indexOf('/'));
     }
 }

@@ -26,12 +26,15 @@
        <com.android.car.admin.ui.ManagedDeviceTextView
            android:layout_width="match_parent"
            android:layout_height="wrap_content"
-           android:gravity="center"/>
+           android:textSize="@dimen/activity_content_text_size"
+           android:gravity="center_horizontal"/>
 
        <Button android:id="@+id/accept_button"
            android:layout_width="wrap_content"
            android:layout_height="wrap_content"
            android:layout_marginTop="48dp"
+           android:maxWidth="@dimen/action_button_max_width"
+           android:textSize="@dimen/action_button_text_size"
            android:text="@string/new_user_managed_device_acceptance"
            style="@style/ButtonStyle" />
 

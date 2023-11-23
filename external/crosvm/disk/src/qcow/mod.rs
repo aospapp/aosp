@@ -7,7 +7,7 @@ mod refcount;
 mod vec_cache;
 
 use base::{
-    error, AsRawDescriptor, AsRawDescriptors, FileAllocate, FileReadWriteAtVolatile,
+    error, open_file, AsRawDescriptor, AsRawDescriptors, FileAllocate, FileReadWriteAtVolatile,
     FileReadWriteVolatile, FileSetLen, FileSync, PunchHole, RawDescriptor, SeekHole, WriteZeroesAt,
 };
 use data_model::{VolatileMemory, VolatileSlice};
@@ -16,9 +16,10 @@ use remain::sorted;
 
 use std::cmp::{max, min};
 use std::fmt::{self, Display};
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::mem::size_of;
+use std::path::Path;
 use std::str;
 
 use crate::qcow::qcow_raw_file::QcowRawFile;
@@ -445,10 +446,13 @@ impl QcowFile {
 
         let backing_file = if let Some(backing_file_path) = header.backing_file_path.as_ref() {
             let path = backing_file_path.clone();
-            let backing_raw_file = OpenOptions::new()
-                .read(true)
-                .open(path)
-                .map_err(Error::BackingFileIo)?;
+            let backing_raw_file = open_file(
+                Path::new(&path),
+                true, /*read_only*/
+                // TODO(b/190435784): Add support for O_DIRECT.
+                false, /*O_DIRECT*/
+            )
+            .map_err(|e| Error::BackingFileIo(e.into()))?;
             let backing_file = create_disk_file(backing_raw_file)
                 .map_err(|e| Error::BackingFileOpen(Box::new(e)))?;
             Some(backing_file)
@@ -582,10 +586,13 @@ impl QcowFile {
 
     /// Creates a new QcowFile at the given path.
     pub fn new_from_backing(file: File, backing_file_name: &str) -> Result<QcowFile> {
-        let backing_raw_file = OpenOptions::new()
-            .read(true)
-            .open(backing_file_name)
-            .map_err(Error::BackingFileIo)?;
+        let backing_raw_file = open_file(
+            Path::new(backing_file_name),
+            true, /*read_only*/
+            // TODO(b/190435784): add support for O_DIRECT.
+            false, /*O_DIRECT*/
+        )
+        .map_err(|e| Error::BackingFileIo(e.into()))?;
         let backing_file =
             create_disk_file(backing_raw_file).map_err(|e| Error::BackingFileOpen(Box::new(e)))?;
         let size = backing_file.get_len().map_err(Error::BackingFileIo)?;
@@ -1916,7 +1923,7 @@ mod tests {
     }
 
     #[test]
-    fn test_header_crazy_file_size_rejected() {
+    fn test_header_excessive_file_size_rejected() {
         let mut header = valid_header();
         &mut header[24..32].copy_from_slice(&[0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x1e]);
         with_basic_file(&header, |disk_file: File| {
@@ -1969,7 +1976,7 @@ mod tests {
         let mut header = valid_header();
         &mut header[56..60].copy_from_slice(&[0x02, 0x00, 0xe8, 0xff]);
         with_basic_file(&header, |disk_file: File| {
-            QcowFile::from(disk_file).expect_err("Created disk with crazy refcount clusters");
+            QcowFile::from(disk_file).expect_err("Created disk with excessive refcount clusters");
         });
     }
 
@@ -1978,7 +1985,7 @@ mod tests {
         let mut header = valid_header();
         &mut header[48..56].copy_from_slice(&[0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x02, 0x00]);
         with_basic_file(&header, |disk_file: File| {
-            QcowFile::from(disk_file).expect_err("Created disk with crazy refcount offset");
+            QcowFile::from(disk_file).expect_err("Created disk with excessive refcount offset");
         });
     }
 
@@ -2154,7 +2161,7 @@ mod tests {
             struct Transfer {
                 pub write: bool,
                 pub addr: u64,
-            };
+            }
 
             // Write transactions from mkfs.ext4.
             let xfers: Vec<Transfer> = vec![

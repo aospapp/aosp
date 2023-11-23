@@ -16,11 +16,13 @@
 
 package com.google.android.setupdesign.view;
 
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.content.Context;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
-import androidx.core.view.ViewCompat;
 import androidx.appcompat.widget.AppCompatTextView;
 import android.text.Annotation;
 import android.text.SpannableString;
@@ -32,6 +34,8 @@ import android.text.style.TypefaceSpan;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
+import androidx.annotation.VisibleForTesting;
+import androidx.core.view.ViewCompat;
 import com.google.android.setupdesign.accessibility.LinkAccessibilityHelper;
 import com.google.android.setupdesign.span.LinkSpan;
 import com.google.android.setupdesign.span.LinkSpan.OnLinkClickListener;
@@ -51,6 +55,8 @@ public class RichTextView extends AppCompatTextView implements OnLinkClickListen
   private static final String ANNOTATION_LINK = "link";
   private static final String ANNOTATION_TEXT_APPEARANCE = "textAppearance";
 
+  @VisibleForTesting static Typeface spanTypeface;
+
   /**
    * Replace &lt;annotation&gt; tags in strings to become their respective types. Currently 2 types
    * are supported:
@@ -62,6 +68,8 @@ public class RichTextView extends AppCompatTextView implements OnLinkClickListen
    *       android.text.style.TextAppearanceSpan} with @style/TextAppearance.FooBar
    * </ol>
    */
+  @TargetApi(28)
+  @SuppressLint("NewApi")
   public static CharSequence getRichText(Context context, CharSequence text) {
     if (text instanceof Spanned) {
       final SpannableString spannable = new SpannableString(text);
@@ -81,7 +89,10 @@ public class RichTextView extends AppCompatTextView implements OnLinkClickListen
           SpanHelper.replaceSpan(spannable, span, textAppearanceSpan);
         } else if (ANNOTATION_LINK.equals(key)) {
           LinkSpan link = new LinkSpan(span.getValue());
-          TypefaceSpan typefaceSpan = new TypefaceSpan("sans-serif-medium");
+          TypefaceSpan typefaceSpan =
+              (spanTypeface != null)
+                  ? new TypefaceSpan(spanTypeface)
+                  : new TypefaceSpan("sans-serif-medium");
           SpanHelper.replaceSpan(spannable, span, link, typefaceSpan);
         }
       }
@@ -112,6 +123,17 @@ public class RichTextView extends AppCompatTextView implements OnLinkClickListen
 
     accessibilityHelper = new LinkAccessibilityHelper(this);
     ViewCompat.setAccessibilityDelegate(this, accessibilityHelper);
+  }
+
+  /**
+   * Sets the typeface in which the text should be displayed. The default typeface is {@code
+   * "sans-serif-medium"}
+   *
+   * @throws java.lang.NoSuchMethodError if sdk lower than {@code VERSION_CODES.P}
+   */
+  @TargetApi(VERSION_CODES.P)
+  public void setSpanTypeface(Typeface typeface) {
+    spanTypeface = typeface;
   }
 
   @Override

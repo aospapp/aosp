@@ -24,6 +24,7 @@ import static org.junit.Assume.assumeTrue;
 import android.cts.install.INSTALL_TYPE;
 import android.platform.test.annotations.LargeTest;
 
+import com.android.compatibility.common.util.CpuFeatures;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
@@ -78,6 +79,14 @@ public final class UpgradeTest extends BaseHostJUnit4Test {
     @After
     public void cleanUp() throws Exception {
         runPhase(CLEAN_UP_PHASE);
+    }
+
+    @Before
+    public void assumeNotNativeBridgeWithApex() throws Exception {
+        if (!CpuFeatures.isNativeAbi(getDevice(), getAbi().getName())) {
+            assumeFalse("APEX packages do not work with native bridge",
+                    mInstallType.containsApex());
+        }
     }
 
     @Before

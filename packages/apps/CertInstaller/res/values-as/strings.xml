@@ -35,15 +35,15 @@
     <string name="password_empty_error" msgid="591713406761723025">"পাছৱৰ্ডটো লিখক।"</string>
     <string name="name_empty_error" msgid="3808800768660110354">"এটা নাম লিখক।"</string>
     <string name="name_char_error" msgid="3176618568784938968">"কেৱল আখৰ আৰু সংখ্যা থকা এটা নামহে লিখক৷"</string>
-    <string name="unable_to_save_cert" msgid="9178604087335389686">"প্ৰমাণপত্ৰ ছেভ কৰিব পৰা নগ\'ল৷ ক্ৰেডেনশ্বিয়েল সঞ্চয়াগাৰ সক্ষম হোৱা নাই বা সঠিকভাৱে আৰম্ভ কৰা হোৱা নাই।"</string>
+    <string name="unable_to_save_cert" msgid="9178604087335389686">"প্ৰমাণপত্ৰ ছেভ কৰিব পৰা নগ\'ল। ক্ৰেডেনশ্বিয়েল ষ্ট’ৰেজ সক্ষম হোৱা নাই বা সঠিকভাৱে আৰম্ভ কৰা হোৱা নাই।"</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"প্ৰমাণপত্ৰ ইনষ্টল কৰা হোৱা নাই।"</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"ইনষ্টল কৰিবলৈ কোনো প্ৰমাণপত্ৰ নাই।"</string>
     <string name="invalid_cert" msgid="7704228670980743590">"এই প্ৰমাণপত্ৰখন মান্য নহয়।"</string>
     <string name="action_missing_private_key" msgid="7543470057312920042">"প্ৰমাণপত্ৰ ইনষ্টল কৰিবলৈ নিজা চাবি আৱশ্য়ক"</string>
     <string name="action_missing_user_cert" msgid="3727411730202316771">"নিজা চাবি ইনষ্টল কৰিবলৈ প্ৰমাণপত্ৰ আৱশ্য়ক"</string>
     <string name="select_certificate_usage_title" msgid="8853023485944920851">"এটা প্ৰমাণপত্ৰৰ প্ৰকাৰ বাছনি কৰক"</string>
-    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"CA প্ৰমাণপত্ৰসমূহ ছেটিংসমূহত ইনষ্টল কৰক"</string>
-    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"<xliff:g id="REQUESTING_APP">%1$s</xliff:g>ৰ পৰা পোৱা এই প্ৰমাণপত্ৰখন ছেটিংসমূহতে ইনষ্টল কৰিবই লাগিব। কেৱল আপুনি বিশ্বাস কৰা প্ৰতিষ্ঠানসমূহৰ পৰাহে CA প্ৰমাণপত্ৰসমূহ ইনষ্টল কৰক।"</string>
+    <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"CA প্ৰমাণপত্ৰসমূহ ছেটিঙত ইনষ্টল কৰক"</string>
+    <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"<xliff:g id="REQUESTING_APP">%1$s</xliff:g>ৰ পৰা পোৱা এই প্ৰমাণপত্ৰখন ছেটিঙত ইনষ্টল কৰিবই লাগিব। কেৱল আপুনি বিশ্বাস কৰা প্ৰতিষ্ঠানসমূহৰ CA প্ৰমাণপত্ৰসমূহহে ইনষ্টল কৰক।"</string>
     <string name="redirect_ca_certificate_close_button" msgid="4291301659747279488">"বন্ধ কৰক"</string>
     <string name="invalid_certificate_title" msgid="6500315398016809635">"এই ফাইলটো ব্যৱহাৰ কৰিব নোৱাৰি"</string>
     <string name="invalid_certificate_close_button" msgid="350986774973653102">"বন্ধ কৰক"</string>
@@ -65,7 +65,7 @@
     <item msgid="375085478373011304">"ভিপিএন আৰু এপসমূহ"</item>
     <item msgid="692322974985472861">"ৱাই-ফাই"</item>
   </string-array>
-    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"টোকা: এই প্ৰমাণপত্ৰ প্ৰদানকাৰীয়ে এই ডিভাইচটোৰ পৰা যোৱা আৰু ডিভাইচটোলৈ অহা সকলো ট্ৰেফিক পৰ্যবেক্ষণ কৰিব পাৰে।"</string>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"টোকা: এই প্ৰমাণপত্ৰ প্ৰদানকাৰীয়ে এই ডিভাইচটোৰ পৰা যোৱা আৰু ডিভাইচটোলৈ অহা আটাইবোৰ ট্ৰেফিক পৰ্যবেক্ষণ কৰিব পাৰে।"</string>
     <string name="wifi_title" msgid="8475811746333426489">"ৱাই- ফাই প্ৰ\'ফাইল"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%sৰ সবিশেষ"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"সবিশেষ"</string>

@@ -23,10 +23,9 @@ import android.os.Build
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
 import com.android.testutils.assertEqualBothWays
-import com.android.testutils.assertFieldCountEquals
-import com.android.testutils.assertParcelSane
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
+import com.android.testutils.assertParcelingIsLossless
 import com.android.testutils.parcelingRoundTrip
 import java.net.InetAddress
 import org.junit.Assert.assertEquals
@@ -93,7 +92,7 @@ class NattKeepalivePacketDataTest {
 
     @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
     fun testParcel() {
-        assertParcelSane(nattKeepalivePacket(), 0)
+        assertParcelingIsLossless(nattKeepalivePacket())
     }
 
     @Test @IgnoreUpTo(Build.VERSION_CODES.Q)
@@ -103,8 +102,6 @@ class NattKeepalivePacketDataTest {
         assertNotEquals(nattKeepalivePacket(srcAddress = TEST_DST_ADDRV4), nattKeepalivePacket())
         // Test src port only because dst port have to be NATT_PORT
         assertNotEquals(nattKeepalivePacket(srcPort = TEST_PORT2), nattKeepalivePacket())
-        // Make sure the parceling test is updated if fields are added in the base class.
-        assertFieldCountEquals(5, KeepalivePacketData::class.java)
     }
 
     @Test @IgnoreUpTo(Build.VERSION_CODES.Q)

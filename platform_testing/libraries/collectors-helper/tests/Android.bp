@@ -22,6 +22,7 @@ android_test {
 
     static_libs: [
         "perfetto-helper-test",
+        "app-collector-helper-test",
         "jank-helper-test",
         "memory-helper-test",
         "system-helper-test",

@@ -1,0 +1,8 @@
+# Allow system server to send sensor data callbacks to GPS and camera HALs
+binder_call(system_server, gpsd);
+binder_call(system_server, hal_camera_default);
+# Allow system server to find vendor uwb service
+allow system_server uwb_vendor_service:service_manager find;
+
+# pixelstats_vendor/OrientationCollector
+binder_call(system_server, pixelstats_vendor)

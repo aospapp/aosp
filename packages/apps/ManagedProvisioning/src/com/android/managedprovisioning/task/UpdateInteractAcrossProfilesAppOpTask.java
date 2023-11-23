@@ -48,6 +48,7 @@ public class UpdateInteractAcrossProfilesAppOpTask extends AbstractProvisioningT
     private final DevicePolicyManager mDevicePolicyManager;
     private final AppOpsManager mAppOpsManager;
     private final PackageManager mPackageManager;
+    private final UserManager mUserManager;
 
     public UpdateInteractAcrossProfilesAppOpTask(Context context,
             ProvisioningParams provisioningParams,
@@ -59,6 +60,7 @@ public class UpdateInteractAcrossProfilesAppOpTask extends AbstractProvisioningT
         mDevicePolicyManager = context.getSystemService(DevicePolicyManager.class);
         mAppOpsManager = context.getSystemService(AppOpsManager.class);
         mPackageManager = context.getPackageManager();
+        mUserManager = context.getSystemService(UserManager.class);
     }
 
     @Override
@@ -133,10 +135,20 @@ public class UpdateInteractAcrossProfilesAppOpTask extends AbstractProvisioningT
 
     private Set<ApplicationInfo> getAllInstalledApps() {
         final Set<ApplicationInfo> apps = new HashSet<>();
-        List<UserHandle> profiles = mContext.getSystemService(UserManager.class).getAllProfiles();
+        List<UserHandle> profiles = mUserManager.getAllProfiles();
         for (UserHandle profile : profiles) {
-            apps.addAll(mContext.createContextAsUser(profile, /* flags= */ 0).getPackageManager()
-                    .getInstalledApplications(/* flags= */ 0));
+            if (profile.getIdentifier() != mContext.getUserId()
+                    && !mUserManager.isManagedProfile(profile.getIdentifier())) {
+                continue;
+            }
+            try {
+                apps.addAll(
+                        mContext.createPackageContextAsUser(
+                        /* packageName= */ "android", /* flags= */ 0, profile)
+                                .getPackageManager().getInstalledApplications(/* flags= */ 0));
+            } catch (PackageManager.NameNotFoundException ignored) {
+                // Should never happen.
+            }
         }
         return apps;
     }

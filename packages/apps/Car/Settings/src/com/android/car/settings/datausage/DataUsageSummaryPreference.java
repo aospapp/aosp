@@ -33,8 +33,6 @@ import com.android.car.settings.common.ProgressBarPreference;
 /** Extends {@link ProgressBarPreference} in order to support multiple text fields. */
 public class DataUsageSummaryPreference extends ProgressBarPreference {
 
-    private CharSequence mDataLimitText;
-    private CharSequence mRemainingBillingCycleText;
     private CharSequence mCarrierInfoText;
     private Intent mManageSubscriptionIntent;
     @StyleRes
@@ -63,32 +61,6 @@ public class DataUsageSummaryPreference extends ProgressBarPreference {
 
     private void init() {
         setLayoutResource(R.layout.data_usage_summary_preference);
-    }
-
-    /** Sets the data limit text. */
-    public void setDataLimitText(CharSequence text) {
-        if (!TextUtils.equals(mDataLimitText, text)) {
-            mDataLimitText = text;
-            notifyChanged();
-        }
-    }
-
-    /** Gets the data limit text. */
-    public CharSequence getDataLimitText() {
-        return mDataLimitText;
-    }
-
-    /** Sets the remaining billing cycle description. */
-    public void setRemainingBillingCycleText(CharSequence text) {
-        if (!TextUtils.equals(mRemainingBillingCycleText, text)) {
-            mRemainingBillingCycleText = text;
-            notifyChanged();
-        }
-    }
-
-    /** Gets the remaining billing cycle description. */
-    public CharSequence getRemainingBillingCycleText() {
-        return mRemainingBillingCycleText;
     }
 
     /** Sets the carrier info text. */
@@ -133,9 +105,6 @@ public class DataUsageSummaryPreference extends ProgressBarPreference {
     public void onBindViewHolder(PreferenceViewHolder view) {
         super.onBindViewHolder(view);
 
-        setTextAndVisibility((TextView) view.findViewById(R.id.data_limit_text), mDataLimitText);
-        setTextAndVisibility((TextView) view.findViewById(R.id.remaining_billing_cycle_time_text),
-                mRemainingBillingCycleText);
         TextView carrierInfo = (TextView) view.findViewById(R.id.carrier_info_text);
         setTextAndVisibility(carrierInfo, mCarrierInfoText);
         carrierInfo.setTextAppearance(mCarrierInfoTextStyle);

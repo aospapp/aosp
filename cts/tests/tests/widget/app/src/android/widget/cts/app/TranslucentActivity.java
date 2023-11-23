@@ -18,10 +18,7 @@ package android.widget.cts.app;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -33,8 +30,6 @@ import androidx.fragment.app.FragmentManager;
 public class TranslucentActivity extends AppCompatActivity {
     private static final String ACTION_TRANSLUCENT_ACTIVITY_RESUMED =
             "android.widget.cts.app.TRANSLUCENT_ACTIVITY_RESUMED";
-    private static final String ACTION_TRANSLUCENT_ACTIVITY_FINISH =
-            "android.widget.cts.app.TRANSLUCENT_ACTIVITY_FINISH";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,33 +42,12 @@ public class TranslucentActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onStart() {
-        super.onStart();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(ACTION_TRANSLUCENT_ACTIVITY_FINISH);
-        registerReceiver(mFinishActivityReceiver, filter);
-    }
-
-    @Override
     protected void onResume() {
         super.onResume();
         Intent intent = new Intent(ACTION_TRANSLUCENT_ACTIVITY_RESUMED);
         intent.addFlags(Intent.FLAG_RECEIVER_VISIBLE_TO_INSTANT_APPS);
         sendBroadcast(intent);
     }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        unregisterReceiver(mFinishActivityReceiver);
-    }
-
-    private final BroadcastReceiver mFinishActivityReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            finish();
-        }
-    };
 
     public static class SampleFragment extends DialogFragment {
         @NonNull

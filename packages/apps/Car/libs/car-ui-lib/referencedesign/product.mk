@@ -1,20 +1,11 @@
 # Inherit from this product to include the "Reference Design" RROs for CarUi
 
-#############################################
-#                  WARNING                  #
-#############################################
-# The OEM APIs as they appear on this       #
-# branch of android are not finalized!      #
-# If a shared library is built using them,  #
-# it will cause apps to crash!              #
-#                                           #
-# Please only use a shared library with     #
-# a later version of car-ui-lib.            #
-#############################################
-#PRODUCT_PACKAGES += \
-#   car-ui-lib-sharedlibrary \
+PRODUCT_PACKAGES += \
+   car-ui-lib-plugin-prebuilt \
 
-PRODUCT_PRODUCT_PROPERTIES += ro.build.automotive.car.ui.shared.library.package.name=com.chassis.car.ui.sharedlibrary
+PRODUCT_PRODUCT_PROPERTIES += \
+    ro.build.automotive.car.ui.plugin.package.name=com.chassis.car.ui.plugin \
+    persist.sys.automotive.car.ui.plugin.enabled=false \
 
 PRODUCT_COPY_FILES += \
     packages/apps/Car/libs/car-ui-lib/referencedesign/car-ui-lib-preinstalled-packages.xml:system/etc/sysconfig/car-ui-lib-preinstalled-packages.xml \
@@ -32,6 +23,7 @@ PRODUCT_PACKAGES += \
     googlecarui-com-android-car-media \
     googlecarui-com-android-car-radio \
     googlecarui-com-android-car-calendar \
+    googlecarui-com-android-car-messenger \
     googlecarui-com-android-car-companiondevicesupport \
     googlecarui-com-android-car-systemupdater \
     googlecarui-com-android-car-dialer \
@@ -39,6 +31,7 @@ PRODUCT_PACKAGES += \
     googlecarui-com-android-car-settings \
     googlecarui-com-android-car-voicecontrol \
     googlecarui-com-android-car-faceenroll \
+    googlecarui-com-android-car-developeroptions \
     googlecarui-com-android-managedprovisioning \
     googlecarui-com-android-settings-intelligence \
     googlecarui-com-google-android-apps-automotive-inputmethod \

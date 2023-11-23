@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Prejemanje obveznih mesečnih preizkusov iz sistema varnostnih opozoril"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Državno opozorilo"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Po prikazu prvega opozorila (ki ni državno opozorilo) pokaži pogovorno okno za onemogočenje."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Nacionalna opozorila"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Nacionalna opozorilna sporočila. Teh ni mogoče izklopiti."</string>
 </resources>

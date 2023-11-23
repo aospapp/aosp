@@ -72,6 +72,9 @@ public class WifiTetherPreferenceController extends
         getPreference().setOnSecondaryActionClickListener(isChecked -> {
             mWifiTetheringHandler.updateWifiTetheringState(isChecked);
         });
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> {
+            WifiUtil.runClickableWhileDisabled(getContext(), getFragmentController());
+        });
     }
 
     @Override
@@ -94,7 +97,14 @@ public class WifiTetherPreferenceController extends
         if (!mReceivedTetheringEventCallback) {
             return AVAILABLE_FOR_VIEWING;
         }
-        return  mIsTetheringSupported ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
+        if (!mIsTetheringSupported) {
+            return UNSUPPORTED_ON_DEVICE;
+        }
+        if (WifiUtil.isConfigWifiRestrictedByUm(getContext())
+                || WifiUtil.isConfigWifiRestrictedByDpm(getContext())) {
+            return AVAILABLE_FOR_VIEWING;
+        }
+        return AVAILABLE;
     }
 
     @Override

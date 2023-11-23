@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"የመኪና ኃይል መመሪያን ተቆጣጠር።"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"የቅንብር ደንቦችን ምስል ሥራ።"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"የቅንብር ደንቦችን ምስል ሥራ።"</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"መተግበሪያዎችን ማስጀመር መቆጣጠር"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"መተግበሪያዎችን ማስጀመር መቆጣጠር።"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"የእኔ መሣሪያ"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"እንግዳ"</string>
     <string name="importance_default" msgid="8587741629268312938">"ነባሪ አስፈላጊነት"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"በኋላ ዳግም አስጀምር"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"መኪናው በሚቀጥለው ጊዜ ሲጀምር የኢንፎቴይንመንት ሥርዓቱ ዳግም ይጀምራል።"</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"ዳግም ማስጀመርን ለመጀመር መኪናው መቆም አለበት።"</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> በስርዓትዎ አፈጻጸም ላይ ተጽዕኖ እያሳረፈ ነው"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"የስርዓት አፈጻጸምን ለማሻሻል መተግበሪያን ያሰናክሉ። በቅንብሮች ውስጥ መተግበሪያውን እንደገና ማንቃት ይችላሉ።"</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"መተግበሪያን መጠቀሙን ለመቀጠል ለመተግበሪያ ቅድሚያ ይስጡ።"</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"የስርዓት አፈጻጸምን ለማሻሻል መተግበሪያን ያራግፉ።"</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"መተግበሪያን አሰናክል"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"ለመተግበሪያ ቅድሚያ ስጥ"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"መተግበሪያን አራግፍ"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> ተሰናክሏል። በቅንብሮች ውስጥ እንደገና ሊያነቁት ይችላሉ።"</string>
 </resources>

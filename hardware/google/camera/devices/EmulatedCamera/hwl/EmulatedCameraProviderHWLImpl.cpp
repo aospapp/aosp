@@ -928,4 +928,9 @@ status_t EmulatedCameraProviderHwlImpl::CreateBufferAllocatorHwl(
   // Currently not supported
   return INVALID_OPERATION;
 }
+
+status_t EmulatedCameraProviderHwlImpl::NotifyDeviceStateChange(
+    DeviceState /*device_state*/) {
+  return OK;
+}
 }  // namespace android

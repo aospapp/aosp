@@ -14,6 +14,8 @@
             system_ext/etc/permissions/com.qualcomm.qti.imscmservice-V2.2-java.xml \
             system_ext/etc/permissions/org_codeaurora_ims.xml \
             system_ext/etc/permissions/qcrilhook.xml \
+            system_ext/etc/permissions/qti_telephony_hidl_wrapper.xml \
+            system_ext/etc/permissions/qti_telephony_utils.xml \
             system_ext/framework/com.qualcomm.qti.imscmservice-V2.0-java.jar \
             system_ext/framework/com.qualcomm.qti.imscmservice-V2.1-java.jar \
             system_ext/framework/com.qualcomm.qti.imscmservice-V2.2-java.jar \

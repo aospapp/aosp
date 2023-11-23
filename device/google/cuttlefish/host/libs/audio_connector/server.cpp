@@ -21,6 +21,7 @@
 #include <unistd.h>
 
 #include <utility>
+#include <vector>
 
 #include <android-base/logging.h>
 
@@ -244,8 +245,38 @@ bool AudioClientConnection::ReceiveCommands(AudioServerExecutor& executor) {
       executor.StopStream(cmd);
       return CmdReply(cmd.status());
     }
-    case AudioCommandType::VIRTIO_SND_R_CHMAP_INFO:
-    case AudioCommandType::VIRTIO_SND_R_JACK_INFO:
+    case AudioCommandType::VIRTIO_SND_R_CHMAP_INFO: {
+      if (recv_size < sizeof(virtio_snd_query_info)) {
+        LOG(ERROR) << "Received QUERY_INFO message is too small: " << recv_size;
+        return false;
+      }
+      auto query_info = reinterpret_cast<const virtio_snd_query_info*>(cmd_hdr);
+      auto info_count = query_info->count.as_uint32_t();
+      auto start_id = query_info->start_id.as_uint32_t();
+      std::unique_ptr<virtio_snd_chmap_info[]> reply(
+          new virtio_snd_chmap_info[info_count]);
+      ChmapInfoCommand cmd(start_id, info_count, reply.get());
+
+      executor.ChmapsInfo(cmd);
+      return CmdReply(cmd.status(), reply.get(),
+                      info_count * sizeof(reply[0]));
+    }
+    case AudioCommandType::VIRTIO_SND_R_JACK_INFO: {
+      if (recv_size < sizeof(virtio_snd_query_info)) {
+        LOG(ERROR) << "Received QUERY_INFO message is too small: " << recv_size;
+        return false;
+      }
+      auto query_info = reinterpret_cast<const virtio_snd_query_info*>(cmd_hdr);
+      auto info_count = query_info->count.as_uint32_t();
+      auto start_id = query_info->start_id.as_uint32_t();
+      std::unique_ptr<virtio_snd_jack_info[]> reply(
+          new virtio_snd_jack_info[info_count]);
+      JackInfoCommand cmd(start_id, info_count, reply.get());
+
+      executor.JacksInfo(cmd);
+      return CmdReply(cmd.status(), reply.get(),
+                      info_count * sizeof(reply[0]));
+    }
     case AudioCommandType::VIRTIO_SND_R_JACK_REMAP:
       LOG(ERROR) << "Unsupported command type: " << cmd_hdr->code.as_uint32_t();
       return CmdReply(AudioStatus::VIRTIO_SND_S_NOT_SUPP);
@@ -302,18 +333,12 @@ bool AudioClientConnection::CmdReply(AudioStatus status, const void* data,
   virtio_snd_hdr vio_status = {
       .code = Le32(static_cast<uint32_t>(status)),
   };
-  auto status_sent = control_socket_->Send(&vio_status, sizeof(vio_status), 0);
-  if (status_sent < sizeof(vio_status)) {
+  std::vector<uint8_t> buffer(sizeof(vio_status) + size, 0);
+  std::memcpy(buffer.data(), &vio_status, sizeof(vio_status));
+  std::memcpy(buffer.data() + sizeof(vio_status), data, size);
+  auto status_sent = control_socket_->Send(buffer.data(), buffer.size(), 0);
+  if (status_sent < sizeof(vio_status) + size) {
     LOG(ERROR) << "Failed to send entire command status: "
-               << control_socket_->StrError();
-    return false;
-  }
-  if (status != AudioStatus::VIRTIO_SND_S_OK || size == 0) {
-    return true;
-  }
-  auto payload_sent = control_socket_->Send(data, size, 0);
-  if (payload_sent < size) {
-    LOG(ERROR) << "Failed to send entire command response payload: "
                << control_socket_->StrError();
     return false;
   }

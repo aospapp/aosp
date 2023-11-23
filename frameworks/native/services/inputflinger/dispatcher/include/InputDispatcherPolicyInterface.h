@@ -20,8 +20,8 @@
 #include "InputDispatcherConfiguration.h"
 
 #include <binder/IBinder.h>
+#include <gui/InputApplication.h>
 #include <input/Input.h>
-#include <input/InputApplication.h>
 #include <utils/RefBase.h>
 
 namespace android {
@@ -156,7 +156,7 @@ public:
      *
      * InputDispatcher is solely responsible for updating the Pointer Capture state.
      */
-    virtual void setPointerCapture(bool enabled) = 0;
+    virtual void setPointerCapture(const PointerCaptureRequest&) = 0;
 
     /* Notifies the policy that the drag window has moved over to another window */
     virtual void notifyDropWindow(const sp<IBinder>& token, float x, float y) = 0;

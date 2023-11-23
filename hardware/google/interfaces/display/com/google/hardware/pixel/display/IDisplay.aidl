@@ -105,4 +105,26 @@ interface IDisplay {
      * @return errno of setCompensationImageHandle
      */
     int setCompensationImageHandle(in NativeHandle native_handle, in String imageName);
+
+    /**
+     * Limit minimum idle display refresh rate. This is only relevant for displays
+     * that can idle to a lower refresh rate than what is set by the platform. That is,
+     * this API only controls kernel driver or panel self-driven refresh rate updates
+     * it does not enforce the platform selected refresh rate (via setActiveConfig).
+     *
+     * @param fps The lowest refresh rate allowed. Setting to -1 means display
+     *            should not switch to lower refresh rate while idle.
+     * @return errno if there was a problem with the request, zero if successful
+     */
+    int setMinIdleRefreshRate(in int fps);
+
+    /**
+     * Throttle refresh rate switching such that switches don't happen earlier
+     * than the provided delay in milliseconds
+     *
+     * @param delayMs Amount of time in milliseconds to wait before switching to
+     *                 a new refresh rate
+     * @return errno if there was a problem with the request, zero if successful
+     */
+    int setRefreshRateThrottle(in int delayMs);
 }

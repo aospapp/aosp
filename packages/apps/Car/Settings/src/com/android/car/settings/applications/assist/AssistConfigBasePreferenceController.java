@@ -26,6 +26,7 @@ import android.os.Looper;
 import android.os.UserHandle;
 import android.provider.Settings;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.TwoStatePreference;
 
 import com.android.car.settings.common.FragmentController;
@@ -38,13 +39,20 @@ import java.util.List;
 public abstract class AssistConfigBasePreferenceController extends
         PreferenceController<TwoStatePreference> {
 
-    private final SettingObserver mSettingObserver;
+    final SettingObserver mSettingObserver;
     private final AssistUtils mAssistUtils;
 
     public AssistConfigBasePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions, new AssistUtils(context));
+    }
+
+    @VisibleForTesting
+    AssistConfigBasePreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            AssistUtils assistUtils) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mAssistUtils = new AssistUtils(context);
+        mAssistUtils = assistUtils;
         mSettingObserver = new SettingObserver(getSettingUris(), this::refreshUi);
     }
 
@@ -76,8 +84,8 @@ public abstract class AssistConfigBasePreferenceController extends
      * Creates an observer that listens for changes to {@link Settings.Secure#ASSISTANT} as well as
      * any other URI defined by {@link #getSettingUris()}.
      */
-    private static class SettingObserver extends ContentObserver {
-
+    @VisibleForTesting
+    static class SettingObserver extends ContentObserver {
         private static final Uri ASSIST_URI = Settings.Secure.getUriFor(Settings.Secure.ASSISTANT);
         private final List<Uri> mUriList;
         private final Runnable mSettingChangeListener;

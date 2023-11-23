@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Ta emot månadstester från systemet för säkerhetsvarningar"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Nationell varning"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Visa en dialogruta för att välja bort detta när första varningen visas (ej nationella varningar)."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Nationella varningsmeddelanden"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Nationella varningsmeddelanden. Detta kan inte stängas av."</string>
 </resources>

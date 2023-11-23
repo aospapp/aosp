@@ -21,7 +21,7 @@
     <string name="nothing_to_play" msgid="594633010485167765">"Hemen ez dago araka daitekeen multimedia-edukirik"</string>
     <string name="cannot_connect_to_app" msgid="4732888036680095414">"Une honetan, <xliff:g id="ID_1">%s</xliff:g> aplikazioak ez du funtzionatzen."</string>
     <string name="unknown_media_provider_name" msgid="4238216994694326667">"Ezezaguna"</string>
-    <string name="unknown_error" msgid="6146463797752964372">"Arazoren bat izan da"</string>
+    <string name="unknown_error" msgid="6146463797752964372">"Arazo bat izan da"</string>
     <string name="media_browse_more" msgid="6330295386693311592">"Gehiago…"</string>
     <string name="media_app_title" msgid="94717597743776797">"Multimedia-edukia"</string>
     <string name="search_hint" msgid="5401750426238148416">"Bilatu abestiak, artistak eta beste…"</string>

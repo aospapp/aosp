@@ -6,6 +6,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use sync::Mutex;
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use acpi_tables::sdt::SDT;
 use base::{warn, AsRawDescriptor, Event, RawDescriptor, Result, Tube};
 use data_model::{DataInit, Le32};
 use hypervisor::Datamatch;
@@ -15,9 +17,9 @@ use vm_memory::GuestMemory;
 
 use super::*;
 use crate::pci::{
-    MsixCap, MsixConfig, PciAddress, PciBarConfiguration, PciCapability, PciCapabilityID,
-    PciClassCode, PciConfiguration, PciDevice, PciDeviceError, PciDisplaySubclass, PciHeaderType,
-    PciInterruptPin, PciSubclass,
+    MsixCap, MsixConfig, PciAddress, PciBarConfiguration, PciBarPrefetchable, PciBarRegionType,
+    PciCapability, PciCapabilityID, PciClassCode, PciConfiguration, PciDevice, PciDeviceError,
+    PciDisplaySubclass, PciHeaderType, PciInterruptPin, PciSubclass,
 };
 
 use self::virtio_pci_common_config::VirtioPciCommonConfig;
@@ -57,6 +59,10 @@ impl PciCapability for VirtioPciCap {
     fn id(&self) -> PciCapabilityID {
         PciCapabilityID::VendorSpecific
     }
+
+    fn writable_bits(&self) -> Vec<u32> {
+        vec![0u32; 4]
+    }
 }
 
 impl VirtioPciCap {
@@ -92,6 +98,10 @@ impl PciCapability for VirtioPciNotifyCap {
 
     fn id(&self) -> PciCapabilityID {
         PciCapabilityID::VendorSpecific
+    }
+
+    fn writable_bits(&self) -> Vec<u32> {
+        vec![0u32; 5]
     }
 }
 
@@ -137,6 +147,10 @@ impl PciCapability for VirtioPciShmCap {
 
     fn id(&self) -> PciCapabilityID {
         PciCapabilityID::VendorSpecific
+    }
+
+    fn writable_bits(&self) -> Vec<u32> {
+        vec![0u32; 6]
     }
 }
 
@@ -462,10 +476,13 @@ impl PciDevice for VirtioPciDevice {
                 CAPABILITY_BAR_SIZE,
             )
             .map_err(|e| PciDeviceError::IoAllocationFailed(CAPABILITY_BAR_SIZE, e))?;
-        let config = PciBarConfiguration::default()
-            .set_register_index(0)
-            .set_address(settings_config_addr)
-            .set_size(CAPABILITY_BAR_SIZE);
+        let config = PciBarConfiguration::new(
+            0,
+            CAPABILITY_BAR_SIZE,
+            PciBarRegionType::Memory32BitRegion,
+            PciBarPrefetchable::NotPrefetchable,
+        )
+        .set_address(settings_config_addr);
         let settings_bar = self
             .config_regs
             .add_pci_bar(config)
@@ -491,28 +508,32 @@ impl PciDevice for VirtioPciDevice {
             let device_addr = resources
                 .mmio_allocator_any()
                 .allocate_with_align(
-                    config.get_size(),
+                    config.size(),
                     Alloc::PciBar {
                         bus: address.bus,
                         dev: address.dev,
                         func: address.func,
-                        bar: config.get_register_index() as u8,
+                        bar: config.bar_index() as u8,
                     },
                     format!(
                         "virtio-{}-custom_bar",
                         type_to_str(self.device.device_type()).unwrap_or("?")
                     ),
-                    config.get_size(),
+                    config.size(),
                 )
-                .map_err(|e| PciDeviceError::IoAllocationFailed(config.get_size(), e))?;
+                .map_err(|e| PciDeviceError::IoAllocationFailed(config.size(), e))?;
             let config = config.set_address(device_addr);
             let _device_bar = self
                 .config_regs
                 .add_pci_bar(config)
                 .map_err(|e| PciDeviceError::IoRegistrationFailed(device_addr, e))?;
-            ranges.push((device_addr, config.get_size()));
+            ranges.push((device_addr, config.size()));
         }
         Ok(ranges)
+    }
+
+    fn get_bar_configuration(&self, bar_num: usize) -> Option<PciBarConfiguration> {
+        self.config_regs.get_bar_configuration(bar_num)
     }
 
     fn register_device_capabilities(&mut self) -> std::result::Result<(), PciDeviceError> {
@@ -736,5 +757,10 @@ impl PciDevice for VirtioPciDevice {
 
     fn on_device_sandboxed(&mut self) {
         self.device.on_device_sandboxed();
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    fn generate_acpi(&mut self, sdts: Vec<SDT>) -> Option<Vec<SDT>> {
+        self.device.generate_acpi(&self.pci_address, sdts)
     }
 }

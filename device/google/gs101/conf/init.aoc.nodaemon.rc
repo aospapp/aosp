@@ -1,0 +1,3 @@
+# Load AoC firmware and boot
+on property:vendor.all.modules.ready=1
+    write /sys/devices/platform/19000000.aoc/firmware aoc.bin

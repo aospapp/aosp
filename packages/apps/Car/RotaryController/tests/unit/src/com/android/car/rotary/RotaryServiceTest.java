@@ -38,6 +38,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.AssertJUnit.assertNull;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.app.UiAutomation;
 import android.car.CarOccupantZoneManager;
@@ -62,6 +63,7 @@ import com.android.car.ui.FocusParkingView;
 import com.android.car.ui.utils.DirectManipulationHelper;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -82,6 +84,7 @@ public class RotaryServiceTest {
     private static final int ROTATION_ACCELERATION_3X_MS = 25;
 
     private static UiAutomation sUiAutomation;
+    private static int sOriginalFlags;
 
     private final List<AccessibilityNodeInfo> mNodes = new ArrayList<>();
 
@@ -98,6 +101,20 @@ public class RotaryServiceTest {
     @BeforeClass
     public static void setUpClass() {
         sUiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+
+        // FLAG_RETRIEVE_INTERACTIVE_WINDOWS is necessary to reliably access the root window.
+        AccessibilityServiceInfo serviceInfo = sUiAutomation.getServiceInfo();
+        sOriginalFlags = serviceInfo.flags;
+        serviceInfo.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+        sUiAutomation.setServiceInfo(serviceInfo);
+    }
+
+    @AfterClass
+    public static void tearDownClass() {
+        AccessibilityServiceInfo serviceInfo = sUiAutomation.getServiceInfo();
+        serviceInfo.flags = sOriginalFlags;
+        sUiAutomation.setServiceInfo(serviceInfo);
+
     }
 
     @Before
@@ -1242,9 +1259,7 @@ public class RotaryServiceTest {
         // Set HUN escape nudge direction to View.FOCUS_UP.
         mRotaryService.mHunEscapeNudgeDirection = View.FOCUS_UP;
 
-        // RotaryService.mFocusedNode.getWindow() returns null in the test, so just pass null value
-        // to simplify the test.
-        when(mNavigator.isHunWindow(null)).thenReturn(true);
+        when(mNavigator.isHunWindow(hunButton1Node.getWindow())).thenReturn(true);
 
         AccessibilityNodeInfo appFocusArea3Node = createNode("app_focus_area3");
         when(mNavigator.findNudgeTargetFocusArea(
@@ -1384,6 +1399,7 @@ public class RotaryServiceTest {
         AccessibilityWindowInfo appWindow = new WindowBuilder()
                 .setRoot(appRoot)
                 .setType(TYPE_APPLICATION)
+                .setFocused(true)
                 .build();
         List<AccessibilityWindowInfo> windows = new ArrayList<>();
         windows.add(appWindow);
@@ -1470,6 +1486,7 @@ public class RotaryServiceTest {
         AccessibilityWindowInfo appWindow = new WindowBuilder()
                 .setRoot(appRoot)
                 .setType(TYPE_APPLICATION)
+                .setFocused(true)
                 .build();
         List<AccessibilityWindowInfo> windows = new ArrayList<>();
         windows.add(appWindow);
@@ -1563,6 +1580,7 @@ public class RotaryServiceTest {
         AccessibilityWindowInfo appWindow = new WindowBuilder()
                 .setRoot(appRoot)
                 .setType(TYPE_APPLICATION)
+                .setFocused(true)
                 .build();
         List<AccessibilityWindowInfo> windows = new ArrayList<>();
         windows.add(appWindow);
@@ -1673,6 +1691,9 @@ public class RotaryServiceTest {
         assertThat(appButton3.isActivated()).isFalse();
         assertThat(mRotaryService.mIgnoreViewClickedNode).isNull();
 
+        // Pretend that appButton3Node is in a window without focus. So RotaryService
+        // should perform ACTION_CLICK on it when rotary center button is clicked.
+        when(mRotaryService.isInFocusedWindow(appButton3Node)).thenReturn(false);
         // Click the center button of the controller.
         int validDisplayId = CarOccupantZoneManager.DISPLAY_TYPE_MAIN;
         KeyEvent centerButtonEventActionDown =
@@ -1684,10 +1705,6 @@ public class RotaryServiceTest {
         mRotaryService.onKeyEvents(validDisplayId,
                 Collections.singletonList(centerButtonEventActionUp));
 
-        // appButton3Node.getWindow() will return null (because the test doesn't have the permission
-        // to create an AccessibilityWindowInfo), so appButton3Node isn't considered in the
-        // application window. Instead, it's considered in the system window. So RotaryService
-        // should perform ACTION_CLICK on it.
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         assertThat(appButton3.isActivated()).isTrue();
         assertThat(mRotaryService.mIgnoreViewClickedNode).isEqualTo(appButton3Node);
@@ -1764,6 +1781,9 @@ public class RotaryServiceTest {
         assertThat(appButton3.isActivated()).isFalse();
         assertThat(mRotaryService.mIgnoreViewClickedNode).isNull();
 
+        // Pretend that appButton3Node is in a window without focus. So RotaryService
+        // should perform ACTION_CLICK on it when rotary center button is clicked.
+        when(mRotaryService.isInFocusedWindow(appButton3Node)).thenReturn(false);
         // Click the center button of the controller.
         int validDisplayId = CarOccupantZoneManager.DISPLAY_TYPE_MAIN;
         KeyEvent centerButtonEventActionDown =
@@ -1776,10 +1796,6 @@ public class RotaryServiceTest {
                 Collections.singletonList(centerButtonEventActionUp));
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
-        // appButton3Node.getWindow() will return null (because the test doesn't have the permission
-        // to create an AccessibilityWindowInfo), so appButton3Node isn't considered in the
-        // application window. Instead, it's considered in the system window. So RotaryService
-        // should perform ACTION_LONG_CLICK on it.
         assertThat(appButton3.isActivated()).isTrue();
         assertThat(mRotaryService.mIgnoreViewClickedNode).isNull();
         assertThat(mRotaryService.getFocusedNode()).isEqualTo(appButton3Node);
@@ -2052,6 +2068,7 @@ public class RotaryServiceTest {
     public void testOnAccessibilityEvent_typeWindowStateChanged() {
         AccessibilityWindowInfo window = mock(AccessibilityWindowInfo.class);
         when(window.getType()).thenReturn(TYPE_APPLICATION);
+        when(window.isFocused()).thenReturn(true);
         when(window.getDisplayId()).thenReturn(DEFAULT_DISPLAY);
 
         AccessibilityNodeInfo node = mock(AccessibilityNodeInfo.class);
@@ -2210,7 +2227,7 @@ public class RotaryServiceTest {
         AccessibilityNodeInfo appButton3Node = createNode("app_button3");
         mRotaryService.setFocusedNode(appButton3Node);
         mRotaryService.mInRotaryMode = true;
-        when(mRotaryService.isInApplicationWindow(appButton3Node)).thenReturn(true);
+        when(mRotaryService.isInFocusedWindow(appButton3Node)).thenReturn(true);
         assertThat(mRotaryService.mInDirectManipulationMode).isFalse();
         assertThat(mRotaryService.mIgnoreViewClickedNode).isNull();
 

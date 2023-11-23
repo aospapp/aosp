@@ -737,9 +737,13 @@ public class WindowInputTests {
     @Test
     public void testInjectFromThread() throws InterruptedException {
         // Continually inject event to activity from thread.
-        final Point displaySize = new Point();
-        mActivity.getDisplay().getSize(displaySize);
-        final Point testPoint = new Point(displaySize.x / 2, displaySize.y / 2);
+        final int[] decorViewLocation = new int[2];
+        final View decorView = mActivity.getWindow().getDecorView();
+        decorView.getLocationOnScreen(decorViewLocation);
+        // Tap at the center of the view. Calculate and tap at the absolute view center location on
+        // screen, so that the tapping location is always as expected regardless of windowing mode.
+        final Point testPoint = new Point(decorViewLocation[0] + decorView.getWidth() / 2,
+                decorViewLocation[1] + decorView.getHeight() / 2);
 
         final long downTime = SystemClock.uptimeMillis();
         final MotionEvent eventDown = MotionEvent.obtain(
@@ -747,6 +751,7 @@ public class WindowInputTests {
         mInstrumentation.sendPointerSync(eventDown);
 
         final ExecutorService executor = Executors.newSingleThreadExecutor();
+        boolean[] securityExceptionCaught = new boolean[1];
         executor.execute(() -> {
             mInstrumentation.sendPointerSync(eventDown);
             for (int i = 0; i < 20; i++) {
@@ -756,7 +761,7 @@ public class WindowInputTests {
                 try {
                     mInstrumentation.sendPointerSync(eventMove);
                 } catch (SecurityException e) {
-                    fail("Should be allowed to inject event.");
+                    securityExceptionCaught[0] = true;
                 }
             }
         });
@@ -768,6 +773,12 @@ public class WindowInputTests {
 
         executor.shutdown();
         executor.awaitTermination(5L, TimeUnit.SECONDS);
+
+        if (securityExceptionCaught[0]) {
+            // Fail the test here instead of in the executor lambda,
+            // so the failure is thrown in the test thread.
+            fail("Should be allowed to inject event.");
+        }
     }
 
     private void waitForWindow(String name) {

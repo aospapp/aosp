@@ -25,7 +25,7 @@ from acts import utils
 
 # OTA Packages can be upwards of 1 GB. This may take some time to transfer over
 # USB 2.0. A/B devices must also complete the update in the background.
-UPDATE_TIMEOUT = 30 * 60
+UPDATE_TIMEOUT = 60 * 60
 UPDATE_LOCATION = '/data/ota_package/update.zip'
 
 

@@ -28,6 +28,7 @@
 #include <utils/threads.h>
 #include <android/content/AttributionSourceState.h>
 
+#include <chrono>
 #include <string>
 
 #include "android/media/BnAudioTrackCallback.h"
@@ -401,6 +402,7 @@ public:
 
             uint32_t    channelCount() const { return mChannelCount; }
             size_t      frameCount() const  { return mFrameCount; }
+            audio_channel_mask_t channelMask() const { return mChannelMask; }
 
     /*
      * Return the period of the notification callback in frames.
@@ -509,6 +511,14 @@ public:
      * and then the track is marked as paused.  It can be resumed with ramp up by start().
      */
             void        pause();
+
+    /* Pause and wait (with timeout) for the audio track to ramp to silence.
+     *
+     * \param timeout is the time limit to wait before returning.
+     *                A negative number is treated as 0.
+     * \return true if the track is ramped to silence, false if the timeout occurred.
+     */
+            bool        pauseAndWait(const std::chrono::milliseconds& timeout);
 
     /* Set volume for this track, mostly used for games' sound effects
      * left and right volumes. Levels must be >= 0.0 and <= 1.0.
@@ -1379,6 +1389,9 @@ private:
     MediaMetrics mMediaMetrics;
     std::string mMetricsId;  // GUARDED_BY(mLock), could change in createTrack_l().
     std::string mCallerName; // for example "aaudio"
+
+    // report error to mediametrics.
+    void reportError(status_t status, const char *event, const char *message) const;
 
 private:
     class AudioTrackCallback : public media::BnAudioTrackCallback {

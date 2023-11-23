@@ -572,9 +572,7 @@ class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
      */
     private int dispatchFocusGainedLocked(AudioFocusInfo afi) {
         // Send the focus (re)gain notification
-        int result = mAudioManager.dispatchAudioFocusChange(
-                afi,
-                afi.getGainRequest(),
+        int result = mAudioManager.dispatchAudioFocusChange(afi, AudioManager.AUDIOFOCUS_GAIN,
                 mAudioPolicy);
         if (result != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             // TODO:  Is this actually an error, or is it okay for an entry in the focus

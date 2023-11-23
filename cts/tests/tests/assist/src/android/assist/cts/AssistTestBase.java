@@ -73,6 +73,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 @RunWith(AndroidJUnit4.class)
 abstract class AssistTestBase {
@@ -140,7 +141,8 @@ abstract class AssistTestBase {
 
     @Nullable
     protected RemoteCallback m3pActivityCallback;
-    private RemoteCallback m3pCallbackReceiving;
+    @Nullable
+    protected RemoteCallback mSecondary3pActivityCallback;
 
     protected boolean mScreenshotMatches;
     private Point mDisplaySize;
@@ -168,7 +170,6 @@ abstract class AssistTestBase {
         mActionLatchReceiver = new ActionLatchReceiver();
 
         prepareDevice();
-        registerForAsyncReceivingCallback();
 
         customSetup();
     }
@@ -185,9 +186,13 @@ abstract class AssistTestBase {
         mTestActivity.finish();
         mContext.sendBroadcast(new Intent(Utils.HIDE_SESSION));
 
-
         if (m3pActivityCallback != null) {
             m3pActivityCallback.sendResult(Utils.bundleOfRemoteAction(Utils.ACTION_END_OF_TEST));
+        }
+
+        if (mSecondary3pActivityCallback != null) {
+            mSecondary3pActivityCallback
+                    .sendResult(Utils.bundleOfRemoteAction(Utils.ACTION_END_OF_TEST));
         }
 
         mSessionCompletedLatch.await(3, TimeUnit.SECONDS);
@@ -207,19 +212,6 @@ abstract class AssistTestBase {
 
         // Dismiss keyguard, in case it's set as "Swipe to unlock".
         runShellCommand("wm dismiss-keyguard");
-    }
-
-    private void registerForAsyncReceivingCallback() {
-        HandlerThread handlerThread = new HandlerThread("AssistTestCallbackReceivingThread");
-        handlerThread.start();
-        Handler handler = new Handler(handlerThread.getLooper());
-
-        m3pCallbackReceiving = new RemoteCallback((results) -> {
-            String action = results.getString(Utils.EXTRA_REMOTE_CALLBACK_ACTION);
-            if (action.equals(Utils.EXTRA_REMOTE_CALLBACK_RECEIVING_ACTION)) {
-                m3pActivityCallback = results.getParcelable(Utils.EXTRA_REMOTE_CALLBACK_RECEIVING);
-            }
-        }, handler);
     }
 
     protected void startTest(String testName) throws Exception {
@@ -244,13 +236,40 @@ abstract class AssistTestBase {
         Utils.setTestAppAction(intent, testCaseName);
         intent.putExtra(Utils.EXTRA_REMOTE_CALLBACK, mRemoteCallback);
         intent.addFlags(Intent.FLAG_ACTIVITY_MATCH_EXTERNAL);
-        intent.putExtra(Utils.EXTRA_REMOTE_CALLBACK_RECEIVING, m3pCallbackReceiving);
+
+        // In devices which support multi-window Activity positioning by default (such as foldables)
+        // it is necessary to launch additional activities ("screen fillers") so we may validate the
+        // entire screenshot captured by the Assistant (full display, not individual DisplayAreas)
+        if (m3pActivityCallback == null) { // first time start3pApp is called
+            intent.putExtra(Utils.EXTRA_REMOTE_CALLBACK_RECEIVING,
+                    createRemoteCallbackReceiver(callback -> m3pActivityCallback = callback));
+        } else if (mSecondary3pActivityCallback == null) { // second time
+            // launch 3pApp on adjacent screen in test cases that need a "screen filler".
+            // necessary configuration to ensure Activity can be launched in another DisplayArea
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT
+                    // as we are reusing this intent setup, unconditionally start a new task
+                    | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+            intent.putExtra(Utils.EXTRA_REMOTE_CALLBACK_RECEIVING, createRemoteCallbackReceiver(
+                    remoteCallback -> mSecondary3pActivityCallback = remoteCallback));
+        } else {
+            throw new IllegalStateException("start3pApp supports a maximum of two App instances.");
+        }
+
         if (extras != null) {
             intent.putExtras(extras);
         }
 
         mTestActivity.startActivity(intent);
         waitForOnResume();
+    }
+
+    private RemoteCallback createRemoteCallbackReceiver(Consumer<RemoteCallback> consumer) {
+        return new RemoteCallback((results) -> {
+            String action = results.getString(Utils.EXTRA_REMOTE_CALLBACK_ACTION);
+            if (action.equals(Utils.EXTRA_REMOTE_CALLBACK_RECEIVING_ACTION)) {
+                consumer.accept(results.getParcelable(Utils.EXTRA_REMOTE_CALLBACK_RECEIVING));
+            }
+        }, new Handler(mContext.getMainLooper()));
     }
 
     /**
@@ -319,9 +338,8 @@ abstract class AssistTestBase {
      */
     private void addDimensionsToIntent(Intent intent) {
         if (mDisplaySize == null) {
-            Display display = mTestActivity.getWindowManager().getDefaultDisplay();
-            mDisplaySize = new Point();
-            display.getRealSize(mDisplaySize);
+            Display.Mode dMode = mTestActivity.getWindowManager().getDefaultDisplay().getMode();
+            mDisplaySize = new Point(dMode.getPhysicalWidth(), dMode.getPhysicalHeight());
         }
         intent.putExtra(Utils.DISPLAY_WIDTH_KEY, mDisplaySize.x);
         intent.putExtra(Utils.DISPLAY_HEIGHT_KEY, mDisplaySize.y);

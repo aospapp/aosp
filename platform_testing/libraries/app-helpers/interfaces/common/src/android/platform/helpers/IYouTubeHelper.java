@@ -222,4 +222,18 @@ public interface IYouTubeHelper extends IAppHelper {
      * <p>It presses YouTube PiP view twice to return to the main app.
      */
     public void backFromYouTubeFromPip();
+
+    /**
+     * Setup expectation: YouTube is on the library page.
+     *
+     * <p>presses Your videos tab.
+     */
+    public void goToYourVideos();
+
+    /**
+     * Setup expectation: YouTube is on the Your videos page.
+     *
+     * <p>presses the video name to play.
+     */
+    public void playYourVideo(String videoName);
 }

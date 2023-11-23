@@ -16,9 +16,8 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_app {
-    name: "CarSettings",
-    overrides: ["Settings"],
+android_library {
+    name: "CarSettings-core",
     platform_apis: true,
     defaults: [
         "SettingsLibDefaults",
@@ -26,10 +25,6 @@ android_app {
     ],
 
     srcs: ["src/**/*.java"],
-
-    libs: [
-        "android.car",
-    ],
 
     static_libs: [
         "androidx.lifecycle_lifecycle-common-java8",
@@ -46,6 +41,24 @@ android_app {
         "jsr305",
         "car-ui-lib",
         "car-admin-ui-lib",
+        "car-qc-lib",
+    ],
+
+    libs: [
+        "android.car",
+    ],
+
+    manifest: "AndroidManifest.xml",
+    resource_dirs: ["res"],
+}
+
+android_app {
+    name: "CarSettings",
+    overrides: ["Settings"],
+    platform_apis: true,
+
+    static_libs: [
+        "CarSettings-core",
     ],
 
     certificate: "platform",
@@ -101,6 +114,7 @@ android_app {
         "jsr305",
         "car-ui-lib-testing-support",
         "car-admin-ui-lib",
+        "car-qc-lib",
     ],
 
     // Testing only resources must be applied last so they take precedence.
@@ -160,6 +174,7 @@ android_library {
         "jsr305",
         "car-ui-lib-testing-support",
         "car-admin-ui-lib",
+        "car-qc-lib",
     ],
 
     // Testing only resources must be applied last so they take precedence.

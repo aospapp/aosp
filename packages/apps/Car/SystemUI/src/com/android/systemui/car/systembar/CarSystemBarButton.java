@@ -33,6 +33,8 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
+import androidx.annotation.Nullable;
+
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.systemui.R;
 import com.android.systemui.statusbar.AlphaOptimizedImageView;
@@ -53,6 +55,7 @@ public class CarSystemBarButton extends LinearLayout {
     private static final String EXTRA_BUTTON_PACKAGES = "packages";
     private static final float DEFAULT_SELECTED_ALPHA = 1f;
     private static final float DEFAULT_UNSELECTED_ALPHA = 0.75f;
+    private static final float DISABLED_ALPHA = 0.25f;
 
     private final Context mContext;
     private final ActivityTaskManager mActivityTaskManager;
@@ -66,12 +69,14 @@ public class CarSystemBarButton extends LinearLayout {
     private boolean mClearBackStack;
     private boolean mHasUnseen = false;
     private boolean mSelected = false;
+    private boolean mDisabled = false;
     private float mSelectedAlpha;
     private float mUnselectedAlpha;
     private int mSelectedIconResourceId;
     private int mIconResourceId;
     private Drawable mAppIcon;
     private boolean mIsDefaultAppIconForRoleEnabled;
+    private boolean mToggleSelectedState;
     private String[] mComponentNames;
     /** App categories that are to be used with this widget */
     private String[] mButtonCategories;
@@ -81,6 +86,7 @@ public class CarSystemBarButton extends LinearLayout {
     private boolean mShowMoreWhenSelected = false;
     /** Whether to highlight the button if the active application is associated with it */
     private boolean mHighlightWhenSelected = false;
+    private Runnable mOnClickWhileDisabledRunnable;
 
     public CarSystemBarButton(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -101,6 +107,11 @@ public class CarSystemBarButton extends LinearLayout {
      * @param selected true if should indicate if this is a selected state, false otherwise
      */
     public void setSelected(boolean selected) {
+        if (mDisabled) {
+            // if the button is disabled, mSelected should not be modified and the button
+            // should be unselectable
+            return;
+        }
         super.setSelected(selected);
         mSelected = selected;
 
@@ -114,12 +125,41 @@ public class CarSystemBarButton extends LinearLayout {
         updateImage();
     }
 
+    /** Gets whether the icon is in a selected state. */
+    public boolean getSelected() {
+        return mSelected;
+    }
+
     /**
      * @param hasUnseen true if should indicate if this is a Unseen state, false otherwise.
      */
     public void setUnseen(boolean hasUnseen) {
         mHasUnseen = hasUnseen;
         updateImage();
+    }
+
+    /**
+     * @param disabled true if icon should be isabled, false otherwise.
+     * @param runnable to run when button is clicked while disabled.
+     */
+    public void setDisabled(boolean disabled, @Nullable Runnable runnable) {
+        mDisabled = disabled;
+        mOnClickWhileDisabledRunnable = runnable;
+        refreshIconAlpha();
+        updateImage();
+    }
+
+    /** Gets whether the icon is disabled */
+    public boolean getDisabled() {
+        return mDisabled;
+    }
+
+    /** Runs the Runnable when the button is clicked while disabled */
+    public void runOnClickWhileDisabled() {
+        if (mOnClickWhileDisabledRunnable == null) {
+            return;
+        }
+        mOnClickWhileDisabledRunnable.run();
     }
 
     /**
@@ -214,6 +254,11 @@ public class CarSystemBarButton extends LinearLayout {
     }
 
     @VisibleForTesting
+    protected float getDisabledAlpha() {
+        return DISABLED_ALPHA;
+    }
+
+    @VisibleForTesting
     protected float getIconAlpha() { return mIcon.getAlpha(); }
 
     /**
@@ -265,6 +310,11 @@ public class CarSystemBarButton extends LinearLayout {
     /** Defines the behavior of a button click. */
     protected OnClickListener getButtonClickListener(Intent toSend) {
         return v -> {
+            if (mDisabled) {
+                runOnClickWhileDisabled();
+                return;
+            }
+            boolean startState = mSelected;
             mContext.sendBroadcastAsUser(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS),
                     UserHandle.CURRENT);
             try {
@@ -289,6 +339,10 @@ public class CarSystemBarButton extends LinearLayout {
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Failed to launch intent", e);
+            }
+
+            if (mToggleSelectedState && (startState == mSelected)) {
+                setSelected(!mSelected);
             }
         };
     }
@@ -332,10 +386,10 @@ public class CarSystemBarButton extends LinearLayout {
                 R.styleable.CarSystemBarButton_selectedIcon, mIconResourceId);
         mIsDefaultAppIconForRoleEnabled = typedArray.getBoolean(
                 R.styleable.CarSystemBarButton_useDefaultAppIconForRole, false);
+        mToggleSelectedState = typedArray.getBoolean(
+                R.styleable.CarSystemBarButton_toggleSelected, false);
         mIcon = findViewById(R.id.car_nav_button_icon_image);
-        // Always apply un-selected alpha regardless of if the button toggles alpha based on
-        // selection state.
-        mIcon.setAlpha(mHighlightWhenSelected ? mUnselectedAlpha : mSelectedAlpha);
+        refreshIconAlpha();
         mMoreIcon = findViewById(R.id.car_nav_button_more_icon);
         mUnseenIcon = findViewById(R.id.car_nav_button_unseen_icon);
         updateImage();
@@ -348,5 +402,15 @@ public class CarSystemBarButton extends LinearLayout {
             mIcon.setImageResource(mSelected ? mSelectedIconResourceId : mIconResourceId);
         }
         mUnseenIcon.setVisibility(mHasUnseen ? VISIBLE : GONE);
+    }
+
+    private void refreshIconAlpha() {
+        if (mDisabled) {
+            mIcon.setAlpha(DISABLED_ALPHA);
+        } else {
+            // Apply un-selected alpha regardless of if the button toggles alpha based on
+            // selection state.
+            mIcon.setAlpha(mHighlightWhenSelected ? mUnselectedAlpha : mSelectedAlpha);
+        }
     }
 }

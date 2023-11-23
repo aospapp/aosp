@@ -165,9 +165,13 @@ public class UnsupportedErrorDialogTests extends ActivityManagerTestBase {
         mWmState.waitAndAssertAppFocus(Components.UNRESPONSIVE_ACTIVITY.getPackageName(),
                 2_000 /* waitTime */);
         // queue up enough key events to trigger an ANR
-        for (int i = 0; i < 14; i++) {
+        for (int i = 0; i < 20; i++) {
             injectKey(KeyEvent.KEYCODE_TAB, false /* longPress */, false /* sync */);
             SystemClock.sleep(500);
+            mWmState.computeState();
+            if (!mWmState.isActivityVisible(Components.UNRESPONSIVE_ACTIVITY)) {
+                break;
+            }
         }
         ensureNoCrashDialog(Components.UNRESPONSIVE_ACTIVITY);
         ensureActivityNotFocused(Components.UNRESPONSIVE_ACTIVITY);

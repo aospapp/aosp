@@ -17,7 +17,7 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.LockTaskApp">
+          package="com.android.bedstead.testapp.LockTaskApp">
     <application
         android:appComponentFactory="com.android.bedstead.testapp.TestAppAppComponentFactory"
         android:testOnly="true">

@@ -200,7 +200,7 @@
     <string name="accessory_connected" msgid="5229574480869175180">"Միացված է"</string>
     <string name="accessory_change_name" msgid="6493717176878500683">"Փոխել անունը"</string>
     <string name="accessory_change_name_title" msgid="451188562035392238">"Մուտքագրեք նոր անուն այս լրասարքի համար"</string>
-    <string name="accessories_add_accessibility_title" msgid="1300294413423909579">"Bluetooth զուգավորում"</string>
+    <string name="accessories_add_accessibility_title" msgid="1300294413423909579">"Bluetooth զուգակցում"</string>
     <string name="accessories_add_title" msgid="7704824893011194433">"Սարքավորումների որոնում…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="2508151218328384366">"Նախքան ձեր Bluetooth սարքերը զուգավորելը, համոզվեք, որ դրանք զուգավորման ռեժիմում են։"</string>
     <string name="accessories_autopair_msg" msgid="2501824457418285019">"Սարք է հայտնաբերվել և ավտոմատ կմիանա <xliff:g id="COUNTDOWN">%1$s</xliff:g> վայրկյանից"</string>

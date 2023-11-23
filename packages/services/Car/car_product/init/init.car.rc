@@ -1,6 +1,7 @@
 # Insert car-specific startup services here
 on post-fs-data
     mkdir /data/system/car 0700 system system
+    mkdir /data/system/car/watchdog 0700 system system
 
 # A property to enable EVS services conditionally
 on property:persist.automotive.evs.mode=0

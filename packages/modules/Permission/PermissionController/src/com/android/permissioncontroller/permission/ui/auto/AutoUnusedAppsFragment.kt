@@ -20,10 +20,12 @@ import android.content.Context
 import android.os.Bundle
 import android.os.UserHandle
 import androidx.preference.Preference
+import androidx.preference.PreferenceCategory
 import com.android.permissioncontroller.R
 import com.android.permissioncontroller.auto.AutoSettingsFrameFragment
 import com.android.permissioncontroller.hibernation.isHibernationEnabled
 import com.android.permissioncontroller.permission.ui.UnusedAppsFragment
+import com.android.permissioncontroller.permission.ui.UnusedAppsFragment.Companion.INFO_MSG_CATEGORY
 import com.android.car.ui.utils.ViewUtils
 import com.android.car.ui.utils.ViewUtils.LazyLayoutView
 
@@ -34,6 +36,8 @@ class AutoUnusedAppsFragment : AutoSettingsFrameFragment(),
     UnusedAppsFragment.Parent<AutoUnusedAppsPreference> {
 
     companion object {
+        private const val UNUSED_PREFERENCE_KEY = "unused_pref_row_key"
+
         /** Create a new instance of this fragment.  */
         @JvmStatic
         fun newInstance(): AutoUnusedAppsFragment {
@@ -61,8 +65,8 @@ class AutoUnusedAppsFragment : AutoSettingsFrameFragment(),
 
         // initially focus on focus parking view and then shift focus to recyclerview once it has
         // loaded
-        ViewUtils.hideFocus(getListView().getRootView())
-        val lazyLayoutView = getListView() as LazyLayoutView
+        ViewUtils.hideFocus(getCarUiRecyclerView().getView().getRootView())
+        val lazyLayoutView = getCarUiRecyclerView() as LazyLayoutView
         ViewUtils.initFocus(lazyLayoutView)
     }
 
@@ -96,5 +100,26 @@ class AutoUnusedAppsFragment : AutoSettingsFrameFragment(),
 
     override fun setTitle(title: CharSequence) {
         headerLabel = title
+    }
+
+    override fun setEmptyState(empty: Boolean) {
+        val infoMsgCategory =
+                preferenceScreen.findPreference<PreferenceCategory>(INFO_MSG_CATEGORY)!!
+        val noUnusedAppsPreference: Preference? =
+                infoMsgCategory.findPreference<Preference>(UNUSED_PREFERENCE_KEY)
+        if (empty && noUnusedAppsPreference == null) {
+            infoMsgCategory.addPreference(createNoUnusedAppsPreference())
+        } else if (noUnusedAppsPreference != null) {
+            noUnusedAppsPreference.setVisible(empty)
+        }
+    }
+
+    private fun createNoUnusedAppsPreference(): Preference {
+        val preference = Preference(context)
+        preference.title = getString(R.string.zero_unused_apps)
+        preference.key = UNUSED_PREFERENCE_KEY
+        preference.isSelectable = false
+        preference.order = 0
+        return preference
     }
 }

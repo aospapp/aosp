@@ -151,7 +151,7 @@
     <string name="display_category_title" msgid="247804007525046312">"Écran"</string>
     <string name="advanced_display_settings_title" msgid="6293280819870140631">"Paramètres d\'affichage avancés"</string>
     <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
-    <string name="advanced_sound_settings_title" msgid="319921303039469139">"Paramètres de son avancés"</string>
+    <string name="advanced_sound_settings_title" msgid="319921303039469139">"Paramètres sonores avancés"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"Autoriser le mode Jeu"</string>
     <string name="match_content_frame_rate_title" msgid="153291168560947689">"Faire correspondre la fréquence d\'images"</string>
     <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"Transparent"</string>

@@ -15,14 +15,19 @@
  */
 package com.android.car.settings.enterprise;
 
+import androidx.preference.Preference;
+
 import com.android.car.settings.common.PreferenceController;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
 
 public final class DeviceAdminAddSupportPreferenceControllerTest extends
-        BaseDeviceAdminAddPreferenceControllerTestCase
-                <DeviceAdminAddSupportPreferenceController> {
+        BasePreferenceControllerTestCase {
+
+    @Mock
+    private Preference mPreference;
 
     private DeviceAdminAddSupportPreferenceController mController;
 
@@ -73,6 +78,6 @@ public final class DeviceAdminAddSupportPreferenceControllerTest extends
 
         mController.updateState(mPreference);
 
-        verifyPreferenceTitleSet("WHAZZZZUP");
+        verifyPreferenceTitleSet(mPreference, "WHAZZZZUP");
     }
 }

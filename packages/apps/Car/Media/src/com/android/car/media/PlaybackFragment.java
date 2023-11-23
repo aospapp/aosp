@@ -55,10 +55,11 @@ import com.android.car.media.common.playback.PlaybackViewModel;
 import com.android.car.media.common.source.MediaSourceViewModel;
 import com.android.car.media.widgets.AppBarController;
 import com.android.car.ui.core.CarUi;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.recyclerview.ContentLimiting;
 import com.android.car.ui.recyclerview.ScrollingLimitedViewHolder;
 import com.android.car.ui.toolbar.MenuItem;
-import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.NavButtonMode;
 import com.android.car.ui.toolbar.ToolbarController;
 import com.android.car.ui.utils.DirectManipulationHelper;
 import com.android.car.uxr.LifeCycleObserverUxrContentLimiter;
@@ -86,7 +87,7 @@ public class PlaybackFragment extends Fragment {
     private View mControlBarScrim;
     private PlaybackControlsActionBar mPlaybackControls;
     private QueueItemsAdapter mQueueAdapter;
-    private RecyclerView mQueue;
+    private CarUiRecyclerView mQueue;
     private ViewGroup mSeekBarContainer;
     private SeekBar mSeekBar;
     private List<View> mViewsToHideForCustomActions;
@@ -483,8 +484,7 @@ public class PlaybackFragment extends Fragment {
 
         mAppBarController.setTitle(R.string.fragment_playback_title);
         mAppBarController.setBackgroundShown(false);
-        mAppBarController.setNavButtonMode(Toolbar.NavButtonMode.DOWN);
-        mAppBarController.setState(Toolbar.State.SUBPAGE);
+        mAppBarController.setNavButtonMode(NavButtonMode.DOWN);
 
         // Update toolbar's logo
         MediaSourceViewModel mediaSourceViewModel = getMediaSourceViewModel();
@@ -623,6 +623,8 @@ public class PlaybackFragment extends Fragment {
 
         int decorationHeight = getResources().getDimensionPixelSize(
                 R.dimen.playback_queue_list_padding_top);
+        // TODO (b/206038962): addItemDecoration is not supported anymore. Find another way to
+        // support this.
         // Put the decoration above the first item.
         int decorationPosition = 0;
         mQueue.addItemDecoration(new QueueTopItemDecoration(decorationHeight, decorationPosition));

@@ -16,6 +16,10 @@
 
 package com.android.car.ui.baselayout;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.TargetApi;
+
 import java.util.Objects;
 
 /**
@@ -24,6 +28,7 @@ import java.util.Objects;
  *
  * See {@link InsetsChangedListener} for more information.
  */
+@TargetApi(MIN_TARGET_API)
 public final class Insets {
     private final int mLeft;
     private final int mRight;

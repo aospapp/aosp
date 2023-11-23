@@ -15,6 +15,7 @@
  */
 package com.android.bluetooth.gatt;
 
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanSettings;
 import android.os.Binder;
@@ -75,14 +76,21 @@ import java.util.Objects;
         public boolean isFilterScan;
         public boolean isCallbackScan;
         public boolean isBatchScan;
+        public boolean isLegacy;
         public int results;
         public int scannerId;
         public int scanMode;
         public int scanCallbackType;
+        public int phy;
+        public int scanResultType;
+        public long reportDelayMillis;
+        public int numOfMatchesPerFilter;
+        public int matchMode;
         public String filterString;
 
-        LastScan(long timestamp, boolean isFilterScan, boolean isCallbackScan, int scannerId,
-                int scanMode, int scanCallbackType) {
+        LastScan(long timestamp, boolean isFilterScan, boolean isCallbackScan, boolean isLegacy,
+                int scannerId, int scanMode, int scanCallbackType, int phy, int scanResultType,
+                long reportDelayMillis, int numOfMatchesPerFilter, int matchMode) {
             this.duration = 0;
             this.timestamp = timestamp;
             this.isOpportunisticScan = false;
@@ -90,9 +98,15 @@ import java.util.Objects;
             this.isBackgroundScan = false;
             this.isFilterScan = isFilterScan;
             this.isCallbackScan = isCallbackScan;
+            this.isLegacy = isLegacy;
             this.isBatchScan = false;
             this.scanMode = scanMode;
             this.scanCallbackType = scanCallbackType;
+            this.phy = phy;
+            this.scanResultType = scanResultType;
+            this.reportDelayMillis = reportDelayMillis;
+            this.numOfMatchesPerFilter = numOfMatchesPerFilter;
+            this.matchMode = matchMode;
             this.results = 0;
             this.scannerId = scannerId;
             this.suspendDuration = 0;
@@ -195,8 +209,10 @@ import java.util.Objects;
         this.mScansStarted++;
         startTime = SystemClock.elapsedRealtime();
 
-        LastScan scan = new LastScan(startTime, isFilterScan, isCallbackScan, scannerId,
-                settings.getScanMode(), settings.getCallbackType());
+        LastScan scan = new LastScan(startTime, isFilterScan, isCallbackScan, settings.getLegacy(),
+                scannerId, settings.getScanMode(), settings.getCallbackType(), settings.getPhy(),
+                settings.getScanResultType(), settings.getReportDelayMillis(),
+                settings.getNumOfMatches(), settings.getMatchMode());
         if (settings != null) {
             scan.isOpportunisticScan = scan.scanMode == ScanSettings.SCAN_MODE_OPPORTUNISTIC;
             scan.isBackgroundScan =
@@ -396,6 +412,16 @@ import java.util.Objects;
         }
         if (filter.getDeviceAddress() != null) {
             filterString += " DeviceAddress=" + filter.getDeviceAddress();
+            filterString += " AddressType="
+                    + addressTypeToString(filter.getDeviceAddress(), filter.getAddressType());
+            if (filter.getIrk() != null) {
+                if (filter.getIrk().length == 0) {
+                    filterString += "irkLength=0";
+                } else {
+                    filterString += "irkLength=" + filter.getIrk().length;
+                    filterString += "irkFirstByte=" + String.format("%02x", filter.getIrk()[0]);
+                }
+            }
         }
         if (filter.getServiceUuid() != null) {
             filterString += " ServiceUuid=" + filter.getServiceUuid();
@@ -433,6 +459,25 @@ import java.util.Objects;
         return filterString;
     }
 
+    private static String addressTypeToString(String address, int addressType) {
+        switch (addressType) {
+            case BluetoothDevice.ADDRESS_TYPE_PUBLIC:
+                return "PUBLIC";
+            case BluetoothDevice.ADDRESS_TYPE_RANDOM:
+                int msb = Integer.parseInt(address.split(":")[0], 16);
+                if ((msb & 0xC0) == 0xC0) {
+                    return "RANDOM_STATIC";
+                } else if ((msb & 0xC0) == 0x40) {
+                    return "RANDOM_RESOLVABLE";
+                } else if ((msb & 0xC0) == 0x00) {
+                    return "RANDOM_NON_RESOLVABLE";
+                } else {
+                    return "RANDOM_INVALID[msb=0x" + String.format("%02x", msb) + "]";
+                }
+            default:
+                return "INVALID[" + addressType + "]";
+        }
+    }
 
     private static String scanModeToString(int scanMode) {
         switch (scanMode) {
@@ -463,6 +508,43 @@ import java.util.Objects;
                 return callbackType == (ScanSettings.CALLBACK_TYPE_FIRST_MATCH
                     | ScanSettings.CALLBACK_TYPE_MATCH_LOST) ? "[FIRST_MATCH | LOST]" : "UNKNOWN: "
                     + callbackType;
+        }
+    }
+
+    private static String phyToString(int phy) {
+        switch (phy) {
+            case BluetoothDevice.PHY_LE_1M:
+                return "LE_1M";
+            case BluetoothDevice.PHY_LE_2M:
+                return "LE_2M";
+            case BluetoothDevice.PHY_LE_CODED:
+                return "LE_CODED";
+            case ScanSettings.PHY_LE_ALL_SUPPORTED:
+                return "ALL_SUPPORTED";
+            default:
+                return "UNKNOWN[" + phy + "]";
+        }
+    }
+
+    private static String scanResultTypeToString(int scanResultType) {
+        switch (scanResultType) {
+            case ScanSettings.SCAN_RESULT_TYPE_FULL:
+                return "FULL";
+            case ScanSettings.SCAN_RESULT_TYPE_ABBREVIATED:
+                return "ABBREVIATED";
+            default:
+                return "UNKNOWN[" + scanResultType + "]";
+        }
+    }
+
+    private static String matchModeToString(int matchMode) {
+        switch (matchMode) {
+            case ScanSettings.MATCH_MODE_STICKY:
+                return "STICKY";
+            case ScanSettings.MATCH_MODE_AGGRESSIVE:
+                return "AGGRESSIVE";
+            default:
+                return "UNKNOWN[" + matchMode + "]";
         }
     }
 
@@ -583,7 +665,12 @@ import java.util.Objects;
                 }
                 sb.append("\n      └ " + "Scan Config: [ ScanMode="
                         + scanModeToString(scan.scanMode) + ", callbackType="
-                        + callbackTypeToString(scan.scanCallbackType) + " ]");
+                        + callbackTypeToString(scan.scanCallbackType) + ", isLegacy="
+                        + scan.isLegacy + " phy=" + phyToString(scan.phy) + ", scanResultType="
+                        + scanResultTypeToString(scan.scanResultType) + ", reportDelayMillis="
+                        + scan.reportDelayMillis + ", numOfMatchesPerFilter="
+                        + scan.numOfMatchesPerFilter + ", matchMode="
+                        + matchModeToString(scan.matchMode) + " ]");
                 if (scan.isFilterScan) {
                     sb.append(scan.filterString);
                 }
@@ -633,7 +720,12 @@ import java.util.Objects;
                 }
                 sb.append("\n      └ " + "Scan Config: [ ScanMode="
                         + scanModeToString(scan.scanMode) + ", callbackType="
-                        + callbackTypeToString(scan.scanCallbackType) + " ]");
+                        + callbackTypeToString(scan.scanCallbackType) + ", isLegacy="
+                        + scan.isLegacy + " phy=" + phyToString(scan.phy) + ", scanResultType="
+                        + scanResultTypeToString(scan.scanResultType) + ", reportDelayMillis="
+                        + scan.reportDelayMillis + ", numOfMatchesPerFilter="
+                        + scan.numOfMatchesPerFilter + ", matchMode="
+                        + matchModeToString(scan.matchMode) + " ]");
                 if (scan.isFilterScan) {
                     sb.append(scan.filterString);
                 }

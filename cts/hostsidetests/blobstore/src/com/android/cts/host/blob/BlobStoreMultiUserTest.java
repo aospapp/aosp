@@ -40,9 +40,9 @@ public class BlobStoreMultiUserTest extends BaseBlobStoreHostTest {
 
     @BeforeClassWithInfo
     public static void setUpClass(TestInformation testInfo) throws Exception {
-        assumeTrue("Multi-user is not supported on this device",
-                isMultiUserSupported(testInfo.getDevice()));
-
+        if(!isMultiUserSupported(testInfo.getDevice())) {
+            return;
+        }
         mPrimaryUserId = testInfo.getDevice().getPrimaryUserId();
         mSecondaryUserId = testInfo.getDevice().createUser("Test_User");
         assertThat(testInfo.getDevice().startUser(mSecondaryUserId)).isTrue();
@@ -50,6 +50,8 @@ public class BlobStoreMultiUserTest extends BaseBlobStoreHostTest {
 
     @Before
     public void setUp() throws Exception {
+        assumeTrue("Multi-user is not supported on this device", isMultiUserSupported());
+
         for (String apk : new String[] {TARGET_APK, TARGET_APK_DEV}) {
             installPackageAsUser(apk, true /* grantPermissions */, mPrimaryUserId, "-t");
             installPackageAsUser(apk, true /* grantPermissions */, mSecondaryUserId, "-t");

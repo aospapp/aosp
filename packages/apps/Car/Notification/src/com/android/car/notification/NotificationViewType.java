@@ -40,6 +40,8 @@ import java.lang.annotation.RetentionPolicy;
         NotificationViewType.CALL,
         NotificationViewType.HEADER,
         NotificationViewType.FOOTER,
+        NotificationViewType.RECENTS,
+        NotificationViewType.OLDER,
 })
 @Retention(RetentionPolicy.SOURCE)
 @interface NotificationViewType {
@@ -72,4 +74,7 @@ import java.lang.annotation.RetentionPolicy;
 
     int HEADER = 18;
     int FOOTER = 19;
+
+    int RECENTS = 20;
+    int OLDER = 21;
 }

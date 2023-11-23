@@ -43,6 +43,7 @@ message StartSensorCommand {
   optional uint64 intervalInMs = 2;
   optional uint64 latencyInMs = 3;
   optional bool isContinuous = 4;
+  optional uint32 sensorIndex = 5;
 }
 
 /*
@@ -50,6 +51,8 @@ message StartSensorCommand {
  */
 message SensorInfoCommand {
   optional uint32 chreSensorType = 1;
+  // The sensor name given by android.hardware.Sensor#getSensorName()
+  optional bytes sensorName = 2;
 }
 
 /*
@@ -58,6 +61,7 @@ message SensorInfoCommand {
 message SensorInfoResponse {
   optional uint32 chreSensorType = 1;
   optional bool isAvailable = 2;
+  optional uint32 sensorIndex = 3;
 }
 
 message Data {

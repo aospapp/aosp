@@ -117,6 +117,7 @@ protected:
     std::string image_dir_path_;
     std::optional<TemporaryDir> tmp_dir_for_image_;
     inline static const std::string_view test_file_name_ = "test.txt";
+    inline static const std::string_view test_mapped_file_name_ = "mapped.txt";
     inline static const std::string_view test_dir_name_ = "test_dir";
     std::string metrics_key_;
     Control control_;

@@ -28,8 +28,10 @@ import android.support.test.uiautomator.By
 import android.support.test.uiautomator.BySelector
 import android.support.test.uiautomator.UiScrollable
 import android.support.test.uiautomator.UiSelector
+import android.support.test.uiautomator.StaleObjectException
 import android.text.Spanned
 import android.text.style.ClickableSpan
+import android.util.Log
 import android.view.View
 import com.android.compatibility.common.util.SystemUtil.eventually
 import org.junit.After
@@ -84,6 +86,7 @@ abstract class BaseUsePermissionTest : BasePermissionTest() {
         const val ALLOW_FOREGROUND_BUTTON_TEXT = "grant_dialog_button_allow_foreground"
         const val ALLOW_FOREGROUND_PREFERENCE_TEXT = "permission_access_only_foreground"
         const val ASK_BUTTON_TEXT = "app_permission_button_ask"
+        const val ALLOW_ONE_TIME_BUTTON_TEXT = "grant_dialog_button_allow_one_time"
         const val DENY_BUTTON_TEXT = "grant_dialog_button_deny"
         const val DENY_AND_DONT_ASK_AGAIN_BUTTON_TEXT =
                 "grant_dialog_button_deny_and_dont_ask_again"
@@ -410,11 +413,16 @@ abstract class BaseUsePermissionTest : BasePermissionTest() {
         isLegacyApp: Boolean,
         targetSdk: Int
     ) {
-        pressBack()
-        pressBack()
-        pressBack()
         if (isTv) {
+            // Dismiss DeprecatedTargetSdkVersionDialog, if present
+            if (waitFindObjectOrNull(By.text(APP_PACKAGE_NAME), 1000L) != null) {
+                pressBack()
+            }
             pressHome()
+        } else {
+            pressBack()
+            pressBack()
+            pressBack()
         }
 
         // Try multiple times as the AppInfo page might have read stale data
@@ -443,7 +451,7 @@ abstract class BaseUsePermissionTest : BasePermissionTest() {
             if (isWatch) {
                 click(By.text(permissionLabel), 40_000)
             } else {
-                click(By.text(permissionLabel))
+                clickPermissionControllerUi(By.text(permissionLabel))
             }
 
             val wasGranted = if (isAutomotive) {
@@ -451,15 +459,12 @@ abstract class BaseUsePermissionTest : BasePermissionTest() {
                 // won't show an "Ask every time" message
                 !waitFindObject(By.text(
                         getPermissionControllerString("app_permission_button_deny"))).isChecked
-            } else if (isTv) {
+            } else if (isTv || isWatch) {
                 !(waitFindObject(
                     By.text(getPermissionControllerString(DENY_BUTTON_TEXT))).isChecked ||
                     (!isLegacyApp && hasAskButton(permission) && waitFindObject(
                         By.text(getPermissionControllerString(ASK_BUTTON_TEXT))).isChecked))
             } else {
-                if (isWatch) {
-                    click(By.text("Deny"))
-                }
                 !(waitFindObject(By.res(DENY_RADIO_BUTTON)).isChecked ||
                     (!isLegacyApp && hasAskButton(permission) &&
                         waitFindObject(By.res(ASK_RADIO_BUTTON)).isChecked))
@@ -483,7 +488,7 @@ abstract class BaseUsePermissionTest : BasePermissionTest() {
                         PermissionState.DENIED_WITH_PREJUDICE -> By.text(
                                 getPermissionControllerString("app_permission_button_deny"))
                     }
-                } else if (isTv) {
+                } else if (isTv || isWatch) {
                     when (state) {
                         PermissionState.ALLOWED ->
                             if (showsForegroundOnlyButton(permission)) {
@@ -533,15 +538,22 @@ abstract class BaseUsePermissionTest : BasePermissionTest() {
                 if (!isTv) {
                     scrollToBottom()
                 }
-                val resources = context.createPackageContext(
-                    packageManager.permissionControllerPackageName, 0
-                ).resources
-                val confirmTextRes = resources.getIdentifier(
-                    "com.android.permissioncontroller:string/grant_dialog_button_deny_anyway", null,
-                    null
-                )
-                val confirmText = resources.getString(confirmTextRes)
-                if (!isWatch) {
+
+                // Due to the limited real estate, Wear uses buttons with icons instead of text
+                // for dialogs
+                if (isWatch) {
+                    click(By.res(
+                        "com.android.permissioncontroller:id/wear_alertdialog_positive_button"))
+                } else {
+                    val resources = context.createPackageContext(
+                        packageManager.permissionControllerPackageName, 0
+                    ).resources
+                    val confirmTextRes = resources.getIdentifier(
+                        "com.android.permissioncontroller:string/grant_dialog_button_deny_anyway",
+                        null, null
+                    )
+
+                    val confirmText = resources.getString(confirmTextRes)
                     click(byTextStartsWithCaseInsensitive(confirmText))
                 }
             }

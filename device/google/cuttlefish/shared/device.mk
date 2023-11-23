@@ -27,6 +27,7 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/userspace_reboot.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/generic_ramdisk.mk)
 
 PRODUCT_SOONG_NAMESPACES += device/generic/goldfish-opengl # for vulkan
+PRODUCT_SOONG_NAMESPACES += device/generic/goldfish # for audio and wifi
 
 PRODUCT_SHIPPING_API_LEVEL := 31
 PRODUCT_USE_DYNAMIC_PARTITIONS := true
@@ -73,10 +74,6 @@ PRODUCT_PRODUCT_PROPERTIES += \
     ro.com.google.locationfeatures=1 \
     persist.sys.fuse.passthrough.enable=true \
 
-# Storage: for factory reset protection feature
-PRODUCT_VENDOR_PROPERTIES += \
-    ro.frp.pst=/dev/block/by-name/frp
-
 # Explanation of specific properties:
 #   debug.hwui.swap_with_damage avoids boot failure on M http://b/25152138
 #   ro.opengles.version OpenGLES 3.0
@@ -97,6 +94,12 @@ PRODUCT_VENDOR_PROPERTIES += \
     ro.incremental.enable=1 \
     debug.c2.use_dmabufheaps=1 \
     ro.camerax.extensions.enabled=true \
+
+LOCAL_BT_PROPERTIES ?= \
+ vendor.ser.bt-uart?=/dev/hvc5 \
+
+PRODUCT_VENDOR_PROPERTIES += \
+	 ${LOCAL_BT_PROPERTIES} \
 
 # Below is a list of properties we probably should get rid of.
 PRODUCT_VENDOR_PROPERTIES += \
@@ -191,8 +194,7 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     libEGL_angle \
     libGLESv1_CM_angle \
-    libGLESv2_angle \
-    libfeature_support_angle.so
+    libGLESv2_angle
 
 # SwiftShader provides a software-only implementation that is not thread-safe
 PRODUCT_PACKAGES += \
@@ -300,7 +302,10 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.software.verified_boot.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.verified_boot.xml \
     system/bt/vendor_libs/test_vendor_lib/data/controller_properties.json:vendor/etc/bluetooth/controller_properties.json \
     device/google/cuttlefish/shared/config/task_profiles.json:$(TARGET_COPY_OUT_VENDOR)/etc/task_profiles.json \
-    device/google/cuttlefish/shared/config/input/Crosvm_Virtio_Multitouch_Touchscreen.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/Crosvm_Virtio_Multitouch_Touchscreen.idc
+    device/google/cuttlefish/shared/config/input/Crosvm_Virtio_Multitouch_Touchscreen_0.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/Crosvm_Virtio_Multitouch_Touchscreen_0.idc \
+    device/google/cuttlefish/shared/config/input/Crosvm_Virtio_Multitouch_Touchscreen_1.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/Crosvm_Virtio_Multitouch_Touchscreen_1.idc \
+    device/google/cuttlefish/shared/config/input/Crosvm_Virtio_Multitouch_Touchscreen_2.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/Crosvm_Virtio_Multitouch_Touchscreen_2.idc \
+    device/google/cuttlefish/shared/config/input/Crosvm_Virtio_Multitouch_Touchscreen_3.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/Crosvm_Virtio_Multitouch_Touchscreen_3.idc
 
 ifeq ($(TARGET_RO_FILE_SYSTEM_TYPE),ext4)
 PRODUCT_COPY_FILES += \
@@ -370,8 +375,7 @@ PRODUCT_PACKAGES += \
     hwcomposer.drm_minigbm \
     hwcomposer.cutf \
     hwcomposer-stats \
-    android.hardware.graphics.composer@2.3-impl \
-    android.hardware.graphics.composer@2.3-service
+    android.hardware.graphics.composer@2.4-service
 
 #
 # Gralloc HAL
@@ -404,16 +408,17 @@ PRODUCT_PACKAGES += android.hardware.bluetooth.audio@2.1-impl
 # Audio HAL
 #
 LOCAL_AUDIO_PRODUCT_PACKAGE ?= \
-    audio.primary.cutf \
-    audio.r_submix.default \
-    android.hardware.audio@6.0-impl \
-    android.hardware.audio.effect@6.0-impl \
-    android.hardware.audio@2.0-service
+    android.hardware.audio.service \
+    android.hardware.audio@7.0-impl.ranchu \
+    android.hardware.audio.effect@7.0-impl \
 
 LOCAL_AUDIO_PRODUCT_COPY_FILES ?= \
-    device/google/cuttlefish/shared/config/audio_policy.conf:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy.conf \
-    frameworks/av/services/audiopolicy/config/audio_policy_configuration_generic.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml \
-    frameworks/av/services/audiopolicy/config/primary_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/primary_audio_policy_configuration.xml
+    device/generic/goldfish/audio/policy/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml \
+    device/generic/goldfish/audio/policy/primary_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/primary_audio_policy_configuration.xml \
+    frameworks/av/services/audiopolicy/config/r_submix_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/r_submix_audio_policy_configuration.xml \
+    frameworks/av/services/audiopolicy/config/audio_policy_volumes.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_volumes.xml \
+    frameworks/av/services/audiopolicy/config/default_volume_tables.xml:$(TARGET_COPY_OUT_VENDOR)/etc/default_volume_tables.xml \
+    frameworks/av/media/libeffects/data/audio_effects.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_effects.xml \
 
 LOCAL_AUDIO_DEVICE_PACKAGE_OVERLAYS ?=
 
@@ -469,11 +474,19 @@ PRODUCT_PACKAGES += $(LOCAL_DUMPSTATE_PRODUCT_PACKAGE)
 #
 # Camera
 #
+ifeq ($(TARGET_USE_VSOCK_CAMERA_HAL_IMPL),true)
+PRODUCT_PACKAGES += \
+    android.hardware.camera.provider@2.7-external-vsock-service \
+    android.hardware.camera.provider@2.7-impl-cuttlefish
+DEVICE_MANIFEST_FILE += \
+    device/google/cuttlefish/guest/hals/camera/manifest.xml
+else
 PRODUCT_PACKAGES += \
     android.hardware.camera.provider@2.7-service-google \
     libgooglecamerahwl_impl \
     android.hardware.camera.provider@2.7-impl-google \
 
+endif
 #
 # Gatekeeper
 #

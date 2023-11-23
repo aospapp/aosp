@@ -18,7 +18,7 @@ package android.net.metrics
 
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
-import com.android.testutils.assertParcelSane
+import com.android.testutils.assertParcelingIsLossless
 import java.lang.reflect.Modifier
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -51,7 +51,7 @@ class ValidationProbeEventTest {
         assertTrue(validationProbeEvent.probeType hasType FIRST_VALIDATION)
         assertEquals(ValidationProbeEvent.DNS_SUCCESS, validationProbeEvent.returnCode)
 
-        assertParcelSane(validationProbeEvent, 3)
+        assertParcelingIsLossless(validationProbeEvent)
     }
 
     @Test

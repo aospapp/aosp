@@ -42,4 +42,26 @@ open class WindowConfiguration(
             maxBounds.isEmpty &&
             windowingMode == 0 &&
             activityType == 0
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is WindowConfiguration) return false
+
+        if (windowingMode != other.windowingMode) return false
+        if (activityType != other.activityType) return false
+        if (appBounds != other.appBounds) return false
+        if (bounds != other.bounds) return false
+        if (maxBounds != other.maxBounds) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = windowingMode
+        result = 31 * result + activityType
+        result = 31 * result + appBounds.hashCode()
+        result = 31 * result + bounds.hashCode()
+        result = 31 * result + maxBounds.hashCode()
+        return result
+    }
 }

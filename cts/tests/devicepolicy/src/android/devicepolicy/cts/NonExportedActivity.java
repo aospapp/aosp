@@ -19,5 +19,5 @@ package android.devicepolicy.cts;
 import android.app.Activity;
 
 /** Activity used for Cross Profile Apps Tests */
-public class NonExportedActivity extends Activity {
+public final class NonExportedActivity extends Activity {
 }

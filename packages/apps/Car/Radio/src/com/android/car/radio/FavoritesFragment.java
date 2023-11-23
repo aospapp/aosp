@@ -26,13 +26,13 @@ import android.view.ViewGroup;
 
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.broadcastradio.support.Program;
 import com.android.car.radio.storage.RadioStorage;
 import com.android.car.radio.util.Log;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.baselayout.InsetsChangedListener;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 
 /**
  * Fragment that shows a list of all the current favorite radio stations
@@ -43,7 +43,7 @@ public class FavoritesFragment extends Fragment implements InsetsChangedListener
     private RadioController mRadioController;
     private BrowseAdapter mBrowseAdapter;
     private RadioStorage mRadioStorage;
-    private RecyclerView mBrowseList;
+    private CarUiRecyclerView mBrowseList;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,

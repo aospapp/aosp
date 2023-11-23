@@ -20,6 +20,8 @@ import static org.mockito.Mockito.mock;
 import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateReq;
 import android.util.Log;
 
+import com.android.car.CarServiceUtils;
+
 import java.util.LinkedList;
 
 public class MockedPowerHalService extends PowerHalService {
@@ -47,7 +49,9 @@ public class MockedPowerHalService extends PowerHalService {
                 mock(UserHalService.class),
                 mock(DiagnosticHalService.class),
                 mock(ClusterHalService.class),
-                mock(HalClient.class));
+                mock(TimeHalService.class),
+                mock(HalClient.class),
+                CarServiceUtils.getHandlerThread(VehicleHal.class.getSimpleName()));
         return mockedVehicleHal;
     }
 

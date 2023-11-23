@@ -1,0 +1,9 @@
+type hal_neuralnetworks_armnn, domain;
+hal_server_domain(hal_neuralnetworks_armnn, hal_neuralnetworks)
+
+type hal_neuralnetworks_armnn_exec, vendor_file_type, exec_type, file_type;
+
+allow hal_neuralnetworks_armnn gpu_device:chr_file rw_file_perms;
+
+init_daemon_domain(hal_neuralnetworks_armnn)
+

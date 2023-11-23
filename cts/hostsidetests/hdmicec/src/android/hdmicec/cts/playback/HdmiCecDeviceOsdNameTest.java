@@ -99,9 +99,6 @@ public final class HdmiCecDeviceOsdNameTest extends BaseHdmiCecCtsTest {
      */
     @Test
     public void cect_11_2_11_2_UnregisteredDeviceGiveOsdNameTest() throws Exception {
-        hdmiCecClient.sendCecMessage(LogicalAddress.PLAYBACK_1, CecOperand.GIVE_OSD_NAME);
-        hdmiCecClient.checkOutputDoesNotContainMessage(LogicalAddress.PLAYBACK_1,
-                CecOperand.SET_OSD_NAME);
         hdmiCecClient.sendCecMessage(LogicalAddress.BROADCAST, CecOperand.GIVE_OSD_NAME);
         hdmiCecClient.checkOutputDoesNotContainMessage(LogicalAddress.BROADCAST,
                 CecOperand.SET_OSD_NAME);

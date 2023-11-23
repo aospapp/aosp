@@ -20,7 +20,7 @@ import static android.net.MacAddress.TYPE_BROADCAST;
 import static android.net.MacAddress.TYPE_MULTICAST;
 import static android.net.MacAddress.TYPE_UNICAST;
 
-import static com.android.testutils.ParcelUtils.assertParcelSane;
+import static com.android.testutils.ParcelUtils.assertParcelingIsLossless;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
@@ -218,6 +218,6 @@ public class MacAddressTest {
     public void testParcelMacAddress() {
         final MacAddress mac = MacAddress.fromString("52:74:f2:b1:a8:7f");
 
-        assertParcelSane(mac, 1);
+        assertParcelingIsLossless(mac);
     }
 }

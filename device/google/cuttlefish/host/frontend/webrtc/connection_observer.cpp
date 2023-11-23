@@ -35,6 +35,7 @@
 #include "common/libs/fs/shared_buf.h"
 #include "host/frontend/webrtc/adb_handler.h"
 #include "host/frontend/webrtc/bluetooth_handler.h"
+#include "host/frontend/webrtc/lib/camera_controller.h"
 #include "host/frontend/webrtc/lib/utils.h"
 #include "host/libs/config/cuttlefish_config.h"
 
@@ -103,11 +104,13 @@ class ConnectionObserverForAndroid
       cuttlefish::KernelLogEventsHandler *kernel_log_events_handler,
       std::map<std::string, cuttlefish::SharedFD>
           commands_to_custom_action_servers,
-      std::weak_ptr<DisplayHandler> display_handler)
+      std::weak_ptr<DisplayHandler> display_handler,
+      CameraController *camera_controller)
       : input_sockets_(input_sockets),
         kernel_log_events_handler_(kernel_log_events_handler),
         commands_to_custom_action_servers_(commands_to_custom_action_servers),
-        weak_display_handler_(display_handler) {}
+        weak_display_handler_(display_handler),
+        camera_controller_(camera_controller) {}
   virtual ~ConnectionObserverForAndroid() {
     auto display_handler = weak_display_handler_.lock();
     if (display_handler) {
@@ -141,67 +144,65 @@ class ConnectionObserverForAndroid
     }
     }
 
-  void OnTouchEvent(const std::string & /*display_label*/, int x, int y,
-                    bool down) override {
-
-    auto buffer = GetEventBuffer();
-    if (!buffer) {
-      LOG(ERROR) << "Failed to allocate event buffer";
-      return;
-    }
-    buffer->AddEvent(EV_ABS, ABS_X, x);
-    buffer->AddEvent(EV_ABS, ABS_Y, y);
-    buffer->AddEvent(EV_KEY, BTN_TOUCH, down);
-    buffer->AddEvent(EV_SYN, SYN_REPORT, 0);
-    cuttlefish::WriteAll(input_sockets_.touch_client,
-                         reinterpret_cast<const char *>(buffer->data()),
-                         buffer->size());
-  }
-
-  void OnMultiTouchEvent(const std::string & /*display_label*/, Json::Value id,
-                         Json::Value slot, Json::Value x, Json::Value y,
-                         bool down, int size) override {
-
-    auto buffer = GetEventBuffer();
-    if (!buffer) {
-      LOG(ERROR) << "Failed to allocate event buffer";
-      return;
+    void OnTouchEvent(const std::string &display_label, int x, int y,
+                      bool down) override {
+      auto buffer = GetEventBuffer();
+      if (!buffer) {
+        LOG(ERROR) << "Failed to allocate event buffer";
+        return;
+      }
+      buffer->AddEvent(EV_ABS, ABS_X, x);
+      buffer->AddEvent(EV_ABS, ABS_Y, y);
+      buffer->AddEvent(EV_KEY, BTN_TOUCH, down);
+      buffer->AddEvent(EV_SYN, SYN_REPORT, 0);
+      cuttlefish::WriteAll(input_sockets_.GetTouchClientByLabel(display_label),
+                           reinterpret_cast<const char *>(buffer->data()),
+                           buffer->size());
     }
 
-    for (int i=0; i<size; i++) {
-      auto this_slot = slot[i].asInt();
-      auto this_id = id[i].asInt();
-      auto this_x = x[i].asInt();
-      auto this_y = y[i].asInt();
-      buffer->AddEvent(EV_ABS, ABS_MT_SLOT, this_slot);
-      if (down) {
-        bool is_new = active_touch_slots_.insert(this_slot).second;
-        if (is_new) {
+    void OnMultiTouchEvent(const std::string &display_label, Json::Value id,
+                           Json::Value slot, Json::Value x, Json::Value y,
+                           bool down, int size) override {
+      auto buffer = GetEventBuffer();
+      if (!buffer) {
+        LOG(ERROR) << "Failed to allocate event buffer";
+        return;
+      }
+
+      for (int i = 0; i < size; i++) {
+        auto this_slot = slot[i].asInt();
+        auto this_id = id[i].asInt();
+        auto this_x = x[i].asInt();
+        auto this_y = y[i].asInt();
+        buffer->AddEvent(EV_ABS, ABS_MT_SLOT, this_slot);
+        if (down) {
+          bool is_new = active_touch_slots_.insert(this_slot).second;
+          if (is_new) {
+            buffer->AddEvent(EV_ABS, ABS_MT_TRACKING_ID, this_id);
+            if (active_touch_slots_.size() == 1) {
+              buffer->AddEvent(EV_KEY, BTN_TOUCH, 1);
+            }
+          }
+          buffer->AddEvent(EV_ABS, ABS_MT_POSITION_X, this_x);
+          buffer->AddEvent(EV_ABS, ABS_MT_POSITION_Y, this_y);
+          // send ABS_X and ABS_Y for single-touch compatibility
+          buffer->AddEvent(EV_ABS, ABS_X, this_x);
+          buffer->AddEvent(EV_ABS, ABS_Y, this_y);
+        } else {
+          // released touch
           buffer->AddEvent(EV_ABS, ABS_MT_TRACKING_ID, this_id);
-          if (active_touch_slots_.size() == 1) {
-            buffer->AddEvent(EV_KEY, BTN_TOUCH, 1);
+          active_touch_slots_.erase(this_slot);
+          if (active_touch_slots_.empty()) {
+            buffer->AddEvent(EV_KEY, BTN_TOUCH, 0);
           }
         }
-        buffer->AddEvent(EV_ABS, ABS_MT_POSITION_X, this_x);
-        buffer->AddEvent(EV_ABS, ABS_MT_POSITION_Y, this_y);
-        // send ABS_X and ABS_Y for single-touch compatibility
-        buffer->AddEvent(EV_ABS, ABS_X, this_x);
-        buffer->AddEvent(EV_ABS, ABS_Y, this_y);
-      } else {
-        // released touch
-        buffer->AddEvent(EV_ABS, ABS_MT_TRACKING_ID, this_id);
-        active_touch_slots_.erase(this_slot);
-        if (active_touch_slots_.empty()) {
-          buffer->AddEvent(EV_KEY, BTN_TOUCH, 0);
-        }
       }
-    }
 
-    buffer->AddEvent(EV_SYN, SYN_REPORT, 0);
-    cuttlefish::WriteAll(input_sockets_.touch_client,
-                         reinterpret_cast<const char *>(buffer->data()),
-                         buffer->size());
-  }
+      buffer->AddEvent(EV_SYN, SYN_REPORT, 0);
+      cuttlefish::WriteAll(input_sockets_.GetTouchClientByLabel(display_label),
+                           reinterpret_cast<const char *>(buffer->data()),
+                           buffer->size());
+    }
 
   void OnKeyboardEvent(uint16_t code, bool down) override {
     auto buffer = GetEventBuffer();
@@ -244,6 +245,9 @@ class ConnectionObserverForAndroid
   void OnControlChannelOpen(std::function<bool(const Json::Value)>
                             control_message_sender) override {
     LOG(VERBOSE) << "Control Channel open";
+    if (camera_controller_) {
+      camera_controller_->SetMessageSender(control_message_sender);
+    }
     kernel_log_subscription_id_ =
         kernel_log_events_handler_->AddSubscriber(control_message_sender);
   }
@@ -283,6 +287,10 @@ class ConnectionObserverForAndroid
         // TODO(b/181157794) Propagate hinge angle sensor data using a custom
         // Sensor HAL.
       }
+      return;
+    } else if (command.rfind("camera_", 0) == 0 && camera_controller_) {
+      // Handle commands starting with "camera_" by camera controller
+      camera_controller_->HandleMessage(evt);
       return;
     }
 
@@ -330,6 +338,12 @@ class ConnectionObserverForAndroid
     bluetooth_handler_->handleMessage(msg, size);
   }
 
+  void OnCameraData(const std::vector<char> &data) override {
+    if (camera_controller_) {
+      camera_controller_->HandleMessage(data);
+    }
+  }
+
  private:
   cuttlefish::InputSockets& input_sockets_;
   cuttlefish::KernelLogEventsHandler* kernel_log_events_handler_;
@@ -340,6 +354,7 @@ class ConnectionObserverForAndroid
   std::map<std::string, cuttlefish::SharedFD> commands_to_custom_action_servers_;
   std::weak_ptr<DisplayHandler> weak_display_handler_;
   std::set<int32_t> active_touch_slots_;
+  cuttlefish::CameraController *camera_controller_;
 };
 
 class ConnectionObserverDemuxer
@@ -352,10 +367,12 @@ class ConnectionObserverDemuxer
       std::map<std::string, cuttlefish::SharedFD>
           commands_to_custom_action_servers,
       std::weak_ptr<DisplayHandler> display_handler,
+      CameraController *camera_controller,
       /* params for this class */
       cuttlefish::confui::HostVirtualInput &confui_input)
       : android_input_(input_sockets, kernel_log_events_handler,
-                       commands_to_custom_action_servers, display_handler),
+                       commands_to_custom_action_servers, display_handler,
+                       camera_controller),
         confui_input_{confui_input} {}
   virtual ~ConnectionObserverDemuxer() = default;
 
@@ -433,6 +450,10 @@ class ConnectionObserverDemuxer
     android_input_.OnBluetoothMessage(msg, size);
   }
 
+  void OnCameraData(const std::vector<char> &data) override {
+    android_input_.OnCameraData(data);
+  }
+
  private:
   ConnectionObserverForAndroid android_input_;
   cuttlefish::confui::HostVirtualInput &confui_input_;
@@ -451,7 +472,8 @@ CfConnectionObserverFactory::CreateObserver() {
   return std::shared_ptr<cuttlefish::webrtc_streaming::ConnectionObserver>(
       new ConnectionObserverDemuxer(input_sockets_, kernel_log_events_handler_,
                                     commands_to_custom_action_servers_,
-                                    weak_display_handler_, confui_input_));
+                                    weak_display_handler_, camera_controller_,
+                                    confui_input_));
 }
 
 void CfConnectionObserverFactory::AddCustomActionServer(
@@ -466,5 +488,10 @@ void CfConnectionObserverFactory::AddCustomActionServer(
 void CfConnectionObserverFactory::SetDisplayHandler(
     std::weak_ptr<DisplayHandler> display_handler) {
   weak_display_handler_ = display_handler;
+}
+
+void CfConnectionObserverFactory::SetCameraHandler(
+    CameraController *controller) {
+  camera_controller_ = controller;
 }
 }  // namespace cuttlefish

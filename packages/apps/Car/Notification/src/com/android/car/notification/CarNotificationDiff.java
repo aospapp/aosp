@@ -45,6 +45,7 @@ class CarNotificationDiff extends DiffUtil.Callback {
     private final List<NotificationGroup> mOldList;
     private final List<NotificationGroup> mNewList;
     private final int mMaxItems;
+    private boolean mShowRecentsAndOlderHeaders;
 
     CarNotificationDiff(Context context, @NonNull List<NotificationGroup> oldList,
             @NonNull List<NotificationGroup> newList) {
@@ -57,6 +58,10 @@ class CarNotificationDiff extends DiffUtil.Callback {
         mOldList = oldList;
         mNewList = newList;
         mMaxItems = maxItems;
+    }
+
+    void setShowRecentsAndOlderHeaders(boolean showRecentsAndOlderHeaders) {
+        mShowRecentsAndOlderHeaders = showRecentsAndOlderHeaders;
     }
 
     @Override
@@ -74,7 +79,7 @@ class CarNotificationDiff extends DiffUtil.Callback {
         NotificationGroup oldItem = mOldList.get(oldItemPosition);
         NotificationGroup newItem = mNewList.get(newItemPosition);
 
-        return sameGroupUniqueIdentifiers(oldItem, newItem);
+        return sameGroupUniqueIdentifiers(oldItem, newItem, mShowRecentsAndOlderHeaders);
     }
 
     /**
@@ -87,9 +92,12 @@ class CarNotificationDiff extends DiffUtil.Callback {
      * </ol>
      * <p>
      * This method does not check for child AlertEntries because child itself will take care of it.
+     *
+     * @param showRecentsAndOlderHeaders if {@code true} then isSeen values of the two notification
+     * groups are also compared.
      */
     static boolean sameGroupUniqueIdentifiers(NotificationGroup oldItem,
-            NotificationGroup newItem) {
+            NotificationGroup newItem, boolean showRecentsAndOlderHeaders) {
 
         if (oldItem == newItem) {
             return true;
@@ -97,6 +105,12 @@ class CarNotificationDiff extends DiffUtil.Callback {
 
         if (!oldItem.getGroupKey().equals(newItem.getGroupKey())) {
             return false;
+        }
+
+        if (showRecentsAndOlderHeaders) {
+            if (oldItem.isSeen() != newItem.isSeen()) {
+                return false;
+            }
         }
 
         return sameNotificationKey(
@@ -142,7 +156,7 @@ class CarNotificationDiff extends DiffUtil.Callback {
         NotificationGroup newItem = mNewList.get(newItemPosition);
 
         // Header and Footer should always refresh if some notification items have changed.
-        if (newItem.isHeader() || newItem.isFooter()) {
+        if (newItem.isHeaderOrFooter()) {
             return false;
         }
 

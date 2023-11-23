@@ -54,11 +54,11 @@ class FlickerRunResult private constructor(
     /**
      * Truth subject that corresponds to a [WindowManagerTrace] or [WindowManagerState]
      */
-    private val wmSubject: FlickerSubject?,
+    internal val wmSubject: FlickerSubject?,
     /**
      * Truth subject that corresponds to a [LayersTrace] or [LayerTraceEntry]
      */
-    private val layersSubject: FlickerSubject?,
+    internal val layersSubject: FlickerSubject?,
     /**
      * Truth subject that corresponds to a list of [FocusEvent]
      */

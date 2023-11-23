@@ -617,7 +617,7 @@
     <item msgid="5645263357181875427">"交通機関からストリーミングされた時刻を使用する"</item>
     <item msgid="5501503537181350884">"OFF"</item>
   </string-array>
-    <string name="sensor_toggle_description" msgid="7415801459994303159">"すべてのアプリとサービス"</string>
+    <string name="sensor_toggle_description" msgid="7415801459994303159">"すべてのアプリとサービスにアクセスを許可する"</string>
     <string name="recently_accessed_by_category" msgid="6841705864715653428">"最近アクセスしたアプリ"</string>
     <string name="no_recent_sensor_accesses" msgid="3498112970658050800">"最近アクセスしたアプリはありません"</string>
     <string name="recently_accessed_show_all" msgid="5234849189704717855">"すべて表示"</string>
@@ -924,7 +924,7 @@
     <string name="device_daydreams_sleep_summary" msgid="3081688734381995693">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>以上動作がない"</string>
     <string name="device_energy_saver_screen_off" msgid="6908468996426629480">"画面を OFF にする"</string>
     <string name="device_energy_saver_screen_off_description" msgid="4469679706899396071">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>後"</string>
-    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"画面を OFF にする時間"</string>
+    <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"画面を OFF にするまでの時間"</string>
     <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"画面の OFF を許可する"</string>
     <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"メディアの再生時"</string>
     <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"省エネ設定の確認"</string>

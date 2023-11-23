@@ -21,6 +21,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <!-- TODO(b/137885984): Revisit secondary user eligibility once the issue is resolved. -->
     <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="InstallTest.apk" />

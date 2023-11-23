@@ -56,6 +56,14 @@ public class CodecEncoderTest extends CodecEncoderTestBase {
     private static final String LOG_TAG = CodecEncoderTest.class.getSimpleName();
     private int mNumSyncFramesReceived;
     private ArrayList<Integer> mSyncFramesPos;
+    private static ArrayList<String> mAdaptiveBitrateMimeList = new ArrayList<>();
+
+    static {
+        mAdaptiveBitrateMimeList.add(MediaFormat.MIMETYPE_VIDEO_AVC);
+        mAdaptiveBitrateMimeList.add(MediaFormat.MIMETYPE_VIDEO_HEVC);
+        mAdaptiveBitrateMimeList.add(MediaFormat.MIMETYPE_VIDEO_VP8);
+        mAdaptiveBitrateMimeList.add(MediaFormat.MIMETYPE_VIDEO_VP9);
+    }
 
     public CodecEncoderTest(String encoder, String mime, int[] bitrates, int[] encoderInfo1,
             int[] encoderInfo2) {
@@ -720,7 +728,8 @@ public class CodecEncoderTest extends CodecEncoderTestBase {
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testAdaptiveBitRate() throws IOException, InterruptedException {
-        Assume.assumeTrue(!mIsAudio);
+        Assume.assumeTrue("Skipping AdaptiveBitrate test for " + mMime,
+            mAdaptiveBitrateMimeList.contains(mMime));
         setUpParams(1);
         boolean[] boolStates = {true, false};
         setUpSource(mInputFile);
@@ -798,7 +807,8 @@ public class CodecEncoderTest extends CodecEncoderTestBase {
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testAdaptiveBitRateNative() throws IOException {
-        Assume.assumeTrue(!mIsAudio);
+        Assume.assumeTrue("Skipping Native AdaptiveBitrate test for " + mMime,
+            mAdaptiveBitrateMimeList.contains(mMime));
         int colorFormat = -1;
         {
             /* TODO(b/147574800) */

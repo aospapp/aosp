@@ -313,7 +313,7 @@ private:
 V4L2BufferRefBase::V4L2BufferRefBase(const struct v4l2_buffer& v4l2Buffer,
                                      base::WeakPtr<V4L2Queue> queue)
       : mQueue(std::move(queue)), mReturnTo(mQueue->mFreeBuffers) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(V4L2_TYPE_IS_MULTIPLANAR(v4l2Buffer.type));
     ALOG_ASSERT(v4l2Buffer.length <= base::size(mV4l2Planes));
     ALOG_ASSERT(mReturnTo);
@@ -331,7 +331,7 @@ V4L2BufferRefBase::~V4L2BufferRefBase() {
 }
 
 bool V4L2BufferRefBase::queueBuffer() {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     if (!mQueue) return false;
 
@@ -341,7 +341,7 @@ bool V4L2BufferRefBase::queueBuffer() {
 }
 
 void* V4L2BufferRefBase::getPlaneMapping(const size_t plane) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     if (!mQueue) return nullptr;
 
@@ -349,7 +349,7 @@ void* V4L2BufferRefBase::getPlaneMapping(const size_t plane) {
 }
 
 bool V4L2BufferRefBase::checkNumFDsForFormat(const size_t numFds) const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     if (!mQueue) return false;
 
@@ -383,24 +383,24 @@ bool V4L2BufferRefBase::checkNumFDsForFormat(const size_t numFds) const {
 V4L2WritableBufferRef::V4L2WritableBufferRef(const struct v4l2_buffer& v4l2Buffer,
                                              base::WeakPtr<V4L2Queue> queue)
       : mBufferData(std::make_unique<V4L2BufferRefBase>(v4l2Buffer, std::move(queue))) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 }
 
 V4L2WritableBufferRef::V4L2WritableBufferRef(V4L2WritableBufferRef&& other)
       : mBufferData(std::move(other.mBufferData)) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     DCHECK_CALLED_ON_VALID_SEQUENCE(other.mSequenceChecker);
 }
 
 V4L2WritableBufferRef::~V4L2WritableBufferRef() {
     // Only valid references should be sequence-checked
     if (mBufferData) {
-        ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+        DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     }
 }
 
 V4L2WritableBufferRef& V4L2WritableBufferRef::operator=(V4L2WritableBufferRef&& other) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     DCHECK_CALLED_ON_VALID_SEQUENCE(other.mSequenceChecker);
 
     if (this == &other) return *this;
@@ -411,14 +411,14 @@ V4L2WritableBufferRef& V4L2WritableBufferRef::operator=(V4L2WritableBufferRef&& 
 }
 
 enum v4l2_memory V4L2WritableBufferRef::memory() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     return static_cast<enum v4l2_memory>(mBufferData->mV4l2Buffer.memory);
 }
 
 bool V4L2WritableBufferRef::doQueue() && {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     bool queued = mBufferData->queueBuffer();
@@ -430,7 +430,7 @@ bool V4L2WritableBufferRef::doQueue() && {
 }
 
 bool V4L2WritableBufferRef::queueMMap() && {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     // Move ourselves so our data gets freed no matter when we return
@@ -445,7 +445,7 @@ bool V4L2WritableBufferRef::queueMMap() && {
 }
 
 bool V4L2WritableBufferRef::queueUserPtr(const std::vector<void*>& ptrs) && {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     // Move ourselves so our data gets freed no matter when we return
@@ -471,7 +471,7 @@ bool V4L2WritableBufferRef::queueUserPtr(const std::vector<void*>& ptrs) && {
 }
 
 bool V4L2WritableBufferRef::queueDMABuf(const std::vector<int>& fds) && {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     // Move ourselves so our data gets freed no matter when we return
@@ -491,14 +491,14 @@ bool V4L2WritableBufferRef::queueDMABuf(const std::vector<int>& fds) && {
 }
 
 size_t V4L2WritableBufferRef::planesCount() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     return mBufferData->mV4l2Buffer.length;
 }
 
 size_t V4L2WritableBufferRef::getPlaneSize(const size_t plane) const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     if (plane >= planesCount()) {
@@ -510,7 +510,7 @@ size_t V4L2WritableBufferRef::getPlaneSize(const size_t plane) const {
 }
 
 void V4L2WritableBufferRef::setPlaneSize(const size_t plane, const size_t size) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     enum v4l2_memory mem = memory();
@@ -529,28 +529,28 @@ void V4L2WritableBufferRef::setPlaneSize(const size_t plane, const size_t size) 
 }
 
 void* V4L2WritableBufferRef::getPlaneMapping(const size_t plane) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     return mBufferData->getPlaneMapping(plane);
 }
 
 void V4L2WritableBufferRef::setTimeStamp(const struct timeval& timestamp) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     mBufferData->mV4l2Buffer.timestamp = timestamp;
 }
 
 const struct timeval& V4L2WritableBufferRef::getTimeStamp() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     return mBufferData->mV4l2Buffer.timestamp;
 }
 
 void V4L2WritableBufferRef::setPlaneBytesUsed(const size_t plane, const size_t bytesUsed) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     if (plane >= planesCount()) {
@@ -567,7 +567,7 @@ void V4L2WritableBufferRef::setPlaneBytesUsed(const size_t plane, const size_t b
 }
 
 size_t V4L2WritableBufferRef::getPlaneBytesUsed(const size_t plane) const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     if (plane >= planesCount()) {
@@ -579,7 +579,7 @@ size_t V4L2WritableBufferRef::getPlaneBytesUsed(const size_t plane) const {
 }
 
 void V4L2WritableBufferRef::setPlaneDataOffset(const size_t plane, const size_t dataOffset) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     if (plane >= planesCount()) {
@@ -591,7 +591,7 @@ void V4L2WritableBufferRef::setPlaneDataOffset(const size_t plane, const size_t 
 }
 
 size_t V4L2WritableBufferRef::bufferId() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     return mBufferData->mV4l2Buffer.index;
@@ -600,7 +600,7 @@ size_t V4L2WritableBufferRef::bufferId() const {
 V4L2ReadableBuffer::V4L2ReadableBuffer(const struct v4l2_buffer& v4l2Buffer,
                                        base::WeakPtr<V4L2Queue> queue)
       : mBufferData(std::make_unique<V4L2BufferRefBase>(v4l2Buffer, std::move(queue))) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 }
 
 V4L2ReadableBuffer::~V4L2ReadableBuffer() {
@@ -611,42 +611,42 @@ V4L2ReadableBuffer::~V4L2ReadableBuffer() {
 }
 
 bool V4L2ReadableBuffer::isLast() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     return mBufferData->mV4l2Buffer.flags & V4L2_BUF_FLAG_LAST;
 }
 
 bool V4L2ReadableBuffer::isKeyframe() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     return mBufferData->mV4l2Buffer.flags & V4L2_BUF_FLAG_KEYFRAME;
 }
 
 struct timeval V4L2ReadableBuffer::getTimeStamp() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     return mBufferData->mV4l2Buffer.timestamp;
 }
 
 size_t V4L2ReadableBuffer::planesCount() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     return mBufferData->mV4l2Buffer.length;
 }
 
 const void* V4L2ReadableBuffer::getPlaneMapping(const size_t plane) const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     DCHECK(mBufferData);
 
     return mBufferData->getPlaneMapping(plane);
 }
 
 size_t V4L2ReadableBuffer::getPlaneBytesUsed(const size_t plane) const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     if (plane >= planesCount()) {
@@ -658,7 +658,7 @@ size_t V4L2ReadableBuffer::getPlaneBytesUsed(const size_t plane) const {
 }
 
 size_t V4L2ReadableBuffer::getPlaneDataOffset(const size_t plane) const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     if (plane >= planesCount()) {
@@ -670,7 +670,7 @@ size_t V4L2ReadableBuffer::getPlaneDataOffset(const size_t plane) const {
 }
 
 size_t V4L2ReadableBuffer::bufferId() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(mBufferData);
 
     return mBufferData->mV4l2Buffer.index;
@@ -698,11 +698,11 @@ public:
 V4L2Queue::V4L2Queue(scoped_refptr<V4L2Device> dev, enum v4l2_buf_type type,
                      base::OnceClosure destroyCb)
       : mType(type), mDevice(dev), mDestroyCb(std::move(destroyCb)) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 }
 
 V4L2Queue::~V4L2Queue() {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     if (mIsStreaming) {
         ALOGEQ("Queue is still streaming, trying to stop it...");
@@ -756,7 +756,7 @@ std::pair<std::optional<struct v4l2_format>, int> V4L2Queue::getFormat() {
 }
 
 size_t V4L2Queue::allocateBuffers(size_t count, enum v4l2_memory memory) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     ALOG_ASSERT(!mFreeBuffers);
     ALOG_ASSERT(mQueuedBuffers.size() == 0u);
 
@@ -827,7 +827,7 @@ size_t V4L2Queue::allocateBuffers(size_t count, enum v4l2_memory memory) {
 }
 
 bool V4L2Queue::deallocateBuffers() {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     if (isStreaming()) {
         ALOGEQ("Cannot deallocate buffers while streaming.");
@@ -860,7 +860,7 @@ bool V4L2Queue::deallocateBuffers() {
 }
 
 size_t V4L2Queue::getMemoryUsage() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
     size_t usage = 0;
     for (const auto& buf : mBuffers) {
         usage += buf->getMemoryUsage();
@@ -873,7 +873,7 @@ v4l2_memory V4L2Queue::getMemoryType() const {
 }
 
 std::optional<V4L2WritableBufferRef> V4L2Queue::getFreeBuffer() {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     // No buffers allocated at the moment?
     if (!mFreeBuffers) return std::nullopt;
@@ -886,7 +886,7 @@ std::optional<V4L2WritableBufferRef> V4L2Queue::getFreeBuffer() {
 }
 
 std::optional<V4L2WritableBufferRef> V4L2Queue::getFreeBuffer(size_t requestedBufferIid) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     // No buffers allocated at the moment?
     if (!mFreeBuffers) return std::nullopt;
@@ -899,7 +899,7 @@ std::optional<V4L2WritableBufferRef> V4L2Queue::getFreeBuffer(size_t requestedBu
 }
 
 bool V4L2Queue::queueBuffer(struct v4l2_buffer* v4l2Buffer) {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     int ret = mDevice->ioctl(VIDIOC_QBUF, v4l2Buffer);
     if (ret) {
@@ -919,7 +919,7 @@ bool V4L2Queue::queueBuffer(struct v4l2_buffer* v4l2Buffer) {
 }
 
 std::pair<bool, V4L2ReadableBufferRef> V4L2Queue::dequeueBuffer() {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     // No need to dequeue if no buffers queued.
     if (queuedBuffersCount() == 0) return std::make_pair(true, nullptr);
@@ -968,13 +968,13 @@ std::pair<bool, V4L2ReadableBufferRef> V4L2Queue::dequeueBuffer() {
 }
 
 bool V4L2Queue::isStreaming() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     return mIsStreaming;
 }
 
 bool V4L2Queue::streamon() {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     if (mIsStreaming) return true;
 
@@ -991,7 +991,7 @@ bool V4L2Queue::streamon() {
 }
 
 bool V4L2Queue::streamoff() {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     // We do not check the value of IsStreaming(), because we may have queued buffers to the queue
     // and wish to get them back - in such as case, we may need to do a VIDIOC_STREAMOFF on a
@@ -1017,19 +1017,19 @@ bool V4L2Queue::streamoff() {
 }
 
 size_t V4L2Queue::allocatedBuffersCount() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     return mBuffers.size();
 }
 
 size_t V4L2Queue::freeBuffersCount() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     return mFreeBuffers ? mFreeBuffers->size() : 0;
 }
 
 size_t V4L2Queue::queuedBuffersCount() const {
-    ALOG_ASSERT(mSequenceChecker.CalledOnValidSequence());
+    DCHECK_CALLED_ON_VALID_SEQUENCE(mSequenceChecker);
 
     return mQueuedBuffers.size();
 }
@@ -1439,6 +1439,27 @@ int32_t V4L2Device::h264LevelIdcToV4L2H264Level(uint8_t levelIdc) {
 }
 
 // static
+v4l2_mpeg_video_bitrate_mode V4L2Device::C2BitrateModeToV4L2BitrateMode(
+        C2Config::bitrate_mode_t bitrateMode) {
+    switch (bitrateMode) {
+    case C2Config::bitrate_mode_t::BITRATE_CONST_SKIP_ALLOWED:
+        ALOGW("BITRATE_CONST_SKIP_ALLOWED not supported, defaulting to BITRATE_CONST");
+        FALLTHROUGH;
+    case C2Config::bitrate_mode_t::BITRATE_CONST:
+        return V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
+    case C2Config::bitrate_mode_t::BITRATE_VARIABLE_SKIP_ALLOWED:
+        ALOGW("BITRATE_VARIABLE_SKIP_ALLOWED not supported, defaulting to BITRATE_VARIABLE");
+        FALLTHROUGH;
+    case C2Config::bitrate_mode_t::BITRATE_VARIABLE:
+        return V4L2_MPEG_VIDEO_BITRATE_MODE_VBR;
+    default:
+        ALOGW("Unsupported bitrate mode %u, defaulting to BITRATE_VARIABLE",
+              static_cast<uint32_t>(bitrateMode));
+        return V4L2_MPEG_VIDEO_BITRATE_MODE_VBR;
+    }
+}
+
+// static
 ui::Size V4L2Device::allocatedSizeFromV4L2Format(const struct v4l2_format& format) {
     ui::Size codedSize;
     ui::Size visibleSize;
@@ -1509,7 +1530,7 @@ ui::Size V4L2Device::allocatedSizeFromV4L2Format(const struct v4l2_format& forma
 
     // Sanity checks. Calculated coded size has to contain given visible size and fulfill buffer
     // byte size requirements.
-    ALOG_ASSERT(Rect(codedSize).Contains(Rect(visibleSize)));
+    ALOG_ASSERT(contains(Rect(codedSize), Rect(visibleSize)));
     ALOG_ASSERT(sizeimage <= allocationSize(frameFormat, codedSize));
 
     return codedSize;

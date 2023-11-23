@@ -52,17 +52,17 @@ public class QueryParam {
         QueryParam getQueryParam();
     }
 
-    /** Used by {@link ObservableAsyncQuery#startQuery()} as query param. */
+    /** Used by {@link AsyncEntityLoader#loadInBackground()} as query param. */
     final Uri mUri;
-    /** Used by {@link ObservableAsyncQuery#startQuery()} as query param. */
+    /** Used by {@link AsyncEntityLoader#loadInBackground()} as query param. */
     final String[] mProjection;
-    /** Used by {@link ObservableAsyncQuery#startQuery()} as query param. */
+    /** Used by {@link AsyncEntityLoader#loadInBackground()} as query param. */
     final String mSelection;
-    /** Used by {@link ObservableAsyncQuery#startQuery()} as query param. */
+    /** Used by {@link AsyncEntityLoader#loadInBackground()} as query param. */
     final String[] mSelectionArgs;
-    /** Used by {@link ObservableAsyncQuery#startQuery()} as query param. */
+    /** Used by {@link AsyncEntityLoader#loadInBackground()} as query param. */
     final String mOrderBy;
-    /** Used by {@link ObservableAsyncQuery#startQuery()} to check query permission. */
+    /** Used by {@link AsyncEntityLoader#loadInBackground()} ()} to check query permission. */
     final String mPermission;
 
     public QueryParam(

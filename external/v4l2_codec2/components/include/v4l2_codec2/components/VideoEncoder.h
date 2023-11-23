@@ -64,8 +64,12 @@ public:
     // Flush the encoder, pending drain operations will be aborted.
     virtual void flush() = 0;
 
-    // Set the bitrate to the specified value, will affect all non-processed frames.
+    // Set the target bitrate to the specified value, will affect all non-processed frames.
     virtual bool setBitrate(uint32_t bitrate) = 0;
+    // Set the peak bitrate to the specified value. The peak bitrate must be larger or equal to the
+    // target bitrate and is ignored if the bitrate mode is constant.
+    virtual bool setPeakBitrate(uint32_t peakBitrate) = 0;
+
     // Set the framerate to the specified value, will affect all non-processed frames.
     virtual bool setFramerate(uint32_t framerate) = 0;
     // Request the next frame encoded to be a key frame, will affect the next non-processed frame.

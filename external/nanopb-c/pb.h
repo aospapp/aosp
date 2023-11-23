@@ -38,6 +38,11 @@
 /* #define PB_OLD_CALLBACK_STYLE */
 
 
+/* Don't encode scalar arrays as packed. This is only to be used when
+ * the decoder on the receiving side cannot process packed scalar arrays.
+ * Such example is older protobuf.js. */
+/* #define PB_ENCODE_ARRAYS_UNPACKED 1 */
+
 /******************************************************************
  * You usually don't need to change anything below this line.     *
  * Feel free to look around and use the defined macros, though.   *
@@ -46,7 +51,7 @@
 
 /* Version of the nanopb library. Just in case you want to check it in
  * your own program. */
-#define NANOPB_VERSION nanopb-0.3.9.1
+#define NANOPB_VERSION nanopb-0.3.9.8
 
 /* Include all the system headers needed by nanopb. You will need the
  * definitions of the following:
@@ -122,11 +127,6 @@
 #define PB_STATIC_ASSERT_MSG(MSG, LINE, COUNTER) PB_STATIC_ASSERT_MSG_(MSG, LINE, COUNTER)
 #define PB_STATIC_ASSERT_MSG_(MSG, LINE, COUNTER) pb_static_assertion_##MSG##LINE##COUNTER
 #endif
-#ifndef STATIC_ASSERT
-#define STATIC_ASSERT PB_STATIC_ASSERT
-#define STATIC_ASSERT_MSG PB_STATIC_ASSERT_MSG
-#define STATIC_ASSERT_MSG_ PB_STATIC_ASSERT_MSG_
-#endif
 #else
 #define PB_STATIC_ASSERT(COND,MSG)
 #endif
@@ -150,39 +150,40 @@ typedef uint_least8_t pb_type_t;
 /**** Field data types ****/
 
 /* Numeric types */
-#define PB_LTYPE_VARINT  0x00 /* int32, int64, enum, bool */
-#define PB_LTYPE_UVARINT 0x01 /* uint32, uint64 */
-#define PB_LTYPE_SVARINT 0x02 /* sint32, sint64 */
-#define PB_LTYPE_FIXED32 0x03 /* fixed32, sfixed32, float */
-#define PB_LTYPE_FIXED64 0x04 /* fixed64, sfixed64, double */
+#define PB_LTYPE_BOOL    0x00 /* bool */
+#define PB_LTYPE_VARINT  0x01 /* int32, int64, enum, bool */
+#define PB_LTYPE_UVARINT 0x02 /* uint32, uint64 */
+#define PB_LTYPE_SVARINT 0x03 /* sint32, sint64 */
+#define PB_LTYPE_FIXED32 0x04 /* fixed32, sfixed32, float */
+#define PB_LTYPE_FIXED64 0x05 /* fixed64, sfixed64, double */
 
 /* Marker for last packable field type. */
-#define PB_LTYPE_LAST_PACKABLE 0x04
+#define PB_LTYPE_LAST_PACKABLE 0x05
 
 /* Byte array with pre-allocated buffer.
  * data_size is the length of the allocated PB_BYTES_ARRAY structure. */
-#define PB_LTYPE_BYTES 0x05
+#define PB_LTYPE_BYTES 0x06
 
 /* String with pre-allocated buffer.
  * data_size is the maximum length. */
-#define PB_LTYPE_STRING 0x06
+#define PB_LTYPE_STRING 0x07
 
 /* Submessage
  * submsg_fields is pointer to field descriptions */
-#define PB_LTYPE_SUBMESSAGE 0x07
+#define PB_LTYPE_SUBMESSAGE 0x08
 
 /* Extension pseudo-field
  * The field contains a pointer to pb_extension_t */
-#define PB_LTYPE_EXTENSION 0x08
+#define PB_LTYPE_EXTENSION 0x09
 
 /* Byte array with inline, pre-allocated byffer.
  * data_size is the length of the inline, allocated buffer.
  * This differs from PB_LTYPE_BYTES by defining the element as
  * pb_byte_t[data_size] rather than pb_bytes_array_t. */
-#define PB_LTYPE_FIXED_LENGTH_BYTES 0x09
+#define PB_LTYPE_FIXED_LENGTH_BYTES 0x0A
 
 /* Number of declared LTYPES */
-#define PB_LTYPES_COUNT 0x0A
+#define PB_LTYPES_COUNT 0x0B
 #define PB_LTYPE_MASK 0x0F
 
 /**** Field repetition rules ****/
@@ -194,7 +195,7 @@ typedef uint_least8_t pb_type_t;
 #define PB_HTYPE_MASK     0x30
 
 /**** Field allocation types ****/
- 
+
 #define PB_ATYPE_STATIC   0x00
 #define PB_ATYPE_POINTER  0x80
 #define PB_ATYPE_CALLBACK 0x40
@@ -242,7 +243,7 @@ struct pb_field_s {
     pb_ssize_t size_offset; /* Offset of array size or has-boolean, relative to data */
     pb_size_t data_size; /* Data size in bytes for a single item */
     pb_size_t array_size; /* Maximum number of entries in array */
-    
+
     /* Field definitions for submessage
      * OR default value for all other non-array, non-callback types
      * If null, then field will zeroed. */
@@ -308,8 +309,8 @@ struct pb_callback_s {
         bool (*decode)(pb_istream_t *stream, const pb_field_t *field, void **arg);
         bool (*encode)(pb_ostream_t *stream, const pb_field_t *field, void * const *arg);
     } funcs;
-#endif    
-    
+#endif
+
     /* Free arg for use by callback */
     void *arg;
 };
@@ -339,7 +340,7 @@ struct pb_extension_type_s {
      */
     bool (*decode)(pb_istream_t *stream, pb_extension_t *extension,
                    uint32_t tag, pb_wire_type_t wire_type);
-    
+
     /* Called once after all regular fields have been encoded.
      * If you have something to write, do so and return true.
      * If you do not have anything to write, just return true.
@@ -347,7 +348,7 @@ struct pb_extension_type_s {
      * Set to NULL for default handler.
      */
     bool (*encode)(pb_ostream_t *stream, const pb_extension_t *extension);
-    
+
     /* Free field for use by the callback. */
     const void *arg;
 };
@@ -356,11 +357,11 @@ struct pb_extension_s {
     /* Type describing the extension field. Usually you'll initialize
      * this to a pointer to the automatically generated structure. */
     const pb_extension_type_t *type;
-    
+
     /* Destination for the decoded data. This must match the datatype
      * of the extension field. */
     void *dest;
-    
+
     /* Pointer to the next extension handler, or NULL.
      * If this extension does not match a field, the next handler is
      * automatically called. */
@@ -467,7 +468,7 @@ struct pb_extension_s {
 #define PB_SINGULAR_CALLBACK(tag, st, m, fd, ltype, ptr) \
     {tag, PB_ATYPE_CALLBACK | PB_HTYPE_OPTIONAL | ltype, \
     fd, 0, pb_membersize(st, m), 0, ptr}
-    
+
 #define PB_REPEATED_CALLBACK(tag, st, m, fd, ltype, ptr) \
     {tag, PB_ATYPE_CALLBACK | PB_HTYPE_REPEATED | ltype, \
     fd, 0, pb_membersize(st, m), 0, ptr}
@@ -491,7 +492,7 @@ struct pb_extension_s {
     PB_OPTIONAL_CALLBACK(tag, st, m, fd, ltype, ptr)
 
 /* The mapping from protobuf types to LTYPEs is done using these macros. */
-#define PB_LTYPE_MAP_BOOL               PB_LTYPE_VARINT
+#define PB_LTYPE_MAP_BOOL               PB_LTYPE_BOOL
 #define PB_LTYPE_MAP_BYTES              PB_LTYPE_BYTES
 #define PB_LTYPE_MAP_DOUBLE             PB_LTYPE_FIXED64
 #define PB_LTYPE_MAP_ENUM               PB_LTYPE_VARINT

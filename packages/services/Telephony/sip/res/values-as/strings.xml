@@ -20,7 +20,7 @@
     <string name="sip_accounts" msgid="7297896885665783239">"SIP একাউণ্টসমূহ"</string>
     <string name="sip_accounts_title" msgid="3061686404598143943">"একাউণ্টসমূহ"</string>
     <string name="sip_receive_calls" msgid="3403644006618369349">"অন্তৰ্গামী কল লাভ কৰি থকা হৈছে"</string>
-    <string name="sip_receive_calls_summary" msgid="5306603671778761443">"বেটাৰি অধিক ব্যৱহাৰ কৰে"</string>
+    <string name="sip_receive_calls_summary" msgid="5306603671778761443">"বেটাৰী অধিক ব্যৱহাৰ কৰে"</string>
     <string name="sip_call_options_title" msgid="5027066677561068192">"SIP কলিং ব্যৱহাৰ কৰক"</string>
     <string name="sip_call_options_wifi_only_title" msgid="6663105297927456484">"SIP কলিং ব্যৱহাৰ কৰক (কেৱল ৱাই-ফাই)"</string>
     <string name="sip_call_options_entry_1" msgid="4722647332760934261">"ডেটা নেটৱৰ্ক উপলব্ধ থাকোঁতে সকলো কলৰ বাবে"</string>

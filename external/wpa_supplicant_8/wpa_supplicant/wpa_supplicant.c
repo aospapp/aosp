@@ -6694,7 +6694,7 @@ static void wpa_supplicant_deinit_iface(struct wpa_supplicant *wpa_s,
 	struct wpa_global *global = wpa_s->global;
 	struct wpa_supplicant *iface, *prev;
 
-	if (wpa_s == wpa_s->parent)
+	if (wpa_s == wpa_s->parent || (wpa_s == wpa_s->p2pdev && wpa_s->p2p_mgmt))
 		wpas_p2p_group_remove(wpa_s, "*");
 
 	iface = global->ifaces;

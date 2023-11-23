@@ -16,6 +16,10 @@
 $(call inherit-product, device/generic/car/gsi_car_base.mk)
 $(call inherit-product, device/generic/common/gsi_arm64.mk)
 
+# This option is specific to the phone GSI, so clear this option after
+# gsi_arm64.mk is inherited.
+PRODUCT_INSTALL_DEBUG_POLICY_TO_SYSTEM_EXT :=
+
 PRODUCT_NAME := gsi_car_arm64
 PRODUCT_DEVICE := generic_arm64
 PRODUCT_BRAND := Android

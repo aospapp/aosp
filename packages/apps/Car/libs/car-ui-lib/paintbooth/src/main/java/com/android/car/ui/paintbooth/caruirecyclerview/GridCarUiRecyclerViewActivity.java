@@ -49,7 +49,7 @@ public class GridCarUiRecyclerViewActivity extends Activity implements
 
         CarUiRecyclerView recyclerView = findViewById(R.id.list);
 
-        RecyclerViewAdapter adapter = new RecyclerViewAdapter(generateSampleData());
+        RecyclerViewAdapter adapter = new RecyclerViewAdapter(this, generateSampleData());
         recyclerView.setAdapter(adapter);
     }
 

@@ -38,6 +38,8 @@ public class ConversationItemAdapter extends RecyclerView.Adapter<ConversationIt
         void onConversationItemClicked(@NonNull Conversation conversation);
         /** Callback to start tap to reply voice interaction for conversation item */
         void onReplyIconClicked(@NonNull Conversation conversation);
+        /** Callback to start tap to read voice interaction for conversation item */
+        void onPlayIconClicked(@NonNull Conversation conversation);
     }
 
     @NonNull private final List<UIConversationItem> mUIConversationItems = new ArrayList<>();

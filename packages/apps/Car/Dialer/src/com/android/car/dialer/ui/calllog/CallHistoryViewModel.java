@@ -21,8 +21,8 @@ import android.text.format.DateUtils;
 
 import androidx.lifecycle.LiveData;
 
-import com.android.car.arch.common.FutureData;
-import com.android.car.arch.common.LiveDataFunctions;
+import com.android.car.apps.common.util.FutureData;
+import com.android.car.apps.common.util.LiveDataFunctions;
 import com.android.car.dialer.bluetooth.CallHistoryManager;
 import com.android.car.dialer.livedata.HeartBeatLiveData;
 import com.android.car.dialer.livedata.SharedPreferencesLiveData;

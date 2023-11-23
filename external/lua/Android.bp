@@ -40,6 +40,7 @@ cc_library_static {
     visibility: [
         "//external/libtextclassifier:__subpackages__",
         "//packages/services/Car/cpp/telemetry:__subpackages__",
+        "//packages/services/Car/packages/ScriptExecutor:__subpackages__",
     ],
 }
 

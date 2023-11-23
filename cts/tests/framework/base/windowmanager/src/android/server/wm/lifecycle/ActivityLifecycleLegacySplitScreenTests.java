@@ -39,7 +39,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
-import android.app.ActivityOptions;
 import android.app.Instrumentation;
 import android.app.WindowConfiguration;
 import android.content.Intent;
@@ -133,13 +132,9 @@ public class ActivityLifecycleLegacySplitScreenTests extends ActivityLifecycleCl
         // Launch an activity that will be moved to split-screen secondary
         final Activity sideActivity = launchActivityAndWait(ThirdActivity.class);
 
-        ActivityOptions options = ActivityOptions.makeBasic();
-        options.setLaunchWindowingMode(WindowConfiguration.WINDOWING_MODE_FULLSCREEN);
-
         // Launch an activity in a new task
         final Activity firstActivity = new Launcher(FirstActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
-                .setOptions(options)
                 .launch();
 
         // Enter split screen

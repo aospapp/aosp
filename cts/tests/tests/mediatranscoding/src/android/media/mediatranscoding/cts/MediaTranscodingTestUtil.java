@@ -23,6 +23,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.media.Image;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
@@ -322,23 +323,32 @@ import java.util.Locale;
             throw new UnsupportedOperationException("Only supports YUV420P");
         }
 
-        int imageWidth = image.getWidth();
-        int imageHeight = image.getHeight();
+        Rect crop = image.getCropRect();
+        int cropLeft = crop.left;
+        int cropRight = crop.right;
+        int cropTop = crop.top;
+        int cropBottom = crop.bottom;
+        int imageWidth = cropRight - cropLeft;
+        int imageHeight = cropBottom - cropTop;
         byte[] bb = new byte[imageWidth * imageHeight];
         byte[] lb = null;
         Image.Plane[] planes = image.getPlanes();
         for (int i = 0; i < planes.length; ++i) {
             ByteBuffer buf = planes[i].getBuffer();
 
-            int width, height, rowStride, pixelStride, x, y;
+            int width, height, rowStride, pixelStride, x, y, top, left;
             rowStride = planes[i].getRowStride();
             pixelStride = planes[i].getPixelStride();
             if (i == 0) {
                 width = imageWidth;
                 height = imageHeight;
+                left = cropLeft;
+                top = cropTop;
             } else {
                 width = imageWidth / 2;
                 height = imageHeight / 2;
+                left = cropLeft / 2;
+                top = cropTop / 2;
             }
 
             if (buf.hasArray()) {
@@ -371,7 +381,7 @@ import java.util.Locale;
                     }
                     // do it pixel-by-pixel
                     for (y = 0; y < height; ++y) {
-                        buf.position(pos + y * rowStride);
+                        buf.position(pos + left + (top + y) * rowStride);
                         // we're only guaranteed to have pixelStride * (width - 1) + 1 bytes
                         buf.get(lb, 0, pixelStride * (width - 1) + 1);
                         for (x = 0; x < width; ++x) {

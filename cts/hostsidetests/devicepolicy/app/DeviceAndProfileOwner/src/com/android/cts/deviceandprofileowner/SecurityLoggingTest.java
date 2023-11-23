@@ -558,16 +558,14 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
     }
 
     public void testSetDelegateScope_delegationSecurityLogging() {
-        mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT, DELEGATE_APP_PKG,
-                Arrays.asList(DELEGATION_SECURITY_LOGGING));
+        setDelegatedScopes(DELEGATE_APP_PKG, Arrays.asList(DELEGATION_SECURITY_LOGGING));
 
         assertThat(mDevicePolicyManager.getDelegatedScopes(
                 ADMIN_RECEIVER_COMPONENT, DELEGATE_APP_PKG)).contains(DELEGATION_SECURITY_LOGGING);
     }
 
     public void testSetDelegateScope_noDelegation() {
-        mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT, DELEGATE_APP_PKG,
-                Arrays.asList());
+        setDelegatedScopes(DELEGATE_APP_PKG, Arrays.asList());
 
         assertThat(mDevicePolicyManager.getDelegatedScopes(
                 ADMIN_RECEIVER_COMPONENT, DELEGATE_APP_PKG))

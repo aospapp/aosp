@@ -18,9 +18,9 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="wifi_eap_error_message_code_32760" msgid="5711364720754353427">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access қызметіне Verizon қызмет көрсету аясынан тыс жерден қосыла алмайсыз."</string>
     <string name="wifi_eap_error_message_code_32761" msgid="7871615432524623339">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access қызметіне жазылған жоқсыз. Бізге 800-922-0204 нөмірі арқылы хабарласыңыз."</string>
-    <string name="wifi_eap_error_message_code_32762" msgid="2994908156286205343">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access есептік жазбасына қатысты мәселе шықты. Бізге 800-922-0204 нөмірі арқылы хабарласыңыз."</string>
+    <string name="wifi_eap_error_message_code_32762" msgid="2994908156286205343">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access аккаунтына қатысты мәселе шықты. Бізге 800-922-0204 нөмірі арқылы хабарласыңыз."</string>
     <string name="wifi_eap_error_message_code_32763" msgid="8051026304965697200">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access қызметіне әлдеқашан қосылғансыз."</string>
     <string name="wifi_eap_error_message_code_32764" msgid="7311904315070770780">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access қызметіне қосылу кезінде мәселе шықты. Бізге 800-922-0204 нөмірі арқылы хабарласыңыз."</string>
-    <string name="wifi_eap_error_message_code_32765" msgid="576968115890091383">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access есептік жазбасына қатысты мәселе шықты. Бізге 800-922-0204 нөмірі арқылы хабарласыңыз."</string>
+    <string name="wifi_eap_error_message_code_32765" msgid="576968115890091383">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access аккаунтына қатысты мәселе шықты. Бізге 800-922-0204 нөмірі арқылы хабарласыңыз."</string>
     <string name="wifi_eap_error_message_code_32766" msgid="895346637290649533">"<xliff:g id="SSID">%1$s</xliff:g> : Verizon Wi-Fi Access қазіргі орналасқан жеріңізде жұмыс істемейді. Әрекетті кейінірек немесе басқа жерден қайталап көріңіз."</string>
 </resources>

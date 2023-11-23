@@ -92,4 +92,9 @@ public class AlertEntry {
     public Notification getNotification() {
         return mStatusBarNotification.getNotification();
     }
+
+    @Override
+    public String toString() {
+        return mKey;
+    }
 }

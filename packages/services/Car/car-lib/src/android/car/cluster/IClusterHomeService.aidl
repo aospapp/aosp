@@ -17,7 +17,8 @@
 package android.car.cluster;
 
 import android.car.cluster.ClusterState;
-import android.car.cluster.IClusterHomeCallback;
+import android.car.cluster.IClusterStateListener;
+import android.car.cluster.IClusterNavigationStateListener;
 import android.content.Intent;
 import android.os.Bundle;
 
@@ -48,10 +49,16 @@ interface IClusterHomeService {
      * does not stop the activity but it will not be re-launched any more.
      */
     void stopFixedActivityMode() = 3;
-    /** Registers a callback */
-    void registerCallback(in IClusterHomeCallback callback) = 4;
-    /** Unregisters a callback */
-    void unregisterCallback(in IClusterHomeCallback callback) = 5;
+    // 4 removed. Do not use - void registerCallback(in IClusterHomeCallback callback) = 4;
+    // 5 removed. Do not use - void unregisterCallback(in IClusterHomeCallback callback) = 5;
     /** Returns the current {@code ClusterDisplayState}. */
     ClusterState getClusterState() = 6;
+    /** Registers a listener to listen for cluster state changes. */
+    void registerClusterStateListener(in IClusterStateListener listener) = 7;
+    /** Unregisters a cluster state listener. */
+    void unregisterClusterStateListener(in IClusterStateListener listener) = 8;
+    /** Registers a listener to lsiten for clustser navigation state changes. */
+    void registerClusterNavigationStateListener(in IClusterNavigationStateListener listener) = 9;
+    /** Unregisters a cluster navigation state listener. */
+    void unregisterClusterNavigationStateListener(in IClusterNavigationStateListener listener) = 10;
 }

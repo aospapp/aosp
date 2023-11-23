@@ -43,12 +43,15 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(android_getaddrinfofornet);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(android_getaddrinfofornetcontext);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(android_mallopt);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(android_set_abort_message);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(clock_getres);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(clock_gettime);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(freeaddrinfo);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(gai_strerror);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(getaddrinfo);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(gethostbyaddr);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(gethostbyname);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(getnameinfo);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(gettimeofday);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(longjmp);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(native_bridge___cxa_thread_atexit_impl);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(native_bridge_aligned_alloc);
@@ -105,6 +108,7 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(pthread_sigqueue);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(setjmp);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(siglongjmp);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(sigsetjmp);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(time);
 DEFINE_INTERCEPTABLE_STUB_VARIABLE(environ);
 
 static void __attribute__((constructor(0))) init_stub_library() {
@@ -134,12 +138,15 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", android_getaddrinfofornetcontext);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", android_mallopt);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", android_set_abort_message);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", clock_getres);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", clock_gettime);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", freeaddrinfo);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", gai_strerror);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", getaddrinfo);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", gethostbyaddr);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", gethostbyname);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", getnameinfo);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", gettimeofday);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", longjmp);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", native_bridge___cxa_thread_atexit_impl);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", native_bridge_aligned_alloc);
@@ -196,6 +203,7 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", setjmp);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", siglongjmp);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", sigsetjmp);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libc.so", time);
   INIT_INTERCEPTABLE_STUB_VARIABLE("libc.so", environ);
 }
 // clang-format on

@@ -21,6 +21,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
+import android.util.EventLog;
 import android.util.Log;
 
 public class StopTraceService extends TraceService {
@@ -38,6 +40,22 @@ public class StopTraceService extends TraceService {
     @Override
     public void onHandleIntent(Intent intent) {
         Context context = getApplicationContext();
+        // Checks that developer options are enabled before continuing.
+        boolean developerOptionsEnabled =
+                Settings.Global.getInt(context.getContentResolver(),
+                        Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0;
+        if (!developerOptionsEnabled) {
+            // Refer to b/204992293.
+            EventLog.writeEvent(0x534e4554, "204992293", -1, "");
+            return;
+        }
+        // Ensures that only intents that pertain to stopping a trace and need to be accessed from
+        // outside Traceur are passed to TraceService through StopTraceService.
+        String intentAction = intent.getAction();
+        if (!intentAction.equals(TraceService.INTENT_ACTION_NOTIFY_SESSION_STOLEN) &&
+            !intentAction.equals(TraceService.INTENT_ACTION_NOTIFY_SESSION_STOPPED)) {
+            return;
+        }
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         boolean prefsTracingOn =
             prefs.getBoolean(context.getString(R.string.pref_key_tracing_on), false);

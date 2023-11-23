@@ -15,6 +15,8 @@
  */
 package com.android.wallpaper.model;
 
+import android.content.Context;
+
 import androidx.annotation.Nullable;
 
 /**
@@ -71,4 +73,11 @@ public interface CategoryProvider {
      * Checks if featured collection available.
      */
     boolean isFeaturedCollectionAvailable();
+
+    /**
+     * Checks if should force reload.
+     */
+    default boolean shouldForceReload(Context context) {
+        return false;
+    }
 }

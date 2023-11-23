@@ -36,6 +36,13 @@ pub trait FromRawDescriptor {
     unsafe fn from_raw_descriptor(descriptor: RawDescriptor) -> Self;
 }
 
+/// Clones `descriptor`, returning a new `RawDescriptor` that refers to the same open file
+/// description as `descriptor`. The cloned descriptor will have the `FD_CLOEXEC` flag set but will
+/// not share any other file descriptor flags with `descriptor`.
+pub fn clone_descriptor(descriptor: &dyn AsRawDescriptor) -> Result<RawDescriptor> {
+    clone_fd(&descriptor.as_raw_descriptor())
+}
+
 /// Clones `fd`, returning a new file descriptor that refers to the same open file description as
 /// `fd`. The cloned fd will have the `FD_CLOEXEC` flag set but will not share any other file
 /// descriptor flags with `fd`.
@@ -151,6 +158,13 @@ impl From<File> for SafeDescriptor {
     fn from(f: File) -> SafeDescriptor {
         // Safe because we own the File at this point.
         unsafe { SafeDescriptor::from_raw_descriptor(f.into_raw_descriptor()) }
+    }
+}
+
+impl From<SafeDescriptor> for UnixStream {
+    fn from(s: SafeDescriptor) -> Self {
+        // Safe because we own the SafeDescriptor at this point.
+        unsafe { Self::from_raw_fd(s.into_raw_descriptor()) }
     }
 }
 

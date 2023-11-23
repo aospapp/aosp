@@ -17,6 +17,7 @@
 #ifndef android_hardware_automotive_vehicle_V2_0_impl_virtualization_Utils_H_
 #define android_hardware_automotive_vehicle_V2_0_impl_virtualization_Utils_H_
 
+#include <sys/time.h>
 #include <chrono>
 #include <optional>
 #include <string>

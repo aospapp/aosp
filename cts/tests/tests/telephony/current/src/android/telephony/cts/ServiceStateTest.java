@@ -170,24 +170,32 @@ public class ServiceStateTest {
 
     @Test
     public void testNrStateRedacted() {
+        // Verify that NR State is not leaked in user builds.
+        if (Build.IS_DEBUGGABLE) return;
         final TelephonyManager tm = getContext().getSystemService(TelephonyManager.class);
 
-        // Verify that NR State is not leaked in user builds.
-        if (!Build.IS_DEBUGGABLE) {
-            final String sss = tm.getServiceState().toString();
-            // The string leaked in previous releases is "nrState=<val>"; test that there is
-            // no matching or highly similar string leak, such as:
-            // nrState=NONE
-            // nrState=0
-            // mNrState=RESTRICTED
-            // NRSTATE=NOT_RESTRICTED
-            // nrState = CONNECTED
-            // etc.
-            Pattern p = Pattern.compile("nrState\\s*=\\s*[a-zA-Z0-9_]+", Pattern.CASE_INSENSITIVE);
-            Matcher m = p.matcher(sss);
-            // Need to use if (find) fail to ensure that the start and end are populated
-            if (m.find()) fail("Found nrState reported as: " + sss.substring(m.start(), m.end()));
-        }
+        final NetworkRegistrationInfo nri = new NetworkRegistrationInfo.Builder()
+                .setTransportType(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setDomain(NetworkRegistrationInfo.DOMAIN_PS)
+                .build();
+        nri.setNrState(NetworkRegistrationInfo.NR_STATE_RESTRICTED);
+
+        final ServiceState ss = new ServiceState();
+        ss.addNetworkRegistrationInfo(nri);
+        String sss = ss.toString();
+
+        // The string leaked in previous releases is "nrState=<val>"; test that there is
+        // no matching or highly similar string leak, such as:
+        // nrState=NONE
+        // nrState=0
+        // mNrState=RESTRICTED
+        // NRSTATE=NOT_RESTRICTED
+        // nrState = CONNECTED
+        // etc.
+        Pattern p = Pattern.compile("nrState\\s*=\\s*[a-zA-Z0-9_]+", Pattern.CASE_INSENSITIVE);
+        Matcher m = p.matcher(sss);
+        // Need to use if (find) fail to ensure that the start and end are populated
+        if (m.find()) fail("Found nrState reported as: " + sss.substring(m.start(), m.end()));
     }
 
     @Test

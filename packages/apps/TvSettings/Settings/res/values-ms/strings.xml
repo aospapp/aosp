@@ -375,14 +375,14 @@
       <item quantity="one">Percayai atau alih keluar sijil</item>
     </plurals>
     <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> telah memasang sijil kuasa pada peranti anda yang mungkin membenarkan pemantauan aktiviti rangkaian peranti, termasuk e-mel, apl dan tapak web selamat.\n\nUntuk mendapatkan maklumat lanjut tentang sijil ini, hubungi pentadbir anda.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> telah memasang sijil kuasa pada profil kerja anda yang mungkin membenarkan pemantauan aktiviti rangkaian peranti, termasuk e-mel, apl dan tapak web selamat.\n\nUntuk mendapatkan maklumat lanjut tentang sijil ini, hubungi pentadbir anda.</item>
+      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> telah memasang sijil kuasa pada peranti anda yang mungkin membenarkan pemantauan aktiviti rangkaian peranti, termasuk e-mel, apl dan laman web selamat.\n\nUntuk mendapatkan maklumat lanjut tentang sijil ini, hubungi pentadbir anda.</item>
+      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> telah memasang sijil kuasa pada profil kerja anda yang mungkin membenarkan pemantauan aktiviti rangkaian peranti, termasuk e-mel, apl dan laman web selamat.\n\nUntuk mendapatkan maklumat lanjut tentang sijil ini, hubungi pentadbir anda.</item>
     </plurals>
     <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> telah memasang sijil kuasa untuk profil kerja anda yang mungkin membenarkan pemantauan aktiviti rangkaian kerja, termasuk e-mel, apl dan tapak web selamat.\n\nUntuk mendapatkan maklumat lanjut tentang sijil ini, hubungi pentadbir anda.</item>
-      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> telah memasang sijil kuasa untuk profil kerja anda yang mungkin membenarkan pemantauan aktiviti rangkaian kerja, termasuk e-mel, apl dan tapak web selamat.\n\nUntuk mendapatkan maklumat lanjut tentang sijil ini, hubungi pentadbir anda.</item>
+      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> telah memasang sijil kuasa untuk profil kerja anda yang mungkin membenarkan pemantauan aktiviti rangkaian kerja, termasuk e-mel, apl dan laman web selamat.\n\nUntuk mendapatkan maklumat lanjut tentang sijil ini, hubungi pentadbir anda.</item>
+      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> telah memasang sijil kuasa untuk profil kerja anda yang mungkin membenarkan pemantauan aktiviti rangkaian kerja, termasuk e-mel, apl dan laman web selamat.\n\nUntuk mendapatkan maklumat lanjut tentang sijil ini, hubungi pentadbir anda.</item>
     </plurals>
-    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"Pihak ketiga berkeupayaan untuk memantau aktiviti rangkaian anda, termasuk e-mel, apl dan tapak web selamat.\n\nBukti kelayakan dipercayai yang dipasang pada peranti anda yang membolehkan perkara ini."</string>
+    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"Pihak ketiga berkeupayaan untuk memantau aktiviti rangkaian anda, termasuk e-mel, apl dan laman web selamat.\n\nBukti kelayakan dipercayai yang dipasang pada peranti anda yang membolehkan perkara ini."</string>
     <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
       <item quantity="other">Semak sijil</item>
       <item quantity="one">Semak sijil</item>

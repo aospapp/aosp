@@ -28,7 +28,6 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.ParcelFileDescriptor;
 import android.os.UserHandle;
-import android.platform.test.annotations.SystemUserOnly;
 import android.test.AndroidTestCase;
 import android.util.ArraySet;
 import android.util.Log;
@@ -50,8 +49,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
-@SystemUserOnly(reason = "UiAutomation doesn't support untrusted UID's. "
-        + "see UiAutomationConnection#throwIfCalledByNotTrustedUidLocked")
 public class UiModeManagerTest extends AndroidTestCase {
     private static final String TAG = "UiModeManagerTest";
     private static final long MAX_WAIT_TIME_SECS = 2;
@@ -388,13 +385,15 @@ public class UiModeManagerTest extends AndroidTestCase {
     private boolean requestAutomotiveProjection() throws Exception {
         return callWithShellPermissionIdentity(
                 () -> mUiModeManager.requestProjection(UiModeManager.PROJECTION_TYPE_AUTOMOTIVE),
-                Manifest.permission.TOGGLE_AUTOMOTIVE_PROJECTION);
+                Manifest.permission.TOGGLE_AUTOMOTIVE_PROJECTION,
+                Manifest.permission.INTERACT_ACROSS_USERS);
     }
 
     private boolean releaseAutomotiveProjection() throws Exception {
         return callWithShellPermissionIdentity(
                 () -> mUiModeManager.releaseProjection(UiModeManager.PROJECTION_TYPE_AUTOMOTIVE),
-                Manifest.permission.TOGGLE_AUTOMOTIVE_PROJECTION);
+                Manifest.permission.TOGGLE_AUTOMOTIVE_PROJECTION,
+                Manifest.permission.INTERACT_ACROSS_USERS);
     }
 
     private int getActiveProjectionTypes() throws Exception {

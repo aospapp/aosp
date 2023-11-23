@@ -18,6 +18,7 @@ package com.android.car.bluetooth;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -48,6 +49,7 @@ public class FastPairProvider {
     private final Context mContext;
     private boolean mStarted;
     private int mScanMode;
+    private BluetoothAdapter mBluetoothAdapter;
     private FastPairAdvertiser mFastPairModelAdvertiser;
     private FastPairAdvertiser mFastPairAccountAdvertiser;
     private FastPairGattServer mFastPairGattServer;
@@ -93,7 +95,11 @@ public class FastPairProvider {
                         Slog.d(TAG, "NewScanMode = " + mScanMode);
                     }
                     if (mScanMode == BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
-                        advertiseModelId();
+                        if (mBluetoothAdapter.isDiscovering()) {
+                            advertiseModelId();
+                        } else {
+                            stopAdvertising();
+                        }
                     } else if (mScanMode == BluetoothAdapter.SCAN_MODE_CONNECTABLE
                             && mFastPairGattServer != null
                             && !mFastPairGattServer.isConnected()) {
@@ -130,6 +136,7 @@ public class FastPairProvider {
         mModelId = res.getInteger(R.integer.fastPairModelId);
         mAntiSpoofKey = res.getString(R.string.fastPairAntiSpoofKey);
         mAutomaticAcceptance = res.getBoolean(R.bool.fastPairAutomaticAcceptance);
+        mBluetoothAdapter = mContext.getSystemService(BluetoothManager.class).getAdapter();
     }
 
     /**
@@ -159,6 +166,20 @@ public class FastPairProvider {
             mContext.unregisterReceiver(mDiscoveryModeChanged);
             mStarted = false;
         }
+    }
+
+    void stopAdvertising() {
+        mFastPairAdvertiserHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (mFastPairAccountAdvertiser != null) {
+                    mFastPairAccountAdvertiser.stopAdvertising();
+                }
+                if (mFastPairModelAdvertiser != null) {
+                    mFastPairModelAdvertiser.stopAdvertising();
+                }
+            }
+        });
     }
 
     void advertiseModelId() {
@@ -195,7 +216,6 @@ public class FastPairProvider {
                 mFastPairAccountAdvertiser.advertiseAccountKeys();
             }
         });
-
     }
 
     void startGatt() {

@@ -6,6 +6,7 @@ import time
 import acts.base_test
 import acts_contrib.test_utils.wifi.wifi_test_utils as wifi_utils
 import acts_contrib.test_utils.tel.tel_test_utils as tele_utils
+import acts_contrib.test_utils.tel.tel_mms_utils as mms_utils
 import acts.utils
 
 from acts import asserts
@@ -28,6 +29,7 @@ ATTENUATORS = "attenuators"
 WIFI_SSID = "wifi_network_ssid"
 WIFI_PWD = "wifi_network_pass"
 STRESS_COUNT = "stress_iteration"
+DEFAULT_TIMEOUT = 10
 
 class WifiTeleCoexTest(TelephonyBaseTest):
     """Tests for WiFi, Celular Co-existance."""
@@ -57,6 +59,7 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         for ad in self.android_devices:
             ad.droid.wakeLockAcquireBright()
             ad.droid.wakeUpNow()
+            ad.droid.telephonyToggleDataConnection(True)
         wifi_utils.wifi_toggle_state(self.dut, True)
 
 
@@ -64,8 +67,9 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         """ End test make sure the DUT return idle"""
         for ad in self.android_devices:
             wifi_utils.reset_wifi(ad)
+            ad.droid.telephonyToggleDataConnection(False)
         tele_utils.ensure_phones_idle(self.log, self.android_devices)
-
+        nutil.stop_usb_tethering(self.dut)
 
     """Helper Functions"""
 
@@ -454,3 +458,120 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         except:
             raise signals.TestFailure("The Wifi connect failed after modem restart."
                 "WiFi State = %d" %self.dut.droid.wifiCheckState())
+
+    @test_tracker_info(uuid="a72ff9da-3855-4c21-b447-b80f43227961")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_internet_accessing_over_wifi_and_mms_test(self):
+
+        """Verify when MMS is working WLAN connection can work normally as well.
+
+        Raises:
+          signals.TestFailure: Internet_connection is stop
+
+        Steps:
+            1. Connect to WiFi
+            2. Prepare two DUT for testing (DUT1 and DUT2)
+            3. Send 5 MMS from DUT1 to DUT2
+
+        Verification:
+            The internet cannot be impacted by MMS delivery.
+            MMS can be sent / received successfully and content is correct.
+        """
+        self.dut1 = self.android_devices[0]
+        self.dut2 = self.android_devices[1]
+        self.connect_to_wifi(self.dut1, self.network)
+        wifi_utils.wifi_toggle_state(self.dut2, True)
+        self.connect_to_wifi(self.dut2, self.network)
+        mms = 5
+        for count in range(mms):
+            mms_utils._mms_test(self.log, self.ads)
+            if not tele_utils.verify_internet_connection(
+                    self.dut2.log, self.dut2):
+                    raise signals.TestFailure("The internet connection is stop."
+                        "Current WiFi state is %d"
+                        % self.dut2.droid.wifiCheckState())
+            time.sleep(30)
+
+    @test_tracker_info(uuid="a7d774e4-ead3-465c-b4a6-f39a6397dfe3")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_internet_accessing_wifi_and_data_test(self):
+
+        """Verify interwork between Wi-Fi and data.
+
+        Raises:
+          signals.TestFailure: Internet_connection is stop for WiFi off or
+          Data off
+
+        Steps:
+            1. Connect to WiFi
+            2. To Wi-Fi and data switched for 5 times,
+            3. DUT is kept awake during testing.
+        Verification:
+            The internet cannot be impacted after data path switched
+
+        """
+        self.dut = self.android_devices[0]
+        self.connect_to_wifi(self.dut, self.network)
+        data_count = 5
+        for count in range(data_count):
+            wifi_utils.wifi_toggle_state(self.dut, False)
+            time.sleep(60)
+            if not tele_utils.verify_internet_connection(
+                    self.dut.log, self.dut):
+                raise signals.TestFailure(
+                    "The internet connection is stop"
+                    "for WiFi off. Current WiFi state is %d"
+                    % self.dut.droid.wifiCheckState())
+            wifi_utils.wifi_toggle_state(self.dut, True)
+            time.sleep(DEFAULT_TIMEOUT)
+            self.dut.log.info("DUT data is disable")
+            self.dut.droid.telephonyToggleDataConnection(False)
+            time.sleep(30)
+            if not tele_utils.verify_internet_connection(
+                    self.dut.log, self.dut):
+                raise signals.TestFailure(
+                    "The internet connection is stop"
+                    "for Data off. Current WiFi state is %d"
+                    % self.dut.droid.wifiCheckState())
+            self.dut.log.info("DUT data is enable")
+            self.dut.droid.telephonyToggleDataConnection(True)
+            time.sleep(DEFAULT_TIMEOUT)
+
+    @test_tracker_info(uuid="e53adef6-d537-4098-a354-1e63457ab444")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_internet_accessing_wifi_and_usb_tethering(self):
+
+        """Verify interwork between Wi-Fi and USB_TETHERED.
+
+        Raises:
+          signals.TestFailure: Internet_connection is stop for enable or
+          disable USB tethering
+
+        Steps:
+            1.Connect to WiFi
+            2. enable/disable USB tethering for 5 cycles,
+
+        Verification:
+            The Internet cannot be impacted after enable/disable USB tethering
+
+        """
+        self.dut = self.android_devices[0]
+        nutil.verify_lte_data_and_tethering_supported(self.dut)
+        self.connect_to_wifi(self.dut, self.network)
+        usb_count = 5
+        for count in range(usb_count):
+            time.sleep(DEFAULT_TIMEOUT)
+            nutil.start_usb_tethering(self.dut)
+            time.sleep(DEFAULT_TIMEOUT)
+            if not tele_utils.verify_internet_connection(
+                    self.dut.log, self.dut):
+                raise signals.TestFailure("The internet connection is stop"
+                    "for tethering enable. Current WiFi state is %d"
+                    % self.dut.droid.wifiCheckState())
+            nutil.stop_usb_tethering(self.dut)
+            time.sleep(DEFAULT_TIMEOUT)
+            if not tele_utils.verify_internet_connection(
+                    self.dut.log, self.dut):
+                raise signals.TestFailure("The internet connection is stop"
+                    "for tethering disable. Current WiFi state is %d"
+                    % self.dut.droid.wifiCheckState())

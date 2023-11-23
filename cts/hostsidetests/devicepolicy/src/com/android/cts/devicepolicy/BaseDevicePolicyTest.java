@@ -186,6 +186,8 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     /** Users we shouldn't delete in the tests */
     private ArrayList<Integer> mFixedUsers;
 
+    protected boolean mHasAttestation;
+
     private static final String VERIFY_CREDENTIAL_CONFIRMATION = "Lock credential verified";
 
     @Rule
@@ -205,6 +207,10 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         mFixedPackages = getDevice().getInstalledPackageNames();
         mBuildHelper = new CompatibilityBuildHelper(getBuild());
 
+        String propertyValue = getDevice().getProperty("ro.product.first_api_level");
+        if (propertyValue != null && !propertyValue.isEmpty()) {
+            mHasAttestation = Integer.parseInt(propertyValue) >= 26;
+        }
         if (hasDeviceFeature(FEATURE_SECURE_LOCK_SCREEN)) {
             ensurePrimaryUserHasNoPassword();
         }
@@ -375,23 +381,26 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         executeShellCommand("am force-stop --user " + userId + " " + packageName);
     }
 
-    protected void executeShellCommand(String commandTemplate, Object...args) throws Exception {
-        executeShellCommand(String.format(commandTemplate, args));
+    protected String executeShellCommand(String commandTemplate, Object...args) throws Exception {
+        return executeShellCommand(String.format(commandTemplate, args));
     }
 
-    protected void executeShellCommand(String command) throws Exception {
-        CLog.d("Starting command " + command);
+    protected String executeShellCommand(String command) throws Exception {
+        CLog.d("Starting command %s", command);
         String commandOutput = getDevice().executeShellCommand(command);
-        CLog.d("Output for command " + command + ": " + commandOutput);
+        CLog.d("Output for command %s: %s", command, commandOutput);
+        return commandOutput;
     }
 
     /** Initializes the user with the given id. This is required so that apps can run on it. */
     protected void startUser(int userId) throws Exception {
+        CLog.d("Starting user %d", userId);
         getDevice().startUser(userId);
     }
 
     /** Initializes the user with waitFlag. This is required so that apps can run on it. */
     protected void startUserAndWait(int userId) throws Exception {
+        CLog.d("Starting user %d and waiting", userId);
         getDevice().startUser(userId, /* waitFlag= */ true);
     }
 
@@ -415,6 +424,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     protected void switchUser(int userId) throws Exception {
         // TODO Move this logic to ITestDevice
         int retries = 10;
+        CLog.i("switching to user %d", userId);
         executeShellCommand("am switch-user " + userId);
         while (getDevice().getCurrentUser() != userId && (--retries) >= 0) {
             // am switch-user can be ignored if a previous user-switching operation
@@ -606,7 +616,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     /** Reboots the device and block until the boot complete flag is set. */
     protected void rebootAndWaitUntilReady() throws Exception {
         getDevice().rebootUntilOnline();
-        assertTrue("Device failed to boot", getDevice().waitForBootComplete(120000));
+        assertTrue("Device failed to boot", getDevice().waitForBootComplete(120_000));
     }
 
     /** Returns a boolean value of the system property with the specified key. */
@@ -801,6 +811,10 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
 
     protected int getPrimaryUser() throws DeviceNotAvailableException {
         return getDevice().getPrimaryUserId();
+    }
+
+    protected int getCurrentUser() throws DeviceNotAvailableException {
+        return getDevice().getCurrentUser();
     }
 
     protected int getUserSerialNumber(int userId) throws DeviceNotAvailableException{
@@ -1057,10 +1071,15 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
                 + " -c android.intent.category.DEFAULT "
                 + " --es extra-command " + command
                 + " " + extras
+                + getAdditionalExtrasForSetPolicyActivity()
                 + " " + packageName + "/.SetPolicyActivity";
         String commandOutput = getDevice().executeShellCommand(adbCommand);
         CLog.d("Output for command " + adbCommand + ": " + commandOutput);
         return commandOutput;
+    }
+
+    protected String getAdditionalExtrasForSetPolicyActivity() {
+        return "";
     }
 
     /**

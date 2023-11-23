@@ -15,11 +15,17 @@
  */
 package com.android.car.notification;
 
+import static android.app.NotificationManager.IMPORTANCE_HIGH;
+import static android.app.NotificationManager.IMPORTANCE_LOW;
+import static android.service.notification.NotificationListenerService.Ranking.USER_SENTIMENT_NEUTRAL;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.content.Context;
 import android.os.UserHandle;
+import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -81,12 +87,12 @@ public class NotificationDataManagerTest {
                 ID, TAG, UID, INITIAL_PID, notificationNavigationHeadsUp, USER_HANDLE,
                 OVERRIDE_GROUP_KEY, POST_TIME));
 
-        mNotificationDataManager = new NotificationDataManager();
+        mNotificationDataManager = NotificationDataManager.getInstance();
     }
 
     @After
     public void tearDown() {
-        mNotificationDataManager = null;
+        NotificationDataManager.refreshInstance();
     }
 
     @Test
@@ -140,16 +146,37 @@ public class NotificationDataManagerTest {
     }
 
     @Test
-    public void updateUnseenNotification_addNewUnseenNotification_updatesUnseenCount() {
+    public void updateUnseenNotificationGroups_addHighImportanceNotification_updatesUnseenCount() {
         List<NotificationGroup> notificationGroups = new ArrayList<>();
 
         NotificationGroup notificationGroup = new NotificationGroup();
         notificationGroup.addNotification(mMessageNotification);
         notificationGroups.add(notificationGroup);
+        NotificationListenerService.RankingMap rankingMap =
+                generateRankingMap(Collections.singletonList(mMessageNotification.getKey()),
+                        Collections.singletonList(IMPORTANCE_HIGH));
 
-        mNotificationDataManager.updateUnseenNotification(notificationGroups);
+        mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
 
-        assertThat(mNotificationDataManager.getUnseenNotificationCount()).isEqualTo(1);
+        assertThat(mNotificationDataManager.getNonLowImportanceUnseenNotificationCount(rankingMap))
+                .isEqualTo(1);
+    }
+
+    @Test
+    public void updateUnseenNotificationGroups_addLowImportanceNotification_unseenCountZero() {
+        List<NotificationGroup> notificationGroups = new ArrayList<>();
+
+        NotificationGroup notificationGroup = new NotificationGroup();
+        notificationGroup.addNotification(mMessageNotification);
+        notificationGroups.add(notificationGroup);
+        NotificationListenerService.RankingMap rankingMap =
+                generateRankingMap(Collections.singletonList(mMessageNotification.getKey()),
+                        Collections.singletonList(IMPORTANCE_LOW));
+
+        mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
+
+        assertThat(mNotificationDataManager.getNonLowImportanceUnseenNotificationCount(rankingMap))
+                .isEqualTo(0);
     }
 
     @Test
@@ -160,12 +187,58 @@ public class NotificationDataManagerTest {
         notificationGroup.addNotification(mMessageNotification);
         notificationGroups.add(notificationGroup);
 
-        mNotificationDataManager.updateUnseenNotification(notificationGroups);
+        mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
         mNotificationDataManager.setNotificationsAsSeen(
                 Collections.singletonList(mMessageNotification));
 
         assertThat(mNotificationDataManager.getSeenNotifications()).asList().containsExactly(
                 mMessageNotification.getKey());
+    }
+
+    @Test
+    public void isNotificationSeen_notificationIsSeen_returnTrue() {
+        List<NotificationGroup> notificationGroups = new ArrayList<>();
+
+        NotificationGroup notificationGroup = new NotificationGroup();
+        notificationGroup.addNotification(mMessageNotification);
+        notificationGroups.add(notificationGroup);
+
+        mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
+        mNotificationDataManager.setNotificationsAsSeen(
+                Collections.singletonList(mMessageNotification));
+
+        assertThat(mNotificationDataManager.isNotificationSeen(mMessageNotification)).isTrue();
+    }
+
+    @Test
+    public void isNotificationSeen_notificationIsNotSeen_returnFalse() {
+        List<NotificationGroup> notificationGroups = new ArrayList<>();
+
+        NotificationGroup notificationGroup1 = new NotificationGroup();
+        notificationGroup1.addNotification(mMessageNotification);
+        NotificationGroup notificationGroup2 = new NotificationGroup();
+        notificationGroup2.addNotification(mNonMessageNotification);
+        notificationGroups.add(notificationGroup1);
+        notificationGroups.add(notificationGroup2);
+
+        mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
+        mNotificationDataManager.setNotificationsAsSeen(
+                Collections.singletonList(mMessageNotification));
+
+        assertThat(mNotificationDataManager.isNotificationSeen(mNonMessageNotification)).isFalse();
+    }
+
+    @Test
+    public void isNotificationSeen_notificationNotPresentInUnseenMap_returnTrue() {
+        List<NotificationGroup> notificationGroups = new ArrayList<>();
+
+        NotificationGroup notificationGroup = new NotificationGroup();
+        notificationGroup.addNotification(mMessageNotification);
+        notificationGroups.add(notificationGroup);
+
+        mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
+
+        assertThat(mNotificationDataManager.isNotificationSeen(mNonMessageNotification)).isTrue();
     }
 
     @Test
@@ -175,12 +248,16 @@ public class NotificationDataManagerTest {
         NotificationGroup notificationGroup = new NotificationGroup();
         notificationGroup.addNotification(mMessageNotification);
         notificationGroups.add(notificationGroup);
+        NotificationListenerService.RankingMap rankingMap =
+                generateRankingMap(Collections.singletonList(mMessageNotification.getKey()),
+                        Collections.singletonList(IMPORTANCE_HIGH));
 
-        mNotificationDataManager.updateUnseenNotification(notificationGroups);
+        mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
         mNotificationDataManager.setNotificationsAsSeen(
                 Collections.singletonList(mMessageNotification));
 
-        assertThat(mNotificationDataManager.getUnseenNotificationCount()).isEqualTo(0);
+        assertThat(mNotificationDataManager.getNonLowImportanceUnseenNotificationCount(rankingMap))
+                .isEqualTo(0);
     }
 
     @Test
@@ -191,7 +268,7 @@ public class NotificationDataManagerTest {
         notificationGroup.addNotification(mMessageNotification);
         notificationGroups.add(notificationGroup);
 
-        mNotificationDataManager.updateUnseenNotification(notificationGroups);
+        mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
         mNotificationDataManager.setNotificationsAsSeen(
                 Collections.singletonList(mMessageNotification));
 
@@ -206,11 +283,56 @@ public class NotificationDataManagerTest {
         NotificationGroup notificationGroup = new NotificationGroup();
         notificationGroup.addNotification(mMessageNotification);
         notificationGroups.add(notificationGroup);
+        NotificationListenerService.RankingMap rankingMap =
+                generateRankingMap(Collections.singletonList(mMessageNotification.getKey()),
+                        Collections.singletonList(IMPORTANCE_HIGH));
 
-        mNotificationDataManager.updateUnseenNotification(notificationGroups);
+        mNotificationDataManager.updateUnseenNotificationGroups(notificationGroups);
         mNotificationDataManager.clearAll();
 
-        assertThat(mNotificationDataManager.getUnseenNotificationCount()).isEqualTo(0);
+        assertThat(mNotificationDataManager.getNonLowImportanceUnseenNotificationCount(rankingMap))
+                .isEqualTo(0);
+    }
+
+    private NotificationListenerService.RankingMap generateRankingMap(
+            List<String> keys, List<Integer> importances) {
+        NotificationListenerService.Ranking[] rankings =
+                new NotificationListenerService.Ranking[keys.size()];
+        for (int i = 0; i < keys.size(); i++) {
+            String key = keys.get(i);
+            int rank = keys.size() - i; // ranking in reverse order;
+            int importance = importances.get(i);
+            NotificationListenerService.Ranking ranking = new NotificationListenerService.Ranking();
+            ranking.populate(
+                    key,
+                    rank,
+                    /* matchesInterruptionFilter= */ false,
+                    /* visibilityOverride= */ 0,
+                    /* suppressedVisualEffects= */ 0,
+                    importance,
+                    /* explanation= */ "",
+                    /* overrideGroupKey= */ "",
+                    new NotificationChannel(key, key, importance),
+                    new ArrayList<>(),
+                    new ArrayList<>(),
+                    /* showBadge= */ false,
+                    USER_SENTIMENT_NEUTRAL,
+                    /* hidden= */ false,
+                    /* lastAudiblyAlertedMs= */ 0,
+                    /* noisy= */ false,
+                    new ArrayList<>(),
+                    new ArrayList<>(),
+                    /* canBubble= */ false,
+                    /* visuallyInterruptive= */ false,
+                    /* isConversation= */ false,
+                    /* shortcutInfo= */ null,
+                    /* rankingAdjustment= */ 0,
+                    /* isBubble= */ false
+            );
+            rankings[i] = ranking;
+        }
+
+        return new NotificationListenerService.RankingMap(rankings);
     }
 }
 

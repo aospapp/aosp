@@ -1167,6 +1167,10 @@
             ><a href="#static_android.info.version">android.info.version</a></li>
             <li
             ><a href="#static_android.info.supportedBufferManagementVersion">android.info.supportedBufferManagementVersion</a></li>
+            <li
+            ><a href="#static_android.info.deviceStateSensorOrientationMap">android.info.deviceStateSensorOrientationMap</a></li>
+            <li
+            ><a href="#static_android.info.deviceStateOrientations">android.info.deviceStateOrientations</a></li>
           </ul>
         </li>
       </ul> <!-- toc_section -->
@@ -5052,12 +5056,12 @@ consistent field of views between different modes.<wbr/></p>
 
                 <ul class="entry_type_enum">
                   <li>
-                    <span class="entry_type_enum_name">TRUE (v3.2)</span>
-                    <span class="entry_type_enum_notes"><p>AF regions (<a href="#controls_android.control.afRegions">android.<wbr/>control.<wbr/>af<wbr/>Regions</a>) have been set by the camera client.<wbr/></p></span>
-                  </li>
-                  <li>
                     <span class="entry_type_enum_name">FALSE (v3.2)</span>
                     <span class="entry_type_enum_notes"><p>AF regions (<a href="#controls_android.control.afRegions">android.<wbr/>control.<wbr/>af<wbr/>Regions</a>) have not been set by the camera client.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">TRUE (v3.2)</span>
+                    <span class="entry_type_enum_notes"><p>AF regions (<a href="#controls_android.control.afRegions">android.<wbr/>control.<wbr/>af<wbr/>Regions</a>) have been set by the camera client.<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -5114,12 +5118,12 @@ set to MAXIMUM_<wbr/>RESOLUTION.<wbr/></p>
 
                 <ul class="entry_type_enum">
                   <li>
-                    <span class="entry_type_enum_name">TRUE (v3.2)</span>
-                    <span class="entry_type_enum_notes"><p>AE regions (<a href="#controls_android.control.aeRegions">android.<wbr/>control.<wbr/>ae<wbr/>Regions</a>) have been set by the camera client.<wbr/></p></span>
-                  </li>
-                  <li>
                     <span class="entry_type_enum_name">FALSE (v3.2)</span>
                     <span class="entry_type_enum_notes"><p>AE regions (<a href="#controls_android.control.aeRegions">android.<wbr/>control.<wbr/>ae<wbr/>Regions</a>) have not been set by the camera client.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">TRUE (v3.2)</span>
+                    <span class="entry_type_enum_notes"><p>AE regions (<a href="#controls_android.control.aeRegions">android.<wbr/>control.<wbr/>ae<wbr/>Regions</a>) have been set by the camera client.<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -5176,12 +5180,12 @@ set to MAXIMUM_<wbr/>RESOLUTION.<wbr/></p>
 
                 <ul class="entry_type_enum">
                   <li>
-                    <span class="entry_type_enum_name">TRUE (v3.2)</span>
-                    <span class="entry_type_enum_notes"><p>AWB regions (<a href="#controls_android.control.awbRegions">android.<wbr/>control.<wbr/>awb<wbr/>Regions</a>) have been set by the camera client.<wbr/></p></span>
-                  </li>
-                  <li>
                     <span class="entry_type_enum_name">FALSE (v3.2)</span>
                     <span class="entry_type_enum_notes"><p>AWB regions (<a href="#controls_android.control.awbRegions">android.<wbr/>control.<wbr/>awb<wbr/>Regions</a>) have not been set by the camera client.<wbr/></p></span>
+                  </li>
+                  <li>
+                    <span class="entry_type_enum_name">TRUE (v3.2)</span>
+                    <span class="entry_type_enum_notes"><p>AWB regions (<a href="#controls_android.control.awbRegions">android.<wbr/>control.<wbr/>awb<wbr/>Regions</a>) have been set by the camera client.<wbr/></p></span>
                   </li>
                 </ul>
 
@@ -20463,13 +20467,13 @@ service.<wbr/></p>
 
                 <ul class="entry_type_enum">
                   <li>
-                    <span class="entry_type_enum_name">TRUE (v3.2)</span>
-                    <span class="entry_type_enum_notes"><p>Crop region (<a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>) has been set by the
+                    <span class="entry_type_enum_name">FALSE (v3.2)</span>
+                    <span class="entry_type_enum_notes"><p>Crop region (<a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>) has not been set by the
 camera client.<wbr/></p></span>
                   </li>
                   <li>
-                    <span class="entry_type_enum_name">FALSE (v3.2)</span>
-                    <span class="entry_type_enum_notes"><p>Scaler crop regions (<a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>) has not been set by the camera
+                    <span class="entry_type_enum_name">TRUE (v3.2)</span>
+                    <span class="entry_type_enum_notes"><p>Scaler crop regions (<a href="#controls_android.scaler.cropRegion">android.<wbr/>scaler.<wbr/>crop<wbr/>Region</a>) has been set by the camera
 client.<wbr/></p></span>
                   </li>
                 </ul>
@@ -21502,7 +21506,8 @@ describes the minimum required output stream configurations based on the hardwar
 </tbody>
 </table>
 <p>For applications targeting SDK version 31 or newer,<wbr/> if the mobile device declares to be
-<a href="https://developer.android.com/reference/android/os/Build/VERSION_CDOES/MEDIA_PERFORMANCE_CLASS.html">media performance class</a> S,<wbr/>
+media performance class 12 or higher by setting
+<a href="https://developer.android.com/reference/android/os/Build/VERSION_CDOES/MEDIA_PERFORMANCE_CLASS.html">MEDIA_<wbr/>PERFORMANCE_<wbr/>CLASS</a> to be 31 or larger,<wbr/>
 the primary camera devices (first rear/<wbr/>front camera in the camera ID list) will not
 support JPEG sizes smaller than 1080p.<wbr/> If the application configures a JPEG stream
 smaller than 1080p,<wbr/> the camera device will round up the JPEG image size to at least
@@ -21575,9 +21580,11 @@ This new minimum required output stream configurations are illustrated by the ta
 </tbody>
 </table>
 <p>For applications targeting SDK version 31 or newer,<wbr/> if the mobile device doesn't declare
-to be media performance class S,<wbr/> or if the camera device isn't a primary rear/<wbr/>front
-camera,<wbr/> the minimum required output stream configurations are the same as for applications
-targeting SDK version older than 31.<wbr/></p>
+to be media performance class 12 or better by setting
+<a href="https://developer.android.com/reference/android/os/Build/VERSION_CDOES/MEDIA_PERFORMANCE_CLASS.html">MEDIA_<wbr/>PERFORMANCE_<wbr/>CLASS</a> to be 31 or larger,<wbr/>
+or if the camera device isn't a primary rear/<wbr/>front camera,<wbr/> the minimum required output
+stream configurations are the same as for applications targeting SDK version older than
+31.<wbr/></p>
 <p>Refer to <a href="#static_android.request.availableCapabilities">android.<wbr/>request.<wbr/>available<wbr/>Capabilities</a> for additional
 mandatory stream configurations on a per-capability basis.<wbr/></p>
 <p>Exception on 176x144 (QCIF) resolution: camera devices usually have a fixed capability for
@@ -21626,10 +21633,11 @@ formats),<wbr/> as output streams:</p>
 <li>720p (1280 x 720)</li>
 <li>1080p (1920 x 1080)</li>
 </ul>
-<p>Note that for Performance Class 12 primary cameras (first rear/<wbr/>front facing camera in the
-camera ID list),<wbr/> camera framework filters out JPEG sizes smaller than 1080p depending on
+<p>Note that for primary cameras (first rear/<wbr/>front facing camera in the camera ID list)
+on a device with <a href="https://developer.android.com/reference/android/os/Build/VERSION_CDOES/MEDIA_PERFORMANCE_CLASS.html">MEDIA_<wbr/>PERFORMANCE_<wbr/>CLASS</a> set to
+31 or larger,<wbr/> camera framework filters out JPEG sizes smaller than 1080p depending on
 applications' targetSdkLevel.<wbr/> The camera HAL must still support the smaller JPEG sizes
-to maintain backward comopatibility.<wbr/></p>
+to maintain backward compatibility.<wbr/></p>
 <p>For LIMITED capability devices
 (<code><a href="#static_android.info.supportedHardwareLevel">android.<wbr/>info.<wbr/>supported<wbr/>Hardware<wbr/>Level</a> == LIMITED</code>),<wbr/>
 the HAL only has to list up to the maximum video size
@@ -24226,6 +24234,14 @@ would not actually affect it).<wbr/></p>
 with test patterns from on-device memory.<wbr/> In that case,<wbr/> it should be
 indistinguishable to the ISP whether the data came from the
 sensor interconnect bus (such as CSI2) or memory.<wbr/></p>
+<p>For privacy use cases,<wbr/> if the camera device:</p>
+<ul>
+<li>supports SOLID_<wbr/>COLOR or BLACK test patterns,<wbr/></li>
+<li>is a logical multi-camera,<wbr/> and</li>
+<li>lists testPatternMode as a physical request key,<wbr/></li>
+</ul>
+<p>Each physical camera must support the same SOLID_<wbr/>COLOR and/<wbr/>or BLACK test patterns
+as the logical camera.<wbr/></p>
             </td>
           </tr>
 
@@ -26431,6 +26447,19 @@ upright on the device screen in its native orientation.<wbr/></p>
             <td class="entry_details" colspan="6">
               <p>Also defines the direction of rolling shutter readout,<wbr/> which is from top to bottom in
 the sensor's coordinate system.<wbr/></p>
+<p>Starting with Android API level 32,<wbr/> camera clients that query the orientation via
+<a href="https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#get">CameraCharacteristics#get</a> on foldable devices which
+include logical cameras can receive a value that can dynamically change depending on the
+device/<wbr/>fold state.<wbr/>
+Clients are advised to not cache or store the orientation value of such logical sensors.<wbr/>
+In case repeated queries to CameraCharacteristics are not preferred,<wbr/> then clients can
+also access the entire mapping from device state to sensor orientation in
+<a href="https://developer.android.com/reference/android/hardware/camera2/params/DeviceStateSensorOrientationMap.html">DeviceStateSensorOrientationMap</a>.<wbr/>
+Do note that a dynamically changing sensor orientation value in camera characteristics
+will not be the best way to establish the orientation per frame.<wbr/> Clients that want to
+know the sensor orientation of a particular captured frame should query the
+<a href="#dynamic_android.logicalMultiCamera.activePhysicalId">android.<wbr/>logical<wbr/>Multi<wbr/>Camera.<wbr/>active<wbr/>Physical<wbr/>Id</a> from the corresponding capture result and
+check the respective physical camera orientation.<wbr/></p>
             </td>
           </tr>
 
@@ -27825,6 +27854,14 @@ would not actually affect it).<wbr/></p>
 with test patterns from on-device memory.<wbr/> In that case,<wbr/> it should be
 indistinguishable to the ISP whether the data came from the
 sensor interconnect bus (such as CSI2) or memory.<wbr/></p>
+<p>For privacy use cases,<wbr/> if the camera device:</p>
+<ul>
+<li>supports SOLID_<wbr/>COLOR or BLACK test patterns,<wbr/></li>
+<li>is a logical multi-camera,<wbr/> and</li>
+<li>lists testPatternMode as a physical request key,<wbr/></li>
+</ul>
+<p>Each physical camera must support the same SOLID_<wbr/>COLOR and/<wbr/>or BLACK test patterns
+as the logical camera.<wbr/></p>
             </td>
           </tr>
 
@@ -33216,6 +33253,120 @@ HIDL ICameraDevice version 3.<wbr/>5.<wbr/></p></span>
 without any buffer management HAL API.<wbr/> When this key is present and camera framework
 supports the buffer management API version,<wbr/> camera framework will interact with camera
 HAL using such version of buffer management API.<wbr/></p>
+            </td>
+          </tr>
+
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="static_android.info.deviceStateSensorOrientationMap">
+            <td class="entry_name
+             " rowspan="3">
+              android.<wbr/>info.<wbr/>device<wbr/>State<wbr/>Sensor<wbr/>Orientation<wbr/>Map
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">int64</span>
+
+              <span class="entry_type_visibility"> [java_public as deviceStateSensorOrientationMap]</span>
+
+              <span class="entry_type_synthetic">[synthetic] </span>
+
+              <span class="entry_type_hwlevel">[limited] </span>
+
+
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+              <p>This lists the mapping between a device folding state and
+specific camera sensor orientation for logical cameras on a foldable device.<wbr/></p>
+            </td>
+
+            <td class="entry_units">
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>2</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>Logical cameras on foldable devices can support sensors with different orientation
+values.<wbr/> The orientation value may need to change depending on the specific folding
+state.<wbr/> Information about the mapping between the device folding state and the
+sensor orientation can be obtained in
+<a href="https://developer.android.com/reference/android/hardware/camera2/params/DeviceStateSensorOrientationMap.html">DeviceStateSensorOrientationMap</a>.<wbr/>
+Device state orientation maps are optional and maybe present on devices that support
+<a href="#controls_android.scaler.rotateAndCrop">android.<wbr/>scaler.<wbr/>rotate<wbr/>And<wbr/>Crop</a>.<wbr/></p>
+            </td>
+          </tr>
+
+
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
+           <!-- end of entry -->
+        
+                
+          <tr class="entry" id="static_android.info.deviceStateOrientations">
+            <td class="entry_name
+             " rowspan="3">
+              android.<wbr/>info.<wbr/>device<wbr/>State<wbr/>Orientations
+            </td>
+            <td class="entry_type">
+                <span class="entry_type_name">int64</span>
+                <span class="entry_type_container">x</span>
+
+                <span class="entry_type_array">
+                  2 x n
+                </span>
+              <span class="entry_type_visibility"> [ndk_public]</span>
+
+
+              <span class="entry_type_hwlevel">[limited] </span>
+
+
+
+
+            </td> <!-- entry_type -->
+
+            <td class="entry_description">
+            </td>
+
+            <td class="entry_units">
+              (device fold state,<wbr/> sensor orientation) x n
+            </td>
+
+            <td class="entry_range">
+            </td>
+
+            <td class="entry_hal_version">
+              <p>3.<wbr/>7</p>
+            </td>
+
+            <td class="entry_tags">
+            </td>
+
+          </tr>
+          <tr class="entries_header">
+            <th class="th_details" colspan="6">Details</th>
+          </tr>
+          <tr class="entry_cont">
+            <td class="entry_details" colspan="6">
+              <p>HAL must populate the array with
+(hardware::camera::provider::V2_<wbr/>5::DeviceState,<wbr/> sensorOrientation) pairs for each
+supported device state bitwise combination.<wbr/></p>
             </td>
           </tr>
 

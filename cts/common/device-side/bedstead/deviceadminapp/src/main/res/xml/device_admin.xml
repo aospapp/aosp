@@ -24,5 +24,6 @@
         <disable-keyguard-features />
         <force-lock />
         <limit-password />
+        <disable-camera />
     </uses-policies>
 </device-admin>

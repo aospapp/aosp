@@ -15,6 +15,10 @@
  */
 package com.android.car.ui.baselayout;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
@@ -27,6 +31,8 @@ import androidx.annotation.Nullable;
  *
  * <p>Used in baselayouts to prevent clicking through the toolbar.
  */
+@SuppressLint("ClickableViewAccessibility")
+@TargetApi(MIN_TARGET_API)
 public class ClickBlockingView extends View {
 
     private boolean mEatingTouch = false;

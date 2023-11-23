@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+//#define LOG_NDEBUG 0
+#define LOG_TAG "Fourcc"
+
 #include <v4l2_codec2/common/Fourcc.h>
 
 #include <linux/videodev2.h>
@@ -36,7 +39,7 @@ std::optional<Fourcc> Fourcc::fromUint32(uint32_t fourcc) {
     case MM21:
         return Fourcc(static_cast<Value>(fourcc));
     }
-    ALOGE("Unmapped fourcc: %s", fourccToString(fourcc).c_str());
+    ALOGV("Unmapped fourcc: %s", fourccToString(fourcc).c_str());
     return std::nullopt;
 }
 

@@ -1,0 +1,14 @@
+# b/174961589
+dontaudit incidentd adbd_config_prop:file open ;
+dontaudit incidentd adbd_prop:file getattr ;
+dontaudit incidentd adbd_prop:file open ;
+dontaudit incidentd adbd_config_prop:file open ;
+dontaudit incidentd adbd_config_prop:file getattr ;
+dontaudit incidentd adbd_config_prop:file map ;
+dontaudit incidentd adbd_prop:file open ;
+dontaudit incidentd adbd_prop:file getattr ;
+dontaudit incidentd adbd_prop:file map ;
+dontaudit incidentd apexd_prop:file open ;
+dontaudit incidentd adbd_config_prop:file getattr ;
+dontaudit incidentd adbd_config_prop:file map ;
+dontaudit incidentd adbd_prop:file map ;

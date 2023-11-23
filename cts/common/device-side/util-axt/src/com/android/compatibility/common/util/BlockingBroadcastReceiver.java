@@ -129,6 +129,8 @@ public class BlockingBroadcastReceiver extends BroadcastReceiver implements Auto
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        Log.i(TAG, "Received intent: " + intent);
+
         if (mBlockingQueue.remainingCapacity() == 0) {
             Log.i(TAG, "Received intent " + intent + " but queue is full.");
             return;

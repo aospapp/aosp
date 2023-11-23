@@ -128,7 +128,12 @@ public class FullScreenAnimation {
         mIsHomeSelected = isHomeSelected;
     }
 
-    private int getStatusBarHeight() {
+    /**
+     * Returns the height of status bar.
+     *
+     * @return height of status bar.
+     */
+    public int getStatusBarHeight() {
         return mStatusBarHeight;
     }
 
@@ -282,12 +287,11 @@ public class FullScreenAnimation {
                     mWorkspaceHeight + Math.round(mFullScreenButtonsTranslation / mScale)));
             mView.findViewById(R.id.lock_screen_preview_container).setVisibility(View.VISIBLE);
         } else {
-            int half = mWorkspaceHeight / 2;
             mWorkspaceSurface.setClipBounds(new Rect(
-                    0,
-                    half,
+                    mWorkspaceWidth - 1,
+                    mWorkspaceHeight - 1,
                     mWorkspaceWidth,
-                    half + 1));
+                    mWorkspaceHeight));
             mView.findViewById(R.id.lock_screen_preview_container).setVisibility(View.INVISIBLE);
         }
         if (mIsHomeSelected) {

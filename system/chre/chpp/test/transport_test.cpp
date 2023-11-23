@@ -1138,6 +1138,16 @@ TEST_F(TransportTests, NotificationToInvalidClient) {
                          CHPP_MESSAGE_TYPE_SERVICE_NOTIFICATION);
 }
 
+TEST_F(TransportTests, WorkMonitorInvoked) {
+  // Send message to spin work thread so it interacts with the work monitor
+  messageToInvalidHandle(&mTransportContext,
+                         CHPP_MESSAGE_TYPE_SERVICE_NOTIFICATION);
+
+  // 1 pre/post call for executing the work and 1 for shutting down the thread.
+  EXPECT_EQ(mTransportContext.workMonitor.numPreProcessCalls, 2);
+  EXPECT_EQ(mTransportContext.workMonitor.numPostProcessCalls, 2);
+}
+
 INSTANTIATE_TEST_SUITE_P(TransportTestRange, TransportTests,
                          testing::ValuesIn(kChunkSizes));
 }  // namespace

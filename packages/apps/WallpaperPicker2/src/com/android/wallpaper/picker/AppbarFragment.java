@@ -110,6 +110,12 @@ public abstract class AppbarFragment extends BottomActionBarFragment
         mToolbar = rootView.findViewById(getToolbarId());
 
         mTitleView = mToolbar.findViewById(R.id.custom_toolbar_title);
+
+        // Update toolbar and status bar color.
+        mToolbar.setBackgroundResource(getToolbarColorId());
+        getActivity().getWindow().setStatusBarColor(
+                getActivity().getResources().getColor(getToolbarColorId()));
+
         CharSequence title;
         if (getArguments() != null) {
             title = getArguments().getCharSequence(ARG_TITLE, getDefaultTitle());
@@ -135,8 +141,17 @@ public abstract class AppbarFragment extends BottomActionBarFragment
         mToolbar.setOnMenuItemClickListener(this);
     }
 
+    protected void setUpToolbarMenuClickListener(int menuItemResId, View.OnClickListener listener) {
+        MenuItem menuItem = mToolbar.getMenu().findItem(menuItemResId);
+        menuItem.getActionView().setOnClickListener(listener);
+    }
+
     protected int getToolbarId() {
         return R.id.toolbar;
+    }
+
+    protected int getToolbarColorId() {
+        return R.color.settingslib_colorSurfaceHeader;
     }
 
     /**

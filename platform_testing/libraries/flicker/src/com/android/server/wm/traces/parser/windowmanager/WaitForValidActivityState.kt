@@ -18,13 +18,11 @@ package com.android.server.wm.traces.parser.windowmanager
 
 import android.app.ActivityTaskManager
 import android.app.WindowConfiguration
-import android.content.ComponentName
-import com.android.server.wm.traces.parser.toActivityName
-import com.android.server.wm.traces.parser.toWindowName
+import com.android.server.wm.traces.common.FlickerComponentName
 
 data class WaitForValidActivityState(
     @JvmField
-    val activityName: ComponentName?,
+    val activityName: FlickerComponentName?,
     @JvmField
     val windowName: String?,
     @JvmField
@@ -34,7 +32,7 @@ data class WaitForValidActivityState(
     @JvmField
     val activityType: Int
 ) {
-    constructor(activityName: ComponentName) : this(
+    constructor(activityName: FlickerComponentName) : this(
         activityName,
         windowName = activityName.toWindowName(),
         stackId = ActivityTaskManager.INVALID_STACK_ID,
@@ -70,7 +68,7 @@ data class WaitForValidActivityState(
         return sb.toString()
     }
 
-    class Builder constructor(internal var activityName: ComponentName? = null) {
+    class Builder constructor(internal var activityName: FlickerComponentName? = null) {
         internal var windowName: String? = activityName?.toWindowName()
         internal var stackId = ActivityTaskManager.INVALID_STACK_ID
         internal var windowingMode = WindowConfiguration.WINDOWING_MODE_UNDEFINED

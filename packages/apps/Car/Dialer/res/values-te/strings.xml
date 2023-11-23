@@ -49,8 +49,8 @@
     <string name="favorites_empty" msgid="5794510741132758130">"ఇష్టమైనవి లేవు"</string>
     <string name="no_favorites_added" msgid="2359050103464783907">"మీరు ఇష్టమైనవి ఏవీ ఇంకా జోడించలేదు"</string>
     <string name="add_favorite_button" msgid="7914955940249767808">"ఇష్టమైన వారిని జోడించండి"</string>
-    <string name="search_title" msgid="5412680850141871664">"పరిచయాలను వెతకండి"</string>
-    <string name="search_hint" msgid="3099066132607042439">"పరిచయాలను వెతకండి"</string>
+    <string name="search_title" msgid="5412680850141871664">"కాంటాక్ట్‌లలో సెర్చ్ చేయండి"</string>
+    <string name="search_hint" msgid="3099066132607042439">"కాంటాక్ట్‌లలో సెర్చ్ చేయండి"</string>
     <string name="type_multiple" msgid="3402949522797441236">"అనేకం"</string>
     <string name="select_number_dialog_title" msgid="5770700626013782205">"ఒక ఫోన్ నంబర్‌ను ఎంచుకోండి"</string>
     <string name="select_number_dialog_just_once_button" msgid="1814381354393374660">"కేవలం ఒకసారి"</string>
@@ -82,11 +82,13 @@
     <string name="family_name_first_title" msgid="7721976826282427987">"చివరి పేరు"</string>
     <!-- no translation found for sort_order_default_value (5876201942256731358) -->
     <skip />
-    <string name="audio_route_dialog_title" msgid="2904553846970171054">"దీనికి అవుట్‌పుట్ కాల్ ఆడియో:"</string>
+    <string name="audio_route_dialog_title" msgid="2262715267187794363"></string>
     <string name="audio_route_dialog_subtitle" msgid="8780526104805330121"></string>
     <string name="ongoing_conf_title" msgid="4161590966144000887">"కాన్ఫరెన్స్"</string>
     <string name="ongoing_conf_title_format" msgid="7667048745156395220">"%1$s (%2$d) - "</string>
     <string name="dialing_disabled_warning" msgid="8094136040809498594">"డయలింగ్ డిజేబుల్‌ చేయబడింది"</string>
     <string name="restricted_dialing_mode_label" msgid="2439439835180117206">"డ్రైవింగ్ చేస్తున్నప్పుడు డయల్‌ప్యాడ్‌ను ఉపయోగించడం పరిమితం చేయబడింది"</string>
     <string name="comma_delimiter" msgid="7949695553572428165">", "</string>
+    <string name="sms_notification_title" msgid="5980540487139970307">"డయలర్ SMS"</string>
+    <string name="sms_notification_text" msgid="9193883830187173056">"SMSను పంపుతోంది"</string>
 </resources>

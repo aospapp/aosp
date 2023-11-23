@@ -131,6 +131,10 @@
         <item name="android:textStyle">normal</item>
     </style>
 
+    <style name="AddFavoriteText">
+        <item name="android:textColor">@color/hero_button_text_color</item>
+    </style>
+
     <style name="Widget.Dialer.Button" parent="android:Widget.DeviceDefault.Button">
         <item name="android:ellipsize">none</item>
         <item name="android:requiresFadingEdge">horizontal</item>

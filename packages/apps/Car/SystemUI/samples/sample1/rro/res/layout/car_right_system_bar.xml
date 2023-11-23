@@ -29,14 +29,13 @@
         android:layout_width="match_parent"
         android:layout_height="110dp"
         android:background="@drawable/system_bar_background_3">
-        <com.android.systemui.car.systembar.CarSystemBarButton
+        <FrameLayout
             android:id="@+id/clock_container"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_centerInParent="true"
             android:paddingStart="@*android:dimen/car_padding_2"
-            android:paddingEnd="@*android:dimen/car_padding_2"
-            systemui:intent="intent:#Intent;component=com.android.car.settings/.common.CarSettingActivities$QuickSettingActivity;launchFlags=0x24000000;end">
+            android:paddingEnd="@*android:dimen/car_padding_2">
             <com.android.systemui.statusbar.policy.Clock
                 android:id="@+id/clock"
                 android:layout_width="wrap_content"
@@ -46,7 +45,7 @@
                 android:singleLine="true"
                 android:textAppearance="@style/TextAppearance.StatusBar.Clock"
             />
-        </com.android.systemui.car.systembar.CarSystemBarButton>
+        </FrameLayout>
     </RelativeLayout>
     <View
         android:layout_width="match_parent"
@@ -72,7 +71,6 @@
                 android:layout_height="match_parent"
                 android:background="@null"
                 systemui:broadcast="true"
-                systemui:intent="intent:#Intent;action=android.car.intent.action.TOGGLE_HVAC_CONTROLS;end"
             />
 
             <com.android.systemui.car.hvac.AnimatedTemperatureView
@@ -111,7 +109,6 @@
                 android:layout_height="match_parent"
                 android:background="@null"
                 systemui:broadcast="true"
-                systemui:intent="intent:#Intent;action=android.car.intent.action.TOGGLE_HVAC_CONTROLS;end"
             />
 
             <com.android.systemui.car.hvac.AnimatedTemperatureView

@@ -16,17 +16,21 @@
 
 package com.android.car.ui.widget;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
 import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.AppCompatTextView;
 
 import com.android.car.ui.CarUiLayoutInflaterFactory;
 import com.android.car.ui.CarUiText;
-import com.android.car.ui.sharedlibrarysupport.SharedLibraryFactorySingleton;
+import com.android.car.ui.pluginsupport.PluginFactorySingleton;
 
 import java.util.List;
 
@@ -35,12 +39,12 @@ import java.util.List;
  * CarUiText}.
  */
 @SuppressLint("AppCompatCustomView")
-public abstract class CarUiTextView extends TextView {
-
+@TargetApi(MIN_TARGET_API)
+public abstract class CarUiTextView extends AppCompatTextView {
     /**
      * Creates a CarUiTextView.
      *
-     * Most of the time, you should prefer creating a CarUiButton with a {@code <CarUiTextView>}
+     * Most of the time, you should prefer creating a CarUiTextView with a {@code <CarUiTextView>}
      * tag in your layout file. This is only for if you need to create a CarUiTextView in java code.
      * The CarUiTextView xml tag is enabled by the usage of {@link CarUiLayoutInflaterFactory}.
      */
@@ -51,30 +55,24 @@ public abstract class CarUiTextView extends TextView {
     /**
      * Creates a CarUiTextView.
      *
-     * Most of the time, you should prefer creating a CarUiButton with a {@code <CarUiTextView>}
+     * Most of the time, you should prefer creating a CarUiTextView with a {@code <CarUiTextView>}
      * tag in your layout file. This is only for if you need to create a CarUiTextView in java code.
      * The CarUiTextView xml tag is enabled by the usage of {@link CarUiLayoutInflaterFactory}.
      */
-    static CarUiTextView create(@NonNull Context context, @Nullable AttributeSet attrs) {
-        return SharedLibraryFactorySingleton.get(context)
-                .createTextView(context, attrs);
+    public static CarUiTextView create(@NonNull Context context, @Nullable AttributeSet attrs) {
+        return PluginFactorySingleton.get(context).createTextView(context, attrs);
     }
 
     public CarUiTextView(Context context) {
-        super(context);
+        this(context, null);
     }
 
     public CarUiTextView(Context context, @Nullable AttributeSet attrs) {
-        super(context, attrs);
+        this(context, attrs, android.R.attr.textViewStyle);
     }
 
     public CarUiTextView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-    }
-
-    public CarUiTextView(Context context, @Nullable AttributeSet attrs, int defStyleAttr,
-            int defStyleRes) {
-        super(context, attrs, defStyleAttr, defStyleRes);
     }
 
     /**

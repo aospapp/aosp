@@ -43,7 +43,7 @@ public:
     MOCK_METHOD(
             void, get,
             (std::vector<android::automotive::watchdog::internal::ResourceOveruseConfiguration>*),
-            (override));
+            (const, override));
 
     MOCK_METHOD(android::base::Result<void>, writeToDisk, (), (override));
 

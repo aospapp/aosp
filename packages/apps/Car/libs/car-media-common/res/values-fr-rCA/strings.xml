@@ -23,7 +23,7 @@
     <string name="error_code_app_error" msgid="3608680401453743688">"Impossible d\'effectuer cette action pour le moment"</string>
     <string name="error_code_not_supported" msgid="8004310657548193089">"Cette application ne peut pas effectuer cette action"</string>
     <string name="error_code_authentication_expired" msgid="1727285213286610186">"Connectez-vous pour utiliser cette application"</string>
-    <string name="error_code_premium_account_required" msgid="2328664287270814966">"Un accès payant est requis"</string>
+    <string name="error_code_premium_account_required" msgid="2328664287270814966">"Accès Premium requis"</string>
     <string name="error_code_concurrent_stream_limit" msgid="493048763425570552">"Écoute en cours sur trop d\'appareils"</string>
     <string name="error_code_parental_control_restricted" msgid="325145513462419399">"Ce contenu est bloqué"</string>
     <string name="error_code_not_available_in_region" msgid="5840935836875073145">"Impossible d\'obtenir ce contenu ici"</string>

@@ -39,8 +39,18 @@ public:
         return ui::Size(mInputVisibleSize->width, mInputVisibleSize->height);
     }
     C2BlockPool::local_id_t getBlockPoolId() const { return mOutputBlockPoolIds->m.values[0]; }
+
     // Get sync key-frame period in frames.
     uint32_t getKeyFramePeriod() const;
+    // Get the requested bitrate mode.
+    C2Config::bitrate_mode_t getBitrateMode() const { return mBitrateMode->value; }
+    // Get the requested bitrate.
+    uint32_t getBitrate() const { return mBitrate->value; }
+    // Get the requested framerate.
+    float getFramerate() const { return mFrameRate->value; }
+
+    // Request changing the framerate to the specified value.
+    void setFramerate(uint32_t framerate) { mFrameRate->value = framerate; }
 
 protected:
     void Initialize(const C2String& name);
@@ -95,6 +105,8 @@ protected:
 
     // The requested bitrate of the encoded output stream, in bits per second.
     std::shared_ptr<C2StreamBitrateInfo::output> mBitrate;
+    // The requested bitrate mode.
+    std::shared_ptr<C2StreamBitrateModeTuning::output> mBitrateMode;
     // The requested framerate, in frames per second.
     std::shared_ptr<C2StreamFrameRateInfo::output> mFrameRate;
     // The switch-type parameter that will be set to true while client requests keyframe. It

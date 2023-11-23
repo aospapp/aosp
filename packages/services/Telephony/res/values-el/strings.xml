@@ -821,7 +821,7 @@
     <string name="supp_service_call_resumed" msgid="3786864005920743546">"Η κλήση συνεχίστηκε."</string>
     <string name="supp_service_deflected_call" msgid="7565979024562921707">"Έγινε εκτροπή της κλήσης."</string>
     <string name="supp_service_forwarded_call" msgid="6475776013771821457">"Έγινε προώθηση της κλήσης."</string>
-    <string name="supp_service_conference_call" msgid="4004193534408317148">"Συμμετοχή σε κλήση διάσκεψης."</string>
+    <string name="supp_service_conference_call" msgid="4004193534408317148">"Συμμετοχή σε τηλεδιάσκεψη."</string>
     <string name="supp_service_held_call_released" msgid="2847835124639112410">"Έγινε αποδέσμευση της κλήσης σε κράτηση."</string>
     <string name="callFailed_otasp_provisioning_in_process" msgid="3345666183602879326">"Δεν είναι δυνατή η πραγματοποίηση κλήσης, καθώς εκτελείται παροχή υπηρεσιών στη συσκευή αυτήν τη στιγμή."</string>
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"Δεν είναι δυνατή η πραγματοποίηση της κλήσης, επειδή βρίσκεται ήδη σε εξέλιξη εξερχόμενη κλήση."</string>

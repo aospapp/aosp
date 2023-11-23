@@ -16,7 +16,8 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-     package="com.android.car.media.testmediaapp">
+    package="com.android.car.media.testmediaapp"
+    android:versionCode="10000" android:versionName="1.0.0">
 
     <uses-feature android:name="android.hardware.type.automotive"
          android:required="true"/>

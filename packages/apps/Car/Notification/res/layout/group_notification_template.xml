@@ -14,11 +14,42 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<FrameLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:id="@+id/expanded_group_header"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/notification_card_margin_horizontal"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layoutDirection="locale">
+
+        <TextView
+            android:id="@+id/expanded_group_header_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/expanded_package_name_margin"
+            android:gravity="center_vertical"
+            android:textDirection="locale"
+            android:textAlignment="gravity"
+            android:focusable="false"
+            style="@style/ExpandedGroupNotificationHeaderText"/>
+
+        <ImageView
+            android:id="@+id/expanded_group_header_toggle_icon"
+            android:layout_width="wrap_content"
+            android:layout_height="@dimen/notification_card_header_height"
+            android:layout_marginEnd="@dimen/card_end_margin"
+            android:src="@drawable/expand_less"
+            android:focusable="false"
+            android:tint="@color/icon_tint"/>
+    </LinearLayout>
 
     <androidx.cardview.widget.CardView
         android:id="@+id/card_view"
@@ -76,32 +107,31 @@
                 android:layout_below="@id/notification_list"
                 android:background="@color/notification_list_divider_color"/>
 
-            <LinearLayout
+            <FrameLayout
+                android:id="@+id/expansion_footer_holder"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_below="@id/footer_divider"
-                android:orientation="horizontal"
-                android:layoutDirection="ltr">
+                android:layout_below="@id/footer_divider">
 
                 <TextView
                     android:id="@+id/expansion_footer"
                     android:layout_width="match_parent"
                     android:layout_height="@dimen/notification_card_footer_height"
-                    android:layout_weight="1"
                     android:layout_marginEnd="@dimen/card_end_margin"
                     android:layout_marginStart="@dimen/card_start_margin"
-                    android:gravity="center_vertical"
+                    android:layout_gravity="center"
+                    android:gravity="center"
                     android:textDirection="locale"
                     android:textAlignment="gravity"
-                    style="@style/NotificationBodyContentText"/>
+                    style="@style/GroupNotificationFooterText"/>
 
                 <include
                     layout="@layout/dismiss_button"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="0"/>
+                    android:layout_gravity="end"/>
 
-            </LinearLayout>
+            </FrameLayout>
 
         </RelativeLayout>
 
@@ -112,4 +142,4 @@
             android:layout_height="match_parent"
             android:focusable="false"/>
     </androidx.cardview.widget.CardView>
-</FrameLayout>
+</LinearLayout>

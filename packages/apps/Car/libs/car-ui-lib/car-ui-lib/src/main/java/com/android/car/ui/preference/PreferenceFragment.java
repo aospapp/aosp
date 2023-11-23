@@ -16,15 +16,20 @@
 
 package com.android.car.ui.preference;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+import static com.android.car.ui.utils.CarUiUtils.requireViewByRefId;
+
 import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 import androidx.preference.DialogPreference;
@@ -38,12 +43,14 @@ import androidx.preference.PreferenceGroup;
 import androidx.preference.PreferenceScreen;
 import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.ui.FocusArea;
 import com.android.car.ui.R;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.baselayout.InsetsChangedListener;
 import com.android.car.ui.core.CarUi;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.toolbar.Toolbar;
 import com.android.car.ui.toolbar.ToolbarController;
 import com.android.car.ui.utils.CarUiUtils;
@@ -65,12 +72,33 @@ import java.util.Map;
  * defaultValue, and enabled state.
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
+@RequiresApi(MIN_TARGET_API)
 public abstract class PreferenceFragment extends PreferenceFragmentCompat implements
         InsetsChangedListener {
+
+    /**
+     * Only for PreferenceFragment internal usage. Apps shouldn't use this as the
+     * {@link RecyclerView} that's provided here is not the real RecyclerView and has very limited
+     * functionality.
+     */
+    public interface AndroidxRecyclerViewProvider {
+
+        /**
+         * returns instance of {@link RecyclerView} that proxies PreferenceFragment calls to the
+         * real RecyclerView implementation.
+         */
+        RecyclerView getRecyclerView();
+    }
 
     private static final String TAG = "CarUiPreferenceFragment";
     private static final String DIALOG_FRAGMENT_TAG =
             "com.android.car.ui.PreferenceFragment.DIALOG";
+
+    @NonNull
+    private CarUiRecyclerView mCarUiRecyclerView;
+    @Nullable
+    private String mLastSelectedPrefKey;
+    private int mLastFocusedAndSelectedPrefPosition;
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
@@ -98,7 +126,7 @@ public abstract class PreferenceFragment extends PreferenceFragmentCompat implem
         if (preferenceScreen != null) {
             toolbar.setTitle(preferenceScreen.getTitle());
         } else {
-            toolbar.setTitle(null);
+            toolbar.setTitle("");
         }
     }
 
@@ -145,11 +173,10 @@ public abstract class PreferenceFragment extends PreferenceFragmentCompat implem
     @Override
     public void onCarUiInsetsChanged(@NonNull Insets insets) {
         View view = requireView();
-        FocusArea focusArea = CarUiUtils.requireViewByRefId(view, R.id.car_ui_focus_area);
+        FocusArea focusArea = requireViewByRefId(view, R.id.car_ui_focus_area);
         focusArea.setHighlightPadding(0, insets.getTop(), 0, insets.getBottom());
         focusArea.setBoundsOffset(0, insets.getTop(), 0, insets.getBottom());
-        CarUiUtils.requireViewByRefId(view, R.id.recycler_view)
-                .setPadding(0, insets.getTop(), 0, insets.getBottom());
+        getCarUiRecyclerView().setPadding(0, insets.getTop(), 0, insets.getBottom());
         view.setPadding(insets.getLeft(), 0, insets.getRight(), 0);
     }
 
@@ -210,7 +237,7 @@ public abstract class PreferenceFragment extends PreferenceFragmentCompat implem
             }
 
             Context context = getContext();
-            getActivity().getSupportFragmentManager().beginTransaction()
+            getParentFragmentManager().beginTransaction()
                     .setCustomAnimations(
                             CarUiUtils.getAttrResourceId(context,
                                     android.R.attr.fragmentOpenEnterAnimation),
@@ -224,6 +251,23 @@ public abstract class PreferenceFragment extends PreferenceFragmentCompat implem
                     .addToBackStack(null)
                     .commit();
         }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mLastSelectedPrefKey != null) {
+            scrollToPreference(mLastSelectedPrefKey);
+        }
+    }
+
+    @Override
+    public boolean onPreferenceTreeClick(Preference preference) {
+        mLastSelectedPrefKey = preference.getKey();
+        View focus = getView().findFocus();
+        mLastFocusedAndSelectedPrefPosition = mCarUiRecyclerView.getChildLayoutPosition(focus);
+
+        return super.onPreferenceTreeClick(preference);
     }
 
     /**
@@ -272,6 +316,22 @@ public abstract class PreferenceFragment extends PreferenceFragmentCompat implem
         for (Map.Entry<Preference, String> entry : dependencies.entrySet()) {
             entry.getKey().setDependency(entry.getValue());
         }
+    }
+
+    /**
+     * In order to change the layout for {@link PreferenceFragment}, make sure the correct layout is
+     * passed to PreferenceFragment.CarUi theme.
+     * Override ht method in order to inflate {@link CarUiRecyclerView}
+     */
+    @NonNull
+    public CarUiRecyclerView onCreateCarUiRecyclerView(LayoutInflater inflater, ViewGroup parent,
+                                                       Bundle savedInstanceState) {
+        return requireViewByRefId(parent, R.id.recycler_view);
+    }
+
+    @NonNull
+    public CarUiRecyclerView getCarUiRecyclerView() {
+        return mCarUiRecyclerView;
     }
 
     // Mapping from regular preferences to CarUi preferences.
@@ -325,6 +385,37 @@ public abstract class PreferenceFragment extends PreferenceFragmentCompat implem
         return preference;
     }
 
+    @Override
+    public RecyclerView onCreateRecyclerView(LayoutInflater inflater, ViewGroup parent,
+            Bundle savedInstanceState) {
+        mCarUiRecyclerView = onCreateCarUiRecyclerView(inflater, parent, savedInstanceState);
+        RecyclerView recyclerView = null;
+        if (mCarUiRecyclerView instanceof AndroidxRecyclerViewProvider) {
+            recyclerView = ((AndroidxRecyclerViewProvider) mCarUiRecyclerView).getRecyclerView();
+        }
+        if (recyclerView == null) {
+            recyclerView = super.onCreateRecyclerView(inflater, parent, savedInstanceState);
+        }
+
+        // When not in touch mode, focus on the previously focused and selected item, if any.
+        if (mCarUiRecyclerView != null) {
+            mCarUiRecyclerView.addOnChildAttachStateChangeListener(
+                        new RecyclerView.OnChildAttachStateChangeListener() {
+                            @Override
+                            public void onChildViewAttachedToWindow(View view) {
+                                int position = mCarUiRecyclerView.getChildLayoutPosition(view);
+                                if (position == mLastFocusedAndSelectedPrefPosition) {
+                                    view.requestFocus();
+                                }
+                            }
+                            @Override
+                            public void onChildViewDetachedFromWindow(View view) {
+                            }
+                });
+        }
+        return recyclerView;
+    }
+
     /**
      * Copies all the properties of one preference to another.
      *
@@ -346,11 +437,14 @@ public abstract class PreferenceFragment extends PreferenceFragmentCompat implem
         to.setIconSpaceReserved(from.isIconSpaceReserved());
         to.setWidgetLayoutResource(from.getWidgetLayoutResource());
         to.setPreferenceDataStore(from.getPreferenceDataStore());
-        to.setShouldDisableView(from.getShouldDisableView());
         to.setSingleLineTitle(from.isSingleLineTitle());
         to.setVisible(from.isVisible());
         to.setLayoutResource(from.getLayoutResource());
         to.setCopyingEnabled(from.isCopyingEnabled());
+
+        if (!(to instanceof UxRestrictablePreference)) {
+            to.setShouldDisableView(from.getShouldDisableView());
+        }
 
         if (from.getSummaryProvider() != null) {
             to.setSummaryProvider(from.getSummaryProvider());

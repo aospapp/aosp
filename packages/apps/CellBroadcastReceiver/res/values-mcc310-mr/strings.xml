@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"सुरक्षितता सूचना सिस्टमकडून आवश्यक असलेल्या मासिक चाचण्या मिळवा"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"राष्ट्रीय सूचना"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"पहिली सूचना (राष्ट्रीय सूचनेव्यतिरिक्त) डिस्प्ले केल्यानंतर निवड रद्द करा डायलॉग दाखवा."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"राष्ट्रीय इशारे"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"चेतावणी देणारे राष्ट्रीय मेसेज. बंद केले जाऊ शकत नाहीत."</string>
 </resources>

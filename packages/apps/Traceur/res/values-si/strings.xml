@@ -4,6 +4,7 @@
     <string name="system_tracing" msgid="4719188511746319848">"පද්ධති හඹා යාම"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"පද්ධති ක්‍රියාකාරකම් වාර්තා කර කාර්ය සාධනය වැඩි දියුණු කිරීම සඳහා පසුව එය විශ්ලේෂණය කරන්න"</string>
     <string name="record_trace" msgid="6416875085186661845">"වාර්තා හඹා යාම"</string>
+    <string name="start_new_trace" msgid="8177130420802170353">"නව හඹා යාම ආරම්භ කරන්න"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"දෝෂහරණය කළ හැකි යෙදුම් හඹා යන්න"</string>
     <string name="categories" msgid="2280163673538611008">"ප්‍රවර්ග"</string>
     <string name="restore_default_categories" msgid="5090536794637169521">"පෙරනිමි ප්‍රවර්ග ප්‍රතිසාධනය කරන්න"</string>

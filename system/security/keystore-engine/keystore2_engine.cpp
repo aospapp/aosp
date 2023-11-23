@@ -23,11 +23,13 @@
 
 #include <private/android_filesystem_config.h>
 
+#include <openssl/bio.h>
 #include <openssl/bn.h>
 #include <openssl/ec.h>
 #include <openssl/ec_key.h>
 #include <openssl/ecdsa.h>
 #include <openssl/engine.h>
+#include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
 
@@ -327,6 +329,31 @@ extern "C" int ecdsa_sign(const uint8_t* digest, size_t digest_len, uint8_t* sig
     return 1;
 }
 
+bssl::UniquePtr<EVP_PKEY> extractPubKey(const std::vector<uint8_t>& cert_bytes) {
+    const uint8_t* p = cert_bytes.data();
+    bssl::UniquePtr<X509> decoded_cert(d2i_X509(nullptr, &p, cert_bytes.size()));
+    if (!decoded_cert) {
+        LOG(INFO) << AT << "Could not decode the cert, trying decoding as PEM";
+        bssl::UniquePtr<BIO> cert_bio(BIO_new_mem_buf(cert_bytes.data(), cert_bytes.size()));
+        if (!cert_bio) {
+            LOG(ERROR) << AT << "Failed to create BIO";
+            return {};
+        }
+        decoded_cert =
+            bssl::UniquePtr<X509>(PEM_read_bio_X509(cert_bio.get(), nullptr, nullptr, nullptr));
+    }
+    if (!decoded_cert) {
+        LOG(ERROR) << AT << "Could not decode the cert.";
+        return {};
+    }
+    bssl::UniquePtr<EVP_PKEY> pub_key(X509_get_pubkey(decoded_cert.get()));
+    if (!pub_key) {
+        LOG(ERROR) << AT << "Could not extract public key.";
+        return {};
+    }
+    return pub_key;
+}
+
 }  // namespace
 
 /* EVP_PKEY_from_keystore returns an |EVP_PKEY| that contains either an RSA or
@@ -383,13 +410,7 @@ extern "C" EVP_PKEY* EVP_PKEY_from_keystore2(const char* key_id) {
         return nullptr;
     }
 
-    const uint8_t* p = response.metadata.certificate->data();
-    bssl::UniquePtr<X509> x509(d2i_X509(nullptr, &p, response.metadata.certificate->size()));
-    if (!x509) {
-        LOG(ERROR) << AT << "Failed to parse x509 certificate.";
-        return nullptr;
-    }
-    bssl::UniquePtr<EVP_PKEY> pkey(X509_get_pubkey(x509.get()));
+    auto pkey = extractPubKey(*response.metadata.certificate);
     if (!pkey) {
         LOG(ERROR) << AT << "Failed to extract public key.";
         return nullptr;

@@ -17,6 +17,33 @@ package {
 }
 
 android_library {
+    name: "car-ui-lib-resources",
+
+    sdk_version: "current",
+    min_sdk_version: "28",
+    target_sdk_version: "30",
+
+    manifest: "car-ui-lib/src/main/AndroidManifest.xml",
+    resource_dirs: [
+        "car-ui-lib/src/main/res",
+        "car-ui-lib/src/main/res-overlayable",
+        "car-ui-lib/src/main/res-private"
+    ],
+
+    static_libs: [
+        "androidx.appcompat_appcompat",
+        "androidx-constraintlayout_constraintlayout",
+        "androidx.preference_preference",
+        "androidx.recyclerview_recyclerview",
+        "car-rotary-lib-resources",
+    ],
+    apex_available: [
+        "com.android.permission",
+        "//apex_available:platform",
+    ],
+}
+
+android_library {
     name: "car-ui-lib",
 
     sdk_version: "current",
@@ -25,11 +52,6 @@ android_library {
 
     manifest: "car-ui-lib/src/main/AndroidManifest.xml",
     srcs: ["car-ui-lib/src/main/java/**/*.java"],
-    resource_dirs: [
-        "car-ui-lib/src/main/res",
-        "car-ui-lib/src/main/res-overlayable",
-        "car-ui-lib/src/main/res-private"
-    ],
     optimize: {
         proguard_flags_files: [
             "car-ui-lib/proguard-rules.pro",
@@ -48,6 +70,7 @@ android_library {
         "androidx.recyclerview_recyclerview",
         "androidx-constraintlayout_constraintlayout-solver",
         "androidx.asynclayoutinflater_asynclayoutinflater",
+        "car-ui-lib-resources",
         "car-rotary-lib",
     ],
 }
@@ -70,6 +93,37 @@ android_library {
     static_libs: [
         "car-ui-lib",
         "Robolectric_all-target",
+    ],
+}
+
+android_library {
+    name: "car-ui-lib-testing",
+
+    sdk_version: "current",
+    min_sdk_version: "28",
+    target_sdk_version: "30",
+
+    manifest: "car-ui-lib/src/androidTest/AndroidManifest.xml",
+    srcs: [
+        "car-ui-lib/src/androidTest/java/**/actions/*.java",
+        "car-ui-lib/src/androidTest/java/**/matchers/*.java",
+    ],
+    resource_dirs: [
+        "car-ui-lib/src/androidTest/res",
+    ],
+    optimize: {
+        enabled: false,
+    },
+    static_libs: [
+        "car-ui-lib",
+        "androidx.test.rules",
+        "androidx.test.espresso.core",
+        "androidx.test.espresso.contrib",
+        "androidx.test.ext.junit",
+    ],
+    apex_available: [
+        "com.android.permission",
+        "//apex_available:platform",
     ],
 }
 
@@ -101,7 +155,7 @@ android_test {
         "libdexmakerjvmtiagent",
         "libstaticjvmtiagent",
     ],
-
+    required: ["car-ui-lib-plugin"],
     platform_apis: true,
     test_suites: ["device-tests"],
 }

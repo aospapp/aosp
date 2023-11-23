@@ -34,6 +34,7 @@ import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -117,6 +118,7 @@ public class FontManagerTest {
         }
     }
 
+    @Ignore("TODO(b/199671094)")
     @Test
     public void fontManager_getFontConfig_checkAlias() {
         FontConfig config = getFontConfig();

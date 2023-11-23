@@ -81,7 +81,7 @@
     <string name="bt_toast_2" msgid="8602553334099066582">"ਫਾਈਲ ਪ੍ਰਾਪਤ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕਦੀ।"</string>
     <string name="bt_toast_3" msgid="6707884165086862518">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ਤੋਂ ਫਾਈਲ ਪ੍ਰਾਪਤ ਕਰਨਾ ਰੋਕਿਆ ਗਿਆ"</string>
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" ਨੂੰ ਫਾਈਲ ਭੇਜ ਰਿਹਾ ਹੈ"</string>
-    <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" ਨੂੰ <xliff:g id="NUMBER">%1$s</xliff:g> ਫਾਈਲਾਂ ਭੇਜ ਰਿਹਾ ਹੈ"</string>
+    <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" ਨੂੰ <xliff:g id="NUMBER">%1$s</xliff:g> ਫ਼ਾਈਲਾਂ ਭੇਜੀਆਂ ਜਾ ਰਹੀਆਂ ਹਨ"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" ਨੂੰ ਫਾਈਲ ਭੇਜਣਾ ਰੋਕਿਆ ਗਿਆ"</string>
     <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"ਦੀ ਫ਼ਾਈਲ ਰੱਖਿਅਤ ਕਰਨ ਲਈ USB ਸਟੋਰੇਜ ਵਿੱਚ ਲੋੜੀਂਦੀ ਜਗ੍ਹਾ ਨਹੀਂ ਹੈ।"</string>
     <string name="bt_sm_2_1_default" msgid="2497541206648973852">"ਫ਼ਾਈਲ ਰੱਖਿਅਤ ਕਰਨ ਲਈ SD ਕਾਰਡ ਵਿੱਚ ਲੋੜੀਂਦੀ ਜਗ੍ਹਾ ਨਹੀਂ ਹੈ।"</string>
@@ -107,8 +107,8 @@
     <string name="outbound_history_title" msgid="4279418703178140526">"ਆਊਟਬਾਊਂਡ ਟ੍ਰਾਂਸਫਰ"</string>
     <string name="no_transfers" msgid="3482965619151865672">"ਟ੍ਰਾਂਸਫ਼ਰ ਇਤਿਹਾਸ ਵਿੱਚ ਕੁਝ ਵੀ ਨਹੀਂ ਹੈ।"</string>
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"ਸਾਰੀਆਂ ਆਈਟਮਾਂ ਸੂਚੀ ਵਿੱਚੋਂ ਹਟਾਈਆਂ ਜਾਣਗੀਆਂ।"</string>
-    <string name="outbound_noti_title" msgid="8051906709452260849">"Bluetooth ਸ਼ੇਅਰ: ਭੇਜੀਆਂ ਗਈਆਂ ਫਾਈਲਾਂ"</string>
-    <string name="inbound_noti_title" msgid="4143352641953027595">"Bluetooth ਸ਼ੇਅਰ: ਪ੍ਰਾਪਤ ਕੀਤੀਆਂ ਫਾਈਲਾਂ"</string>
+    <string name="outbound_noti_title" msgid="8051906709452260849">"ਬਲੂਟੁੱਥ ਸਾਂਝਾਕਰਨ: ਭੇਜੀਆਂ ਗਈਆਂ ਫ਼ਾਈਲਾਂ"</string>
+    <string name="inbound_noti_title" msgid="4143352641953027595">"ਬਲੂਟੁੱਥ ਸਾਂਝਾਕਰਨ: ਪ੍ਰਾਪਤ ਕੀਤੀਆਂ ਫ਼ਾਈਲਾਂ"</string>
     <plurals name="noti_caption_unsuccessful" formatted="false" msgid="2020750076679526122">
       <item quantity="one"><xliff:g id="UNSUCCESSFUL_NUMBER_1">%1$d</xliff:g> ਅਸਫਲ।</item>
       <item quantity="other"><xliff:g id="UNSUCCESSFUL_NUMBER_1">%1$d</xliff:g> ਅਸਫਲ।</item>
@@ -132,6 +132,6 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"ਬਲੂਟੁੱਥ  ਆਡੀਓ  ਕਨੈਕਟ ਕੀਤੀ ਗਈ"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ਬਲੂਟੁੱਥ  ਆਡੀਓ  ਡਿਸਕਨੈਕਟ ਕੀਤੀ ਗਈ"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ਬਲੂਟੁੱਥ  ਆਡੀਓ"</string>
-    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB ਤੋਂ ਵਧੇਰੇ ਵੱਡੀਆਂ ਫ਼ਾਈਲਾਂ ਨੂੰ ਟ੍ਰਾਂਸਫ਼ਰ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4GB ਤੋਂ ਜ਼ਿਆਦਾ ਵੱਡੀਆਂ ਫ਼ਾਈਲਾਂ ਨੂੰ ਟ੍ਰਾਂਸਫ਼ਰ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ"</string>
     <string name="bluetooth_connect_action" msgid="4009848433321657090">"ਬਲੂਟੁੱਥ ਨਾਲ ਕਨੈਕਟ ਕਰੋ"</string>
 </resources>

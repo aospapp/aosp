@@ -97,6 +97,7 @@ public class WifiNetworkSuggestionTest extends WifiJUnit4TestBase {
     private static boolean sWasVerboseLoggingEnabled;
     private static boolean sWasScanThrottleEnabled;
     private static boolean sWasWifiEnabled;
+    private static boolean sShouldRunTest = false;
 
     private static Context sContext;
     private static WifiManager sWifiManager;
@@ -120,6 +121,7 @@ public class WifiNetworkSuggestionTest extends WifiJUnit4TestBase {
         if (!sContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LOCATION)) return;
         // skip if the location is disabled
         if (!sContext.getSystemService(LocationManager.class).isLocationEnabled()) return;
+        sShouldRunTest = true;
 
         sWifiManager = sContext.getSystemService(WifiManager.class);
         assertThat(sWifiManager).isNotNull();
@@ -172,7 +174,7 @@ public class WifiNetworkSuggestionTest extends WifiJUnit4TestBase {
 
     @AfterClass
     public static void tearDownClass() throws Exception {
-        if (!WifiFeature.isWifiSupported(sContext)) return;
+        if (!sShouldRunTest) return;
 
         ShellIdentityUtils.invokeWithShellPermissions(
                 () -> sWifiManager.setScanThrottleEnabled(sWasScanThrottleEnabled));
@@ -192,6 +194,7 @@ public class WifiNetworkSuggestionTest extends WifiJUnit4TestBase {
 
     @Before
     public void setUp() throws Exception {
+        assumeTrue(sShouldRunTest);
         mExecutorService = Executors.newSingleThreadScheduledExecutor();
         // turn screen on
         sTestHelper.turnScreenOn();
@@ -215,6 +218,7 @@ public class WifiNetworkSuggestionTest extends WifiJUnit4TestBase {
 
     @After
     public void tearDown() throws Exception {
+        if (!sShouldRunTest) return;
         // Release the requests after the test.
         if (sNsNetworkCallback != null) {
             sConnectivityManager.unregisterNetworkCallback(sNsNetworkCallback);

@@ -130,19 +130,19 @@ public class RingtonePickerPreferenceController extends PreferenceController<Pre
     }
 
     @Override
-    protected void onStopInternal() {
-        stopAnyPlayingRingtone();
-        clearSelection();
-    }
-
-    @Override
-    protected void updateState(PreferenceGroup preference) {
-        populateRingtones(preference);
+    protected void onStartInternal() {
+        populateRingtones(getPreference());
 
         clearSelection();
         Uri currentRingtoneUri =
                 RingtoneManager.getActualDefaultRingtoneUri(mUserContext, mRingtoneType);
         initSelection(currentRingtoneUri);
+    }
+
+    @Override
+    protected void onStopInternal() {
+        stopAnyPlayingRingtone();
+        clearSelection();
     }
 
     private void populateRingtones(PreferenceGroup preference) {

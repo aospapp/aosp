@@ -24,6 +24,7 @@ import static android.car.test.mocks.AndroidMockitoHelper.mockSmGetService;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmCreateUser;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetAliveUsers;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetSystemUser;
+import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetUserHandles;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmGetUserInfo;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmIsHeadlessSystemUserMode;
 import static android.car.test.mocks.AndroidMockitoHelper.mockUmIsUserRunning;
@@ -157,6 +158,16 @@ public final class AndroidMockitoHelperTest {
         mockUmGetAliveUsers(mMockedUserManager, user1, user2);
 
         assertThat(mMockedUserManager.getAliveUsers()).containsExactly(user1, user2);
+    }
+
+    @Test
+    public void testMockUmGetUserHandles() {
+        UserHandle user1 = UserHandle.of(100);
+        UserHandle user2 = UserHandle.of(200);
+
+        mockUmGetUserHandles(mMockedUserManager, true, 100, 200);
+
+        assertThat(mMockedUserManager.getUserHandles(true)).containsExactly(user1, user2).inOrder();
     }
 
     @Test

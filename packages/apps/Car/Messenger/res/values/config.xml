@@ -16,11 +16,11 @@
   -->
 <resources>
     <bool name="group_avatar_fill_background">false</bool>
-    <bool name="direct_send_supported">false</bool>
+    <bool name="direct_send_supported">true</bool>
+    <bool name="direct_reply_supported">true</bool>
     <bool name="ttr_conversation_supported">false</bool>
 
     <!--
-    The maximum number of individual avatars used for group avatar.
     A number between 1 and 4 is required.
     When the value is 1, the first avatar is used for the group avatar.
     When the value is 2-4, the first nth avatars make up the group avatar,

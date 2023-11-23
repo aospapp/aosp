@@ -16,10 +16,20 @@
 
 package com.android.car.settings.profiles;
 
+import static android.os.UserManager.DISALLOW_ADD_USER;
+
+import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
+
 import android.car.Car;
 import android.car.user.CarUserManager;
 import android.content.Context;
 import android.os.UserManager;
+import android.widget.Toast;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
@@ -29,6 +39,7 @@ import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.ErrorDialog;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 
 /**
  * Consolidates adding profile logic into one handler so we can have consistent logic across various
@@ -39,6 +50,9 @@ public class AddProfileHandler implements AddNewProfileTask.AddNewProfileListene
     @VisibleForTesting
     static final String CONFIRM_CREATE_NEW_PROFILE_DIALOG_TAG =
             "com.android.car.settings.profiles.ConfirmCreateNewProfileDialog";
+    @VisibleForTesting
+    static final String MAX_PROFILES_LIMIT_REACHED_DIALOG_TAG =
+            "com.android.car.settings.profiles.MaxProfilesLimitReachedDialog";
 
     @VisibleForTesting
     AddNewProfileTask mAddNewProfileTask;
@@ -105,7 +119,7 @@ public class AddProfileHandler implements AddNewProfileTask.AddNewProfileListene
     }
 
     /**
-     * Handles events that should happen in host's updateState().
+     * Handles events that should happen in host's updateState() when there is task running.
      */
     public void updateState(Preference preference) {
         preference.setEnabled(!mIsBusy);
@@ -133,8 +147,25 @@ public class AddProfileHandler implements AddNewProfileTask.AddNewProfileListene
      * @param userManager UserManager instance to evaluate
      * @return whether the user has permissions to add profiles
      */
-    public boolean canAddProfiles(UserManager userManager) {
-        return !userManager.hasUserRestriction(UserManager.DISALLOW_ADD_USER);
+    public static boolean canAddProfiles(UserManager userManager) {
+        return !userManager.hasUserRestriction(DISALLOW_ADD_USER);
+    }
+
+    /**
+     * Returns {@code PreferenceController.AVAILABLE} when preference should be available,
+     * {@code PreferenceController.DISABLED_FOR_PROFILE} when preference should be unavailable,
+     * {@code PreferenceController.AVAILABLE_FOR_VIEWING} when preference is visible but
+     * disabled.
+     */
+    public static int getAddProfilePreferenceAvailabilityStatus(Context context) {
+        UserManager um = getUserManager(context);
+        if (um.isDemoUser() || canAddProfiles(um)) {
+            return AVAILABLE;
+        }
+        if (hasUserRestrictionByUm(context, DISALLOW_ADD_USER)) {
+            return DISABLED_FOR_PROFILE;
+        }
+        return AVAILABLE_FOR_VIEWING;
     }
 
     /**
@@ -146,6 +177,37 @@ public class AddProfileHandler implements AddNewProfileTask.AddNewProfileListene
                         mContext, mConfirmCreateNewProfileListener, null);
 
         mFragmentController.showDialog(dialogFragment, CONFIRM_CREATE_NEW_PROFILE_DIALOG_TAG);
+    }
+
+    /**
+     * Shows a dialog or toast when the Preference is disabled while still visible.
+     */
+    public void runClickableWhileDisabled() {
+        if (hasUserRestrictionByDpm(mContext, DISALLOW_ADD_USER)) {
+            // Shows a dialog if this PreferenceController is disabled because there is
+            // restriction set from DevicePolicyManager
+            showActionDisabledByAdminDialog();
+        } else if (!getUserManager(mContext).canAddMoreUsers()) {
+            // Shows a dialog if no more profiles can be added because the maximum allowed number
+            // is reached
+            ConfirmationDialogFragment dialogFragment =
+                    ProfilesDialogProvider.getMaxProfilesLimitReachedDialogFragment(mContext,
+                            ProfileHelper.getInstance(mContext).getMaxSupportedRealProfiles());
+            mFragmentController.showDialog(dialogFragment, MAX_PROFILES_LIMIT_REACHED_DIALOG_TAG);
+        } else {
+            Toast.makeText(mContext, mContext.getString(R.string.action_unavailable),
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void showActionDisabledByAdminDialog() {
+        mFragmentController.showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(mContext, DISALLOW_ADD_USER),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
+    }
+
+    private static UserManager getUserManager(Context context) {
+        return context.getSystemService(UserManager.class);
     }
 
     @VisibleForTesting

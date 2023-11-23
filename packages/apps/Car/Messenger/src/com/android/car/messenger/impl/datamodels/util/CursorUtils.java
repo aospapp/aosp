@@ -28,6 +28,8 @@ import static android.provider.Telephony.ThreadsColumns.DATE;
 import static android.provider.Telephony.ThreadsColumns.READ;
 import static android.provider.Telephony.ThreadsColumns.RECIPIENT_IDS;
 
+import static com.android.car.messenger.impl.datamodels.util.MmsUtils.MMS_CONTENT_TYPE;
+
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
@@ -59,6 +61,16 @@ public class CursorUtils {
     @NonNull
     public static final String DEFAULT_SORT_ORDER = Telephony.TextBasedSmsColumns.DATE + " DESC";
 
+    private static final String MMS_QUERY =
+            CONTENT_TYPE + " = '" + MMS_CONTENT_TYPE + "' AND " + DATE + " > ";
+    private static final String SMS_QUERY = CONTENT_TYPE + " IS NULL AND " + DATE + " > ";
+
+    /** This enum is used for describing the type of message being fetched by a cursor */
+    public enum ContentType {
+        SMS,
+        MMS
+    }
+
     /**
      * Get simplified thread cursor with metadata information on the thread, such as recipient ids
      */
@@ -82,13 +94,19 @@ public class CursorUtils {
      * @param offset The starting point in timestamp in millisecond to fetch for data
      */
     @Nullable
-    public static Cursor getMessagesCursor(@NonNull String conversationId, int limit, long offset) {
+    public static Cursor getMessagesCursor(@NonNull String conversationId, int limit, long offset,
+            @NonNull ContentType contentType) {
         Context context = AppFactory.get().getContext();
         ContentResolver contentResolver = context.getContentResolver();
+
+        String query = contentType == ContentType.MMS
+                ? MMS_QUERY + offset / 1000
+                : SMS_QUERY + offset;
+
         return contentResolver.query(
                 getConversationUri(conversationId),
                 CONTENT_CONVERSATION_PROJECTION,
-                DATE + " > " + offset,
+                query,
                 /* selectionArgs= */ null,
                 DEFAULT_SORT_ORDER + " LIMIT " + limit);
     }

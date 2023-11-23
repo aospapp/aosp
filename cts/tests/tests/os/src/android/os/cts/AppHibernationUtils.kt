@@ -190,6 +190,13 @@ fun hasFeatureWatch(): Boolean {
         PackageManager.FEATURE_WATCH)
 }
 
+fun hasFeatureTV(): Boolean {
+    return InstrumentationRegistry.getTargetContext().packageManager.hasSystemFeature(
+            PackageManager.FEATURE_LEANBACK) ||
+            InstrumentationRegistry.getTargetContext().packageManager.hasSystemFeature(
+                    PackageManager.FEATURE_TELEVISION)
+}
+
 private fun expandNotificationsWatch(uiDevice: UiDevice) {
     with(uiDevice) {
         wakeUp()

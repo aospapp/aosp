@@ -127,7 +127,7 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
     @LockSettingsTest
     @Test
     public void testUnlockWorkProfile_deviceWidePassword() throws Exception {
-        assumeHasSecureLockScreenFeature();
+        assumeHasFileBasedEncryptionAndSecureLockScreenFeatures();
 
         try {
             // Add a device password after the work profile has been created.

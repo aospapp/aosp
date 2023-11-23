@@ -29,7 +29,11 @@ namespace details {
 void appendNextPath(std::string& res, std::string_view c);
 }
 
+constexpr auto procfsFdDir = std::string_view("/proc/self/fd");
+
 std::string fromFd(int fd);
+std::string procfsForFd(int fd);
+std::string readlink(std::string_view path);
 bool isAbsolute(std::string_view path);
 std::string normalize(std::string_view path);
 
@@ -94,11 +98,17 @@ int isEmptyDir(std::string_view dir);
 bool startsWith(std::string_view path, std::string_view prefix);
 bool endsWith(std::string_view path, std::string_view prefix);
 
+struct PathDirCloser {
+    void operator()(DIR* d) const { ::closedir(d); }
+};
+
 inline auto openDir(const char* path) {
-    struct closer {
-        void operator()(DIR* d) const { ::closedir(d); }
-    };
-    auto dir = std::unique_ptr<DIR, closer>(::opendir(path));
+    auto dir = std::unique_ptr<DIR, PathDirCloser>(::opendir(path));
+    return dir;
+}
+
+inline auto openDir(int dirFd) {
+    auto dir = std::unique_ptr<DIR, PathDirCloser>(::fdopendir(dirFd));
     return dir;
 }
 

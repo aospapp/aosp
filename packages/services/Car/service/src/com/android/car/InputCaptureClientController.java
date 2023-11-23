@@ -79,6 +79,7 @@ public class InputCaptureClientController {
             entry(KeyEvent.KEYCODE_NAVIGATE_OUT, CarInputManager.INPUT_TYPE_NAVIGATE_KEYS),
             entry(KeyEvent.KEYCODE_NAVIGATE_NEXT, CarInputManager.INPUT_TYPE_NAVIGATE_KEYS),
             entry(KeyEvent.KEYCODE_NAVIGATE_PREVIOUS, CarInputManager.INPUT_TYPE_NAVIGATE_KEYS),
+            entry(KeyEvent.KEYCODE_BACK, CarInputManager.INPUT_TYPE_NAVIGATE_KEYS),
             entry(KeyEvent.KEYCODE_SYSTEM_NAVIGATION_DOWN,
                     CarInputManager.INPUT_TYPE_SYSTEM_NAVIGATE_KEYS),
             entry(KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP,
@@ -246,7 +247,8 @@ public class InputCaptureClientController {
     public int requestInputEventCapture(ICarInputCallback callback,
             @DisplayTypeEnum int targetDisplayType,
             int[] inputTypes, int requestFlags) {
-        ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_MONITOR_INPUT);
+        ICarImpl.assertAnyPermission(mContext, Car.PERMISSION_CAR_MONITOR_INPUT,
+                android.Manifest.permission.MONITOR_INPUT);
 
         Preconditions.checkArgument(SUPPORTED_DISPLAY_TYPES.contains(targetDisplayType),
                 "Display not supported yet:" + targetDisplayType);

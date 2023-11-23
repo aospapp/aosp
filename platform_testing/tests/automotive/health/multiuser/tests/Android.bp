@@ -23,7 +23,6 @@ android_test {
         "androidx.test.runner",
         "androidx.test.rules",
         "automotive-multiuser-scenarios",
-        "automotive-settings-scenarios",
         "automotive-utility-helper",
         "automotive-health-test-rules",
         "automotive-settings-app-helper",

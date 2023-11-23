@@ -40,6 +40,9 @@ namespace {
 
 const VideoPixelFormat kInputPixelFormat = VideoPixelFormat::NV12;
 
+// The peak bitrate in function of the target bitrate, used when the bitrate mode is VBR.
+constexpr uint32_t kPeakBitrateMultiplier = 2u;
+
 // Get the video frame layout from the specified |inputBlock|.
 // TODO(dstaessens): Clean up code extracting layout from a C2GraphicBlock.
 std::optional<std::vector<VideoFramePlane>> getVideoFrameLayout(const C2ConstGraphicBlock& block,
@@ -186,6 +189,12 @@ std::unique_ptr<V4L2Encoder::InputFrame> CreateInputFrame(const C2ConstGraphicBl
                                                      format, index, timestamp);
 }
 
+// Check whether the specified |profile| is an H.264 profile.
+bool IsH264Profile(C2Config::profile_t profile) {
+    return (profile >= C2Config::PROFILE_AVC_BASELINE &&
+            profile <= C2Config::PROFILE_AVC_ENHANCED_MULTIVIEW_DEPTH_HIGH);
+}
+
 }  // namespace
 
 // static
@@ -198,7 +207,7 @@ std::shared_ptr<C2Component> V4L2EncodeComponent::create(
     ALOGV("%s(%s)", __func__, name.c_str());
 
     static const int32_t kMaxConcurrentInstances =
-            property_get_int32("debug.v4l2_codec2.encode.concurrent-instances", -1);
+            property_get_int32("ro.vendor.v4l2_codec2.encode_concurrent_instances", -1);
 
     static std::mutex mutex;
     std::lock_guard<std::mutex> lock(mutex);
@@ -617,14 +626,16 @@ bool V4L2EncodeComponent::initializeEncoder() {
     ALOG_ASSERT(!mInputFormatConverter);
     ALOG_ASSERT(!mEncoder);
 
-    mCSDSubmitted = false;
+    mLastFrameTime = std::nullopt;
 
     // Get the requested profile and level.
     C2Config::profile_t outputProfile = mInterface->getOutputProfile();
 
+    // CSD only needs to be extracted when using an H.264 profile.
+    mExtractCSD = IsH264Profile(outputProfile);
+
     std::optional<uint8_t> h264Level;
-    if (outputProfile >= C2Config::PROFILE_AVC_BASELINE &&
-        outputProfile <= C2Config::PROFILE_AVC_ENHANCED_MULTIVIEW_DEPTH_HIGH) {
+    if (IsH264Profile(outputProfile)) {
         h264Level = c2LevelToV4L2Level(mInterface->getOutputLevel());
     }
 
@@ -638,9 +649,15 @@ bool V4L2EncodeComponent::initializeEncoder() {
         return false;
     }
 
+    // Get the requested bitrate mode and bitrate. The C2 framework doesn't offer a parameter to
+    // configure the peak bitrate, so we use a multiple of the target bitrate.
+    mBitrateMode = mInterface->getBitrateMode();
+    mBitrate = mInterface->getBitrate();
+
     mEncoder = V4L2Encoder::create(
             outputProfile, h264Level, mInterface->getInputVisibleSize(), *stride,
-            mInterface->getKeyFramePeriod(),
+            mInterface->getKeyFramePeriod(), mBitrateMode, mBitrate,
+            mBitrate * kPeakBitrateMultiplier,
             ::base::BindRepeating(&V4L2EncodeComponent::fetchOutputBlock, mWeakThis),
             ::base::BindRepeating(&V4L2EncodeComponent::onInputBufferDone, mWeakThis),
             ::base::BindRepeating(&V4L2EncodeComponent::onOutputBufferDone, mWeakThis),
@@ -670,19 +687,10 @@ bool V4L2EncodeComponent::updateEncodingParameters() {
     ALOGV("%s()", __func__);
     ALOG_ASSERT(mEncoderTaskRunner->RunsTasksInCurrentSequence());
 
-    // Query the interface for the encoding parameters requested by the codec 2.0 framework.
-    C2StreamBitrateInfo::output bitrateInfo;
-    C2StreamFrameRateInfo::output framerateInfo;
-    c2_status_t status =
-            mInterface->query({&bitrateInfo, &framerateInfo}, {}, C2_DONT_BLOCK, nullptr);
-    if (status != C2_OK) {
-        ALOGE("Failed to query interface for encoding parameters (error code: %d)", status);
-        reportError(status);
-        return false;
-    }
-
-    // Ask device to change bitrate if it's different from the currently configured bitrate.
-    uint32_t bitrate = bitrateInfo.value;
+    // Ask device to change bitrate if it's different from the currently configured bitrate. The C2
+    // framework doesn't offer a parameter to configure the peak bitrate, so we'll use a multiple of
+    // the target bitrate here. The peak bitrate is only used if the bitrate mode is set to VBR.
+    uint32_t bitrate = mInterface->getBitrate();
     if (mBitrate != bitrate) {
         ALOG_ASSERT(bitrate > 0u);
         ALOGV("Setting bitrate to %u", bitrate);
@@ -691,10 +699,17 @@ bool V4L2EncodeComponent::updateEncodingParameters() {
             return false;
         }
         mBitrate = bitrate;
+
+        if (mBitrateMode == C2Config::BITRATE_VARIABLE) {
+            ALOGV("Setting peak bitrate to %u", bitrate * kPeakBitrateMultiplier);
+            // TODO(b/190336806): Our stack doesn't support dynamic peak bitrate changes yet, ignore
+            // errors for now.
+            mEncoder->setPeakBitrate(bitrate * kPeakBitrateMultiplier);
+        }
     }
 
     // Ask device to change framerate if it's different from the currently configured framerate.
-    uint32_t framerate = static_cast<uint32_t>(std::round(framerateInfo.value));
+    uint32_t framerate = static_cast<uint32_t>(std::round(mInterface->getFramerate()));
     if (mFramerate != framerate) {
         ALOG_ASSERT(framerate > 0u);
         ALOGV("Setting framerate to %u", framerate);
@@ -709,7 +724,7 @@ bool V4L2EncodeComponent::updateEncodingParameters() {
     // Check whether an explicit key frame was requested, if so reset the key frame counter to
     // immediately request a key frame.
     C2StreamRequestSyncFrameTuning::output requestKeyFrame;
-    status = mInterface->query({&requestKeyFrame}, {}, C2_DONT_BLOCK, nullptr);
+    c2_status_t status = mInterface->query({&requestKeyFrame}, {}, C2_DONT_BLOCK, nullptr);
     if (status != C2_OK) {
         ALOGE("Failed to query interface for key frame request (error code: %d)", status);
         reportError(status);
@@ -737,6 +752,18 @@ bool V4L2EncodeComponent::encode(C2ConstGraphicBlock block, uint64_t index, int6
 
     ALOGV("Encoding input block (index: %" PRIu64 ", timestamp: %" PRId64 ", size: %dx%d)", index,
           timestamp, block.width(), block.height());
+
+    // Dynamically adjust framerate based on the frame's timestamp if required.
+    constexpr int64_t kMaxFramerateDiff = 5;
+    if (mLastFrameTime && (timestamp > *mLastFrameTime)) {
+        int64_t newFramerate =
+                static_cast<int64_t>(std::round(1000000.0 / (timestamp - *mLastFrameTime)));
+        if (abs(mFramerate - newFramerate) > kMaxFramerateDiff) {
+            ALOGV("Adjusting framerate to %" PRId64 " based on frame timestamps", newFramerate);
+            mInterface->setFramerate(static_cast<uint32_t>(newFramerate));
+        }
+    }
+    mLastFrameTime = timestamp;
 
     // Update dynamic encoding parameters (bitrate, framerate, key frame) if requested.
     if (!updateEncodingParameters()) return false;
@@ -785,7 +812,7 @@ void V4L2EncodeComponent::flush() {
         mWorkQueue.pop_front();
     }
     if (!abortedWorkItems.empty()) {
-        mListener->onWorkDone_nb(shared_from_this(), std::move(abortedWorkItems));
+        mListener->onWorkDone_nb(weak_from_this(), std::move(abortedWorkItems));
     }
 }
 
@@ -803,13 +830,7 @@ void V4L2EncodeComponent::fetchOutputBlock(uint32_t size,
         reportError(status);
     }
 
-    // Store a reference to the block to keep the fds alive.
-    int fd = block->handle()->data[0];
-    ALOG_ASSERT(!mOutputBuffersMap[fd]);
-    mOutputBuffersMap[fd] = std::move(block);
-
-    // TODO(dstaessens) Store the C2LinearBlock directly into the BitstreamBuffer.
-    *buffer = std::make_unique<BitstreamBuffer>(fd, fd, 0, size);
+    *buffer = std::make_unique<BitstreamBuffer>(std::move(block), 0, size);
 }
 
 void V4L2EncodeComponent::onInputBufferDone(uint64_t index) {
@@ -859,22 +880,19 @@ void V4L2EncodeComponent::onOutputBufferDone(size_t dataSize, int64_t timestamp,
     ALOGV("%s(): output buffer done (timestamp: %" PRId64 ", size: %zu, keyframe: %d)", __func__,
           timestamp, dataSize, keyFrame);
     ALOG_ASSERT(mEncoderTaskRunner->RunsTasksInCurrentSequence());
+    ALOG_ASSERT(buffer->dmabuf);
 
-    std::shared_ptr<C2LinearBlock> outputBlock = std::move(mOutputBuffersMap[buffer->id]);
-    mOutputBuffersMap.erase(buffer->id);
-    ALOG_ASSERT(outputBlock);
-
-    C2ConstLinearBlock constBlock = outputBlock->share(outputBlock->offset(), dataSize, C2Fence());
+    C2ConstLinearBlock constBlock =
+            buffer->dmabuf->share(buffer->dmabuf->offset(), dataSize, C2Fence());
 
     // If no CSD (content-specific-data, e.g. SPS for H.264) has been submitted yet, we expect this
     // output block to contain CSD. We only submit the CSD once, even if it's attached to each key
     // frame.
-    if (!mCSDSubmitted) {
+    if (mExtractCSD) {
         ALOGV("No CSD submitted yet, extracting CSD");
         std::unique_ptr<C2StreamInitDataInfo::output> csd;
         C2ReadView view = constBlock.map().get();
-        extractCSDInfo(&csd, view.data(), view.capacity());
-        if (!csd) {
+        if (!extractCSDInfo(&csd, view.data(), view.capacity())) {
             ALOGE("Failed to extract CSD");
             reportError(C2_CORRUPTED);
             return;
@@ -884,7 +902,7 @@ void V4L2EncodeComponent::onOutputBufferDone(size_t dataSize, int64_t timestamp,
         LOG_ASSERT(!mWorkQueue.empty());
         C2Work* work = mWorkQueue.front().get();
         work->worklets.front()->output.configUpdate.push_back(std::move(csd));
-        mCSDSubmitted = true;
+        mExtractCSD = false;
     }
 
     // Get the work item associated with the timestamp.
@@ -993,15 +1011,23 @@ void V4L2EncodeComponent::reportWork(std::unique_ptr<C2Work> work) {
 
     std::list<std::unique_ptr<C2Work>> finishedWorkList;
     finishedWorkList.emplace_back(std::move(work));
-    mListener->onWorkDone_nb(shared_from_this(), std::move(finishedWorkList));
+    mListener->onWorkDone_nb(weak_from_this(), std::move(finishedWorkList));
 }
 
 bool V4L2EncodeComponent::getBlockPool() {
+    ALOG_ASSERT(mEncoderTaskRunner->RunsTasksInCurrentSequence());
+
+    auto sharedThis = weak_from_this().lock();
+    if (!sharedThis) {
+        ALOGI("%s(): V4L2EncodeComponent instance is already destroyed", __func__);
+        return false;
+    }
+
     C2BlockPool::local_id_t poolId = mInterface->getBlockPoolId();
     if (poolId == C2BlockPool::BASIC_LINEAR) {
         ALOGW("Using unoptimized linear block pool");
     }
-    c2_status_t status = GetCodec2BlockPool(poolId, shared_from_this(), &mOutputBlockPool);
+    c2_status_t status = GetCodec2BlockPool(poolId, std::move(sharedThis), &mOutputBlockPool);
     if (status != C2_OK || !mOutputBlockPool) {
         ALOGE("Failed to get output block pool, error: %d", status);
         return false;
@@ -1017,7 +1043,7 @@ void V4L2EncodeComponent::reportError(c2_status_t error) {
     std::lock_guard<std::mutex> lock(mComponentLock);
     if (mComponentState != ComponentState::ERROR) {
         setComponentState(ComponentState::ERROR);
-        mListener->onError_nb(shared_from_this(), static_cast<uint32_t>(error));
+        mListener->onError_nb(weak_from_this(), static_cast<uint32_t>(error));
     }
 }
 

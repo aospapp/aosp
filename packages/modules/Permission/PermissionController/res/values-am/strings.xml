@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"የመተግበሪያ ፈቃዶች"</string>
     <string name="unused_apps" msgid="2058057455175955094">"ጥቅም ላይ ያልዋሉ መተግበሪያዎች"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"አገልግሎት ላይ ያልዋሉ መተግበሪያዎች የሉም"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"0 ሥራ ላይ ያልዋሉ መተግበሪያዎች"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"መተግበሪያን አሰናክል"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"ይህን መተግበሪያ ካሰናከሉት ከዚህ በኋላ Android እና ሌሎች መተግበሪያዎች እንደተፈለገው ላይሠሩ ይችላሉ። ያስታውሱ፣ በእርስዎ መሣሪያ ላይ አስቀድሞ ተጭኖ ስለሚመጣ ይህን መተግበሪያ መሰረዝ አይችሉም። በማሰናከልዎት፣ ይህን መተግበሪያ ያጠፉታል እና በእርስዎ መሣሪያ ላይ ይደብቁታል።"</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"የፈቃድ አቀናባሪ"</string>

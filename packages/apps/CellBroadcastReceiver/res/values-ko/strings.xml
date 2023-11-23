@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2008319089248760277">"재난문자"</string>
-    <string name="sms_cb_settings" msgid="9021266457863671070">"재난문자"</string>
-    <string name="sms_cb_sender_name_default" msgid="972946539768958828">"무선 긴급 알림"</string>
+    <string name="app_label" msgid="2008319089248760277">"긴급 재난 문자"</string>
+    <string name="sms_cb_settings" msgid="9021266457863671070">"긴급 재난 문자"</string>
+    <string name="sms_cb_sender_name_default" msgid="972946539768958828">"긴급 재난 문자"</string>
     <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"위급 재난 문자"</string>
     <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"긴급 재난 문자"</string>
     <string name="sms_cb_sender_name_public_safety" msgid="5230033387708907922">"안전 안내 문자"</string>
@@ -62,7 +62,7 @@
     <string name="notification_channel_settings_updates" msgid="6779759372516475085">"SIM을 기반으로 자동 WEA 설정을 변경했습니다."</string>
     <string name="enable_alerts_master_toggle_title" msgid="1457904343636699446">"경보 허용"</string>
     <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"재난문자 알림 수신"</string>
-    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"다시 알림 간격"</string>
+    <string name="alert_reminder_interval_title" msgid="3283595202268218149">"경보 다시 알림"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"경보 메시지를 음성으로 알림"</string>
     <string name="enable_alert_speech_summary" msgid="2855629032890937297">"재난문자를 TTS(텍스트 음성 변환) 기능을 사용하여 음성으로 알림"</string>
     <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"경보 알림음이 보통 볼륨으로 재생됨"</string>
@@ -86,7 +86,7 @@
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"주 및 지방 당국으로부터 테스트 메시지 수신"</string>
     <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"긴급 재난 문자"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"치명적인 사건 경고"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"테스트 알림"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"테스트 경보"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"이동통신사 테스트 및 안전 경보 시스템의 월간 테스트 받기"</string>
     <!-- no translation found for enable_exercise_test_alerts_title (6030780598569873865) -->
     <skip />
@@ -147,7 +147,7 @@
     <item msgid="3863339891188103437">"15분마다"</item>
     <item msgid="7388573183644474611">"없음"</item>
   </string-array>
-    <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"무선 긴급 알림"</string>
+    <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"긴급 재난 문자"</string>
     <string name="enable_cmas_presidential_alerts_title" msgid="7293800023375154256">"대통령령 비상 메시지"</string>
     <string name="enable_cmas_presidential_alerts_summary" msgid="7900094335808247024">"대통령이 발령한 대국민 비상 메시지입니다. 이 알림은 끌 수 없습니다"</string>
     <string name="receive_cmas_in_second_language_title" msgid="1223260365527361964"></string>

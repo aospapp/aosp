@@ -40,7 +40,10 @@ public final class DeviceAdminAddExplanationPreferenceController
     }
 
     @Override
-    protected int getRealAvailabilityStatus() {
+    protected int getAvailabilityStatus() {
+        int superStatus = super.getAvailabilityStatus();
+        if (superStatus != AVAILABLE) return superStatus;
+
         return TextUtils.isEmpty(mExplanation) ? CONDITIONALLY_UNAVAILABLE : AVAILABLE;
     }
 

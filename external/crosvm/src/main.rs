@@ -26,20 +26,27 @@ use crosvm::DirectIoOption;
 use crosvm::{
     argument::{self, print_help, set_arguments, Argument},
     platform, BindMount, Config, DiskOption, Executable, GidMap, SharedDir, TouchDeviceOption,
-    VhostUserFsOption, VhostUserOption, DISK_ID_LEN,
+    VhostUserFsOption, VhostUserOption, VhostUserWlOption, DISK_ID_LEN,
 };
 #[cfg(feature = "gpu")]
-use devices::virtio::gpu::{GpuMode, GpuParameters};
+use devices::virtio::gpu::{
+    GpuDisplayParameters, GpuMode, GpuParameters, DEFAULT_DISPLAY_HEIGHT, DEFAULT_DISPLAY_WIDTH,
+};
 use devices::ProtectionType;
 #[cfg(feature = "audio")]
 use devices::{Ac97Backend, Ac97Parameters};
 use disk::QcowFile;
+#[cfg(feature = "composite-disk")]
+use disk::{
+    create_composite_disk, create_disk_file, create_zero_filler, ImagePartitionType, PartitionInfo,
+};
 use vm_control::{
     client::{
         do_modify_battery, do_usb_attach, do_usb_detach, do_usb_list, handle_request, vms_request,
         ModifyUsbError, ModifyUsbResult,
     },
     BalloonControlCommand, BatteryType, DiskControlCommand, UsbControlResult, VmRequest,
+    VmResponse,
 };
 
 fn executable_is_plugin(executable: &Option<Executable>) -> bool {
@@ -153,15 +160,48 @@ fn parse_cpu_affinity(s: &str) -> argument::Result<VcpuAffinity> {
     }
 }
 
+fn parse_cpu_capacity(s: &str, cpu_capacity: &mut BTreeMap<usize, u32>) -> argument::Result<()> {
+    for cpu_pair in s.split(',') {
+        let assignment: Vec<&str> = cpu_pair.split('=').collect();
+        if assignment.len() != 2 {
+            return Err(argument::Error::InvalidValue {
+                value: cpu_pair.to_owned(),
+                expected: String::from("invalid CPU capacity syntax"),
+            });
+        }
+        let cpu = assignment[0]
+            .parse()
+            .map_err(|_| argument::Error::InvalidValue {
+                value: assignment[0].to_owned(),
+                expected: String::from("CPU index must be a non-negative integer"),
+            })?;
+        let capacity = assignment[1]
+            .parse()
+            .map_err(|_| argument::Error::InvalidValue {
+                value: assignment[1].to_owned(),
+                expected: String::from("CPU capacity must be a non-negative integer"),
+            })?;
+        if cpu_capacity.insert(cpu, capacity).is_some() {
+            return Err(argument::Error::InvalidValue {
+                value: cpu_pair.to_owned(),
+                expected: String::from("CPU index must be unique"),
+            });
+        }
+    }
+    Ok(())
+}
+
 #[cfg(feature = "gpu")]
-fn parse_gpu_options(s: Option<&str>) -> argument::Result<GpuParameters> {
-    let mut gpu_params: GpuParameters = Default::default();
+fn parse_gpu_options(s: Option<&str>, gpu_params: &mut GpuParameters) -> argument::Result<()> {
     #[cfg(feature = "gfxstream")]
     let mut vulkan_specified = false;
     #[cfg(feature = "gfxstream")]
     let mut syncfd_specified = false;
     #[cfg(feature = "gfxstream")]
     let mut angle_specified = false;
+
+    let mut display_w: Option<u32> = None;
+    let mut display_h: Option<u32> = None;
 
     if let Some(s) = s {
         let opts = s
@@ -323,24 +363,24 @@ fn parse_gpu_options(s: Option<&str>) -> argument::Result<GpuParameters> {
                     }
                 }
                 "width" => {
-                    gpu_params.display_width =
-                        v.parse::<u32>()
-                            .map_err(|_| argument::Error::InvalidValue {
-                                value: v.to_string(),
-                                expected: String::from(
-                                    "gpu parameter 'width' must be a valid integer",
-                                ),
-                            })?;
+                    let width = v
+                        .parse::<u32>()
+                        .map_err(|_| argument::Error::InvalidValue {
+                            value: v.to_string(),
+                            expected: String::from("gpu parameter 'width' must be a valid integer"),
+                        })?;
+                    display_w = Some(width);
                 }
                 "height" => {
-                    gpu_params.display_height =
-                        v.parse::<u32>()
-                            .map_err(|_| argument::Error::InvalidValue {
-                                value: v.to_string(),
-                                expected: String::from(
-                                    "gpu parameter 'height' must be a valid integer",
-                                ),
-                            })?;
+                    let height = v
+                        .parse::<u32>()
+                        .map_err(|_| argument::Error::InvalidValue {
+                            value: v.to_string(),
+                            expected: String::from(
+                                "gpu parameter 'height' must be a valid integer",
+                            ),
+                        })?;
+                    display_h = Some(height);
                 }
                 "cache-path" => gpu_params.cache_path = Some(v.to_string()),
                 "cache-size" => gpu_params.cache_size = Some(v.to_string()),
@@ -369,6 +409,22 @@ fn parse_gpu_options(s: Option<&str>) -> argument::Result<GpuParameters> {
         }
     }
 
+    if display_w.is_some() || display_h.is_some() {
+        if display_w.is_none() || display_h.is_none() {
+            return Err(argument::Error::InvalidValue {
+                value: s.unwrap_or("").to_string(),
+                expected: String::from(
+                    "gpu must include both 'width' and 'height' if either is supplied",
+                ),
+            });
+        }
+
+        gpu_params.displays.push(GpuDisplayParameters {
+            width: display_w.unwrap(),
+            height: display_h.unwrap(),
+        });
+    }
+
     #[cfg(feature = "gfxstream")]
     {
         if !vulkan_specified && gpu_params.mode == GpuMode::ModeGfxstream {
@@ -388,7 +444,69 @@ fn parse_gpu_options(s: Option<&str>) -> argument::Result<GpuParameters> {
         }
     }
 
-    Ok(gpu_params)
+    Ok(())
+}
+
+#[cfg(feature = "gpu")]
+fn parse_gpu_display_options(
+    s: Option<&str>,
+    gpu_params: &mut GpuParameters,
+) -> argument::Result<()> {
+    let mut display_w: Option<u32> = None;
+    let mut display_h: Option<u32> = None;
+
+    if let Some(s) = s {
+        let opts = s
+            .split(',')
+            .map(|frag| frag.split('='))
+            .map(|mut kv| (kv.next().unwrap_or(""), kv.next().unwrap_or("")));
+
+        for (k, v) in opts {
+            match k {
+                "width" => {
+                    let width = v
+                        .parse::<u32>()
+                        .map_err(|_| argument::Error::InvalidValue {
+                            value: v.to_string(),
+                            expected: String::from("gpu parameter 'width' must be a valid integer"),
+                        })?;
+                    display_w = Some(width);
+                }
+                "height" => {
+                    let height = v
+                        .parse::<u32>()
+                        .map_err(|_| argument::Error::InvalidValue {
+                            value: v.to_string(),
+                            expected: String::from(
+                                "gpu parameter 'height' must be a valid integer",
+                            ),
+                        })?;
+                    display_h = Some(height);
+                }
+                "" => {}
+                _ => {
+                    return Err(argument::Error::UnknownArgument(format!(
+                        "gpu-display parameter {}",
+                        k
+                    )));
+                }
+            }
+        }
+    }
+
+    if display_w.is_none() || display_h.is_none() {
+        return Err(argument::Error::InvalidValue {
+            value: s.unwrap_or("").to_string(),
+            expected: String::from("gpu-display must include both 'width' and 'height'"),
+        });
+    }
+
+    gpu_params.displays.push(GpuDisplayParameters {
+        width: display_w.unwrap(),
+        height: display_h.unwrap(),
+    });
+
+    Ok(())
 }
 
 #[cfg(feature = "audio")]
@@ -415,6 +533,7 @@ fn parse_ac97_options(s: &str) -> argument::Result<Ac97Parameters> {
                     argument::Error::Syntax(format!("invalid capture option: {}", e))
                 })?;
             }
+            #[cfg(feature = "audio_cras")]
             "client_type" => {
                 ac97_params
                     .set_client_type(v)
@@ -838,6 +957,12 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
             }
             cfg.vcpu_affinity = Some(parse_cpu_affinity(value.unwrap())?);
         }
+        "cpu-cluster" => {
+            cfg.cpu_clusters.push(parse_cpu_set(value.unwrap())?);
+        }
+        "cpu-capacity" => {
+            parse_cpu_capacity(value.unwrap(), &mut cfg.cpu_capacity)?;
+        }
         "no-smt" => {
             cfg.no_smt = true;
         }
@@ -848,6 +973,9 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
                 ));
             }
             cfg.rt_cpus = parse_cpu_set(value.unwrap())?;
+        }
+        "delay-rt" => {
+            cfg.delay_rt = true;
         }
         "mem" => {
             if cfg.memory.is_some() {
@@ -866,6 +994,24 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
                         })?,
                 )
         }
+        #[cfg(target_arch = "aarch64")]
+        "swiotlb" => {
+            if cfg.swiotlb.is_some() {
+                return Err(argument::Error::TooManyArguments(
+                    "`swiotlb` already given".to_owned(),
+                ));
+            }
+            cfg.swiotlb =
+                Some(
+                    value
+                        .unwrap()
+                        .parse()
+                        .map_err(|_| argument::Error::InvalidValue {
+                            value: value.unwrap().to_owned(),
+                            expected: String::from("this value for `swiotlb` needs to be integer"),
+                        })?,
+                )
+        }
         "hugepages" => {
             cfg.hugepages = true;
         }
@@ -880,6 +1026,11 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
                 cfg.params.push("snd_intel8x0.ac97_clock=48000".to_string());
             }
             cfg.ac97_parameters.push(ac97_params);
+        }
+        #[cfg(feature = "audio")]
+        "sound" => {
+            let client_path = PathBuf::from(value.unwrap());
+            cfg.sound = Some(client_path);
         }
         "serial" => {
             let serial_params = parse_serial_options(value.unwrap())?;
@@ -979,6 +1130,7 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
             let mut disk = DiskOption {
                 path: disk_path,
                 read_only,
+                o_direct: false,
                 sparse: true,
                 block_size: 512,
                 id: None,
@@ -1002,6 +1154,14 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
                             expected: String::from("`sparse` must be a boolean"),
                         })?;
                         disk.sparse = sparse;
+                    }
+                    "o_direct" => {
+                        let o_direct =
+                            value.parse().map_err(|_| argument::Error::InvalidValue {
+                                value: value.to_owned(),
+                                expected: String::from("`o_direct` must be a boolean"),
+                            })?;
+                        disk.o_direct = o_direct;
                     }
                     "block_size" => {
                         let block_size =
@@ -1051,6 +1211,7 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
                 path: disk_path,
                 read_only: !name.starts_with("rw"),
                 sparse: false,
+                o_direct: false,
                 block_size: base::pagesize() as u32,
                 id: None,
             });
@@ -1213,7 +1374,7 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
             cfg.wayland_socket_paths.insert(name.to_string(), path);
         }
         #[cfg(feature = "wl-dmabuf")]
-        "wayland-dmabuf" => cfg.wayland_dmabuf = true,
+        "wayland-dmabuf" => {}
         "x-display" => {
             if cfg.x_display.is_some() {
                 return Err(argument::Error::TooManyArguments(
@@ -1483,18 +1644,22 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
         }
         #[cfg(feature = "gpu")]
         "gpu" => {
-            let params = parse_gpu_options(value)?;
-            cfg.gpu_parameters = Some(params);
+            if cfg.gpu_parameters.is_none() {
+                cfg.gpu_parameters = Some(Default::default());
+            }
+            parse_gpu_options(value, cfg.gpu_parameters.as_mut().unwrap())?;
+        }
+        #[cfg(feature = "gpu")]
+        "gpu-display" => {
+            if cfg.gpu_parameters.is_none() {
+                cfg.gpu_parameters = Some(Default::default());
+            }
+            parse_gpu_display_options(value, cfg.gpu_parameters.as_mut().unwrap())?;
         }
         "software-tpm" => {
             cfg.software_tpm = true;
         }
         "single-touch" => {
-            if cfg.virtio_single_touch.is_some() {
-                return Err(argument::Error::TooManyArguments(
-                    "`single-touch` already given".to_owned(),
-                ));
-            }
             let mut it = value.unwrap().split(':');
 
             let mut single_touch_spec =
@@ -1505,14 +1670,9 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
             if let Some(height) = it.next() {
                 single_touch_spec.set_height(height.trim().parse().unwrap());
             }
-            cfg.virtio_single_touch = Some(single_touch_spec);
+            cfg.virtio_single_touch.push(single_touch_spec);
         }
         "multi-touch" => {
-            if cfg.virtio_multi_touch.is_some() {
-                return Err(argument::Error::TooManyArguments(
-                    "`multi-touch` already given".to_owned(),
-                ));
-            }
             let mut it = value.unwrap().split(':');
 
             let mut multi_touch_spec =
@@ -1523,14 +1683,9 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
             if let Some(height) = it.next() {
                 multi_touch_spec.set_height(height.trim().parse().unwrap());
             }
-            cfg.virtio_multi_touch = Some(multi_touch_spec);
+            cfg.virtio_multi_touch.push(multi_touch_spec);
         }
         "trackpad" => {
-            if cfg.virtio_trackpad.is_some() {
-                return Err(argument::Error::TooManyArguments(
-                    "`trackpad` already given".to_owned(),
-                ));
-            }
             let mut it = value.unwrap().split(':');
 
             let mut trackpad_spec =
@@ -1541,31 +1696,19 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
             if let Some(height) = it.next() {
                 trackpad_spec.set_height(height.trim().parse().unwrap());
             }
-            cfg.virtio_trackpad = Some(trackpad_spec);
+            cfg.virtio_trackpad.push(trackpad_spec);
         }
         "mouse" => {
-            if cfg.virtio_mouse.is_some() {
-                return Err(argument::Error::TooManyArguments(
-                    "`mouse` already given".to_owned(),
-                ));
-            }
-            cfg.virtio_mouse = Some(PathBuf::from(value.unwrap().to_owned()));
+            cfg.virtio_mice
+                .push(PathBuf::from(value.unwrap().to_owned()));
         }
         "keyboard" => {
-            if cfg.virtio_keyboard.is_some() {
-                return Err(argument::Error::TooManyArguments(
-                    "`keyboard` already given".to_owned(),
-                ));
-            }
-            cfg.virtio_keyboard = Some(PathBuf::from(value.unwrap().to_owned()));
+            cfg.virtio_keyboard
+                .push(PathBuf::from(value.unwrap().to_owned()));
         }
         "switches" => {
-            if cfg.virtio_switches.is_some() {
-                return Err(argument::Error::TooManyArguments(
-                    "`switches` already given".to_owned(),
-                ));
-            }
-            cfg.virtio_switches = Some(PathBuf::from(value.unwrap().to_owned()));
+            cfg.virtio_switches
+                .push(PathBuf::from(value.unwrap().to_owned()));
         }
         "evdev" => {
             let dev_path = PathBuf::from(value.unwrap());
@@ -1593,7 +1736,12 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
             cfg.executable_path = Some(Executable::Bios(PathBuf::from(value.unwrap().to_owned())));
         }
         "vfio" => {
-            let vfio_path = PathBuf::from(value.unwrap());
+            let mut param = value.unwrap().split(',');
+            let vfio_path =
+                PathBuf::from(param.next().ok_or_else(|| argument::Error::InvalidValue {
+                    value: value.unwrap().to_owned(),
+                    expected: String::from("missing vfio path"),
+                })?);
             if !vfio_path.exists() {
                 return Err(argument::Error::InvalidValue {
                     value: value.unwrap().to_owned(),
@@ -1607,7 +1755,33 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
                 });
             }
 
-            cfg.vfio.push(vfio_path);
+            let mut enable_iommu = false;
+            if let Some(p) = param.next() {
+                let mut kv = p.splitn(2, '=');
+                if let (Some(kind), Some(value)) = (kv.next(), kv.next()) {
+                    match kind {
+                        "iommu" => (),
+                        _ => {
+                            return Err(argument::Error::InvalidValue {
+                                value: p.to_owned(),
+                                expected: String::from("option must be `iommu=on|off`"),
+                            })
+                        }
+                    }
+                    match value {
+                        "on" => enable_iommu = true,
+                        "off" => (),
+                        _ => {
+                            return Err(argument::Error::InvalidValue {
+                                value: p.to_owned(),
+                                expected: String::from("option must be `iommu=on|off`"),
+                            })
+                        }
+                    }
+                };
+            }
+
+            cfg.vfio.insert(vfio_path, enable_iommu);
         }
         "video-decoder" => {
             cfg.video_dec = true;
@@ -1634,7 +1808,6 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
         }
         "protected-vm" => {
             cfg.protected_vm = ProtectionType::Protected;
-            cfg.params.push("swiotlb=force".to_string());
         }
         "battery" => {
             let params = parse_battery_options(value)?;
@@ -1666,9 +1839,34 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
         "vhost-user-blk" => cfg.vhost_user_blk.push(VhostUserOption {
             socket: PathBuf::from(value.unwrap()),
         }),
+        "vhost-user-console" => cfg.vhost_user_console.push(VhostUserOption {
+            socket: PathBuf::from(value.unwrap()),
+        }),
+        "vhost-user-mac80211-hwsim" => {
+            cfg.vhost_user_mac80211_hwsim = Some(VhostUserOption {
+                socket: PathBuf::from(value.unwrap()),
+            });
+        }
         "vhost-user-net" => cfg.vhost_user_net.push(VhostUserOption {
             socket: PathBuf::from(value.unwrap()),
         }),
+        "vhost-user-wl" => {
+            let mut components = value.unwrap().splitn(2, ":");
+            let socket = components.next().map(PathBuf::from).ok_or_else(|| {
+                argument::Error::InvalidValue {
+                    value: value.unwrap().to_owned(),
+                    expected: String::from("missing socket path"),
+                }
+            })?;
+            let vm_tube = components.next().map(PathBuf::from).ok_or_else(|| {
+                argument::Error::InvalidValue {
+                    value: value.unwrap().to_owned(),
+                    expected: String::from("missing vm tube path"),
+                }
+            })?;
+            cfg.vhost_user_wl
+                .push(VhostUserWlOption { socket, vm_tube });
+        }
         "vhost-user-fs" => {
             // (socket:tag)
             let param = value.unwrap();
@@ -1751,6 +1949,9 @@ fn set_argument(cfg: &mut Config, name: &str, value: Option<&str>) -> argument::
             }
             cfg.dmi_path = Some(dmi_path);
         }
+        "no-legacy" => {
+            cfg.no_legacy = true;
+        }
         "help" => return Err(argument::Error::PrintHelp),
         _ => unreachable!(),
     }
@@ -1785,12 +1986,21 @@ fn validate_arguments(cfg: &mut Config) -> std::result::Result<(), argument::Err
     }
     #[cfg(feature = "gpu")]
     {
-        if let Some(gpu_parameters) = cfg.gpu_parameters.as_ref() {
-            let (width, height) = (gpu_parameters.display_width, gpu_parameters.display_height);
-            if let Some(virtio_multi_touch) = cfg.virtio_multi_touch.as_mut() {
+        if let Some(gpu_parameters) = cfg.gpu_parameters.as_mut() {
+            if gpu_parameters.displays.is_empty() {
+                gpu_parameters.displays.push(GpuDisplayParameters {
+                    width: DEFAULT_DISPLAY_WIDTH,
+                    height: DEFAULT_DISPLAY_HEIGHT,
+                });
+            }
+
+            let width = gpu_parameters.displays[0].width;
+            let height = gpu_parameters.displays[0].height;
+
+            if let Some(virtio_multi_touch) = cfg.virtio_multi_touch.first_mut() {
                 virtio_multi_touch.set_default_size(width, height);
             }
-            if let Some(virtio_single_touch) = cfg.virtio_single_touch.as_mut() {
+            if let Some(virtio_single_touch) = cfg.virtio_single_touch.first_mut() {
                 virtio_single_touch.set_default_size(width, height);
             }
         }
@@ -1822,8 +2032,11 @@ fn run_vm(args: std::env::Args) -> std::result::Result<(), ()> {
           Argument::short_value('c', "cpus", "N", "Number of VCPUs. (default: 1)"),
           Argument::value("cpu-affinity", "CPUSET", "Comma-separated list of CPUs or CPU ranges to run VCPUs on (e.g. 0,1-3,5)
                               or colon-separated list of assignments of guest to host CPU assignments (e.g. 0=0:1=1:2=2) (default: no mask)"),
+          Argument::value("cpu-cluster", "CPUSET", "Group the given CPUs into a cluster (default: no clusters)"),
+          Argument::value("cpu-capacity", "CPU=CAP[,CPU=CAP[,...]]", "Set the relative capacity of the given CPU (default: no capacity)"),
           Argument::flag("no-smt", "Don't use SMT in the guest"),
           Argument::value("rt-cpus", "CPUSET", "Comma-separated list of CPUs or CPU ranges to run VCPUs on. (e.g. 0,1-3,5) (default: none)"),
+          Argument::flag("delay-rt", "Don't set VCPUs real-time until make-rt command is run"),
           Argument::short_value('m',
                                 "mem",
                                 "N",
@@ -1841,7 +2054,8 @@ fn run_vm(args: std::env::Args) -> std::result::Result<(), ()> {
                               Valid keys:
                               sparse=BOOL - Indicates whether the disk should support the discard operation (default: true)
                               block_size=BYTES - Set the reported block size of the disk (default: 512)
-                              id=STRING - Set the block device identifier to an ASCII string, up to 20 characters (default: no ID)"),
+                              id=STRING - Set the block device identifier to an ASCII string, up to 20 characters (default: no ID)
+                              o_direct=BOOL - Use O_DIRECT mode to bypass page cache"),
           Argument::value("rwdisk", "PATH[,key=value[,key=value[,...]]", "Path to a writable disk image followed by optional comma-separated options.
                               See --disk for valid options."),
           Argument::value("rw-pmem-device", "PATH", "Path to a writable disk image."),
@@ -1857,33 +2071,35 @@ fn run_vm(args: std::env::Args) -> std::result::Result<(), ()> {
           Argument::value("ac97",
                           "[backend=BACKEND,capture=true,capture_effect=EFFECT,client_type=TYPE,shm-fd=FD,client-fd=FD,server-fd=FD]",
                           "Comma separated key=value pairs for setting up Ac97 devices. Can be given more than once .
-                          Possible key values:
-                          backend=(null, cras, vios) - Where to route the audio device. If not provided, backend will default to null.
-                          `null` for /dev/null, cras for CRAS server and vios for VioS server.
-                          capture - Enable audio capture
-                          capture_effects - | separated effects to be enabled for recording. The only supported effect value now is EchoCancellation or aec.
-                          client_type - Set specific client type for cras backend.
-                          server - The to the VIOS server (unix socket)."),
+                              Possible key values:
+                              backend=(null, cras, vios) - Where to route the audio device. If not provided, backend will default to null.
+                              `null` for /dev/null, cras for CRAS server and vios for VioS server.
+                              capture - Enable audio capture
+                              capture_effects - | separated effects to be enabled for recording. The only supported effect value now is EchoCancellation or aec.
+                              client_type - Set specific client type for cras backend.
+                              server - The to the VIOS server (unix socket)."),
+          #[cfg(feature = "audio")]
+          Argument::value("sound", "[PATH]", "Path to the VioS server socket for setting up virtio-snd devices."),
           Argument::value("serial",
                           "type=TYPE,[hardware=HW,num=NUM,path=PATH,input=PATH,console,earlycon,stdin]",
                           "Comma separated key=value pairs for setting up serial devices. Can be given more than once.
-                          Possible key values:
-                          type=(stdout,syslog,sink,file) - Where to route the serial device
-                          hardware=(serial,virtio-console) - Which type of serial hardware to emulate. Defaults to 8250 UART (serial).
-                          num=(1,2,3,4) - Serial Device Number. If not provided, num will default to 1.
-                          path=PATH - The path to the file to write to when type=file
-                          input=PATH - The path to the file to read from when not stdin
-                          console - Use this serial device as the guest console. Can only be given once. Will default to first serial port if not provided.
-                          earlycon - Use this serial device as the early console. Can only be given once.
-                          stdin - Direct standard input to this serial device. Can only be given once. Will default to first serial port if not provided.
-                          "),
+                              Possible key values:
+                              type=(stdout,syslog,sink,file) - Where to route the serial device
+                              hardware=(serial,virtio-console) - Which type of serial hardware to emulate. Defaults to 8250 UART (serial).
+                              num=(1,2,3,4) - Serial Device Number. If not provided, num will default to 1.
+                              path=PATH - The path to the file to write to when type=file
+                              input=PATH - The path to the file to read from when not stdin
+                              console - Use this serial device as the guest console. Can only be given once. Will default to first serial port if not provided.
+                              earlycon - Use this serial device as the early console. Can only be given once.
+                              stdin - Direct standard input to this serial device. Can only be given once. Will default to first serial port if not provided.
+                              "),
           Argument::value("syslog-tag", "TAG", "When logging to syslog, use the provided tag."),
           Argument::value("x-display", "DISPLAY", "X11 display name to use."),
           Argument::flag("display-window-keyboard", "Capture keyboard input from the display window."),
           Argument::flag("display-window-mouse", "Capture keyboard input from the display window."),
           Argument::value("wayland-sock", "PATH[,name=NAME]", "Path to the Wayland socket to use. The unnamed one is used for displaying virtual screens. Named ones are only for IPC."),
           #[cfg(feature = "wl-dmabuf")]
-          Argument::flag("wayland-dmabuf", "Enable support for DMABufs in Wayland device."),
+          Argument::flag("wayland-dmabuf", "DEPRECATED: Enable support for DMABufs in Wayland device."),
           Argument::short_value('s',
                                 "socket",
                                 "PATH",
@@ -1892,14 +2108,14 @@ fn run_vm(args: std::env::Args) -> std::result::Result<(), ()> {
           Argument::value("cid", "CID", "Context ID for virtual sockets."),
           Argument::value("shared-dir", "PATH:TAG[:type=TYPE:writeback=BOOL:timeout=SECONDS:uidmap=UIDMAP:gidmap=GIDMAP:cache=CACHE]",
                           "Colon-separated options for configuring a directory to be shared with the VM.
-The first field is the directory to be shared and the second field is the tag that the VM can use to identify the device.
-The remaining fields are key=value pairs that may appear in any order.  Valid keys are:
-type=(p9, fs) - Indicates whether the directory should be shared via virtio-9p or virtio-fs (default: p9).
-uidmap=UIDMAP - The uid map to use for the device's jail in the format \"inner outer count[,inner outer count]\" (default: 0 <current euid> 1).
-gidmap=GIDMAP - The gid map to use for the device's jail in the format \"inner outer count[,inner outer count]\" (default: 0 <current egid> 1).
-cache=(never, auto, always) - Indicates whether the VM can cache the contents of the shared directory (default: auto).  When set to \"auto\" and the type is \"fs\", the VM will use close-to-open consistency for file contents.
-timeout=SECONDS - How long the VM should consider file attributes and directory entries to be valid (default: 5).  If the VM has exclusive access to the directory, then this should be a large value.  If the directory can be modified by other processes, then this should be 0.
-writeback=BOOL - Indicates whether the VM can use writeback caching (default: false).  This is only safe to do when the VM has exclusive access to the files in a directory.  Additionally, the server should have read permission for all files as the VM may issue read requests even for files that are opened write-only.
+                              The first field is the directory to be shared and the second field is the tag that the VM can use to identify the device.
+                              The remaining fields are key=value pairs that may appear in any order.  Valid keys are:
+                              type=(p9, fs) - Indicates whether the directory should be shared via virtio-9p or virtio-fs (default: p9).
+                              uidmap=UIDMAP - The uid map to use for the device's jail in the format \"inner outer count[,inner outer count]\" (default: 0 <current euid> 1).
+                              gidmap=GIDMAP - The gid map to use for the device's jail in the format \"inner outer count[,inner outer count]\" (default: 0 <current egid> 1).
+                              cache=(never, auto, always) - Indicates whether the VM can cache the contents of the shared directory (default: auto).  When set to \"auto\" and the type is \"fs\", the VM will use close-to-open consistency for file contents.
+                              timeout=SECONDS - How long the VM should consider file attributes and directory entries to be valid (default: 5).  If the VM has exclusive access to the directory, then this should be a large value.  If the directory can be modified by other processes, then this should be 0.
+                              writeback=BOOL - Indicates whether the VM can use writeback caching (default: false).  This is only safe to do when the VM has exclusive access to the files in a directory.  Additionally, the server should have read permission for all files as the VM may issue read requests even for files that are opened write-only.
 "),
           Argument::value("seccomp-policy-dir", "PATH", "Path to seccomp .policy files."),
           Argument::flag("seccomp-log-failures", "Instead of seccomp filter failures being fatal, they will be logged instead."),
@@ -1923,17 +2139,23 @@ writeback=BOOL - Indicates whether the VM can use writeback caching (default: fa
           Argument::flag_or_value("gpu",
                                   "[width=INT,height=INT]",
                                   "(EXPERIMENTAL) Comma separated key=value pairs for setting up a virtio-gpu device
-                                  Possible key values:
-                                  backend=(2d|virglrenderer|gfxstream) - Which backend to use for virtio-gpu (determining rendering protocol)
-                                  width=INT - The width of the virtual display connected to the virtio-gpu.
-                                  height=INT - The height of the virtual display connected to the virtio-gpu.
-                                  egl[=true|=false] - If the backend should use a EGL context for rendering.
-                                  glx[=true|=false] - If the backend should use a GLX context for rendering.
-                                  surfaceless[=true|=false] - If the backend should use a surfaceless context for rendering.
-                                  angle[=true|=false] - If the gfxstream backend should use ANGLE (OpenGL on Vulkan) as its native OpenGL driver.
-                                  syncfd[=true|=false] - If the gfxstream backend should support EGL_ANDROID_native_fence_sync
-                                  vulkan[=true|=false] - If the backend should support vulkan
-                                  "),
+                              Possible key values:
+                              backend=(2d|virglrenderer|gfxstream) - Which backend to use for virtio-gpu (determining rendering protocol)
+                              width=INT - The width of the virtual display connected to the virtio-gpu.
+                              height=INT - The height of the virtual display connected to the virtio-gpu.
+                              egl[=true|=false] - If the backend should use a EGL context for rendering.
+                              glx[=true|=false] - If the backend should use a GLX context for rendering.
+                              surfaceless[=true|=false] - If the backend should use a surfaceless context for rendering.
+                              angle[=true|=false] - If the gfxstream backend should use ANGLE (OpenGL on Vulkan) as its native OpenGL driver.
+                              syncfd[=true|=false] - If the gfxstream backend should support EGL_ANDROID_native_fence_sync
+                              vulkan[=true|=false] - If the backend should support vulkan"),
+          #[cfg(feature = "gpu")]
+          Argument::flag_or_value("gpu-display",
+                                  "[width=INT,height=INT]",
+                                  "(EXPERIMENTAL) Comma separated key=value pairs for setting up a display on the virtio-gpu device
+                              Possible key values:
+                              width=INT - The width of the virtual display connected to the virtio-gpu.
+                              height=INT - The height of the virtual display connected to the virtio-gpu."),
           #[cfg(feature = "tpm")]
           Argument::flag("software-tpm", "enable a software emulated trusted platform module device"),
           Argument::value("evdev", "PATH", "Path to an event device node. The device will be grabbed (unusable from the host) and made available to the guest with the same configuration it shows on the host"),
@@ -1946,23 +2168,28 @@ writeback=BOOL - Indicates whether the VM can use writeback caching (default: fa
           #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
           Argument::flag("split-irqchip", "(EXPERIMENTAL) enable split-irqchip support"),
           Argument::value("bios", "PATH", "Path to BIOS/firmware ROM"),
-          Argument::value("vfio", "PATH", "Path to sysfs of pass through or mdev device"),
+          Argument::value("vfio", "PATH[,iommu=on|off]", "Path to sysfs of pass through or mdev device.
+iommu=on|off - indicates whether to enable virtio IOMMU for this device"),
           #[cfg(feature = "video-decoder")]
           Argument::flag("video-decoder", "(EXPERIMENTAL) enable virtio-video decoder device"),
           #[cfg(feature = "video-encoder")]
           Argument::flag("video-encoder", "(EXPERIMENTAL) enable virtio-video encoder device"),
           Argument::value("acpi-table", "PATH", "Path to user provided ACPI table"),
           Argument::flag("protected-vm", "(EXPERIMENTAL) prevent host access to guest memory"),
+          #[cfg(target_arch = "aarch64")]
+          Argument::value("swiotlb", "N", "(EXPERIMENTAL) Size of virtio swiotlb buffer in MiB (default: 64 if `--protected-vm` is present)."),
           Argument::flag_or_value("battery",
                                   "[type=TYPE]",
                                   "Comma separated key=value pairs for setting up battery device
-                                  Possible key values:
-                                  type=goldfish - type of battery emulation, defaults to goldfish
-                                  "),
+                              Possible key values:
+                              type=goldfish - type of battery emulation, defaults to goldfish"),
           Argument::value("gdb", "PORT", "(EXPERIMENTAL) gdb on the given port"),
           Argument::value("balloon_bias_mib", "N", "Amount to bias balance of memory between host and guest as the balloon inflates, in MiB."),
           Argument::value("vhost-user-blk", "SOCKET_PATH", "Path to a socket for vhost-user block"),
+          Argument::value("vhost-user-console", "SOCKET_PATH", "Path to a socket for vhost-user console"),
+          Argument::value("vhost-user-mac80211-hwsim", "SOCKET_PATH", "Path to a socket for vhost-user mac80211_hwsim"),
           Argument::value("vhost-user-net", "SOCKET_PATH", "Path to a socket for vhost-user net"),
+          Argument::value("vhost-user-wl", "SOCKET_PATH:TUBE_PATH", "Paths to a vhost-user socket for wayland and a Tube socket for additional wayland-specific messages"),
           Argument::value("vhost-user-fs", "SOCKET_PATH:TAG",
                           "Path to a socket path for vhost-user fs, and tag for the shared dir"),
           #[cfg(feature = "direct")]
@@ -1972,6 +2199,7 @@ writeback=BOOL - Indicates whether the VM can use writeback caching (default: fa
           #[cfg(feature = "direct")]
           Argument::value("direct-edge-irq", "irq", "Enable interrupt passthrough"),
           Argument::value("dmi", "DIR", "Directory with smbios_entry_point/DMI files"),
+          Argument::flag("no-legacy", "Don't use legacy KBD/RTC devices emulation"),
           Argument::short_flag('h', "help", "Print help message.")];
 
     let mut cfg = Config::default();
@@ -2048,6 +2276,17 @@ fn resume_vms(mut args: std::env::Args) -> std::result::Result<(), ()> {
     vms_request(&VmRequest::Resume, socket_path)
 }
 
+fn make_rt(mut args: std::env::Args) -> std::result::Result<(), ()> {
+    if args.len() == 0 {
+        print_help("crosvm make_rt", "VM_SOCKET...", &[]);
+        println!("Makes the crosvm instance listening on each `VM_SOCKET` given RT.");
+        return Err(());
+    }
+    let socket_path = &args.next().unwrap();
+    let socket_path = Path::new(&socket_path);
+    vms_request(&VmRequest::MakeRT, socket_path)
+}
+
 fn balloon_vms(mut args: std::env::Args) -> std::result::Result<(), ()> {
     if args.len() < 2 {
         print_help("crosvm balloon", "SIZE VM_SOCKET...", &[]);
@@ -2079,7 +2318,118 @@ fn balloon_stats(mut args: std::env::Args) -> std::result::Result<(), ()> {
     let socket_path = &args.next().unwrap();
     let socket_path = Path::new(&socket_path);
     let response = handle_request(request, socket_path)?;
-    println!("{}", response);
+    match serde_json::to_string_pretty(&response) {
+        Ok(response_json) => println!("{}", response_json),
+        Err(e) => {
+            error!("Failed to serialize into JSON: {}", e);
+            return Err(());
+        }
+    }
+    match response {
+        VmResponse::BalloonStats { .. } => Ok(()),
+        _ => Err(()),
+    }
+}
+
+#[cfg(feature = "composite-disk")]
+fn create_composite(mut args: std::env::Args) -> std::result::Result<(), ()> {
+    if args.len() < 1 {
+        print_help("crosvm create_composite", "PATH [LABEL:PARTITION]..", &[]);
+        println!("Creates a new composite disk image containing the given partition images");
+        return Err(());
+    }
+
+    let composite_image_path = args.next().unwrap();
+    let zero_filler_path = format!("{}.filler", composite_image_path);
+    let header_path = format!("{}.header", composite_image_path);
+    let footer_path = format!("{}.footer", composite_image_path);
+
+    let mut composite_image_file = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(true)
+        .open(&composite_image_path)
+        .map_err(|e| {
+            error!(
+                "Failed opening composite disk image file at '{}': {}",
+                composite_image_path, e
+            );
+        })?;
+    create_zero_filler(&zero_filler_path).map_err(|e| {
+        error!(
+            "Failed to create zero filler file at '{}': {}",
+            &zero_filler_path, e
+        );
+    })?;
+    let mut header_file = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(true)
+        .open(&header_path)
+        .map_err(|e| {
+            error!(
+                "Failed opening header image file at '{}': {}",
+                header_path, e
+            );
+        })?;
+    let mut footer_file = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(true)
+        .open(&footer_path)
+        .map_err(|e| {
+            error!(
+                "Failed opening footer image file at '{}': {}",
+                footer_path, e
+            );
+        })?;
+
+    let partitions = args
+        .into_iter()
+        .map(|partition_arg| {
+            if let [label, path] = partition_arg.split(":").collect::<Vec<_>>()[..] {
+                let partition_file = File::open(path)
+                    .map_err(|e| error!("Failed to open partition image: {}", e))?;
+                let size = create_disk_file(partition_file)
+                    .map_err(|e| error!("Failed to create DiskFile instance: {}", e))?
+                    .get_len()
+                    .map_err(|e| error!("Failed to get length of partition image: {}", e))?;
+                Ok(PartitionInfo {
+                    label: label.to_owned(),
+                    path: Path::new(path).to_owned(),
+                    partition_type: ImagePartitionType::LinuxFilesystem,
+                    writable: false,
+                    size,
+                })
+            } else {
+                error!(
+                    "Must specify label and path for partition '{}', like LABEL:PATH",
+                    partition_arg
+                );
+                Err(())
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    create_composite_disk(
+        &partitions,
+        &PathBuf::from(zero_filler_path),
+        &PathBuf::from(header_path),
+        &mut header_file,
+        &PathBuf::from(footer_path),
+        &mut footer_file,
+        &mut composite_image_file,
+    )
+    .map_err(|e| {
+        error!(
+            "Failed to create composite disk image at '{}': {}",
+            composite_image_path, e
+        );
+    })?;
+
     Ok(())
 }
 
@@ -2303,6 +2653,8 @@ fn print_usage() {
     println!("    balloon - Set balloon size of the crosvm instance.");
     println!("    balloon_stats - Prints virtio balloon statistics.");
     println!("    battery - Modify battery.");
+    #[cfg(feature = "composite-disk")]
+    println!("    create_composite  - Create a new composite disk image file.");
     println!("    create_qcow2  - Create a new qcow2 disk image file.");
     println!("    disk - Manage attached virtual disk devices.");
     println!("    resume - Resumes the crosvm instance.");
@@ -2367,9 +2719,12 @@ fn crosvm_main() -> std::result::Result<(), ()> {
         Some("stop") => stop_vms(args),
         Some("suspend") => suspend_vms(args),
         Some("resume") => resume_vms(args),
+        Some("make_rt") => make_rt(args),
         Some("run") => run_vm(args),
         Some("balloon") => balloon_vms(args),
         Some("balloon_stats") => balloon_stats(args),
+        #[cfg(feature = "composite-disk")]
+        Some("create_composite") => create_composite(args),
         Some("create_qcow2") => create_qcow2(args),
         Some("disk") => disk_cmd(args),
         Some("usb") => modify_usb(args),
@@ -2498,7 +2853,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "audio")]
+    #[cfg(feature = "audio_cras")]
     #[test]
     fn parse_ac97_vaild() {
         parse_ac97_options("backend=cras").expect("parse should have succeded");
@@ -2510,13 +2865,13 @@ mod tests {
         parse_ac97_options("backend=null").expect("parse should have succeded");
     }
 
-    #[cfg(feature = "audio")]
+    #[cfg(feature = "audio_cras")]
     #[test]
     fn parse_ac97_capture_vaild() {
         parse_ac97_options("backend=cras,capture=true").expect("parse should have succeded");
     }
 
-    #[cfg(feature = "audio")]
+    #[cfg(feature = "audio_cras")]
     #[test]
     fn parse_ac97_client_type() {
         parse_ac97_options("backend=cras,capture=true,client_type=crosvm")
@@ -2696,11 +3051,11 @@ mod tests {
         set_argument(&mut config, "trackpad", Some("/dev/single-touch-test")).unwrap();
         validate_arguments(&mut config).unwrap();
         assert_eq!(
-            config.virtio_single_touch.unwrap().get_size(),
+            config.virtio_single_touch.first().unwrap().get_size(),
             (DEFAULT_TOUCH_DEVICE_WIDTH, DEFAULT_TOUCH_DEVICE_HEIGHT)
         );
         assert_eq!(
-            config.virtio_trackpad.unwrap().get_size(),
+            config.virtio_trackpad.first().unwrap().get_size(),
             (DEFAULT_TOUCH_DEVICE_WIDTH, DEFAULT_TOUCH_DEVICE_HEIGHT)
         );
     }
@@ -2723,7 +3078,7 @@ mod tests {
         .unwrap();
         validate_arguments(&mut config).unwrap();
         assert_eq!(
-            config.virtio_single_touch.unwrap().get_size(),
+            config.virtio_single_touch.first().unwrap().get_size(),
             (width, height)
         );
     }
@@ -2750,10 +3105,13 @@ mod tests {
         .unwrap();
         validate_arguments(&mut config).unwrap();
         assert_eq!(
-            config.virtio_single_touch.unwrap().get_size(),
+            config.virtio_single_touch.first().unwrap().get_size(),
             (width, height)
         );
-        assert_eq!(config.virtio_trackpad.unwrap().get_size(), (width, height));
+        assert_eq!(
+            config.virtio_trackpad.first().unwrap().get_size(),
+            (width, height)
+        );
     }
 
     #[cfg(feature = "gpu")]
@@ -2787,7 +3145,7 @@ mod tests {
         .unwrap();
         validate_arguments(&mut config).unwrap();
         assert_eq!(
-            config.virtio_single_touch.unwrap().get_size(),
+            config.virtio_single_touch.first().unwrap().get_size(),
             (touch_width, touch_height)
         );
     }
@@ -2801,7 +3159,7 @@ mod tests {
         set_argument(&mut config, "switches", Some("/dev/switches-test")).unwrap();
         validate_arguments(&mut config).unwrap();
         assert_eq!(
-            config.virtio_switches.unwrap(),
+            config.virtio_switches.pop().unwrap(),
             PathBuf::from("/dev/switches-test")
         );
     }
@@ -2809,81 +3167,211 @@ mod tests {
     #[cfg(feature = "gpu")]
     #[test]
     fn parse_gpu_options_default_vulkan_support() {
-        assert!(
-            !parse_gpu_options(Some("backend=virglrenderer"))
-                .unwrap()
-                .use_vulkan
-        );
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_options(Some("backend=virglrenderer"), &mut gpu_params).is_ok());
+            assert!(!gpu_params.use_vulkan);
+        }
 
         #[cfg(feature = "gfxstream")]
-        assert!(
-            parse_gpu_options(Some("backend=gfxstream"))
-                .unwrap()
-                .use_vulkan
-        );
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_options(Some("backend=gfxstream"), &mut gpu_params).is_ok());
+            assert!(gpu_params.use_vulkan);
+        }
     }
 
     #[cfg(feature = "gpu")]
     #[test]
     fn parse_gpu_options_with_vulkan_specified() {
-        assert!(parse_gpu_options(Some("vulkan=true")).unwrap().use_vulkan);
-        assert!(
-            parse_gpu_options(Some("backend=virglrenderer,vulkan=true"))
-                .unwrap()
-                .use_vulkan
-        );
-        assert!(
-            parse_gpu_options(Some("vulkan=true,backend=virglrenderer"))
-                .unwrap()
-                .use_vulkan
-        );
-        assert!(!parse_gpu_options(Some("vulkan=false")).unwrap().use_vulkan);
-        assert!(
-            !parse_gpu_options(Some("backend=virglrenderer,vulkan=false"))
-                .unwrap()
-                .use_vulkan
-        );
-        assert!(
-            !parse_gpu_options(Some("vulkan=false,backend=virglrenderer"))
-                .unwrap()
-                .use_vulkan
-        );
-        assert!(parse_gpu_options(Some("backend=virglrenderer,vulkan=invalid_value")).is_err());
-        assert!(parse_gpu_options(Some("vulkan=invalid_value,backend=virglrenderer")).is_err());
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_options(Some("vulkan=true"), &mut gpu_params).is_ok());
+            assert!(gpu_params.use_vulkan);
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(
+                parse_gpu_options(Some("backend=virglrenderer,vulkan=true"), &mut gpu_params)
+                    .is_ok()
+            );
+            assert!(gpu_params.use_vulkan);
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(
+                parse_gpu_options(Some("vulkan=true,backend=virglrenderer"), &mut gpu_params)
+                    .is_ok()
+            );
+            assert!(gpu_params.use_vulkan);
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_options(Some("vulkan=false"), &mut gpu_params).is_ok());
+            assert!(!gpu_params.use_vulkan);
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(
+                parse_gpu_options(Some("backend=virglrenderer,vulkan=false"), &mut gpu_params)
+                    .is_ok()
+            );
+            assert!(!gpu_params.use_vulkan);
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(
+                parse_gpu_options(Some("vulkan=false,backend=virglrenderer"), &mut gpu_params)
+                    .is_ok()
+            );
+            assert!(!gpu_params.use_vulkan);
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_options(
+                Some("backend=virglrenderer,vulkan=invalid_value"),
+                &mut gpu_params
+            )
+            .is_err());
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_options(
+                Some("vulkan=invalid_value,backend=virglrenderer"),
+                &mut gpu_params
+            )
+            .is_err());
+        }
     }
 
     #[cfg(all(feature = "gpu", feature = "gfxstream"))]
     #[test]
     fn parse_gpu_options_gfxstream_with_syncfd_specified() {
-        assert!(
-            parse_gpu_options(Some("backend=gfxstream,syncfd=true"))
-                .unwrap()
-                .gfxstream_use_syncfd
-        );
-        assert!(
-            parse_gpu_options(Some("syncfd=true,backend=gfxstream"))
-                .unwrap()
-                .gfxstream_use_syncfd
-        );
-        assert!(
-            !parse_gpu_options(Some("backend=gfxstream,syncfd=false"))
-                .unwrap()
-                .gfxstream_use_syncfd
-        );
-        assert!(
-            !parse_gpu_options(Some("syncfd=false,backend=gfxstream"))
-                .unwrap()
-                .gfxstream_use_syncfd
-        );
-        assert!(parse_gpu_options(Some("backend=gfxstream,syncfd=invalid_value")).is_err());
-        assert!(parse_gpu_options(Some("syncfd=invalid_value,backend=gfxstream")).is_err());
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(
+                parse_gpu_options(Some("backend=gfxstream,syncfd=true"), &mut gpu_params).is_ok()
+            );
+            assert!(gpu_params.gfxstream_use_syncfd);
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(
+                parse_gpu_options(Some("syncfd=true,backend=gfxstream"), &mut gpu_params).is_ok()
+            );
+            assert!(gpu_params.gfxstream_use_syncfd);
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(
+                parse_gpu_options(Some("backend=gfxstream,syncfd=false"), &mut gpu_params).is_ok()
+            );
+            assert!(!gpu_params.gfxstream_use_syncfd);
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(
+                parse_gpu_options(Some("syncfd=false,backend=gfxstream"), &mut gpu_params).is_ok()
+            );
+            assert!(!gpu_params.gfxstream_use_syncfd);
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_options(
+                Some("backend=gfxstream,syncfd=invalid_value"),
+                &mut gpu_params
+            )
+            .is_err());
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_options(
+                Some("syncfd=invalid_value,backend=gfxstream"),
+                &mut gpu_params
+            )
+            .is_err());
+        }
     }
 
     #[cfg(all(feature = "gpu", feature = "gfxstream"))]
     #[test]
     fn parse_gpu_options_not_gfxstream_with_syncfd_specified() {
-        assert!(parse_gpu_options(Some("backend=virglrenderer,syncfd=true")).is_err());
-        assert!(parse_gpu_options(Some("syncfd=true,backend=virglrenderer")).is_err());
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(
+                parse_gpu_options(Some("backend=virglrenderer,syncfd=true"), &mut gpu_params)
+                    .is_err()
+            );
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(
+                parse_gpu_options(Some("syncfd=true,backend=virglrenderer"), &mut gpu_params)
+                    .is_err()
+            );
+        }
+    }
+
+    #[cfg(feature = "gpu")]
+    #[test]
+    fn parse_gpu_display_options_valid() {
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(
+                parse_gpu_display_options(Some("width=500,height=600"), &mut gpu_params).is_ok()
+            );
+            assert_eq!(gpu_params.displays.len(), 1);
+            assert_eq!(gpu_params.displays[0].width, 500);
+            assert_eq!(gpu_params.displays[0].height, 600);
+        }
+    }
+
+    #[cfg(feature = "gpu")]
+    #[test]
+    fn parse_gpu_display_options_invalid() {
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_display_options(Some("width=500"), &mut gpu_params).is_err());
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_display_options(Some("height=500"), &mut gpu_params).is_err());
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_display_options(Some("width"), &mut gpu_params).is_err());
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_display_options(Some("blah"), &mut gpu_params).is_err());
+        }
+    }
+
+    #[cfg(feature = "gpu")]
+    #[test]
+    fn parse_gpu_options_and_gpu_display_options_valid() {
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_options(Some("2D,width=500,height=600"), &mut gpu_params).is_ok());
+            assert!(
+                parse_gpu_display_options(Some("width=700,height=800"), &mut gpu_params).is_ok()
+            );
+            assert_eq!(gpu_params.displays.len(), 2);
+            assert_eq!(gpu_params.displays[0].width, 500);
+            assert_eq!(gpu_params.displays[0].height, 600);
+            assert_eq!(gpu_params.displays[1].width, 700);
+            assert_eq!(gpu_params.displays[1].height, 800);
+        }
+        {
+            let mut gpu_params: GpuParameters = Default::default();
+            assert!(parse_gpu_options(Some("2D"), &mut gpu_params).is_ok());
+            assert!(
+                parse_gpu_display_options(Some("width=700,height=800"), &mut gpu_params).is_ok()
+            );
+            assert_eq!(gpu_params.displays.len(), 1);
+            assert_eq!(gpu_params.displays[0].width, 700);
+            assert_eq!(gpu_params.displays[0].height, 800);
+        }
     }
 
     #[test]

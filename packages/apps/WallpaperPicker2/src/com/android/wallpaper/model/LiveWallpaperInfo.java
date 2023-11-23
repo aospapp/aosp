@@ -77,7 +77,7 @@ public class LiveWallpaperInfo extends WallpaperInfo {
     public static final String ATTR_SERVICE = "service";
 
     /**
-     * Create a new {@link LiveWallpaperInfo} from an XML {@link AttributeSet}
+     * Creates a new {@link LiveWallpaperInfo} from an XML {@link AttributeSet}
      * @param context used to construct the {@link android.app.WallpaperInfo} associated with the
      *                new {@link LiveWallpaperInfo}
      * @param categoryId Id of the category the new wallpaper will belong to
@@ -94,6 +94,17 @@ public class LiveWallpaperInfo extends WallpaperInfo {
         }
         String packageName = attrs.getAttributeValue(null, ATTR_PACKAGE);
         String serviceName = attrs.getAttributeValue(null, ATTR_SERVICE);
+        return fromPackageAndServiceName(context, categoryId, wallpaperId, packageName,
+                serviceName);
+    }
+
+    /**
+     * Creates a new {@link LiveWallpaperInfo} from its individual components
+     * @return a newly created {@link LiveWallpaperInfo} or {@code null} if one couldn't be created.
+     */
+    @Nullable
+    public static LiveWallpaperInfo fromPackageAndServiceName(Context context, String categoryId,
+            String wallpaperId, String packageName, String serviceName) {
         if (TextUtils.isEmpty(serviceName)) {
             Log.w(TAG, "Live wallpaper declaration without service: " + wallpaperId);
             return null;
@@ -309,7 +320,10 @@ public class LiveWallpaperInfo extends WallpaperInfo {
         return wallpaperInfos;
     }
 
-    private static boolean isSystemApp(ApplicationInfo appInfo) {
+    /**
+     * @return whether the given app is a system app
+     */
+    public static boolean isSystemApp(ApplicationInfo appInfo) {
         return (appInfo.flags & (ApplicationInfo.FLAG_SYSTEM
                 | ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0;
     }

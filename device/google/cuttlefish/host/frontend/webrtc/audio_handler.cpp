@@ -25,6 +25,28 @@
 namespace cuttlefish {
 namespace {
 
+const virtio_snd_jack_info JACKS[] = {};
+constexpr uint32_t NUM_JACKS = sizeof(JACKS) / sizeof(JACKS[0]);
+
+const virtio_snd_chmap_info CHMAPS[] = {{
+    .hdr = { .hda_fn_nid = Le32(0), },
+    .direction = (uint8_t) AudioStreamDirection::VIRTIO_SND_D_OUTPUT,
+    .channels = 2,
+    .positions = {
+        (uint8_t) AudioChannelMap::VIRTIO_SND_CHMAP_FL,
+        (uint8_t) AudioChannelMap::VIRTIO_SND_CHMAP_FR
+    },
+}, {
+    .hdr = { .hda_fn_nid = Le32(0), },
+    .direction = (uint8_t) AudioStreamDirection::VIRTIO_SND_D_INPUT,
+    .channels = 2,
+    .positions = {
+        (uint8_t) AudioChannelMap::VIRTIO_SND_CHMAP_FL,
+        (uint8_t) AudioChannelMap::VIRTIO_SND_CHMAP_FR
+    },
+}};
+constexpr uint32_t NUM_CHMAPS = sizeof(CHMAPS) / sizeof(CHMAPS[0]);
+
 const virtio_snd_pcm_info STREAMS[] = {{
     .hdr =
         {
@@ -35,10 +57,10 @@ const virtio_snd_pcm_info STREAMS[] = {{
     // formats: It only takes the bits_per_sample as a parameter and assumes
     // the underlying format to be one of the following:
     .formats = Le64(
-        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_U8) |
-        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_U16) |
-        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_U24) |
-        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_U32)),
+        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_S8) |
+        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_S16) |
+        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_S24) |
+        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_S32)),
     .rates = Le64(
         (((uint64_t)1) << (uint8_t)AudioStreamRate::VIRTIO_SND_PCM_RATE_5512) |
         (((uint64_t)1) << (uint8_t)AudioStreamRate::VIRTIO_SND_PCM_RATE_8000) |
@@ -70,10 +92,10 @@ const virtio_snd_pcm_info STREAMS[] = {{
     // formats: It only takes the bits_per_sample as a parameter and assumes
     // the underlying format to be one of the following:
     .formats = Le64(
-        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_U8) |
-        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_U16) |
-        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_U24) |
-        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_U32)),
+        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_S8) |
+        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_S16) |
+        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_S24) |
+        (((uint64_t)1) << (uint8_t)AudioStreamFormat::VIRTIO_SND_PCM_FMT_S32)),
     .rates = Le64(
         (((uint64_t)1) << (uint8_t)AudioStreamRate::VIRTIO_SND_PCM_RATE_5512) |
         (((uint64_t)1) << (uint8_t)AudioStreamRate::VIRTIO_SND_PCM_RATE_8000) |
@@ -271,7 +293,7 @@ void AudioHandler::Start() {
 [[noreturn]] void AudioHandler::Loop() {
   for (;;) {
     auto audio_client = audio_server_->AcceptClient(
-        NUM_STREAMS, 0 /* num_jacks, */, 0 /* num_chmaps, */,
+        NUM_STREAMS, NUM_JACKS, NUM_CHMAPS,
         262144 /* tx_shm_len */, 262144 /* rx_shm_len */);
     CHECK(audio_client) << "Failed to create audio client connection instance";
 
@@ -360,6 +382,28 @@ void AudioHandler::StopStream(StreamControlCommand& cmd) {
   }
   stream_descs_[cmd.stream_id()].active = false;
   cmd.Reply(AudioStatus::VIRTIO_SND_S_OK);
+}
+
+void AudioHandler::ChmapsInfo(ChmapInfoCommand& cmd) {
+  if (cmd.start_id() >= NUM_CHMAPS ||
+      cmd.start_id() + cmd.count() > NUM_CHMAPS) {
+    cmd.Reply(AudioStatus::VIRTIO_SND_S_BAD_MSG, {});
+    return;
+  }
+  std::vector<virtio_snd_chmap_info> chmap_info(
+      &CHMAPS[cmd.start_id()], &CHMAPS[cmd.start_id()] + cmd.count());
+  cmd.Reply(AudioStatus::VIRTIO_SND_S_OK, chmap_info);
+}
+
+void AudioHandler::JacksInfo(JackInfoCommand& cmd) {
+  if (cmd.start_id() >= NUM_JACKS ||
+      cmd.start_id() + cmd.count() > NUM_JACKS) {
+    cmd.Reply(AudioStatus::VIRTIO_SND_S_BAD_MSG, {});
+    return;
+  }
+  std::vector<virtio_snd_jack_info> jack_info(
+      &JACKS[cmd.start_id()], &JACKS[cmd.start_id()] + cmd.count());
+  cmd.Reply(AudioStatus::VIRTIO_SND_S_OK, jack_info);
 }
 
 void AudioHandler::OnPlaybackBuffer(TxBuffer buffer) {

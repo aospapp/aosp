@@ -29,9 +29,9 @@ public class TmaEnumPrefs {
     }
 
     public enum TmaAccountType implements EnumPrefValue {
-        NONE("None", "none"),
         FREE("Free", "free"),
-        PAID("Paid", "paid");
+        PAID("Paid", "paid"),
+        NONE("None", "none");
 
         private final PrefValueImpl mPrefValue;
 
@@ -81,11 +81,11 @@ public class TmaEnumPrefs {
 
 
     public enum TmaBrowseNodeType implements EnumPrefValue {
+        NODE_CHILDREN("Only browse-able content", "nodes"),
         NULL("Null (error)", "null"),
         EMPTY("Empty", "empty"),
         QUEUE_ONLY("Queue only", "queue-only"),
         SINGLE_TAB("Single browse-able tab", "single-tab"),
-        NODE_CHILDREN("Only browse-able content", "nodes"),
         LEAF_CHILDREN("Only playable content (basic working and error cases)", "leaves"),
         MIXED_CHILDREN("Mixed content (apps are not supposed to do that)", "mixed"),
         UNTAGGED("Untagged media items (not playable or browsable)", "untagged");

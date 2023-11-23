@@ -67,6 +67,7 @@ public class ViewOnlyPreviewActivity extends BasePreviewActivity implements Appb
                     wallpaper,
                     PreviewFragment.MODE_VIEW_ONLY,
                     viewAsHome,
+                    /* viewFullScreen= */ false,
                     testingModeEnabled);
             fm.beginTransaction()
                     .add(R.id.fragment_container, fragment)

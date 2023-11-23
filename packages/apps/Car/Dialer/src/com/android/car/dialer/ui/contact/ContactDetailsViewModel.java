@@ -26,9 +26,10 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.ViewModel;
 
-import com.android.car.arch.common.FutureData;
-import com.android.car.arch.common.LiveDataFunctions;
+import com.android.car.apps.common.util.FutureData;
+import com.android.car.apps.common.util.LiveDataFunctions;
 import com.android.car.dialer.storage.FavoriteNumberRepository;
+import com.android.car.dialer.ui.common.SingleLiveEvent;
 import com.android.car.telephony.common.Contact;
 import com.android.car.telephony.common.InMemoryPhoneBook;
 import com.android.car.telephony.common.PhoneNumber;
@@ -49,12 +50,17 @@ import dagger.hilt.android.qualifiers.ApplicationContext;
 public class ContactDetailsViewModel extends ViewModel {
     private final Context mContext;
     private final FavoriteNumberRepository mFavoriteNumberRepository;
+    private final SingleLiveEvent mPhoneNumberRefreshEvent;
 
     @Inject
     public ContactDetailsViewModel(@ApplicationContext Context context,
-            FavoriteNumberRepository favoriteNumberRepository) {
+                                   FavoriteNumberRepository favoriteNumberRepository) {
         mContext = context;
         mFavoriteNumberRepository = favoriteNumberRepository;
+        mPhoneNumberRefreshEvent = new SingleLiveEvent();
+        mPhoneNumberRefreshEvent.addSource(
+                mFavoriteNumberRepository.getFavoriteContacts(),
+                contacts -> mPhoneNumberRefreshEvent.setValue(Boolean.TRUE));
     }
 
     /**
@@ -95,6 +101,14 @@ public class ContactDetailsViewModel extends ViewModel {
         mFavoriteNumberRepository.removeFromFavorite(contact, phoneNumber);
     }
 
+    /**
+     * Returns if the phone number entries need refresh when any favorite state of the numbers has
+     * changed.
+     */
+    public LiveData<Boolean> getPhoneNumberRefreshEvent() {
+        return mPhoneNumberRefreshEvent;
+    }
+
     private class ContactDetailsLiveData extends MediatorLiveData<Contact> {
         private final Uri mContactLookupUri;
         private final String mAccountName;
@@ -110,8 +124,6 @@ public class ContactDetailsViewModel extends ViewModel {
             mContactLookupUri = mContact.getLookupUri();
             mAccountName = mContact.getAccountName();
             addSource(InMemoryPhoneBook.get().getContactsLiveData(), this::onContactListChanged);
-            addSource(mFavoriteNumberRepository.getFavoriteContacts(),
-                    this::onFavoriteContactsChanged);
         }
 
         private void onContactListChanged(List<Contact> contacts) {
@@ -144,15 +156,6 @@ public class ContactDetailsViewModel extends ViewModel {
                         postValue(contact);
                     }
             );
-        }
-
-        private void onFavoriteContactsChanged(List<Contact> favoriteContacts) {
-            if (mContact == null) {
-                return;
-            }
-            Contact inMemoryContact = InMemoryPhoneBook.get().lookupContactByKey(
-                    mContact.getLookupKey(), mContact.getAccountName());
-            setValue(inMemoryContact);
         }
 
         @Override

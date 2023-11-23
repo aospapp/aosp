@@ -49,31 +49,6 @@ filegroup {
         "//packages/modules/StatsD/framework:__subpackages__",
     ],
 }
-
-// This target is used by service-statsd to bypass the prebuilt SDK artifacts
-// for framework-statsd when SDK prebuilts are enabled.
-//
-// When SDK prebuilts are disabled, the target framework-statsd exposes all
-// Java classes/methods, not only those that are a part of a stable API surface.
-// When SDK prebuilts are enabled however, only the stable API surface is
-// exposed from that target.
-java_library {
-    name: "framework-statsd-internal",
-    defaults: ["framework-module-defaults"],
-    sdk_version: "module_current",
-    srcs: [
-        ":framework-statsd-sources",
-    ],
-    apex_available: [
-        "com.android.os.statsd",
-        "test_com.android.os.statsd",
-    ],
-    min_sdk_version: "30",
-    visibility: [
-        "//packages/modules/StatsD:__subpackages__",
-    ],
-}
-
 java_sdk_library {
     name: "framework-statsd",
     defaults: ["framework-module-defaults"],
@@ -102,6 +77,7 @@ java_sdk_library {
     impl_library_visibility: [
         "//frameworks/base/apex/statsd/framework/test:__subpackages__",
         "//packages/modules/StatsD/framework/test:__subpackages__",
+        "//packages/modules/StatsD/service:__subpackages__",
     ],
 
     apex_available: [

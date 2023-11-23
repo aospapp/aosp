@@ -18,7 +18,7 @@ package android.net.metrics
 
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
-import com.android.testutils.assertParcelSane
+import com.android.testutils.assertParcelingIsLossless
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,6 +52,6 @@ class ApfStatsTest {
         assertEquals(8, apfStats.programUpdatesAllowingMulticast)
         assertEquals(9, apfStats.maxProgramSize)
 
-        assertParcelSane(apfStats, 10)
+        assertParcelingIsLossless(apfStats)
     }
 }

@@ -1,0 +1,10 @@
+# TODO(b/180558115): It will moved to pixel-sepolicy after pixel 6 launches.
+type hal_exo_camera_injection, domain;
+hal_server_domain(hal_exo_camera_injection, hal_camera)
+
+type hal_exo_camera_injection_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(hal_exo_camera_injection)
+
+hwbinder_use(hal_exo_camera_injection)
+add_hwservice(hal_exo_camera_injection, hal_exo_camera_injection_hwservice)
+allow hal_exo_camera_injection hal_graphics_mapper_hwservice:hwservice_manager find;

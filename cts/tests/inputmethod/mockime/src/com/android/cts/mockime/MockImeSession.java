@@ -1156,6 +1156,11 @@ public class MockImeSession implements AutoCloseable {
     }
 
     @NonNull
+    public ImeCommand callVerifyIsUiContext() {
+        return callCommandInternal("verifyIsUiContext", new Bundle());
+    }
+
+    @NonNull
     public ImeCommand callVerifyGetWindowManager() {
         return callCommandInternal("verifyGetWindowManager", new Bundle());
     }
@@ -1183,5 +1188,10 @@ public class MockImeSession implements AutoCloseable {
     @NonNull
     public ImeCommand callVerifyGetGestureDetectorOnDisplayContext() {
         return callCommandInternal("verifyGetGestureDetectorOnDisplayContext", new Bundle());
+    }
+
+    @NonNull
+    public ImeCommand callGetCurrentWindowMetricsBounds() {
+        return callCommandInternal("getCurrentWindowMetricsBounds", new Bundle());
     }
 }

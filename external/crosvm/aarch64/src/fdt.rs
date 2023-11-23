@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::Read;
 
@@ -45,6 +46,10 @@ use crate::AARCH64_PMU_IRQ;
 // If we had a more complex interrupt architecture, then we'd need an enum for
 // these.
 const PHANDLE_GIC: u32 = 1;
+const PHANDLE_RESTRICTED_DMA_POOL: u32 = 2;
+
+// CPUs are assigned phandles starting with this number.
+const PHANDLE_CPU0: u32 = 0x100;
 
 // These are specified by the Linux GIC bindings
 const GIC_FDT_IRQ_NUM_CELLS: u32 = 3;
@@ -67,7 +72,33 @@ fn create_memory_node(fdt: &mut FdtWriter, guest_mem: &GuestMemory) -> Result<()
     Ok(())
 }
 
-fn create_cpu_nodes(fdt: &mut FdtWriter, num_cpus: u32) -> Result<()> {
+fn create_resv_memory_node(fdt: &mut FdtWriter, resv_size: Option<u64>) -> Result<Option<u32>> {
+    if let Some(resv_size) = resv_size {
+        let resv_memory_node = fdt.begin_node("reserved-memory")?;
+        fdt.property_u32("#address-cells", 0x2)?;
+        fdt.property_u32("#size-cells", 0x2)?;
+        fdt.property_null("ranges")?;
+
+        let restricted_dma_pool = fdt.begin_node("restricted_dma_reserved")?;
+        fdt.property_u32("phandle", PHANDLE_RESTRICTED_DMA_POOL)?;
+        fdt.property_string("compatible", "restricted-dma-pool")?;
+        fdt.property_u64("size", resv_size)?;
+        fdt.property_u64("alignment", base::pagesize() as u64)?;
+        fdt.end_node(restricted_dma_pool)?;
+
+        fdt.end_node(resv_memory_node)?;
+        Ok(Some(PHANDLE_RESTRICTED_DMA_POOL))
+    } else {
+        Ok(None)
+    }
+}
+
+fn create_cpu_nodes(
+    fdt: &mut FdtWriter,
+    num_cpus: u32,
+    cpu_clusters: Vec<Vec<usize>>,
+    cpu_capacity: BTreeMap<usize, u32>,
+) -> Result<()> {
     let cpus_node = fdt.begin_node("cpus")?;
     fdt.property_u32("#address-cells", 0x1)?;
     fdt.property_u32("#size-cells", 0x0)?;
@@ -81,8 +112,29 @@ fn create_cpu_nodes(fdt: &mut FdtWriter, num_cpus: u32) -> Result<()> {
             fdt.property_string("enable-method", "psci")?;
         }
         fdt.property_u32("reg", cpu_id)?;
+        fdt.property_u32("phandle", PHANDLE_CPU0 + cpu_id)?;
+
+        if let Some(capacity) = cpu_capacity.get(&(cpu_id as usize)) {
+            fdt.property_u32("capacity-dmips-mhz", *capacity)?;
+        }
+
         fdt.end_node(cpu_node)?;
     }
+
+    if !cpu_clusters.is_empty() {
+        let cpu_map_node = fdt.begin_node("cpu-map")?;
+        for (cluster_idx, cpus) in cpu_clusters.iter().enumerate() {
+            let cluster_node = fdt.begin_node(&format!("cluster{}", cluster_idx))?;
+            for (core_idx, cpu_id) in cpus.iter().enumerate() {
+                let core_node = fdt.begin_node(&format!("core{}", core_idx))?;
+                fdt.property_u32("cpu", PHANDLE_CPU0 + *cpu_id as u32)?;
+                fdt.end_node(core_node)?;
+            }
+            fdt.end_node(cluster_node)?;
+        }
+        fdt.end_node(cpu_map_node)?;
+    }
+
     fdt.end_node(cpus_node)?;
     Ok(())
 }
@@ -234,6 +286,7 @@ fn create_pci_nodes(
     pci_irqs: Vec<(PciAddress, u32, PciInterruptPin)>,
     pci_device_base: u64,
     pci_device_size: u64,
+    dma_pool_phandle: Option<u32>,
 ) -> Result<()> {
     // Add devicetree nodes describing a PCI generic host controller.
     // See Documentation/devicetree/bindings/pci/host-generic-pci.txt in the kernel
@@ -302,6 +355,9 @@ fn create_pci_nodes(
     fdt.property_array_u32("interrupt-map", &interrupts)?;
     fdt.property_array_u32("interrupt-map-mask", &masks)?;
     fdt.property_null("dma-coherent")?;
+    if let Some(dma_pool_phandle) = dma_pool_phandle {
+        fdt.property_u32("memory-region", dma_pool_phandle)?;
+    }
     fdt.end_node(pci_node)?;
 
     Ok(())
@@ -357,6 +413,8 @@ pub fn create_fdt(
     guest_mem: &GuestMemory,
     pci_irqs: Vec<(PciAddress, u32, PciInterruptPin)>,
     num_cpus: u32,
+    cpu_clusters: Vec<Vec<usize>>,
+    cpu_capacity: BTreeMap<usize, u32>,
     fdt_load_offset: u64,
     pci_device_base: u64,
     pci_device_size: u64,
@@ -366,6 +424,7 @@ pub fn create_fdt(
     is_gicv3: bool,
     use_pmu: bool,
     psci_version: PsciVersion,
+    swiotlb: Option<u64>,
 ) -> Result<()> {
     let mut fdt = FdtWriter::new(&[]);
 
@@ -380,7 +439,8 @@ pub fn create_fdt(
     }
     create_chosen_node(&mut fdt, cmdline, initrd)?;
     create_memory_node(&mut fdt, guest_mem)?;
-    create_cpu_nodes(&mut fdt, num_cpus)?;
+    let dma_pool_phandle = create_resv_memory_node(&mut fdt, swiotlb)?;
+    create_cpu_nodes(&mut fdt, num_cpus, cpu_clusters, cpu_capacity)?;
     create_gic_node(&mut fdt, is_gicv3, num_cpus as u64)?;
     create_timer_node(&mut fdt, num_cpus)?;
     if use_pmu {
@@ -388,7 +448,13 @@ pub fn create_fdt(
     }
     create_serial_nodes(&mut fdt)?;
     create_psci_node(&mut fdt, &psci_version)?;
-    create_pci_nodes(&mut fdt, pci_irqs, pci_device_base, pci_device_size)?;
+    create_pci_nodes(
+        &mut fdt,
+        pci_irqs,
+        pci_device_base,
+        pci_device_size,
+        dma_pool_phandle,
+    )?;
     create_rtc_node(&mut fdt)?;
     // End giant node
     fdt.end_node(root_node)?;

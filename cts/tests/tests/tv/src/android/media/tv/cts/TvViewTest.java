@@ -34,8 +34,9 @@ import android.util.ArrayMap;
 import android.util.SparseIntArray;
 import android.view.InputEvent;
 import android.view.KeyEvent;
-
 import android.tv.cts.R;
+
+import androidx.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.PollingCheck;
 
@@ -50,6 +51,11 @@ import java.util.Map;
 public class TvViewTest extends ActivityInstrumentationTestCase2<TvViewStubActivity> {
     /** The maximum time to wait for an operation. */
     private static final long TIME_OUT_MS = 15000L;
+
+    private static final String PERMISSION_ACCESS_WATCHED_PROGRAMS =
+            "com.android.providers.tv.permission.ACCESS_WATCHED_PROGRAMS";
+    private static final String PERMISSION_WRITE_EPG_DATA =
+            "com.android.providers.tv.permission.WRITE_EPG_DATA";
 
     private TvView mTvView;
     private Activity mActivity;
@@ -170,6 +176,13 @@ public class TvViewTest extends ActivityInstrumentationTestCase2<TvViewStubActiv
         if (!Utils.hasTvInputFramework(mActivity)) {
             return;
         }
+
+        InstrumentationRegistry
+                .getInstrumentation()
+                .getUiAutomation()
+                .adoptShellPermissionIdentity(
+                        PERMISSION_ACCESS_WATCHED_PROGRAMS, PERMISSION_WRITE_EPG_DATA);
+
         mInstrumentation = getInstrumentation();
         mTvView = findTvViewById(R.id.tvview);
         mManager = (TvInputManager) mActivity.getSystemService(Context.TV_INPUT_SERVICE);
@@ -207,6 +220,9 @@ public class TvViewTest extends ActivityInstrumentationTestCase2<TvViewStubActiv
             throw new RuntimeException(t);
         }
         mInstrumentation.waitForIdleSync();
+
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .dropShellPermissionIdentity();
         super.tearDown();
     }
 

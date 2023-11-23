@@ -18,7 +18,7 @@
     <string name="ssl_error_invalid" msgid="5977636322438777389">"हे प्रमाणपत्र चुकीचे आहे."</string>
     <string name="ssl_error_unknown" msgid="3751419329218834886">"अज्ञात प्रमाणपत्र एरर."</string>
     <string name="ssl_security_warning_title" msgid="7912335118289529802">"सुरक्षितता चेतावणी"</string>
-    <string name="ssl_error_view_certificate" msgid="3447891108083278449">"प्रमाणपत्र पाहा"</string>
+    <string name="ssl_error_view_certificate" msgid="3447891108083278449">"प्रमाणपत्र पहा"</string>
     <string name="custom_scheme_warning" msgid="1809266150423969087">"तुम्ही सामील होण्याचा प्रयत्न करत असलेले नेटवर्क दुसरे अ‍ॅप्लिकेशन उघडण्याची विनंती करत आहे."</string>
     <string name="custom_scheme_example" msgid="7126568152528588592">"उदाहरणार्थ, लॉगिन पेजला ऑथेंटिकेशनसाठी ठरावीक अ‍ॅप्लिकेशनची गरज असू शकते"</string>
     <string name="ok" msgid="6584612582120777209">"ठीक आहे"</string>

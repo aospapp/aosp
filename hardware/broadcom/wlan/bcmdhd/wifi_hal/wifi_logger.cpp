@@ -189,6 +189,27 @@ typedef enum {
 #define HAL_START_REQUEST_ID 2
 #define HAL_RESTART_ID 3
 #define FILE_NAME_LEN 256
+
+typedef struct {
+    char hw_id[PROPERTY_VALUE_MAX];
+    char sku[MAX_SKU_NAME_LEN];
+} sku_info_t;
+
+sku_info_t sku_table[] = {
+	{ {"G9S9B"}, {"MMW"} },
+	{ {"G8V0U"}, {"MMW"} },
+	{ {"GFQM1"}, {"MMW"} },
+	{ {"GB62Z"}, {"MMW"} },
+	{ {"GB7N6"}, {"ROW"} },
+	{ {"GLU0G"}, {"ROW"} },
+	{ {"GNA8F"}, {"ROW"} },
+	{ {"GX7AS"}, {"ROW"} },
+	{ {"GR1YH"}, {"JPN"} },
+	{ {"GF5KQ"}, {"JPN"} },
+	{ {"GPQ72"}, {"JPN"} },
+	{ {"GB17L"}, {"JPN"} },
+	{ {"G1AZG"}, {"EU"} }
+};
 ///////////////////////////////////////////////////////////////////////////////
 class DebugCommand : public WifiCommand
 {
@@ -419,7 +440,7 @@ public:
     }
 
     int start() {
-        // ALOGD("Start debug command");
+        ALOGD("Start debug command");
         WifiRequest request(familyId(), ifaceId());
         int result = createRequest(request);
         if (result != WIFI_SUCCESS) {
@@ -435,7 +456,7 @@ public:
     }
 
     virtual int handleResponse(WifiEvent& reply) {
-        ALOGD("In DebugCommand::handleResponse");
+        ALOGD("In DebugCommand::handleResponse, mType:%d\n", mType);
 
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
             ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
@@ -490,9 +511,15 @@ public:
                 it.next();
                 for (unsigned int i = 0; it.has_next() && i < *mNumRings; it.next()) {
                     if (it.get_type() == LOGGER_ATTRIBUTE_RING_STATUS) {
-                        memcpy(status, it.get_data(), sizeof(wifi_ring_buffer_status));
-                        i++;
-                        status++;
+                        if (it.get_len() > sizeof(wifi_ring_buffer_status)) {
+                            ALOGE("ring status unexpected len = %d, dest len = %lu",
+                                it.get_len(), sizeof(wifi_ring_buffer_status));
+                            return NL_SKIP;
+                        } else {
+                            memcpy(status, it.get_data(), sizeof(wifi_ring_buffer_status));
+                            i++;
+                            status++;
+                        }
                     } else {
                         ALOGW("Ignoring invalid attribute type = %d, size = %d",
                                 it.get_type(), it.get_len());
@@ -627,7 +654,6 @@ public:
         ALOGV("Register loghandler");
         int result;
         uint32_t event_sock_pid = getpid() + (WIFI_HAL_EVENT_SOCK_PORT << 22);
-        registerVendorHandler(GOOGLE_OUI, GOOGLE_DEBUG_RING_EVENT);
 
         WifiRequest request(familyId(), ifaceId());
 
@@ -637,14 +663,18 @@ public:
             ALOGV("Failed to set Hal preInit; result = %d", result);
             return result;
         }
+        registerVendorHandler(GOOGLE_OUI, GOOGLE_DEBUG_RING_EVENT);
+
         nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
         result = request.put_u32(SET_HAL_START_ATTRIBUTE_EVENT_SOCK_PID, event_sock_pid);
         if (result != WIFI_SUCCESS) {
+            unregisterVendorHandler(GOOGLE_OUI, GOOGLE_DEBUG_RING_EVENT);
             ALOGV("Hal preInit Failed to put pic = %d", result);
             return result;
         }
 
         if (result != WIFI_SUCCESS) {
+            unregisterVendorHandler(GOOGLE_OUI, GOOGLE_DEBUG_RING_EVENT);
             ALOGV("Hal preInit Failed to put pid= %d", result);
             return result;
         } 
@@ -653,6 +683,7 @@ public:
 
         result = requestResponse(request);
         if (result != WIFI_SUCCESS) {
+            unregisterVendorHandler(GOOGLE_OUI, GOOGLE_DEBUG_RING_EVENT);
             ALOGE("Failed to register set Hal preInit; result = %d", result);
             return result;
         }
@@ -699,16 +730,23 @@ public:
             return NL_SKIP;
         }
 
-        if(event_id == GOOGLE_DEBUG_RING_EVENT) {
+        if (event_id == GOOGLE_DEBUG_RING_EVENT) {
             wifi_ring_buffer_status status;
             memset(&status, 0, sizeof(status));
 
             for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
                 if (it.get_type() == LOGGER_ATTRIBUTE_RING_STATUS) {
-                    memcpy(&status, it.get_data(), sizeof(status));
+                    if (it.get_len() > sizeof(wifi_ring_buffer_status)) {
+                        ALOGE("SetLogHandler: ring status unexpected len = %d, dest len = %lu",
+                           it.get_len(), sizeof(wifi_ring_buffer_status));
+                        return NL_SKIP;
+                    } else {
+                        memcpy(&status, it.get_data(), sizeof(wifi_ring_buffer_status));
+                    }
                 } else if (it.get_type() == LOGGER_ATTRIBUTE_RING_DATA) {
                     buffer_size = it.get_len();
                     buffer = (char *)it.get_data();
+                    ALOGV("SetLogHandler: ring data size = %d", buffer_size);
                 } else {
                     ALOGW("Ignoring invalid attribute type = %d, size = %d",
                             it.get_type(), it.get_len());
@@ -1981,21 +2019,14 @@ wifi_error wifi_hal_ota_update(wifi_interface_handle iface, uint32_t ota_version
     property_get(HW_DEV_PROP, prop_revision_buf, NULL);
     property_get(HW_SKU_PROP, prop_sku_buf, NULL);
 
-    if (strcmp(prop_sku_buf, "G9S9B") == 0 ||
-        strcmp(prop_sku_buf, "G8V0U") == 0 ||
-        strcmp(prop_sku_buf, "GFQM1") == 0) {
-        strncpy(sku_name, "MMW", MAX_SKU_NAME_LEN);
-    } else if (strcmp(prop_sku_buf, "GR1YH") == 0 ||
-               strcmp(prop_sku_buf, "GF5KQ") == 0 ||
-               strcmp(prop_sku_buf, "GPQ72") == 0) {
-        strncpy(sku_name, "JPN", MAX_SKU_NAME_LEN);
-    } else if (strcmp(prop_sku_buf, "GB7N6") == 0 ||
-               strcmp(prop_sku_buf, "GLU0G") == 0 ||
-               strcmp(prop_sku_buf, "GNA8F") == 0) {
-        strncpy(sku_name, "ROW", MAX_SKU_NAME_LEN);
-    } else {
-        strncpy(sku_name, "NA", MAX_SKU_NAME_LEN);
+    strncpy(sku_name, "NA", MAX_SKU_NAME_LEN);
+    for (int i = 0; i < ARRAYSIZE(sku_table); i ++) {
+        if (strcmp(prop_sku_buf, sku_table[i].hw_id) == 0) {
+            strncpy(sku_name, sku_table[i].sku, MAX_SKU_NAME_LEN);
+            break;
+        }
     }
+    ALOGD("prop_sku_buf is %s, sku_name is %s", prop_sku_buf, sku_name);
 
     check_multiple_nvram_clm(CLM_BLOB, prop_revision_buf, sku_name, &buffer_clm, &buf.ota_clm_len);
     if (buffer_clm == NULL) {

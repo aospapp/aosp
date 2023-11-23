@@ -160,6 +160,7 @@ public class GrantPermissionsAutoViewHandler implements GrantPermissionsViewHand
         }
 
         CarUiContentListItem item = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
+        item.setSecure(true);
         item.setTitle(mContext.getString(stringId));
         item.setOnItemClickedListener(i -> {
             mDialog.setOnDismissListener(null);

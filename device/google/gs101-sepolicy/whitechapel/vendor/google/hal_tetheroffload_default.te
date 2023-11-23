@@ -1,0 +1,17 @@
+# associate netdomain to use for accessing internet sockets
+net_domain(hal_tetheroffload_default)
+
+# Allow operations with TOE device
+allow hal_tetheroffload_default vendor_toe_device:chr_file rw_file_perms;
+
+# Allow NETLINK and socket
+allow hal_tetheroffload_default self:{
+    netlink_socket
+    netlink_generic_socket
+    unix_dgram_socket
+} create_socket_perms_no_ioctl;
+
+# Register to hwbinder service
+add_hwservice(hal_tetheroffload_default, hal_tetheroffload_hwservice)
+hwbinder_use(hal_tetheroffload_default)
+get_prop(hal_tetheroffload_default, hwservicemanager_prop)

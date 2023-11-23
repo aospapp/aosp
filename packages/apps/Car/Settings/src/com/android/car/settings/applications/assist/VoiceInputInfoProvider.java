@@ -110,7 +110,7 @@ public class VoiceInputInfoProvider {
         for (ResolveInfo resolveInfo : mAvailableVoiceInteractionServices) {
             VoiceInteractionServiceInfo interactionServiceInfo = new VoiceInteractionServiceInfo(
                     mContext.getPackageManager(), resolveInfo.serviceInfo);
-            if (interactionServiceInfo.getParseError() != null) {
+            if (hasParseError(interactionServiceInfo)) {
                 LOG.w("Error in VoiceInteractionService " + resolveInfo.serviceInfo.packageName
                         + "/" + resolveInfo.serviceInfo.name + ": "
                         + interactionServiceInfo.getParseError());
@@ -144,6 +144,11 @@ public class VoiceInputInfoProvider {
             mComponentToInfoMap.put(componentName, voiceRecognitionInfo);
         }
         Collections.sort(mVoiceRecognitionInfoList);
+    }
+
+    @VisibleForTesting
+    boolean hasParseError(VoiceInteractionServiceInfo voiceInteractionServiceInfo) {
+        return voiceInteractionServiceInfo.getParseError() != null;
     }
 
     /**

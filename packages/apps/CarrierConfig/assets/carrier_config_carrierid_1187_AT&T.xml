@@ -79,4 +79,5 @@
     <string name="5g_icon_display_grace_period_string">connected_mmwave,any,30</string>
     <boolean name="inflate_signal_strength_bool" value="true" />
     <string name="5g_icon_configuration_string">connected_mmwave:5G_Plus,connected:5G,not_restricted_rrc_idle:5G,not_restricted_rrc_con:5G</string>
+    <int name="nr_advanced_threshold_bandwidth_khz_int" value="50000" />
 </carrier_config>

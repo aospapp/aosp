@@ -18,13 +18,14 @@
 
 #include "DrmPlane.h"
 
-#include <errno.h>
-#include <log/log.h>
-#include <stdint.h>
-
+#include <algorithm>
+#include <cerrno>
 #include <cinttypes>
+#include <cstdint>
 
 #include "DrmDevice.h"
+#include "bufferinfo/BufferInfoGetter.h"
+#include "utils/log.h"
 
 namespace android {
 
@@ -44,7 +45,7 @@ int DrmPlane::Init() {
     return ret;
   }
 
-  uint64_t type;
+  uint64_t type = 0;
   std::tie(ret, type) = p.value();
   if (ret) {
     ALOGE("Failed to get plane type property value");
@@ -141,6 +142,17 @@ int DrmPlane::Init() {
   if (ret)
     ALOGI("Could not get IN_FENCE_FD property");
 
+  if (HasNonRgbFormat()) {
+    ret = drm_->GetPlaneProperty(*this, "COLOR_ENCODING",
+                                 &color_encoding_propery_);
+    if (ret)
+      ALOGI("Could not get COLOR_ENCODING property");
+
+    ret = drm_->GetPlaneProperty(*this, "COLOR_RANGE", &color_range_property_);
+    if (ret)
+      ALOGI("Could not get COLOR_RANGE property");
+  }
+
   return 0;
 }
 
@@ -149,7 +161,84 @@ uint32_t DrmPlane::id() const {
 }
 
 bool DrmPlane::GetCrtcSupported(const DrmCrtc &crtc) const {
-  return !!((1 << crtc.pipe()) & possible_crtc_mask_);
+  return ((1 << crtc.pipe()) & possible_crtc_mask_) != 0;
+}
+
+bool DrmPlane::IsValidForLayer(DrmHwcLayer *layer) {
+  if (rotation_property_.id() == 0) {
+    if (layer->transform != DrmHwcTransform::kIdentity) {
+      ALOGV("Rotation is not supported on plane %d", id_);
+      return false;
+    }
+  } else {
+    // For rotation checks, we assume the hardware reports its capabilities
+    // consistently (e.g. a 270 degree rotation is a 90 degree rotation + H
+    // flip + V flip; it wouldn't make sense to support all of the latter but
+    // not the former).
+    int ret = 0;
+    const std::pair<enum DrmHwcTransform, std::string> transforms[] =
+        {{kFlipH, "reflect-x"},
+         {kFlipV, "reflect-y"},
+         {kRotate90, "rotate-90"},
+         {kRotate180, "rotate-180"},
+         {kRotate270, "rotate-270"}};
+
+    for (const auto &[transform, name] : transforms) {
+      if (layer->transform & transform) {
+        std::tie(std::ignore,
+                 ret) = rotation_property_.GetEnumValueWithName(name);
+        if (ret) {
+          ALOGV("Rotation '%s' is not supported on plane %d", name.c_str(),
+                id_);
+          return false;
+        }
+      }
+    }
+  }
+
+  if (alpha_property_.id() == 0 && layer->alpha != 0xffff) {
+    ALOGV("Alpha is not supported on plane %d", id_);
+    return false;
+  }
+
+  if (blend_property_.id() == 0) {
+    if ((layer->blending != DrmHwcBlending::kNone) &&
+        (layer->blending != DrmHwcBlending::kPreMult)) {
+      ALOGV("Blending is not supported on plane %d", id_);
+      return false;
+    }
+  } else {
+    int ret = 0;
+
+    switch (layer->blending) {
+      case DrmHwcBlending::kPreMult:
+        std::tie(std::ignore,
+                 ret) = blend_property_.GetEnumValueWithName("Pre-multiplied");
+        break;
+      case DrmHwcBlending::kCoverage:
+        std::tie(std::ignore,
+                 ret) = blend_property_.GetEnumValueWithName("Coverage");
+        break;
+      case DrmHwcBlending::kNone:
+      default:
+        std::tie(std::ignore,
+                 ret) = blend_property_.GetEnumValueWithName("None");
+        break;
+    }
+    if (ret) {
+      ALOGV("Expected a valid blend mode on plane %d", id_);
+      return false;
+    }
+  }
+
+  uint32_t format = layer->buffer_info.format;
+  if (!IsFormatSupported(format)) {
+    ALOGV("Plane %d does not supports %c%c%c%c format", id_, format,
+          format >> 8, format >> 16, format >> 24);
+    return false;
+  }
+
+  return true;
 }
 
 uint32_t DrmPlane::type() const {
@@ -159,6 +248,13 @@ uint32_t DrmPlane::type() const {
 bool DrmPlane::IsFormatSupported(uint32_t format) const {
   return std::find(std::begin(formats_), std::end(formats_), format) !=
          std::end(formats_);
+}
+
+bool DrmPlane::HasNonRgbFormat() const {
+  return std::find_if_not(std::begin(formats_), std::end(formats_),
+                          [](uint32_t format) {
+                            return BufferInfoGetter::IsDrmFormatRgb(format);
+                          }) != std::end(formats_);
 }
 
 const DrmProperty &DrmPlane::crtc_property() const {
@@ -219,5 +315,13 @@ const DrmProperty &DrmPlane::blend_property() const {
 
 const DrmProperty &DrmPlane::in_fence_fd_property() const {
   return in_fence_fd_property_;
+}
+
+const DrmProperty &DrmPlane::color_encoding_propery() const {
+  return color_encoding_propery_;
+}
+
+const DrmProperty &DrmPlane::color_range_property() const {
+  return color_range_property_;
 }
 }  // namespace android

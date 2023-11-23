@@ -262,6 +262,8 @@ static struct gralloctest_context *test_init_gralloc()
 	int err;
 	hw_module_t const *hw_module;
 	struct gralloctest_context *ctx = calloc(1, sizeof(*ctx));
+	if (!ctx)
+		return NULL;
 
 	err = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &hw_module);
 	if (err)

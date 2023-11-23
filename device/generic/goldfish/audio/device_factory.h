@@ -16,19 +16,19 @@
 
 #pragma once
 #include <memory>
-#include <android/hardware/audio/6.0/IDevicesFactory.h>
+#include <android/hardware/audio/7.0/IDevicesFactory.h>
 #include <dlfcn.h>
 
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V6_0 {
+namespace V7_0 {
 namespace implementation {
 
 using ::android::sp;
 using ::android::hardware::hidl_string;
 using ::android::hardware::Return;
-using namespace ::android::hardware::audio::V6_0;
+using namespace ::android::hardware::audio::V7_0;
 
 struct DevicesFactory : public IDevicesFactory {
     DevicesFactory();
@@ -48,7 +48,7 @@ private:
 };
 
 }  // namespace implementation
-}  // namespace V6_0
+}  // namespace V7_0
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

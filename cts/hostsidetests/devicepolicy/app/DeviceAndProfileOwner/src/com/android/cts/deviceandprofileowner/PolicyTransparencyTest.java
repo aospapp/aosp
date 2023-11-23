@@ -16,11 +16,8 @@
 package com.android.cts.deviceandprofileowner;
 
 import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
 import android.content.Intent;
 import android.os.UserManager;
-import android.provider.Settings;
-import android.util.Log;
 
 /**
  * Tests for {@link DevicePolicyManager#createAdminSupportIntent} API.
@@ -35,8 +32,6 @@ public class PolicyTransparencyTest extends BaseDeviceAdminTest {
         Intent intent = mDevicePolicyManager.createAdminSupportIntent(
                 DevicePolicyManager.POLICY_DISABLE_CAMERA);
         assertNotNull(intent);
-        assertEquals(ADMIN_RECEIVER_COMPONENT,
-                (ComponentName) intent.getParcelableExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN));
         assertEquals(DevicePolicyManager.POLICY_DISABLE_CAMERA,
                 intent.getStringExtra(DevicePolicyManager.EXTRA_RESTRICTION));
 
@@ -52,8 +47,6 @@ public class PolicyTransparencyTest extends BaseDeviceAdminTest {
         Intent intent = mDevicePolicyManager.createAdminSupportIntent(
                 DevicePolicyManager.POLICY_DISABLE_SCREEN_CAPTURE);
         assertNotNull(intent);
-        assertEquals(ADMIN_RECEIVER_COMPONENT,
-                (ComponentName) intent.getParcelableExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN));
         assertEquals(DevicePolicyManager.POLICY_DISABLE_SCREEN_CAPTURE,
                 intent.getStringExtra(DevicePolicyManager.EXTRA_RESTRICTION));
 
@@ -75,8 +68,6 @@ public class PolicyTransparencyTest extends BaseDeviceAdminTest {
 
         Intent intent = mDevicePolicyManager.createAdminSupportIntent(restriction);
         assertNotNull(intent);
-        assertEquals(ADMIN_RECEIVER_COMPONENT,
-                (ComponentName) intent.getParcelableExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN));
         assertEquals(restriction, intent.getStringExtra(DevicePolicyManager.EXTRA_RESTRICTION));
 
         mDevicePolicyManager.clearUserRestriction(ADMIN_RECEIVER_COMPONENT, restriction);

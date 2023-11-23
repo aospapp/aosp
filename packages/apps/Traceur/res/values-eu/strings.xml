@@ -4,6 +4,7 @@
     <string name="system_tracing" msgid="4719188511746319848">"Sistemaren arrastoa"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"Erregistratu sistemaren jarduerak eta analiza itzazu geroago errendimendua hobetzeko"</string>
     <string name="record_trace" msgid="6416875085186661845">"Erregistroaren jarraipena"</string>
+    <string name="start_new_trace" msgid="8177130420802170353">"Hasi beste arrasto bat"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Egin araz daitezkeen aplikazioen segimendua"</string>
     <string name="categories" msgid="2280163673538611008">"Kategoriak"</string>
     <string name="restore_default_categories" msgid="5090536794637169521">"Leheneratu kategoria lehenetsiak"</string>
@@ -54,11 +55,11 @@
     <string name="eight_hours" msgid="3207620892104451552">"8 ordu"</string>
     <string name="twelve_hours" msgid="4647143276394563496">"12 ordu"</string>
     <string name="twentyfour_hours" msgid="2789663313550030791">"24 ordu"</string>
-    <string name="four_thousand_kb" msgid="5156346740862105703">"4.096 KB"</string>
-    <string name="eight_thousand_kb" msgid="8815334985638334081">"8.192 KB"</string>
-    <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16.384 KB"</string>
-    <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32.768 KB"</string>
-    <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65.536 KB"</string>
+    <string name="four_thousand_kb" msgid="5156346740862105703">"4.096 kB"</string>
+    <string name="eight_thousand_kb" msgid="8815334985638334081">"8.192 kB"</string>
+    <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16.384 kB"</string>
+    <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32.768 kB"</string>
+    <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65.536 kB"</string>
     <string name="stop_on_bugreport" msgid="2045328149107284734">"Utzi arrastoa gordetzeari akatsen txostenak egiteko"</string>
     <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Arrastoen grabaketa aktiboak amaitzen ditu akatsen txosten bat hastean"</string>
     <string name="attach_to_bug_report" msgid="2953745117960948415">"Erantsi arrastoak akatsen txostenak egiteko"</string>

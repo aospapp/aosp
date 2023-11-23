@@ -284,102 +284,15 @@ public class UiAutomationTest {
 
     @Presubmit
     @Test
-    public void testWindowAnimationFrameStats() throws Exception {
-        Activity firstActivity = null;
-        Activity secondActivity = null;
-        try {
-            UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
-
-            // Start the frist activity.
-            Intent firstIntent = new Intent(getInstrumentation().getContext(),
-                    UiAutomationTestFirstActivity.class);
-            firstIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            firstActivity = getInstrumentation().startActivitySync(firstIntent);
-
-            // Wait for things to settle.
-            uiAutomation.waitForIdle(
-                    QUIET_TIME_TO_BE_CONSIDERED_IDLE_STATE, TOTAL_TIME_TO_WAIT_FOR_IDLE_STATE);
-
-            // Wait for Activity draw finish
-            getInstrumentation().waitForIdleSync();
-
-            // Clear the window animation stats to be with a clean slate.
-            uiAutomation.clearWindowAnimationFrameStats();
-
-            // Start the second activity
-            Intent secondIntent = new Intent(getInstrumentation().getContext(),
-                    UiAutomationTestSecondActivity.class);
-            secondIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            secondActivity = getInstrumentation().startActivitySync(secondIntent);
-
-            // Wait for things to settle.
-            uiAutomation.waitForIdle(
-                    QUIET_TIME_TO_BE_CONSIDERED_IDLE_STATE, TOTAL_TIME_TO_WAIT_FOR_IDLE_STATE);
-
-            // Wait for Activity draw finish
-            getInstrumentation().waitForIdleSync();
-
-            // Get the frame stats.
-            WindowAnimationFrameStats stats = uiAutomation.getWindowAnimationFrameStats();
-
-            // Check the frame stats...
-
-            // We should have something.
-            assertNotNull(stats);
-
-            // The refresh presiod is always positive.
-            assertTrue(stats.getRefreshPeriodNano() > 0);
-
-            // There is some frame data.
-            final int frameCount = stats.getFrameCount();
-            assertTrue(frameCount > 0);
-
-            // The frames are ordered in ascending order.
-            assertWindowAnimationTimestampsInAscendingOrder(stats);
-
-            // The start and end times are based on first and last frame.
-            assertEquals(stats.getStartTimeNano(), stats.getFramePresentedTimeNano(0));
-            assertEquals(stats.getEndTimeNano(), stats.getFramePresentedTimeNano(frameCount - 1));
-        } finally {
-            // Clean up.
-            if (firstActivity != null) {
-                firstActivity.finish();
-            }
-            if (secondActivity != null) {
-                secondActivity.finish();
-            }
-        }
-    }
-
-    @Test
-    public void testWindowAnimationFrameStatsNoAnimation() throws Exception {
+    public void testWindowAnimationFrameStatsDoesntCrash() throws Exception {
         UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
 
-        // Wait for things to settle.
-        uiAutomation.waitForIdle(
-                QUIET_TIME_TO_BE_CONSIDERED_IDLE_STATE, TOTAL_TIME_TO_WAIT_FOR_IDLE_STATE);
-
-        // Clear the window animation stats to be with a clean slate.
+        // Get the frame stats. This just needs to not crash because these APIs are deprecated.
         uiAutomation.clearWindowAnimationFrameStats();
-
-        // Get the frame stats.
         WindowAnimationFrameStats stats = uiAutomation.getWindowAnimationFrameStats();
-
-        // Check the frame stats...
-
-        // We should have something.
-        assertNotNull(stats);
-
-        // The refresh presiod is always positive.
-        assertTrue(stats.getRefreshPeriodNano() > 0);
-
-        // There is no data.
-        assertTrue(stats.getFrameCount() == 0);
-
-        // The start and end times are undefibed as we have no data.
-        assertEquals(stats.getStartTimeNano(), FrameStats.UNDEFINED_TIME_NANO);
-        assertEquals(stats.getEndTimeNano(), FrameStats.UNDEFINED_TIME_NANO);
+        assertEquals(0, stats.getFrameCount());
     }
+
 
     @Presubmit
     @Test
@@ -699,21 +612,6 @@ public class UiAutomationTest {
                 assertTrue(preparedTimeNano >= lastPreparedTimeNano);
             }
             lastPreparedTimeNano = preparedTimeNano;
-        }
-    }
-
-    private void assertWindowAnimationTimestampsInAscendingOrder(WindowAnimationFrameStats stats) {
-        long lastPresentedTimeNano = 0;
-
-        final int frameCount = stats.getFrameCount();
-        for (int i = 0; i < frameCount; i++) {
-            final long presentedTimeNano = stats.getFramePresentedTimeNano(i);
-            if (lastPresentedTimeNano == FrameStats.UNDEFINED_TIME_NANO) {
-                assertTrue(presentedTimeNano == FrameStats.UNDEFINED_TIME_NANO);
-            } else if (presentedTimeNano != FrameStats.UNDEFINED_TIME_NANO) {
-                assertTrue(presentedTimeNano >= lastPresentedTimeNano);
-            }
-            lastPresentedTimeNano = presentedTimeNano;
         }
     }
 

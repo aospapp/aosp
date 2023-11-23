@@ -19,9 +19,6 @@ PRODUCT_SDK_ADDON_COPY_FILES += \
     device/generic/goldfish/data/etc/encryptionkey.img:images/x86/encryptionkey.img \
     $(EMULATOR_KERNEL_FILE):images/x86/kernel-ranchu-64
 
-PRODUCT_PACKAGES += \
-    emulatorip
-
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.crypto.dm_default_key.options_format.version=2
 

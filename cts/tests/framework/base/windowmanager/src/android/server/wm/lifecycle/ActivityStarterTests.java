@@ -86,6 +86,9 @@ public class ActivityStarterTests extends ActivityLifecycleClientTestBase {
             = getComponentName(FinishOnTaskLaunchActivity.class);
     private static final ComponentName DOCUMENT_INTO_EXISTING_ACTIVITY
             = getComponentName(DocumentIntoExistingActivity.class);
+    private static final ComponentName RELINQUISHTASKIDENTITY_ACTIVITY
+            = getComponentName(RelinquishTaskIdentityActivity.class);
+
 
     /**
      * Ensures that the following launch flag combination works when starting an activity which is
@@ -713,6 +716,48 @@ public class ActivityStarterTests extends ActivityLifecycleClientTestBase {
         assertEquals("Activity must be in the same task.", taskId, taskId2);
         assertEquals("Activity is the only member of its task", 1,
                 mWmState.getActivityCountInTask(taskId2, null));
+    }
+
+    /**
+     * This test case tests behavior of activity with relinquishTaskIdentify attribute. Ensure the
+     * relinquishTaskIdentity work if the activities are in the same app.
+     */
+    @Test
+    public void testActivityWithRelinquishTaskIdentity() {
+        // Launch a relinquishTaskIdentity activity and test activity with different affinity into
+        // a same task.
+        getLaunchActivityBuilder().setTargetActivity(RELINQUISHTASKIDENTITY_ACTIVITY)
+                .setIntentExtra(extra -> extra.putBoolean(
+                        RelinquishTaskIdentityActivity.EXTRA_LAUNCHED, true))
+                .setUseInstrumentation()
+                .setWaitForLaunched(true)
+                .execute();
+        // get the task affinity(e.g. 10825:android.server.wm.cts) without the uid information
+        String affinity = mWmState.getTaskByActivity(RELINQUISHTASKIDENTITY_ACTIVITY).getAffinity();
+        affinity = affinity.substring(affinity.indexOf(":") + 1);
+
+        final int taskId = mWmState.getTaskByActivity(RELINQUISHTASKIDENTITY_ACTIVITY).getTaskId();
+        final int taskId2 = mWmState.getTaskByActivity(TEST_LAUNCHING_ACTIVITY).getTaskId();
+
+        // verify the activities are in the same task
+        assertEquals("Activity must be in the same task.", taskId, taskId2);
+        // verify the relinquishTaskIdentify function should work since the activities are in the
+        // same app
+        assertNotEquals("Affinity should not be same with the package name.",
+                RELINQUISHTASKIDENTITY_ACTIVITY.getPackageName(), affinity);
+    }
+
+    // Test activity
+    public static class RelinquishTaskIdentityActivity extends Activity {
+        public static final String EXTRA_LAUNCHED = "extraLaunched";
+        @Override
+        protected void onCreate(Bundle icicle) {
+            super.onCreate(icicle);
+            if (getIntent().getBooleanExtra(EXTRA_LAUNCHED, false)) {
+                startActivityForResult(
+                        new Intent(this, TestLaunchingActivity.class), 1 /* requestCode */);
+            }
+        }
     }
 
     // Test activity

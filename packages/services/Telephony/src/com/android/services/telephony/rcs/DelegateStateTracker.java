@@ -24,8 +24,11 @@ import android.telephony.ims.SipDelegateImsConfiguration;
 import android.telephony.ims.aidl.ISipDelegate;
 import android.telephony.ims.aidl.ISipDelegateConnectionStateCallback;
 import android.telephony.ims.stub.DelegateConnectionStateCallback;
+import android.util.ArraySet;
 import android.util.LocalLog;
 import android.util.Log;
+
+import com.android.internal.telephony.metrics.RcsStats;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -50,11 +53,15 @@ public class DelegateStateTracker implements DelegateBinderStateManager.StateCal
     private boolean mCreatedCalled = false;
     private int mRegistrationStateOverride = -1;
 
+    private Set<String> mDelegateSupportedTags;
+    private final RcsStats mRcsStats;
+
     public DelegateStateTracker(int subId, ISipDelegateConnectionStateCallback appStateCallback,
-            ISipDelegate localDelegateImpl) {
+            ISipDelegate localDelegateImpl, RcsStats rcsStats) {
         mSubId = subId;
         mAppStateCallback = appStateCallback;
         mLocalDelegateImpl = localDelegateImpl;
+        mRcsStats = rcsStats;
     }
 
     /**
@@ -63,10 +70,13 @@ public class DelegateStateTracker implements DelegateBinderStateManager.StateCal
      * Registration and state updates will be send via the
      * {@link SipDelegateBinderConnection.StateCallback} callback implemented by this class as they
      * arrive.
+     * @param supportedTags the tags supported by the SipTransportController and ImsService creating
+     *                      the SipDelegate. These tags will be used as a key for SipDelegate
+     *                      metrics.
      * @param deniedTags The tags denied by the SipTransportController and ImsService creating the
      *         SipDelegate. These tags will need to be notified back to the IMS application.
      */
-    public void sipDelegateConnected(Set<FeatureTagState> deniedTags) {
+    public void sipDelegateConnected(Set<String> supportedTags, Set<FeatureTagState> deniedTags) {
         logi("SipDelegate connected with denied tags:" + deniedTags);
         // From the IMS application perspective, we only call onCreated/onDestroyed once and
         // provide the local implementation of ISipDelegate, which doesn't change, even though
@@ -74,6 +84,8 @@ public class DelegateStateTracker implements DelegateBinderStateManager.StateCal
         if (!mCreatedCalled) {
             mCreatedCalled = true;
             notifySipDelegateCreated();
+            mDelegateSupportedTags = supportedTags;
+            mRcsStats.createSipDelegateStats(mSubId, mDelegateSupportedTags);
         }
         mRegistrationStateOverride = -1;
         mDelegateDeniedTags = new ArrayList<>(deniedTags);
@@ -84,8 +96,8 @@ public class DelegateStateTracker implements DelegateBinderStateManager.StateCal
      *
      * This will trigger an override of the IMS application's registration state. All feature tags
      * in the REGISTERED state will be overridden to move to the deregistering state specified until
-     * a new SipDelegate was successfully created and {@link #sipDelegateConnected(Set)} was called
-     * or it was destroyed and {@link #sipDelegateDestroyed(int)} was called.
+     * a new SipDelegate was successfully created and {@link #sipDelegateConnected(Set, Set)} was
+     * called or it was destroyed and {@link #sipDelegateDestroyed(int)} was called.
      * @param deregisteringReason The new deregistering reason that all feature tags in the
      *         registered state should now report.
      */
@@ -115,6 +127,7 @@ public class DelegateStateTracker implements DelegateBinderStateManager.StateCal
         mRegistrationStateOverride = -1;
         try {
             mAppStateCallback.onDestroyed(reason);
+            mRcsStats.onSipDelegateStats(mSubId, mDelegateSupportedTags, reason);
         } catch (RemoteException e) {
             logw("sipDelegateDestroyed: IMS application is dead: " + e);
         }
@@ -141,6 +154,11 @@ public class DelegateStateTracker implements DelegateBinderStateManager.StateCal
         logi("onRegistrationStateChanged: sending reg state " + registrationState);
         try {
             mAppStateCallback.onFeatureTagStatusChanged(registrationState, mDelegateDeniedTags);
+            Set<String> registeredFeatureTags = registrationState.getRegisteredFeatureTags();
+            mRcsStats.onSipTransportFeatureTagStats(mSubId,
+                    new ArraySet<FeatureTagState>(mDelegateDeniedTags),
+                    registrationState.getDeregisteredFeatureTags(),
+                    registeredFeatureTags);
         } catch (RemoteException e) {
             logw("onRegistrationStateChanged: IMS application is dead: " + e);
         }

@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Downloadbeheer weergeven."</string>
+    <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Downloadbeheer tonen."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Hiermee krijgt de app toegang tot de beheerfunctie voor delen via bluetooth om deze functie te gebruiken voor het overdragen van bestanden."</string>
     <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Toegang voor bluetooth-apparaat op toelatingslijst zetten."</string>
     <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Hiermee kan de app een bluetooth-apparaat tijdelijk op de toelatingslijst zetten, waardoor dat apparaat bestanden naar dit apparaat kan sturen zonder bevestiging van de gebruiker."</string>

@@ -70,6 +70,27 @@ cc_test {
 }
 
 cc_test {
+    name: "channelmix_tests",
+    host_supported: true,
+
+    shared_libs: [
+        "libcutils",
+        "liblog",
+    ],
+
+    static_libs: [
+        "libaudioutils",
+    ],
+
+    srcs: ["channelmix_tests.cpp"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+    ],
+}
+
+cc_test {
     name: "fdtostring_tests",
     host_supported: true,
 

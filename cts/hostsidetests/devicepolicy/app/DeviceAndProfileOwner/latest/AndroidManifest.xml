@@ -96,6 +96,7 @@
         <activity android:name="com.android.cts.deviceandprofileowner.LockTaskUtilityActivity"/>
         <activity android:name="com.android.cts.deviceandprofileowner.LockTaskUtilityActivityIfAllowed"
              android:launchMode="singleInstance"
+             android:directBootAware="true"
              android:lockTaskMode="if_whitelisted"
              android:exported="true">
             <intent-filter>

@@ -1,0 +1,55 @@
+# For Exynos Properties
+vendor_internal_prop(vendor_prop)
+vendor_internal_prop(vendor_rcs_prop)
+vendor_internal_prop(vendor_rild_prop)
+vendor_internal_prop(sensors_prop)
+vendor_internal_prop(vendor_ssrdump_prop)
+vendor_internal_prop(vendor_device_prop)
+vendor_internal_prop(vendor_usb_config_prop)
+vendor_internal_prop(vendor_secure_element_prop)
+vendor_internal_prop(vendor_cbd_prop)
+# vendor defaults
+vendor_internal_prop(vendor_config_default_prop)
+vendor_internal_prop(vendor_ro_config_default_prop)
+vendor_internal_prop(vendor_persist_config_default_prop)
+vendor_internal_prop(vendor_sys_default_prop)
+vendor_internal_prop(vendor_ro_sys_default_prop)
+vendor_internal_prop(vendor_persist_sys_default_prop)
+vendor_internal_prop(vendor_audio_prop)
+vendor_internal_prop(vendor_codec2_debug_prop)
+vendor_internal_prop(vendor_display_prop)
+vendor_internal_prop(vendor_camera_prop)
+vendor_internal_prop(vendor_camera_debug_prop)
+vendor_internal_prop(vendor_camera_fatp_prop)
+vendor_internal_prop(vendor_gps_prop)
+
+# Battery defender
+vendor_internal_prop(vendor_battery_defender_prop)
+
+# Battery profile for harness mode
+vendor_internal_prop(vendor_battery_profile_prop)
+
+# AoC
+vendor_internal_prop(vendor_aoc_prop)
+
+# Logger
+vendor_internal_prop(vendor_logger_prop)
+
+# NFC
+vendor_internal_prop(vendor_nfc_prop)
+
+# WiFi
+vendor_internal_prop(vendor_wifi_version)
+
+# Touchpanel
+vendor_internal_prop(vendor_touchpanel_prop)
+
+# TCP logging
+vendor_internal_prop(vendor_tcpdump_log_prop)
+
+# Fingerprint
+vendor_internal_prop(vendor_fingerprint_fake_prop)
+
+# Dynamic sensor
+vendor_internal_prop(vendor_dynamic_sensor_prop)
+

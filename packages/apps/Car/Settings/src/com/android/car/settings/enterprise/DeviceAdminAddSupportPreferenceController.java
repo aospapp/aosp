@@ -42,9 +42,11 @@ public final class DeviceAdminAddSupportPreferenceController
     }
 
     @Override
-    protected int getRealAvailabilityStatus() {
-        setSupportMessage();
+    protected int getAvailabilityStatus() {
+        int superStatus = super.getAvailabilityStatus();
+        if (superStatus != AVAILABLE) return superStatus;
 
+        setSupportMessage();
         return TextUtils.isEmpty(mSupportMessage) ? CONDITIONALLY_UNAVAILABLE : AVAILABLE;
     }
 

@@ -38,4 +38,27 @@
         <item>android-app://com.example.nav#Intent;component=com.example.nav/.MapsCardActivity;end</item>
     -->
     </string-array>
+
+    <!-- Allow foreground DA to have rounded corner -->
+    <bool name="config_enableRoundedCornerForForegroundDisplayArea">false</bool>
+
+    <!--
+        A list of the component names (flattened to short string) that should toggle the visibility
+        of the foreground DA. Generally these should correspond to the component names used for the
+        system bar buttons to allow clicking those buttons to open/close the foreground DA.
+    -->
+    <string-array name="config_foregroundDAComponents" translatable="false">
+        <item>com.android.car.carlauncher/.AppGridActivity</item>
+    </string-array>
+
+    <!--
+        A list of the component names (flattened to short string) that should not open the
+        foreground DA.
+    -->
+    <string-array name="config_ignoreOpeningForegroundDA" translatable="false">
+    </string-array>
+
+    <!-- The ComponentName of Assistant VoicePlate Activity, the Activity will be placed in
+        VoicePlate TDA. -->
+    <string name="config_assistantVoicePlateActivity" translatable="false"></string>
 </resources>

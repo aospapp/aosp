@@ -29,5 +29,5 @@ android_test {
         "hamcrest-library",
     ],
     srcs: ["src/**/*.java"],
-    test_suites: ["catbox"],
+    test_suites: ["catbox","general-tests"],
 }

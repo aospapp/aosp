@@ -45,18 +45,18 @@
     <string name="callFailed_dialVideoToUssd" msgid="4479951468674677111">"Videogesprek gewijzigd in USSD-verzoek"</string>
     <string name="callFailed_dialVideoToDial" msgid="160029277192677751">"Gewijzigd in normaal gesprek"</string>
     <string name="callFailed_dialVideoToDialVideo" msgid="3976695729414283836">"Gewijzigd in ander nummer"</string>
-    <string name="callFailed_cb_enabled" msgid="3555984829657638323">"Uitgaande gesprekken zijn niet mogelijk als de functie voor gesprekken blokkeren is ingeschakeld."</string>
+    <string name="callFailed_cb_enabled" msgid="3555984829657638323">"Uitgaande gesprekken zijn niet mogelijk als de functie voor gesprekken blokkeren aanstaat."</string>
     <string name="callFailed_dsac_restricted" msgid="4073547013432506074">"Alle gesprekken worden beperkt door toegangsbeheer."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="3271861683273124458">"Noodoproepen worden beperkt door toegangsbeheer."</string>
     <string name="callFailed_dsac_restricted_normal" msgid="2812267231481193715">"Normale gesprekken worden beperkt door toegangsbeheer."</string>
     <string name="callFailed_unobtainable_number" msgid="2048455732432022283">"Ongeldig getal"</string>
     <string name="incall_error_missing_voicemail_number" msgid="4519524908114719666">"Voicemailnummer onbekend."</string>
-    <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"Kan geen videogesprekken voeren wanneer TTY is ingeschakeld."</string>
+    <string name="callFailed_video_call_tty_enabled" msgid="5419496275850000361">"Kan geen videogesprekken voeren wanneer TTY aanstaat."</string>
     <string name="callEnded_pulled" msgid="4824518546417807865">"Gesprek doorgeschakeld naar een ander apparaat."</string>
     <string name="ringtone_silent" msgid="1173111569760233645">"Geen"</string>
     <string name="ringtone_unknown" msgid="3036191370493284036">"Onbekende ringtone"</string>
     <string name="callFailed_maximum_reached" msgid="6704266142192963900">"Alle beschikbare lijnen zijn in gebruik. Als je wilt bellen, verbreek je de verbinding in een van de gesprekken op dit apparaat of op een van je andere apparaten."</string>
-    <string name="callFailed_data_disabled" msgid="8592999219489448277">"Het gesprek is beëindigd omdat mobiele data zijn uitgeschakeld."</string>
+    <string name="callFailed_data_disabled" msgid="8592999219489448277">"Het gesprek is beëindigd omdat mobiele data uitstaan."</string>
     <string name="callFailed_data_limit_reached_description" msgid="3739097798746751739">"Het gesprek is beëindigd omdat de limiet voor mobiele data is bereikt."</string>
     <string name="callFailed_data_limit_reached" msgid="3018609096563149722">"Datalimiet bereikt. Gesprek beëindigd."</string>
 </resources>

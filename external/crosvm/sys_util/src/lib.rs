@@ -36,7 +36,8 @@ mod poll;
 mod priority;
 pub mod rand;
 mod raw_fd;
-pub mod sched;
+pub mod read_dir;
+mod sched;
 pub mod scoped_path;
 pub mod scoped_signal_handler;
 mod seek_hole;
@@ -93,25 +94,40 @@ pub use crate::write_zeroes::{PunchHole, WriteZeroes, WriteZeroesAt};
 
 use std::cell::Cell;
 use std::ffi::CStr;
-use std::fs::{remove_file, File};
+use std::fs::{remove_file, File, OpenOptions};
 use std::mem;
+use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::os::unix::net::UnixDatagram;
+use std::path::Path;
 use std::ptr;
 use std::time::Duration;
 
 use libc::{
-    c_int, c_long, fcntl, pipe2, syscall, sysconf, waitpid, SYS_getpid, SYS_gettid, F_GETFL,
-    F_SETFL, O_CLOEXEC, SIGKILL, WNOHANG, _SC_IOV_MAX, _SC_PAGESIZE,
+    c_int, c_long, fcntl, pipe2, syscall, sysconf, waitpid, SYS_getpid, SYS_gettid, EINVAL,
+    F_GETFL, F_SETFL, O_CLOEXEC, O_DIRECT, SIGKILL, WNOHANG, _SC_IOV_MAX, _SC_PAGESIZE,
 };
 
 /// Re-export libc types that are part of the API.
 pub type Pid = libc::pid_t;
 pub type Uid = libc::uid_t;
 pub type Gid = libc::gid_t;
+pub type Mode = libc::mode_t;
 
 /// Used to mark types as !Sync.
 pub type UnsyncMarker = std::marker::PhantomData<Cell<usize>>;
+
+#[macro_export]
+macro_rules! syscall {
+    ($e:expr) => {{
+        let res = $e;
+        if res < 0 {
+            $crate::errno_result()
+        } else {
+            Ok(res)
+        }
+    }};
+}
 
 /// Safe wrapper for `sysconf(_SC_PAGESIZE)`.
 #[inline(always)]
@@ -150,25 +166,13 @@ pub fn gettid() -> Pid {
 /// Safe wrapper for `getsid(2)`.
 pub fn getsid(pid: Option<Pid>) -> Result<Pid> {
     // Calling the getsid() sycall is always safe.
-    let ret = unsafe { libc::getsid(pid.unwrap_or(0)) } as Pid;
-
-    if ret < 0 {
-        errno_result()
-    } else {
-        Ok(ret)
-    }
+    syscall!(unsafe { libc::getsid(pid.unwrap_or(0)) } as Pid)
 }
 
 /// Wrapper for `setsid(2)`.
 pub fn setsid() -> Result<Pid> {
     // Safe because the return code is checked.
-    let ret = unsafe { libc::setsid() as Pid };
-
-    if ret < 0 {
-        errno_result()
-    } else {
-        Ok(ret)
-    }
+    syscall!(unsafe { libc::setsid() as Pid })
 }
 
 /// Safe wrapper for `geteuid(2)`.
@@ -189,13 +193,21 @@ pub fn getegid() -> Gid {
 #[inline(always)]
 pub fn chown(path: &CStr, uid: Uid, gid: Gid) -> Result<()> {
     // Safe since we pass in a valid string pointer and check the return value.
-    let ret = unsafe { libc::chown(path.as_ptr(), uid, gid) };
+    syscall!(unsafe { libc::chown(path.as_ptr(), uid, gid) }).map(|_| ())
+}
 
-    if ret < 0 {
-        errno_result()
-    } else {
-        Ok(())
-    }
+/// Safe wrapper for fchmod(2).
+#[inline(always)]
+pub fn fchmod<A: AsRawFd>(fd: &A, mode: Mode) -> Result<()> {
+    // Safe since the function does not operate on pointers and check the return value.
+    syscall!(unsafe { libc::fchmod(fd.as_raw_fd(), mode) }).map(|_| ())
+}
+
+/// Safe wrapper for fchown(2).
+#[inline(always)]
+pub fn fchown<A: AsRawFd>(fd: &A, uid: Uid, gid: Gid) -> Result<()> {
+    // Safe since the function does not operate on pointers and check the return value.
+    syscall!(unsafe { libc::fchown(fd.as_raw_fd(), uid, gid) }).map(|_| ())
 }
 
 /// The operation to perform with `flock`.
@@ -220,13 +232,7 @@ pub fn flock(file: &dyn AsRawFd, op: FlockOperation, nonblocking: bool) -> Resul
     }
 
     // Safe since we pass in a valid fd and flock operation, and check the return value.
-    let ret = unsafe { libc::flock(file.as_raw_fd(), operation) };
-
-    if ret < 0 {
-        errno_result()
-    } else {
-        Ok(())
-    }
+    syscall!(unsafe { libc::flock(file.as_raw_fd(), operation) }).map(|_| ())
 }
 
 /// The operation to perform with `fallocate`.
@@ -268,12 +274,7 @@ pub fn fallocate(
 
     // Safe since we pass in a valid fd and fallocate mode, validate offset and len,
     // and check the return value.
-    let ret = unsafe { libc::fallocate64(file.as_raw_fd(), mode, offset, len) };
-    if ret < 0 {
-        errno_result()
-    } else {
-        Ok(())
-    }
+    syscall!(unsafe { libc::fallocate64(file.as_raw_fd(), mode, offset, len) }).map(|_| ())
 }
 
 /// Reaps a child process that has terminated.
@@ -349,11 +350,7 @@ pub fn pipe(close_on_exec: bool) -> Result<(File, File)> {
 /// Returns the new size of the pipe or an error if the OS fails to set the pipe size.
 pub fn set_pipe_size(fd: RawFd, size: usize) -> Result<usize> {
     // Safe because fcntl with the `F_SETPIPE_SZ` arg doesn't touch memory.
-    let ret = unsafe { fcntl(fd, libc::F_SETPIPE_SZ, size as c_int) };
-    if ret < 0 {
-        return errno_result();
-    }
-    Ok(ret as usize)
+    syscall!(unsafe { fcntl(fd, libc::F_SETPIPE_SZ, size as c_int) }).map(|ret| ret as usize)
 }
 
 /// Test-only function used to create a pipe that is full. The pipe is created, has its size set to
@@ -439,11 +436,7 @@ pub fn poll_in(fd: &dyn AsRawFd) -> bool {
 /// Returns an error if the OS indicates the flags can't be retrieved.
 fn get_fd_flags(fd: RawFd) -> Result<c_int> {
     // Safe because no third parameter is expected and we check the return result.
-    let ret = unsafe { fcntl(fd, F_GETFL) };
-    if ret < 0 {
-        return errno_result();
-    }
-    Ok(ret)
+    syscall!(unsafe { fcntl(fd, F_GETFL) })
 }
 
 /// Sets the file flags set for the given `RawFD`.
@@ -452,11 +445,7 @@ fn get_fd_flags(fd: RawFd) -> Result<c_int> {
 fn set_fd_flags(fd: RawFd, flags: c_int) -> Result<()> {
     // Safe because we supply the third parameter and we check the return result.
     // fcntlt is trusted not to modify the memory of the calling process.
-    let ret = unsafe { fcntl(fd, F_SETFL, flags) };
-    if ret < 0 {
-        return errno_result();
-    }
-    Ok(())
+    syscall!(unsafe { fcntl(fd, F_SETFL, flags) }).map(|_| ())
 }
 
 /// Performs a logical OR of the given flags with the FD's flags, setting the given bits for the
@@ -493,8 +482,49 @@ pub fn max_timeout() -> Duration {
     Duration::new(libc::time_t::max_value() as u64, 999999999)
 }
 
+/// If the given path is of the form /proc/self/fd/N for some N, returns `Ok(Some(N))`. Otherwise
+/// returns `Ok(None`).
+pub fn safe_descriptor_from_path<P: AsRef<Path>>(path: P) -> Result<Option<SafeDescriptor>> {
+    let path = path.as_ref();
+    if path.parent() == Some(Path::new("/proc/self/fd")) {
+        let raw_descriptor = path
+            .file_name()
+            .and_then(|fd_osstr| fd_osstr.to_str())
+            .and_then(|fd_str| fd_str.parse::<RawFd>().ok())
+            .ok_or_else(|| Error::new(EINVAL))?;
+        let validated_fd = validate_raw_fd(raw_descriptor)?;
+        Ok(Some(
+            // Safe because nothing else has access to validated_fd after this call.
+            unsafe { SafeDescriptor::from_raw_descriptor(validated_fd) },
+        ))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Open the file with the given path, or if it is of the form `/proc/self/fd/N` then just use the
+/// file descriptor.
+///
+/// Note that this will not work properly if the same `/proc/self/fd/N` path is used twice in
+/// different places, as the metadata (including the offset) will be shared between both file
+/// descriptors.
+pub fn open_file<P: AsRef<Path>>(path: P, read_only: bool, o_direct: bool) -> Result<File> {
+    let path = path.as_ref();
+    // Special case '/proc/self/fd/*' paths. The FD is already open, just use it.
+    Ok(if let Some(fd) = safe_descriptor_from_path(path)? {
+        fd.into()
+    } else {
+        let mut options = OpenOptions::new();
+        if o_direct {
+            options.custom_flags(O_DIRECT);
+        }
+        options.write(!read_only).read(true).open(path)?
+    })
+}
+
 #[cfg(test)]
 mod tests {
+    use libc::EBADF;
     use std::io::Write;
 
     use super::*;
@@ -508,5 +538,36 @@ mod tests {
         add_fd_flags(tx.as_raw_fd(), libc::O_NONBLOCK).expect("Failed to set tx non blocking");
         tx.write(&[0u8; 8])
             .expect_err("Write after fill didn't fail");
+    }
+
+    #[test]
+    fn safe_descriptor_from_path_valid() {
+        assert!(safe_descriptor_from_path(Path::new("/proc/self/fd/2"))
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn safe_descriptor_from_path_invalid_integer() {
+        assert_eq!(
+            safe_descriptor_from_path(Path::new("/proc/self/fd/blah")),
+            Err(Error::new(EINVAL))
+        );
+    }
+
+    #[test]
+    fn safe_descriptor_from_path_invalid_fd() {
+        assert_eq!(
+            safe_descriptor_from_path(Path::new("/proc/self/fd/42")),
+            Err(Error::new(EBADF))
+        );
+    }
+
+    #[test]
+    fn safe_descriptor_from_path_none() {
+        assert_eq!(
+            safe_descriptor_from_path(Path::new("/something/else")).unwrap(),
+            None
+        );
     }
 }

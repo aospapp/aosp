@@ -45,6 +45,7 @@ mod perboot;
 pub(crate) mod utils;
 mod versioning;
 
+use crate::gc::Gc;
 use crate::impl_metadata; // This is in db_utils.rs
 use crate::key_parameter::{KeyParameter, Tag};
 use crate::metrics_store::log_rkp_error_stats;
@@ -54,7 +55,6 @@ use crate::{
     error::{Error as KsError, ErrorCode, ResponseCode},
     super_key::SuperKeyType,
 };
-use crate::{gc::Gc, super_key::USER_SUPER_KEY};
 use anyhow::{anyhow, Context, Result};
 use std::{convert::TryFrom, convert::TryInto, ops::Deref, time::SystemTimeError};
 use utils as db_utils;
@@ -2895,7 +2895,6 @@ impl KeystoreDB {
                      ) OR (
                          key_type = ?
                          AND namespace = ?
-                         AND alias = ?
                          AND state = ?
                      );",
                     aid_user_offset = AID_USER_OFFSET
@@ -2915,7 +2914,6 @@ impl KeystoreDB {
                     // OR super key:
                     KeyType::Super,
                     user_id,
-                    USER_SUPER_KEY.alias,
                     KeyLifeCycle::Live
                 ])
                 .context("In unbind_keys_for_user. Failed to query the keys created by apps.")?;
@@ -3219,7 +3217,7 @@ mod tests {
     };
     use crate::key_perm_set;
     use crate::permission::{KeyPerm, KeyPermSet};
-    use crate::super_key::SuperKeyManager;
+    use crate::super_key::{SuperKeyManager, USER_SUPER_KEY, SuperEncryptionAlgorithm, SuperKeyType};
     use keystore2_test_utils::TempDir;
     use android_hardware_security_keymint::aidl::android::hardware::security::keymint::{
         HardwareAuthToken::HardwareAuthToken,
@@ -5460,6 +5458,80 @@ mod tests {
     }
 
     #[test]
+    fn test_unbind_keys_for_user_removes_superkeys() -> Result<()> {
+        let mut db = new_test_db()?;
+        let super_key = keystore2_crypto::generate_aes256_key()?;
+        let pw: keystore2_crypto::Password = (&b"xyzabc"[..]).into();
+        let (encrypted_super_key, metadata) =
+            SuperKeyManager::encrypt_with_password(&super_key, &pw)?;
+
+        let key_name_enc = SuperKeyType {
+            alias: "test_super_key_1",
+            algorithm: SuperEncryptionAlgorithm::Aes256Gcm,
+        };
+
+        let key_name_nonenc = SuperKeyType {
+            alias: "test_super_key_2",
+            algorithm: SuperEncryptionAlgorithm::Aes256Gcm,
+        };
+
+        // Install two super keys.
+        db.store_super_key(
+            1,
+            &key_name_nonenc,
+            &super_key,
+            &BlobMetaData::new(),
+            &KeyMetaData::new(),
+        )?;
+        db.store_super_key(1, &key_name_enc, &encrypted_super_key, &metadata, &KeyMetaData::new())?;
+
+        // Check that both can be found in the database.
+        assert!(db.load_super_key(&key_name_enc, 1)?.is_some());
+        assert!(db.load_super_key(&key_name_nonenc, 1)?.is_some());
+
+        // Install the same keys for a different user.
+        db.store_super_key(
+            2,
+            &key_name_nonenc,
+            &super_key,
+            &BlobMetaData::new(),
+            &KeyMetaData::new(),
+        )?;
+        db.store_super_key(2, &key_name_enc, &encrypted_super_key, &metadata, &KeyMetaData::new())?;
+
+        // Check that the second pair of keys can be found in the database.
+        assert!(db.load_super_key(&key_name_enc, 2)?.is_some());
+        assert!(db.load_super_key(&key_name_nonenc, 2)?.is_some());
+
+        // Delete only encrypted keys.
+        db.unbind_keys_for_user(1, true)?;
+
+        // The encrypted superkey should be gone now.
+        assert!(db.load_super_key(&key_name_enc, 1)?.is_none());
+        assert!(db.load_super_key(&key_name_nonenc, 1)?.is_some());
+
+        // Reinsert the encrypted key.
+        db.store_super_key(1, &key_name_enc, &encrypted_super_key, &metadata, &KeyMetaData::new())?;
+
+        // Check that both can be found in the database, again..
+        assert!(db.load_super_key(&key_name_enc, 1)?.is_some());
+        assert!(db.load_super_key(&key_name_nonenc, 1)?.is_some());
+
+        // Delete all even unencrypted keys.
+        db.unbind_keys_for_user(1, false)?;
+
+        // Both should be gone now.
+        assert!(db.load_super_key(&key_name_enc, 1)?.is_none());
+        assert!(db.load_super_key(&key_name_nonenc, 1)?.is_none());
+
+        // Check that the second pair of keys was untouched.
+        assert!(db.load_super_key(&key_name_enc, 2)?.is_some());
+        assert!(db.load_super_key(&key_name_nonenc, 2)?.is_some());
+
+        Ok(())
+    }
+
+    #[test]
     fn test_store_super_key() -> Result<()> {
         let mut db = new_test_db()?;
         let pw: keystore2_crypto::Password = (&b"xyzabc"[..]).into();
@@ -5478,7 +5550,7 @@ mod tests {
             &KeyMetaData::new(),
         )?;
 
-        //check if super key exists
+        // Check if super key exists.
         assert!(db.key_exists(Domain::APP, 1, &USER_SUPER_KEY.alias, KeyType::Super)?);
 
         let (_, key_entry) = db.load_super_key(&USER_SUPER_KEY, 1)?.unwrap();
@@ -5492,6 +5564,7 @@ mod tests {
         let decrypted_secret_bytes =
             loaded_super_key.aes_gcm_decrypt(&encrypted_secret, &iv, &tag)?;
         assert_eq!(secret_bytes, &*decrypted_secret_bytes);
+
         Ok(())
     }
 

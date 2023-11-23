@@ -16,15 +16,20 @@
 
 package com.android.cts.verifier;
 
+import static android.content.pm.PermissionInfo.PROTECTION_DANGEROUS;
+
+import android.Manifest;
 import android.app.AlertDialog;
 import android.app.ListActivity;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.content.pm.PermissionInfo;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -35,9 +40,13 @@ import android.widget.CompoundButton;
 import android.widget.Switch;
 import android.widget.Toast;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 /** Top-level {@link ListActivity} for launching tests and managing results. */
 public class TestListActivity extends AbstractTestListActivity implements View.OnClickListener {
     private static final int CTS_VERIFIER_PERMISSION_REQUEST = 1;
+    private static final int CTS_VERIFIER_BACKGROUND_LOCATION_PERMISSION_REQUEST = 2;
 
     private static final String TAG = TestListActivity.class.getSimpleName();
     // Records the current display mode.
@@ -84,25 +93,17 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
                     getApplicationInfo().packageName, PackageManager.GET_PERMISSIONS);
 
             if (packageInfo.requestedPermissions != null) {
-                for (String permission : packageInfo.requestedPermissions) {
-                    Log.v(TAG, "Checking permissions for: " + permission);
+                String[] permissionsToRequest = removeString(packageInfo.requestedPermissions,
+                                Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+                permissionsToRequest = Arrays.stream(permissionsToRequest).filter(s -> {
                     try {
-                        PermissionInfo info = pm.getPermissionInfo(permission, 0);
-                        if ((info.protectionLevel & PermissionInfo.PROTECTION_DANGEROUS) == 0) {
-                            continue;
-                        }
+                        return (pm.getPermissionInfo(s, 0).getProtection() & PROTECTION_DANGEROUS)
+                                != 0;
                     } catch (NameNotFoundException e) {
-                        Log.v(TAG, "Checking permissions for: " + permission + "not found");
-                        continue;
+                        return false;
                     }
-                    if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
-                        requestPermissions(packageInfo.requestedPermissions,
-                                CTS_VERIFIER_PERMISSION_REQUEST);
-                        /* don't return here. Some tests (i.e. USB Restrict Access test)
-                         * which need to run even if permissions are incomplete.
-                         */
-                    }
-                }
+                }).toArray(String[]::new);
+                requestPermissions(permissionsToRequest, CTS_VERIFIER_PERMISSION_REQUEST);
             }
             createContinue();
         } catch (NameNotFoundException e) {
@@ -116,6 +117,11 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
             finish();
         }
         sInitialLaunch = true;
+
+        // Restores the last display mode when launching the app after killing the process.
+        if (getCurrentDisplayMode().equals(DisplayMode.FOLDED.toString())) {
+            sCurrentDisplayMode = DisplayMode.FOLDED.toString();
+        }
 
         setTitle(getString(R.string.title_version, Version.getVersionName(this)));
 
@@ -135,13 +141,37 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
     public void onRequestPermissionsResult(
             int requestCode, String permissions[], int[] grantResults) {
         if (requestCode == CTS_VERIFIER_PERMISSION_REQUEST) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                createContinue();
-                return;
+            if (arrayContains(grantResults, PackageManager.PERMISSION_DENIED)) {
+                Log.v(TAG, "Didn't grant all permissions.");
+                // If we're sending them to settings we don't need to request background location
+                // since they can just grant in settings.
+                sendUserToSettings();
+            } else {
+                requestPermissions(new String[] {Manifest.permission.ACCESS_BACKGROUND_LOCATION},
+                        CTS_VERIFIER_BACKGROUND_LOCATION_PERMISSION_REQUEST);
             }
-            Log.v(TAG, "Permission not granted.");
-            Toast.makeText(this, R.string.runtime_permissions_error, Toast.LENGTH_SHORT).show();
         }
+        if (requestCode == CTS_VERIFIER_BACKGROUND_LOCATION_PERMISSION_REQUEST) {
+            if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
+                Log.v(TAG, "Didn't grant background permission.");
+                sendUserToSettings();
+            }
+            return;
+        }
+    }
+
+    private AlertDialog sendUserToSettings() {
+        return new AlertDialog.Builder(this)
+                .setTitle("Please grant all permissions")
+                .setPositiveButton(
+                        "Ok", (dialog, which) -> {
+                            if (which == AlertDialog.BUTTON_POSITIVE) {
+                                startActivity(new Intent(
+                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS).setData(
+                                        Uri.fromParts("package", getPackageName(), null)));
+                            }
+                        })
+                .show();
     }
 
     @Override
@@ -154,14 +184,8 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
         item.setActionView(R.layout.display_mode_switch);
         Switch displayModeSwitch = item.getActionView().findViewById(R.id.switch_button);
 
-        // Restores the original display mode when launching the app after killing the process.
-        // Otherwise, gets the current display mode to show switch status.
-        boolean isFoldedMode;
-        if (sInitialLaunch) {
-            isFoldedMode = getCurrentDisplayMode().equals(DisplayMode.FOLDED.toString());
-        } else {
-            isFoldedMode = sCurrentDisplayMode.equals(DisplayMode.FOLDED.toString());
-        }
+        // Get the current display mode to show switch status.
+        boolean isFoldedMode = sCurrentDisplayMode.equals(DisplayMode.FOLDED.toString());
         displayModeSwitch.setChecked(isFoldedMode);
 
         displayModeSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -243,5 +267,35 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
         String mode = getSharedPreferences(DisplayMode.class.getName(), MODE_PRIVATE)
             .getString(DisplayMode.class.getName(), "");
         return mode;
+    }
+
+    private static boolean arrayContains(int[] array, int value) {
+        if (array == null) return false;
+        for (int element : array) {
+            if (element == value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String[] removeString(String[] cur, String val) {
+        if (cur == null) {
+            return null;
+        }
+        final int n = cur.length;
+        for (int i = 0; i < n; i++) {
+            if (Objects.equals(cur[i], val)) {
+                String[] ret = new String[n - 1];
+                if (i > 0) {
+                    System.arraycopy(cur, 0, ret, 0, i);
+                }
+                if (i < (n - 1)) {
+                    System.arraycopy(cur, i + 1, ret, i, n - i - 1);
+                }
+                return ret;
+            }
+        }
+        return cur;
     }
 }

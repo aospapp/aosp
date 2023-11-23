@@ -95,7 +95,14 @@
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Predogled zaslonskih ozadij"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Zbirka ne obstaja"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Skrij predogled upor. vmesnika"</string>
+    <string name="hint_hide_ui_preview" msgid="4527603797714586070">"Upor. vm. je skrit. Dvakrat se dot. za razkritje."</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Pokaži predogled upo. vmesnika"</string>
+    <string name="hint_show_ui_preview" msgid="2744155435325318349">"Upor. vm. je prikazan. Dvakrat se dot. za skritje."</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Zamenjava zaslonskega ozadja"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Predogled zaslon. ozadja zaklen. zaslona"</string>
+    <string name="apply_btn" msgid="5764555565943538528">"Uporabi"</string>
+    <string name="accessibility_customize_hidden" msgid="6320568529768181691">"Prilagajanje je skrito."</string>
+    <string name="accessibility_customize_shown" msgid="590964727831547651">"Prilagajanje je prikazano."</string>
+    <string name="accessibility_info_hidden" msgid="2288603712350168107">"Informacije so skrite."</string>
+    <string name="accessibility_info_shown" msgid="6626025722456105632">"Informacije so prikazane."</string>
 </resources>

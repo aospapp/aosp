@@ -23,24 +23,58 @@ limitations under the License.-->
     The intention is to make it easier to maintain keep.xml
 -->
 <resources>
-    <item type="id" name="recycler_view"/>
+    <item type="attr" name="actionEnabled"/>
+    <item type="attr" name="actionShown"/>
+    <item type="attr" name="activatable"/>
+    <item type="attr" name="activated"/>
+    <item type="attr" name="car_ui_ux_restricted"/>
+    <item type="attr" name="checkable"/>
+    <item type="attr" name="checked"/>
+    <item type="attr" name="displayBehavior"/>
+    <item type="attr" name="enableDivider"/>
+    <item type="attr" name="id"/>
+    <item type="attr" name="layoutManager"/>
+    <item type="attr" name="layoutStyle"/>
+    <item type="attr" name="logo"/>
+    <item type="attr" name="menuItems"/>
+    <item type="attr" name="numOfColumns"/>
+    <item type="attr" name="onClick"/>
+    <item type="attr" name="preferenceStyle"/>
+    <item type="attr" name="reverseLayout"/>
+    <item type="attr" name="rotaryScrollEnabled"/>
+    <item type="attr" name="search"/>
+    <item type="attr" name="searchHint"/>
+    <item type="attr" name="secondaryActionIcon"/>
+    <item type="attr" name="secondaryActionStyle"/>
+    <item type="attr" name="secondaryActionText"/>
+    <item type="attr" name="settings"/>
+    <item type="attr" name="showBackground"/>
+    <item type="attr" name="showIconAndTitle"/>
+    <item type="attr" name="showMenuItemsWhileSearching"/>
+    <item type="attr" name="showTabsInSubpage"/>
     <item type="attr" name="state_ux_restricted"/>
-    <item type="id" name="radio_button"/>
-    <item type="id" name="spinner"/>
+    <item type="attr" name="tinted"/>
+    <item type="attr" name="title"/>
+    <item type="attr" name="uxRestrictions"/>
+    <item type="attr" name="visible"/>
+    <item type="attr" name="widgetLayout"/>
+    <item type="dimen" name="wrap_content"/>
+    <item type="id" name="action_widget_container"/>
+    <item type="id" name="container"/>
     <item type="id" name="list"/>
+    <item type="id" name="nested_recycler_view_layout"/>
+    <item type="id" name="radio_button"/>
+    <item type="id" name="search"/>
+    <item type="id" name="seek_bar"/>
     <item type="id" name="seek_bar_text_left"/>
     <item type="id" name="seek_bar_text_right"/>
-    <item type="id" name="nested_recycler_view_layout"/>
-    <item type="id" name="seek_bar"/>
-    <item type="id" name="textbox"/>
-    <item type="id" name="action_widget_container"/>
-    <item type="id" name="title_template"/>
+    <item type="id" name="seek_bar_text_top"/>
     <item type="id" name="seekbar"/>
     <item type="id" name="seekbar_value"/>
-    <item type="id" name="search"/>
+    <item type="id" name="spinner"/>
+    <item type="id" name="textbox"/>
+    <item type="id" name="title_template"/>
     <item type="id" name="toolbar"/>
-    <item type="id" name="container"/>
-    <item type="dimen" name="wrap_content"/>
-    <item type="id" name="seek_bar_text_top"/>
-    <item type="attr" name="preferenceStyle"/>
+    <item type="id" name="recycler_view"/>
+
 </resources>

@@ -502,15 +502,18 @@ SetSchemaResultProto IcingSearchEngine::SetSchema(
   StatusProto* result_status = result_proto.mutable_status();
 
   absl_ports::unique_lock l(&mutex_);
+  std::unique_ptr<Timer> timer = clock_->GetNewTimer();
   if (!initialized_) {
     result_status->set_code(StatusProto::FAILED_PRECONDITION);
     result_status->set_message("IcingSearchEngine has not been initialized!");
+    result_proto.set_latency_ms(timer->GetElapsedMilliseconds());
     return result_proto;
   }
 
   auto lost_previous_schema_or = LostPreviousSchema();
   if (!lost_previous_schema_or.ok()) {
     TransformStatus(lost_previous_schema_or.status(), result_status);
+    result_proto.set_latency_ms(timer->GetElapsedMilliseconds());
     return result_proto;
   }
   bool lost_previous_schema = lost_previous_schema_or.ValueOrDie();
@@ -528,10 +531,11 @@ SetSchemaResultProto IcingSearchEngine::SetSchema(
       std::move(new_schema), ignore_errors_and_delete_documents);
   if (!set_schema_result_or.ok()) {
     TransformStatus(set_schema_result_or.status(), result_status);
+    result_proto.set_latency_ms(timer->GetElapsedMilliseconds());
     return result_proto;
   }
-  const SchemaStore::SetSchemaResult set_schema_result =
-      set_schema_result_or.ValueOrDie();
+  SchemaStore::SetSchemaResult set_schema_result =
+      std::move(set_schema_result_or).ValueOrDie();
 
   for (const std::string& deleted_type :
        set_schema_result.schema_types_deleted_by_name) {
@@ -543,6 +547,25 @@ SetSchemaResultProto IcingSearchEngine::SetSchema(
     result_proto.add_incompatible_schema_types(incompatible_type);
   }
 
+  for (const std::string& new_type :
+       set_schema_result.schema_types_new_by_name) {
+    result_proto.add_new_schema_types(std::move(new_type));
+  }
+
+  for (const std::string& compatible_type :
+       set_schema_result.schema_types_changed_fully_compatible_by_name) {
+    result_proto.add_fully_compatible_changed_schema_types(
+        std::move(compatible_type));
+  }
+
+  bool index_incompatible =
+      !set_schema_result.schema_types_index_incompatible_by_name.empty();
+  for (const std::string& index_incompatible_type :
+       set_schema_result.schema_types_index_incompatible_by_name) {
+    result_proto.add_index_incompatible_changed_schema_types(
+        std::move(index_incompatible_type));
+  }
+
   libtextclassifier3::Status status;
   if (set_schema_result.success) {
     if (lost_previous_schema) {
@@ -551,6 +574,7 @@ SetSchemaResultProto IcingSearchEngine::SetSchema(
       status = document_store_->UpdateSchemaStore(schema_store_.get());
       if (!status.ok()) {
         TransformStatus(status, result_status);
+        result_proto.set_latency_ms(timer->GetElapsedMilliseconds());
         return result_proto;
       }
     } else if (!set_schema_result.old_schema_type_ids_changed.empty() ||
@@ -560,15 +584,17 @@ SetSchemaResultProto IcingSearchEngine::SetSchema(
                                                            set_schema_result);
       if (!status.ok()) {
         TransformStatus(status, result_status);
+        result_proto.set_latency_ms(timer->GetElapsedMilliseconds());
         return result_proto;
       }
     }
 
-    if (lost_previous_schema || set_schema_result.index_incompatible) {
+    if (lost_previous_schema || index_incompatible) {
       // Clears all index files
       status = index_->Reset();
       if (!status.ok()) {
         TransformStatus(status, result_status);
+        result_proto.set_latency_ms(timer->GetElapsedMilliseconds());
         return result_proto;
       }
 
@@ -579,6 +605,7 @@ SetSchemaResultProto IcingSearchEngine::SetSchema(
       if (!restore_result.status.ok() &&
           !absl_ports::IsDataLoss(restore_result.status)) {
         TransformStatus(status, result_status);
+        result_proto.set_latency_ms(timer->GetElapsedMilliseconds());
         return result_proto;
       }
     }
@@ -589,6 +616,7 @@ SetSchemaResultProto IcingSearchEngine::SetSchema(
     result_status->set_message("Schema is incompatible.");
   }
 
+  result_proto.set_latency_ms(timer->GetElapsedMilliseconds());
   return result_proto;
 }
 
@@ -903,9 +931,13 @@ DeleteByQueryResultProto IcingSearchEngine::DeleteByQuery(
     return result_proto;
   }
 
-  DeleteStatsProto* delete_stats = result_proto.mutable_delete_stats();
-  delete_stats->set_delete_type(DeleteStatsProto::DeleteType::QUERY);
-
+  DeleteByQueryStatsProto* delete_stats =
+      result_proto.mutable_delete_by_query_stats();
+  delete_stats->set_query_length(search_spec.query().length());
+  delete_stats->set_num_namespaces_filtered(
+      search_spec.namespace_filters_size());
+  delete_stats->set_num_schema_types_filtered(
+      search_spec.schema_type_filters_size());
 
   std::unique_ptr<Timer> delete_timer = clock_->GetNewTimer();
   libtextclassifier3::Status status =
@@ -915,6 +947,7 @@ DeleteByQueryResultProto IcingSearchEngine::DeleteByQuery(
     return result_proto;
   }
 
+  std::unique_ptr<Timer> component_timer = clock_->GetNewTimer();
   // Gets unordered results from query processor
   auto query_processor_or = QueryProcessor::Create(
       index_.get(), language_segmenter_.get(), normalizer_.get(),
@@ -933,10 +966,13 @@ DeleteByQueryResultProto IcingSearchEngine::DeleteByQuery(
   }
   QueryProcessor::QueryResults query_results =
       std::move(query_results_or).ValueOrDie();
+  delete_stats->set_parse_query_latency_ms(
+      component_timer->GetElapsedMilliseconds());
 
   ICING_VLOG(2) << "Deleting the docs that matched the query.";
   int num_deleted = 0;
 
+  component_timer = clock_->GetNewTimer();
   while (query_results.root_iterator->Advance().ok()) {
     ICING_VLOG(3) << "Deleting doc "
                   << query_results.root_iterator->doc_hit_info().document_id();
@@ -948,6 +984,13 @@ DeleteByQueryResultProto IcingSearchEngine::DeleteByQuery(
       return result_proto;
     }
   }
+  delete_stats->set_document_removal_latency_ms(
+      component_timer->GetElapsedMilliseconds());
+  int term_count = 0;
+  for (const auto& section_and_terms : query_results.query_terms) {
+    term_count += section_and_terms.second.size();
+  }
+  delete_stats->set_num_terms(term_count);
 
   if (num_deleted > 0) {
     result_proto.mutable_status()->set_code(StatusProto::OK);

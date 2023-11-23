@@ -17,11 +17,9 @@
 package com.android.cts.verifier.notifications;
 
 import static android.app.Notification.VISIBILITY_PRIVATE;
-import static android.app.Notification.VISIBILITY_PUBLIC;
 import static android.app.NotificationManager.IMPORTANCE_LOW;
 import static android.app.NotificationManager.IMPORTANCE_MAX;
 import static android.app.NotificationManager.IMPORTANCE_NONE;
-import static android.app.NotificationManager.VISIBILITY_NO_OVERRIDE;
 import static android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS;
 import static android.provider.Settings.EXTRA_APP_PACKAGE;
 import static android.provider.Settings.EXTRA_CHANNEL_ID;
@@ -38,7 +36,6 @@ import static com.android.cts.verifier.notifications.MockListener.JSON_WHEN;
 import static com.android.cts.verifier.notifications.MockListener.REASON_LISTENER_CANCEL;
 
 import android.annotation.SuppressLint;
-import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationChannelGroup;
@@ -125,12 +122,6 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         tests.add(new IsEnabledTest());
         tests.add(new ServiceStartedTest());
         tests.add(new NotificationReceivedTest());
-        if (!isAutomotive) {
-            tests.add(new SendUserToChangeFilter());
-            tests.add(new AskIfFilterChanged());
-            tests.add(new NotificationTypeFilterTest());
-            tests.add(new ResetChangeFilter());
-        }
         tests.add(new LongMessageTest());
         tests.add(new DataIntactTest());
         tests.add(new AudiblyAlertedTest());
@@ -159,12 +150,6 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         tests.add(new IsDisabledTest());
         tests.add(new ServiceStoppedTest());
         tests.add(new NotificationNotReceivedTest());
-        if (!isAutomotive) {
-            tests.add(new RestoreLockscreenVisibilityTest());
-            tests.add(new AddScreenLockTest());
-            tests.add(new SecureActionOnLockScreenTest());
-            tests.add(new RemoveScreenLockTest());
-        }
         return tests;
     }
 
@@ -1709,219 +1694,6 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         }
     }
 
-    /**
-     * Creates a notification channel. Sends the user to settings to re-allow the channel to
-     * show content on the lockscreen.
-     * This asks the user to undo what they did for {@link LockscreenVisibilityTest}
-     */
-    protected class RestoreLockscreenVisibilityTest extends InteractiveTestCase {
-        private View mView;
-        @Override
-        protected View inflate(ViewGroup parent) {
-            mView = createNlsSettingsItem(parent, R.string.nls_restore_visibility);
-            Button button = mView.findViewById(R.id.nls_action_button);
-            button.setEnabled(false);
-            return mView;
-        }
-
-        @Override
-        protected void setUp() {
-            createChannels();
-            status = READY;
-            Button button = mView.findViewById(R.id.nls_action_button);
-            button.setEnabled(true);
-        }
-
-        @Override
-        boolean autoStart() {
-            return true;
-        }
-
-        @Override
-        protected void test() {
-            NotificationChannel channel = mNm.getNotificationChannel(NOTIFICATION_CHANNEL_ID);
-            int visibility = channel.getLockscreenVisibility();
-            if (visibility == VISIBILITY_PUBLIC || visibility == VISIBILITY_NO_OVERRIDE) {
-                status = PASS;
-            } else {
-                status = WAIT_FOR_USER;
-            }
-
-            next();
-        }
-
-        protected void tearDown() {
-            deleteChannels();
-        }
-
-        @Override
-        protected Intent getIntent() {
-            return new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                    .putExtra(EXTRA_APP_PACKAGE, mContext.getPackageName())
-                    .putExtra(EXTRA_CHANNEL_ID, NOTIFICATION_CHANNEL_ID);
-        }
-    }
-
-    private class AddScreenLockTest extends InteractiveTestCase {
-        private View mView;
-        @Override
-        protected View inflate(ViewGroup parent) {
-            mView = createNlsSettingsItem(parent, R.string.add_screen_lock);
-            Button button = mView.findViewById(R.id.nls_action_button);
-            button.setEnabled(false);
-            return mView;
-        }
-
-        @Override
-        protected void setUp() {
-            status = READY;
-            Button button = mView.findViewById(R.id.nls_action_button);
-            button.setEnabled(true);
-        }
-
-        @Override
-        boolean autoStart() {
-            return true;
-        }
-
-        @Override
-        protected void test() {
-            KeyguardManager km = getSystemService(KeyguardManager.class);
-            if (km.isDeviceSecure()) {
-                status = PASS;
-            } else {
-                status = WAIT_FOR_USER;
-            }
-
-            next();
-        }
-
-        @Override
-        protected Intent getIntent() {
-            return new Intent(Settings.ACTION_SECURITY_SETTINGS)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        }
-    }
-
-    private class SecureActionOnLockScreenTest extends InteractiveTestCase {
-        @Override
-        protected void setUp() {
-            createChannels();
-            ActionTriggeredReceiver.sendNotification(mContext, true);
-            status = READY;
-        }
-
-        @Override
-        protected void tearDown() {
-            mNm.cancelAll();
-            deleteChannels();
-            delay();
-        }
-
-        @Override
-        protected View inflate(ViewGroup parent) {
-            return createPassFailItem(parent, R.string.secure_action_lockscreen);
-        }
-
-        @Override
-        boolean autoStart() {
-            return true;
-        }
-
-        @Override
-        protected void test() {
-            status = WAIT_FOR_USER;
-            next();
-        }
-    }
-
-    private class RemoveScreenLockTest extends InteractiveTestCase {
-        private View mView;
-        @Override
-        protected View inflate(ViewGroup parent) {
-            mView = createNlsSettingsItem(parent, R.string.remove_screen_lock);
-            Button button = mView.findViewById(R.id.nls_action_button);
-            button.setEnabled(false);
-            return mView;
-        }
-
-        @Override
-        protected void setUp() {
-            status = READY;
-            Button button = mView.findViewById(R.id.nls_action_button);
-            button.setEnabled(true);
-        }
-
-        @Override
-        boolean autoStart() {
-            return true;
-        }
-
-        @Override
-        protected void test() {
-            KeyguardManager km = getSystemService(KeyguardManager.class);
-            if (!km.isDeviceSecure()) {
-                status = PASS;
-            } else {
-                status = WAIT_FOR_USER;
-            }
-
-            next();
-        }
-
-        @Override
-        protected Intent getIntent() {
-            return new Intent(Settings.ACTION_SECURITY_SETTINGS)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        }
-    }
-
-    /**
-     * Sends the user to settings filter out silent notifications for this notification listener.
-     * Sends silent and not silent notifs and makes sure only the non silent is received
-     */
-    private class NotificationTypeFilterTest extends InteractiveTestCase {
-        int mRetries = 3;
-        @Override
-        protected View inflate(ViewGroup parent) {
-            return createAutoItem(parent, R.string.nls_filter_test);
-
-        }
-
-        @Override
-        protected void setUp() {
-            createChannels();
-            sendNotifications();
-            sendNoisyNotification();
-            status = READY;
-        }
-
-        @Override
-        protected void tearDown() {
-            mNm.cancelAll();
-            MockListener.getInstance().resetData();
-            deleteChannels();
-        }
-
-        @Override
-        protected void test() {
-            if (MockListener.getInstance().getPosted(mTag4) == null) {
-                Log.d(TAG, "Could not find " + mTag4);
-                if (--mRetries > 0) {
-                    sleep(100);
-                    status = RETEST;
-                } else {
-                    status = FAIL;
-                }
-            } else if (MockListener.getInstance().getPosted(mTag2) != null) {
-                logFail("Found" + mTag2);
-                status = FAIL;
-            } else {
-                status = PASS;
-            }
-        }
-    }
-
     protected class SendUserToChangeFilter extends InteractiveTestCase {
         @Override
         protected View inflate(ViewGroup parent) {
@@ -1936,6 +1708,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
             ArrayList<String> pkgs = new ArrayList<>();
             pkgs.add("com.android.settings");
             MockListener.getInstance().migrateNotificationFilter(0, pkgs);
+            status = READY;
         }
 
         @Override

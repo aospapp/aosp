@@ -46,4 +46,11 @@ public final class DeviceAdminReceiverQueryHelper<E extends Queryable>
     public boolean matches(DeviceAdminReceiverInfo value) {
         return mBroadcastReceiverQueryHelper.matches(value);
     }
+
+    @Override
+    public String describeQuery(String fieldName) {
+        return Queryable.joinQueryStrings(
+                mBroadcastReceiverQueryHelper.describeQuery(fieldName + ".broadcastReceiver")
+        );
+    }
 }

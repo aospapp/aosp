@@ -19,16 +19,20 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import android.annotation.TargetApi;
+
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import com.android.car.ui.core.CarUi;
-import com.android.car.ui.sharedlibrarysupport.SharedLibraryFactorySingleton;
+import com.android.car.ui.pluginsupport.PluginFactorySingleton;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -41,17 +45,18 @@ import java.util.function.Consumer;
 
 @SuppressWarnings("AndroidJdkLibsChecker")
 @RunWith(Parameterized.class)
+@TargetApi(MIN_TARGET_API)
 public class ToolbarTabDeprecatedTest {
 
     @Parameterized.Parameters
     public static Object[] data() {
-        // It's important to do no shared library first, so that the shared library will
+        // It's important to do no plugin first, so that the plugin will
         // still be enabled when this test finishes
         return new Object[] { false, true };
     }
 
-    public ToolbarTabDeprecatedTest(boolean sharedLibEnabled) {
-        SharedLibraryFactorySingleton.setSharedLibEnabled(sharedLibEnabled);
+    public ToolbarTabDeprecatedTest(boolean pluginEnabled) {
+        PluginFactorySingleton.setPluginEnabledForTesting(pluginEnabled);
     }
 
     @Rule

@@ -28,8 +28,11 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.util.Log;
 import android.widget.Toast;
+
 import com.android.cts.verifier.IntentDrivenTestActivity;
 import com.android.cts.verifier.IntentDrivenTestActivity.ButtonInfo;
 import com.android.cts.verifier.R;
@@ -82,26 +85,36 @@ public class Utils {
     }
 
     static void showBugreportNotification(Context context, String msg, int notificationId) {
-        NotificationManager mNotificationManager =
-                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-
+        NotificationManager notificationManager = getNotificationManager(context);
         NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
                 CHANNEL_ID, NotificationManager.IMPORTANCE_HIGH);
-        mNotificationManager.createNotificationChannel(channel);
+        notificationManager.createNotificationChannel(channel);
+        CharSequence title = context.getString(R.string.device_owner_requesting_bugreport_tests);
         Notification notification = new Notification.Builder(context)
                 .setChannelId(CHANNEL_ID)
                 .setSmallIcon(R.drawable.icon)
-                .setContentTitle(context.getString(
-                        R.string.device_owner_requesting_bugreport_tests))
+                .setContentTitle(title)
                 .setContentText(msg)
                 .setStyle(new Notification.BigTextStyle().bigText(msg))
                 .extend(new Notification.TvExtender())
                 .build();
-        mNotificationManager.notify(notificationId, notification);
+        Log.d(TAG, "Sending notification: id=" + notificationId + ", title='" + title
+                + "' text='" + msg + "'");
+        notificationManager.notify(notificationId, notification);
+    }
+
+    private static NotificationManager getNotificationManager(Context context) {
+        if (UserManager.isHeadlessSystemUserMode()) {
+            Log.d(TAG, "getNotificationManager(): using context for current user");
+            context = context.createContextAsUser(UserHandle.CURRENT, /* flags= */ 0);
+        }
+        return context.getSystemService(NotificationManager.class);
     }
 
     static void showToast(Context context, int messageId) {
-        Toast.makeText(context, messageId, Toast.LENGTH_SHORT).show();
+        CharSequence msg = context.getString(messageId);
+        Log.d(TAG, "showToast(): " + msg);
+        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show();
     }
 
     /**

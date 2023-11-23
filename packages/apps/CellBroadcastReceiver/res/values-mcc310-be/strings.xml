@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Штомесяц атрымліваць вынікі тэстаў ад сістэмы аховы бяспекі"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Дзяржаўная абвестка"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Прапаноўваць выключыць абвесткі (акрамя дзяржаўных) пасля першага паказу."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Дзяржаўныя абвесткі"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Дзяржаўныя папераджальныя паведамленні. Нельга выключыць."</string>
 </resources>

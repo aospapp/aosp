@@ -1,0 +1,205 @@
+# Exynos Data Files
+#type vendor_data_file, file_type, data_file_type;
+type vendor_cbd_boot_file, file_type, data_file_type;
+type vendor_media_data_file, file_type, data_file_type;
+
+# Exynos Log Files
+type vendor_log_file, file_type, data_file_type;
+type vendor_cbd_log_file, file_type, data_file_type;
+type vendor_dmd_log_file, file_type, data_file_type;
+type vendor_rfsd_log_file, file_type, data_file_type;
+type vendor_dump_log_file, file_type, data_file_type;
+type vendor_rild_log_file, file_type, data_file_type;
+type vendor_sced_log_file, file_type, data_file_type;
+type vendor_telephony_log_file, file_type, data_file_type;
+
+# app data files
+type vendor_test_data_file, file_type, data_file_type;
+type vendor_telephony_data_file, file_type, data_file_type;
+type vendor_ims_data_file, file_type, data_file_type;
+type vendor_misc_data_file, file_type, data_file_type;
+type vendor_rpmbmock_data_file, file_type, data_file_type;
+
+# Exynos debugfs
+type vendor_ion_debugfs, fs_type, debugfs_type;
+type vendor_dmabuf_debugfs, fs_type, debugfs_type;
+type vendor_page_pinner_debugfs, fs_type, debugfs_type;
+type vendor_mali_debugfs, fs_type, debugfs_type;
+type vendor_dri_debugfs, fs_type, debugfs_type;
+type vendor_pm_genpd_debugfs, fs_type, debugfs_type;
+type vendor_regmap_debugfs, fs_type, debugfs_type;
+type vendor_usb_debugfs, fs_type, debugfs_type;
+type vendor_maxfg_debugfs, fs_type, debugfs_type;
+type vendor_charger_debugfs, fs_type, debugfs_type;
+type vendor_votable_debugfs, fs_type, debugfs_type;
+type vendor_battery_debugfs, fs_type, debugfs_type;
+
+# Exynos sysfs
+type sysfs_exynos_bts, sysfs_type, fs_type;
+type sysfs_exynos_bts_stats, sysfs_type, fs_type;
+type sysfs_ota, sysfs_type, fs_type;
+
+# Exynos Firmware
+type vendor_fw_file, vendor_file_type, file_type;
+
+# ACPM
+type sysfs_acpm_stats, sysfs_type, fs_type;
+
+# Vendor tools
+type vendor_usf_stats, vendor_file_type, file_type;
+type vendor_usf_reg_edit, vendor_file_type, file_type;
+type vendor_dumpsys, vendor_file_type, file_type;
+
+# Sensors
+type nanohub_lock_file, file_type, data_file_type;
+type sensor_vendor_data_file, file_type, data_file_type, mlstrustedobject;
+type sensors_cal_file, file_type;
+type sysfs_nanoapp_cmd, sysfs_type, fs_type;
+
+# Fingerprint
+type sysfs_fingerprint, sysfs_type, fs_type;
+
+# CHRE
+type chre_socket, file_type;
+
+# IOMMU
+type sysfs_iommu, sysfs_type, fs_type;
+
+type sysfs_devicetree, sysfs_type, fs_type;
+type sysfs_mem, sysfs_type, fs_type;
+
+# WiFi
+type sysfs_wifi, sysfs_type, fs_type;
+
+# All files under /data/vendor/firmware/wifi
+type updated_wifi_firmware_data_file, file_type, data_file_type;
+
+# Widevine DRM
+type mediadrm_vendor_data_file, file_type, data_file_type;
+
+# Storage Health HAL
+type sysfs_scsi_devices_0000, sysfs_type, fs_type, sysfs_block_type;
+type debugfs_f2fs, debugfs_type, fs_type;
+type proc_f2fs, proc_type, fs_type;
+
+type bootdevice_sysdev, dev_type;
+
+# ZRam
+type per_boot_file, file_type, data_file_type, core_data_file_type;
+
+# Touch
+type proc_touch, proc_type, fs_type, mlstrustedobject;
+type sysfs_touch, sysfs_type, fs_type;
+
+# AOC
+type sysfs_aoc_dumpstate, sysfs_type, fs_type;
+type sysfs_aoc_boottime, sysfs_type, fs_type;
+type sysfs_aoc_firmware, sysfs_type, fs_type;
+type sysfs_aoc, sysfs_type, fs_type;
+type sysfs_aoc_reset, sysfs_type, fs_type;
+
+# Audio
+type persist_audio_file, file_type, vendor_persist_type;
+type persist_aoc_file, file_type, vendor_persist_type;
+type audio_vendor_data_file, file_type, data_file_type;
+type aoc_audio_file, file_type, vendor_file_type;
+
+# RILD
+type rild_vendor_data_file, file_type, data_file_type;
+
+# Modem
+type modem_stat_data_file, file_type, data_file_type;
+type modem_efs_file, file_type;
+type modem_userdata_file, file_type;
+type sysfs_modem, sysfs_type, fs_type;
+type persist_modem_file, file_type, vendor_persist_type;
+
+
+type modem_img_file, contextmount_type, file_type, vendor_file_type;
+allow modem_img_file self:filesystem associate;
+
+# TCP logging
+type tcpdump_vendor_data_file, file_type, data_file_type, mlstrustedobject;
+
+# Wireless
+type sysfs_wlc, sysfs_type, fs_type;
+
+# Pca
+type sysfs_pca, sysfs_type, fs_type;
+
+# Camera
+type persist_camera_file, file_type;
+type vendor_camera_tuning_file, vendor_file_type, file_type;
+type vendor_camera_data_file, file_type, data_file_type;
+type sysfs_camera, sysfs_type, fs_type;
+
+# GPS
+type vendor_gps_file, file_type, data_file_type;
+userdebug_or_eng(`
+    typeattribute vendor_gps_file mlstrustedobject;
+')
+type sysfs_gps, sysfs_type, fs_type;
+type sysfs_gps_assert, sysfs_type, fs_type;
+
+# Display
+type sysfs_display, sysfs_type, fs_type;
+
+# Backlight
+type sysfs_backlight, sysfs_type, fs_type;
+
+# Charger
+type sysfs_chargelevel, sysfs_type, fs_type;
+
+# ODPM
+type powerstats_vendor_data_file, file_type, data_file_type;
+type sysfs_odpm, sysfs_type, fs_type;
+
+# bcl
+type sysfs_bcl, sysfs_type, fs_type;
+
+# Chosen
+type sysfs_chosen, sysfs_type, fs_type;
+
+type sysfs_chip_id, sysfs_type, fs_type;
+type sysfs_spi, sysfs_type, fs_type;
+
+# Battery
+type persist_battery_file, file_type, vendor_persist_type;
+
+# CPU
+type sysfs_cpu, sysfs_type, fs_type;
+
+# GPU
+type sysfs_gpu, sysfs_type, fs_type;
+
+# Fabric
+type sysfs_fabric, sysfs_type, fs_type;
+
+# Memory
+type sysfs_memory, sysfs_type, fs_type;
+
+# bcmdhd (Broadcom FullMAC wireless cards support)
+type sysfs_bcmdhd, sysfs_type, fs_type;
+
+# Video
+type sysfs_video, sysfs_type, fs_type;
+
+# UWB vendor
+type uwb_vendor_data_file, file_type, data_file_type, app_data_file_type;
+type persist_uwb_file, file_type, vendor_persist_type;
+type uwb_data_vendor, file_type, data_file_type;
+
+# PixelStats_vendor
+type sysfs_pixelstats, fs_type, sysfs_type;
+
+# WLC FW
+type vendor_wlc_fwupdata_file, vendor_file_type, file_type;
+
+#USB-C throttling stats
+type sysfs_usbc_throttling_stats, sysfs_type, fs_type;
+
+# SJTAG
+type sysfs_sjtag, fs_type, sysfs_type;
+userdebug_or_eng(`
+    typeattribute sysfs_sjtag mlstrustedobject;
+')

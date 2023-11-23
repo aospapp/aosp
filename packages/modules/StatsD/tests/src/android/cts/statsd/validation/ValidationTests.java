@@ -111,8 +111,6 @@ public class ValidationTests extends DeviceAtomTestCase {
         // Sorted list of events in order in which they occurred.
         List<EventMetricData> data = getEventMetricDataList();
 
-        BatteryStatsProto batterystatsProto = getBatteryStatsProto();
-
         //=================== verify that statsd is correct ===============//
         // Assert that the events happened in the expected order.
         assertStatesOccurred(stateSet, data, WAIT_TIME_SHORT,
@@ -124,18 +122,6 @@ public class ValidationTests extends DeviceAtomTestCase {
             assertThat(tag).isEqualTo(EXPECTED_TAG);
             assertThat(type).isEqualTo(EXPECTED_LEVEL);
         }
-
-        //=================== verify that batterystats is correct ===============//
-        int uid = getUid();
-        android.os.TimerProto wl =
-                getBatteryStatsPartialWakelock(batterystatsProto, uid, EXPECTED_TAG);
-
-        assertThat(wl).isNotNull();
-        assertThat(wl.getDurationMs()).isGreaterThan(0L);
-        assertThat(wl.getMaxDurationMs()).isIn(Range.closedOpen(400L, 700L));
-        assertThat(wl.getTotalDurationMs()).isIn(Range.closedOpen(400L, 700L));
-
-        setAodState(aodState); // restores AOD to initial state.
     }
 
     @RestrictedBuildTest

@@ -85,6 +85,33 @@ void memcpy_by_audio_format(void *dst, audio_format_t dst_format,
 size_t memcpy_by_index_array_initialization_from_channel_mask(int8_t *idxary, size_t arysize,
         audio_channel_mask_t dst_channel_mask, audio_channel_mask_t src_channel_mask);
 
+/**
+ * Accumulates samples from src and dst buffers into dst buffer.
+ *
+ *  \param dst        Accumulation buffer
+ *  \param src        Source buffer
+ *  \param format     Common source and accumulation buffers format
+ *  \param count      Number of samples to accumulate
+ *
+ * Supported sample formats are:
+ *
+ * AUDIO_FORMAT_PCM_16_BIT
+ * <BR>
+ * AUDIO_FORMAT_PCM_FLOAT
+ * <BR>
+ * AUDIO_FORMAT_PCM_8_BIT
+ * <BR>
+ * AUDIO_FORMAT_PCM_24_BIT_PACKED
+ * <BR>
+ * AUDIO_FORMAT_PCM_32_BIT
+ * <BR>
+ * AUDIO_FORMAT_PCM_8_24_BIT
+ *
+ * Logs a fatal error if format is not allowed.
+ */
+void accumulate_by_audio_format(void *dst, const void *src,
+        audio_format_t format, size_t count);
+
 /** \cond */
 __END_DECLS
 /** \endcond */

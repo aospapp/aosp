@@ -98,6 +98,10 @@ abstract class BaseBlobStoreHostTest extends BaseHostJUnit4Test {
         return device.isMultiUserSupported();
     }
 
+    protected boolean isMultiUserSupported() throws Exception {
+        return isMultiUserSupported(getDevice());
+    }
+
     protected Map<String, String> createArgsFromLastTestRun() {
         final Map<String, String> args = new HashMap<>();
         for (String key : new String[] {

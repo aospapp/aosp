@@ -1,6 +1,6 @@
 use gdbstub::common::Pid;
 use gdbstub::target;
-use gdbstub::target::ext::extended_mode::{Args, ShouldTerminate};
+use gdbstub::target::ext::extended_mode::{Args, AttachKind, ShouldTerminate};
 use gdbstub::target::TargetResult;
 
 use crate::emu::Emu;
@@ -61,20 +61,32 @@ impl target::ext::extended_mode::ExtendedMode for Emu {
         Ok(Pid::new(1337).unwrap())
     }
 
-    fn configure_aslr(&mut self) -> Option<target::ext::extended_mode::ConfigureASLROps<Self>> {
+    fn query_if_attached(&mut self, pid: Pid) -> TargetResult<AttachKind, Self> {
+        eprintln!(
+            "GDB queried if it was attached to a process with PID {}",
+            pid
+        );
+        Ok(AttachKind::Attach)
+    }
+
+    #[inline(always)]
+    fn configure_aslr(&mut self) -> Option<target::ext::extended_mode::ConfigureAslrOps<Self>> {
         Some(self)
     }
 
+    #[inline(always)]
     fn configure_env(&mut self) -> Option<target::ext::extended_mode::ConfigureEnvOps<Self>> {
         Some(self)
     }
 
+    #[inline(always)]
     fn configure_startup_shell(
         &mut self,
     ) -> Option<target::ext::extended_mode::ConfigureStartupShellOps<Self>> {
         Some(self)
     }
 
+    #[inline(always)]
     fn configure_working_dir(
         &mut self,
     ) -> Option<target::ext::extended_mode::ConfigureWorkingDirOps<Self>> {
@@ -82,7 +94,7 @@ impl target::ext::extended_mode::ExtendedMode for Emu {
     }
 }
 
-impl target::ext::extended_mode::ConfigureASLR for Emu {
+impl target::ext::extended_mode::ConfigureAslr for Emu {
     fn cfg_aslr(&mut self, enabled: bool) -> TargetResult<(), Self> {
         eprintln!("GDB {} ASLR", if enabled { "enabled" } else { "disabled" });
         Ok(())

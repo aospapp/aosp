@@ -68,7 +68,7 @@ TEST(audio_utils_channels, geometry_constexpr) {
 
 TEST(audio_utils_channels, geometry_range) {
     using namespace android::audio_utils::channels;
-    for (size_t i = 0; i < FCC_24 + 2 /* sic */; ++i) {
+    for (size_t i = 0; i < FCC_26 + 2 /* sic */; ++i) {
         const AUDIO_GEOMETRY_SIDE side = sideFromChannelIdx(i);
         const AUDIO_GEOMETRY_HEIGHT height = heightFromChannelIdx(i);
         const AUDIO_GEOMETRY_DEPTH depth = depthFromChannelIdx(i);
@@ -86,14 +86,14 @@ TEST(audio_utils_channels, geometry_range) {
 
 TEST(audio_utils_channels, array_lr_pair_matching) {
     using namespace android::audio_utils::channels;
-    for (size_t i = 0; i < FCC_24; ++i) {
+    for (size_t i = 0; i < FCC_26; ++i) {
         const AUDIO_GEOMETRY_SIDE side = sideFromChannelIdx(i);
         const ssize_t pairIdx = pairIdxFromChannelIdx(i);
         switch (side) {
         case AUDIO_GEOMETRY_SIDE_LEFT:
         case AUDIO_GEOMETRY_SIDE_RIGHT: {
             ASSERT_GE(pairIdx, 0);
-            ASSERT_LT(pairIdx, FCC_24);
+            ASSERT_LT(pairIdx, FCC_26);
             const AUDIO_GEOMETRY_SIDE pairSide = side == AUDIO_GEOMETRY_SIDE_LEFT
                     ? AUDIO_GEOMETRY_SIDE_RIGHT : AUDIO_GEOMETRY_SIDE_LEFT;
             ASSERT_EQ(pairSide, sideFromChannelIdx(pairIdx));

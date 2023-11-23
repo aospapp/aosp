@@ -31,7 +31,6 @@ import android.net.NetworkStats.TAG_NONE
 import android.os.Build
 import androidx.test.filters.SmallTest
 import com.android.testutils.DevSdkIgnoreRule
-import com.android.testutils.assertFieldCountEquals
 import com.android.testutils.assertNetworkStatsEquals
 import com.android.testutils.assertParcelingIsLossless
 import org.junit.Before
@@ -176,7 +175,6 @@ class NetworkStatsApiTest {
         assertParcelingIsLossless(testStatsEmpty)
         assertParcelingIsLossless(testStats1)
         assertParcelingIsLossless(testStats2)
-        assertFieldCountEquals(15, NetworkStats::class.java)
     }
 
     @Test

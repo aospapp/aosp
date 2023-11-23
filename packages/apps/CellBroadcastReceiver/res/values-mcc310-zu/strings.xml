@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Thola izivivinyo ezidingekile zangenyanga ezivela kusistimu yesexwayiso sokuphepha"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Isexwayiso sikazwelonke"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Bonisa ingxoxo yokukhetha ukuphuma ngemuva kokubonisa isexwayiso sokuqala (Ngaphandle Kwesexwayiso Sikazwelonke)."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Izexwayiso zikazwelonke"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Imiyalezo yesexwayiso kazwe lonke. Ayikwazi ukuvalwa."</string>
 </resources>

@@ -22,7 +22,6 @@
     android:background="?android:attr/selectableItemBackground"
     android:clipToPadding="false"
     android:minHeight="?android:attr/listPreferredItemHeightSmall"
-    android:paddingEnd="?android:attr/listPreferredItemPaddingEnd"
     android:tag="carUiPreference"
     android:paddingStart="?android:attr/listPreferredItemPaddingStart">
 
@@ -44,6 +43,7 @@
         android:layout_centerVertical="true"
         android:layout_marginBottom="@dimen/car_ui_preference_content_margin_bottom"
         android:layout_marginTop="@dimen/car_ui_preference_content_margin_top"
+        android:layout_marginEnd="?android:attr/listPreferredItemPaddingEnd"
         android:layout_toEndOf="@android:id/icon"
         android:layout_toStartOf="@android:id/widget_frame"
         android:orientation="vertical">

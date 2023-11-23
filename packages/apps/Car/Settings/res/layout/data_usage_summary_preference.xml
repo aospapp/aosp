@@ -22,7 +22,6 @@
     android:gravity="center_vertical"
     android:minHeight="?android:attr/listPreferredItemHeightSmall"
     android:orientation="vertical"
-    android:paddingBottom="@dimen/data_usage_summary_preference_padding_bottom"
     android:paddingEnd="?android:attr/listPreferredItemPaddingEnd"
     android:paddingStart="?android:attr/listPreferredItemPaddingStart">
     <TextView
@@ -46,7 +45,6 @@
         android:id="@+id/progress_bar_labels"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/usage_indicator_preference_label_margin_bottom"
         android:layout_marginTop="@dimen/usage_indicator_preference_label_margin_top"
         android:orientation="horizontal">
         <TextView android:id="@android:id/text1"
@@ -66,20 +64,11 @@
     </LinearLayout>
 
     <TextView
-        android:id="@+id/data_limit_text"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceSmall"/>
-    <TextView
-        android:id="@+id/remaining_billing_cycle_time_text"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceSmall"/>
-    <TextView
         android:id="@+id/carrier_info_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceSmall"/>
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:layout_marginTop="@dimen/usage_indicator_preference_label_margin_bottom"/>
     <Button
         android:id="@+id/manage_subscription_button"
         android:layout_width="wrap_content"

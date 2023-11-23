@@ -260,7 +260,13 @@ public class CodecDecoderSurfaceTest extends CodecDecoderTestBase {
                 assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
                 assertTrue(log + "no input sent", 0 != mInputCount);
                 assertTrue(log + "output received", 0 != mOutputCount);
-                assertTrue(log + "decoder output is flaky", ref.equals(test));
+                // TODO: Timestamps for deinterlaced content are under review. (E.g. can decoders
+                // produce multiple progressive frames?) For now, do not verify timestamps.
+                if (mIsInterlaced) {
+                    assertTrue(log + "decoder output is flaky", ref.equalsInterlaced(test));
+                } else {
+                    assertTrue(log + "decoder output is flaky", ref.equals(test));
+                }
 
                 /* test flush in eos state */
                 flushCodec();
@@ -276,7 +282,13 @@ public class CodecDecoderSurfaceTest extends CodecDecoderTestBase {
                 assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
                 assertTrue(log + "no input sent", 0 != mInputCount);
                 assertTrue(log + "output received", 0 != mOutputCount);
-                assertTrue(log + "decoder output is flaky", ref.equals(test));
+                // TODO: Timestamps for deinterlaced content are under review. (E.g. can decoders
+                // produce multiple progressive frames?) For now, do not verify timestamps.
+                if (mIsInterlaced) {
+                    assertTrue(log + "decoder output is flaky", ref.equalsInterlaced(test));
+                } else {
+                    assertTrue(log + "decoder output is flaky", ref.equals(test));
+                }
             }
             mCodec.release();
             mExtractor.release();
@@ -351,8 +363,13 @@ public class CodecDecoderSurfaceTest extends CodecDecoderTestBase {
                 assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
                 assertTrue(log + "no input sent", 0 != mInputCount);
                 assertTrue(log + "output received", 0 != mOutputCount);
-                assertTrue(log + "decoder output is flaky", ref.equals(test));
-
+                // TODO: Timestamps for deinterlaced content are under review. (E.g. can decoders
+                // produce multiple progressive frames?) For now, do not verify timestamps.
+                if (mIsInterlaced) {
+                    assertTrue(log + "decoder output is flaky", ref.equalsInterlaced(test));
+                } else {
+                    assertTrue(log + "decoder output is flaky", ref.equals(test));
+                }
                 /* test reconfigure codec at eos state */
                 reConfigureCodec(format, !isAsync, false, false);
                 mCodec.start();
@@ -367,7 +384,13 @@ public class CodecDecoderSurfaceTest extends CodecDecoderTestBase {
                 assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
                 assertTrue(log + "no input sent", 0 != mInputCount);
                 assertTrue(log + "output received", 0 != mOutputCount);
-                assertTrue(log + "decoder output is flaky", ref.equals(test));
+                // TODO: Timestamps for deinterlaced content are under review. (E.g. can decoders
+                // produce multiple progressive frames?) For now, do not verify timestamps.
+                if (mIsInterlaced) {
+                    assertTrue(log + "decoder output is flaky", ref.equalsInterlaced(test));
+                } else {
+                    assertTrue(log + "decoder output is flaky", ref.equals(test));
+                }
                 mExtractor.release();
 
                 /* test reconfigure codec for new file */
@@ -388,7 +411,13 @@ public class CodecDecoderSurfaceTest extends CodecDecoderTestBase {
                 assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
                 assertTrue(log + "no input sent", 0 != mInputCount);
                 assertTrue(log + "output received", 0 != mOutputCount);
-                assertTrue(log + "decoder output is flaky", configRef.equals(test));
+                // TODO: Timestamps for deinterlaced content are under review. (E.g. can decoders
+                // produce multiple progressive frames?) For now, do not verify timestamps.
+                if (mIsInterlaced) {
+                    assertTrue(log + "decoder output is flaky", configRef.equalsInterlaced(test));
+                } else {
+                    assertTrue(log + "decoder output is flaky", configRef.equals(test));
+                }
                 mExtractor.release();
             }
             mCodec.release();

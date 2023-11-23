@@ -41,6 +41,7 @@ import android.telephony.SmsMessage;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.cts.AsyncSmsMessageListener;
+import android.telephony.cts.CarrierCapability;
 import android.telephony.cts.SmsReceiverHelper;
 import android.telephony.ims.ImsException;
 import android.telephony.ims.ImsManager;
@@ -88,6 +89,8 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+
+import android.util.Log;
 
 /**
  * CTS tests for ImsService API.
@@ -393,6 +396,9 @@ public class ImsServiceTest {
                 TestImsService.LATCH_CREATE_MMTEL);
         assertNotNull("ImsService created, but ImsService#createMmTelFeature was not called!",
                 sServiceConnector.getCarrierService().getMmTelFeature());
+        // Wait for the framework to set the capabilities on the ImsService
+        sServiceConnector.getCarrierService().waitForLatchCountdown(
+                TestImsService.LATCH_MMTEL_CAP_SET);
     }
 
     @Test
@@ -446,6 +452,10 @@ public class ImsServiceTest {
         // createMmTelFeature should be called.
         assertTrue(sServiceConnector.getCarrierService().waitForLatchCountdown(
                 TestImsService.LATCH_CREATE_MMTEL));
+
+        // Wait for the framework to set the capabilities on the ImsService
+        sServiceConnector.getCarrierService().waitForLatchCountdown(
+                TestImsService.LATCH_MMTEL_CAP_SET);
     }
 
     @Test
@@ -461,6 +471,9 @@ public class ImsServiceTest {
         // Framework did not call it.
         assertTrue(sServiceConnector.getCarrierService().waitForLatchCountdown(
                 TestImsService.LATCH_CREATE_MMTEL));
+        // Wait for the framework to set the capabilities on the ImsService
+        sServiceConnector.getCarrierService().waitForLatchCountdown(
+                TestImsService.LATCH_MMTEL_CAP_SET);
     }
 
     @Test
@@ -477,6 +490,9 @@ public class ImsServiceTest {
         // Framework did not call it.
         assertTrue(sServiceConnector.getCarrierService().waitForLatchCountdown(
                 TestImsService.LATCH_CREATE_MMTEL));
+        // Wait for the framework to set the capabilities on the ImsService
+        sServiceConnector.getCarrierService().waitForLatchCountdown(
+                TestImsService.LATCH_MMTEL_CAP_SET);
     }
 
     @Test
@@ -1392,6 +1408,12 @@ public class ImsServiceTest {
             fail("Cannot find IMS service");
         }
 
+        TelephonyManager tm = (TelephonyManager) getContext()
+                .getSystemService(Context.TELEPHONY_SERVICE);
+
+        String mccmnc = tm.getSimOperator();
+        boolean mTelUriSupported = CarrierCapability.SUPPORT_TEL_URI_PUBLISH.contains(mccmnc);
+
         ImsRcsManager imsRcsManager = imsManager.getImsRcsManager(sTestSub);
         RcsUceAdapter uceAdapter = imsRcsManager.getUceAdapter();
 
@@ -1411,7 +1433,13 @@ public class ImsServiceTest {
             receivedPidfXml.add(pidfXml);
         });
 
-        final Uri imsUri = Uri.fromParts(PhoneAccount.SCHEME_SIP, "test", null);
+        Uri imsUri;
+        if (mTelUriSupported) {
+            imsUri = Uri.fromParts(PhoneAccount.SCHEME_TEL, "0001112222", null);
+        } else {
+            imsUri = Uri.fromParts(PhoneAccount.SCHEME_SIP, "test", null);
+        }
+
         StringBuilder expectedUriBuilder = new StringBuilder();
         expectedUriBuilder.append("<contact>").append(imsUri.toString()).append("</contact>");
 
@@ -3404,50 +3432,41 @@ public class ImsServiceTest {
         boolean isSingleRegistrationEnabledByCarrier =
                 sServiceConnector.getCarrierSingleRegistrationEnabled();
 
-        sSrcReceiver.waitForChanged();
-        int capability = sSrcReceiver.getCapability();
-
-        assertEquals(isSingleRegistrationEnabledOnDevice,
-                (ProvisioningManager.STATUS_DEVICE_NOT_CAPABLE & capability) == 0);
-        assertEquals(isSingleRegistrationEnabledByCarrier,
-                (ProvisioningManager.STATUS_CARRIER_NOT_CAPABLE & capability) == 0);
-
         ProvisioningManager provisioningManager =
                 ProvisioningManager.createForSubscriptionId(sTestSub);
         PersistableBundle bundle = new PersistableBundle();
         bundle.putBoolean(
-                CarrierConfigManager.Ims.KEY_IMS_SINGLE_REGISTRATION_REQUIRED_BOOL, false);
+                CarrierConfigManager.Ims.KEY_IMS_SINGLE_REGISTRATION_REQUIRED_BOOL,
+                !isSingleRegistrationEnabledByCarrier);
         sSrcReceiver.clearQueue();
         overrideCarrierConfig(bundle);
         sSrcReceiver.waitForChanged();
-        capability = sSrcReceiver.getCapability();
+        int capability = sSrcReceiver.getCapability();
 
-        assertEquals(false, (ProvisioningManager.STATUS_CARRIER_NOT_CAPABLE & capability) == 0);
+        assertEquals(!isSingleRegistrationEnabledByCarrier,
+                (ProvisioningManager.STATUS_CARRIER_NOT_CAPABLE & capability) == 0);
         try {
             automan.adoptShellPermissionIdentity();
-            //set the rcs config with single registration enabled
-            provisioningManager.notifyRcsAutoConfigurationReceived(
-                    TEST_RCS_CONFIG_DEFAULT.getBytes(), false);
-            int res = waitForIntResult(TestAcsClient.getInstance().getActionQueue());
-            assertEquals(res, TestAcsClient.ACTION_CONFIG_CHANGED);
             assertEquals(provisioningManager.isRcsVolteSingleRegistrationCapable(),
-                    (ProvisioningManager.STATUS_CARRIER_NOT_CAPABLE & capability) == 0);
+                    isSingleRegistrationEnabledOnDevice && !isSingleRegistrationEnabledByCarrier);
         } finally {
             automan.dropShellPermissionIdentity();
         }
 
         bundle = new PersistableBundle();
-        bundle.putBoolean(CarrierConfigManager.Ims.KEY_IMS_SINGLE_REGISTRATION_REQUIRED_BOOL, true);
+        bundle.putBoolean(CarrierConfigManager.Ims.KEY_IMS_SINGLE_REGISTRATION_REQUIRED_BOOL,
+                isSingleRegistrationEnabledByCarrier);
         sSrcReceiver.clearQueue();
         overrideCarrierConfig(bundle);
         sSrcReceiver.waitForChanged();
         capability = sSrcReceiver.getCapability();
 
-        assertEquals(true, (ProvisioningManager.STATUS_CARRIER_NOT_CAPABLE & capability) == 0);
+        assertEquals(isSingleRegistrationEnabledByCarrier,
+                (ProvisioningManager.STATUS_CARRIER_NOT_CAPABLE & capability) == 0);
         try {
             automan.adoptShellPermissionIdentity();
             assertEquals(provisioningManager.isRcsVolteSingleRegistrationCapable(),
-                    isSingleRegistrationEnabledOnDevice);
+                    isSingleRegistrationEnabledOnDevice && isSingleRegistrationEnabledByCarrier);
         } finally {
             automan.dropShellPermissionIdentity();
         }
@@ -3462,38 +3481,35 @@ public class ImsServiceTest {
         try {
             automan.adoptShellPermissionIdentity();
             assertEquals(provisioningManager.isRcsVolteSingleRegistrationCapable(),
-                    !isSingleRegistrationEnabledOnDevice);
+                    !isSingleRegistrationEnabledOnDevice && isSingleRegistrationEnabledByCarrier);
         } finally {
             automan.dropShellPermissionIdentity();
         }
 
         sSrcReceiver.clearQueue();
-        sServiceConnector.setDeviceSingleRegistrationEnabled(true);
+        sServiceConnector.setDeviceSingleRegistrationEnabled(isSingleRegistrationEnabledOnDevice);
         sSrcReceiver.waitForChanged();
         capability = sSrcReceiver.getCapability();
 
-        assertEquals(true, (ProvisioningManager.STATUS_DEVICE_NOT_CAPABLE & capability) == 0);
+        assertEquals(isSingleRegistrationEnabledOnDevice,
+                (ProvisioningManager.STATUS_DEVICE_NOT_CAPABLE & capability) == 0);
         try {
             automan.adoptShellPermissionIdentity();
-            assertEquals(provisioningManager.isRcsVolteSingleRegistrationCapable(), true);
-        } finally {
-            automan.dropShellPermissionIdentity();
-        }
-
-        try {
-            automan.adoptShellPermissionIdentity();
-            //set the rcs config with single registration disabled
-            provisioningManager.notifyRcsAutoConfigurationReceived(
-                    TEST_RCS_CONFIG_SINGLE_REGISTRATION_DISABLED.getBytes(), false);
-            int res = waitForIntResult(TestAcsClient.getInstance().getActionQueue());
-            assertEquals(res, TestAcsClient.ACTION_CONFIG_CHANGED);
-            assertEquals(provisioningManager.isRcsVolteSingleRegistrationCapable(), true);
+            assertEquals(provisioningManager.isRcsVolteSingleRegistrationCapable(),
+                    isSingleRegistrationEnabledOnDevice && isSingleRegistrationEnabledByCarrier);
         } finally {
             automan.dropShellPermissionIdentity();
         }
 
         sServiceConnector.setDeviceSingleRegistrationEnabled(null);
         overrideCarrierConfig(null);
+        sSrcReceiver.waitForChanged();
+        capability = sSrcReceiver.getCapability();
+
+        assertEquals(isSingleRegistrationEnabledOnDevice,
+                (ProvisioningManager.STATUS_DEVICE_NOT_CAPABLE & capability) == 0);
+        assertEquals(isSingleRegistrationEnabledByCarrier,
+                (ProvisioningManager.STATUS_CARRIER_NOT_CAPABLE & capability) == 0);
     }
 
     /**

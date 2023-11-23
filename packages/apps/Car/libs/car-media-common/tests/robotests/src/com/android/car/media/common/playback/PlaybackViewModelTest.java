@@ -16,7 +16,7 @@
 
 package com.android.car.media.common.playback;
 
-import static com.android.car.arch.common.LiveDataFunctions.dataOf;
+import static com.android.car.apps.common.util.LiveDataFunctions.dataOf;
 import static com.android.car.media.common.MediaTestUtils.newFakeMediaSource;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -36,9 +36,9 @@ import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.MutableLiveData;
 
-import com.android.car.arch.common.testing.CaptureObserver;
-import com.android.car.arch.common.testing.InstantTaskExecutorRule;
-import com.android.car.arch.common.testing.TestLifecycleOwner;
+import com.android.car.apps.common.testutils.CaptureObserver;
+import com.android.car.apps.common.testutils.InstantTaskExecutorRule;
+import com.android.car.apps.common.testutils.TestLifecycleOwner;
 import com.android.car.media.common.MediaItemMetadata;
 import com.android.car.media.common.source.MediaBrowserConnector.BrowsingState;
 import com.android.car.media.common.source.MediaBrowserConnector.ConnectionStatus;

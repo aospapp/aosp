@@ -20,32 +20,28 @@ use base::{
     ioctl_with_mut_ref, ioctl_with_ref, ioctl_with_val, volatile_impl, AsRawDescriptor,
     FromRawDescriptor, IoctlNr, RawDescriptor,
 };
+use cros_async::IntoAsync;
+use thiserror::Error as ThisError;
 
-#[derive(Debug)]
+#[derive(ThisError, Debug)]
 pub enum Error {
     /// Failed to create a socket.
+    #[error("failed to create a socket: {0}")]
     CreateSocket(SysError),
     /// Couldn't open /dev/net/tun.
+    #[error("failed to open /dev/net/tun: {0}")]
     OpenTun(SysError),
     /// Unable to create tap interface.
+    #[error("failed to create tap interface: {0}")]
     CreateTap(SysError),
+    /// Unable to clone tap interface.
+    #[error("failed to clone tap interface: {0}")]
+    CloneTap(SysError),
     /// ioctl failed.
+    #[error("ioctl failed: {0}")]
     IoctlError(SysError),
 }
 pub type Result<T> = std::result::Result<T, Error>;
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Error::*;
-
-        match self {
-            CreateSocket(e) => write!(f, "failed to create a socket: {}", e),
-            OpenTun(e) => write!(f, "failed to open /dev/net/tun: {}", e),
-            CreateTap(e) => write!(f, "failed to create tap interface: {}", e),
-            IoctlError(e) => write!(f, "ioctl failed: {}", e),
-        }
-    }
-}
 
 impl Error {
     pub fn sys_error(&self) -> SysError {
@@ -53,6 +49,7 @@ impl Error {
             Error::CreateSocket(e) => e,
             Error::OpenTun(e) => e,
             Error::CreateTap(e) => e,
+            Error::CloneTap(e) => e,
             Error::IoctlError(e) => e,
         }
     }
@@ -192,7 +189,7 @@ impl Tap {
         })
     }
 
-    fn create_tap_with_ifreq(ifreq: &mut net_sys::ifreq) -> Result<Tap> {
+    pub fn create_tap_with_ifreq(ifreq: &mut net_sys::ifreq) -> Result<Tap> {
         // Open calls are safe because we give a constant nul-terminated
         // string and verify the result.
         let fd = unsafe {
@@ -227,6 +224,18 @@ impl Tap {
             if_flags: unsafe { ifreq.ifr_ifru.ifru_flags },
         })
     }
+
+    pub fn try_clone(&self) -> Result<Tap> {
+        self.tap_file
+            .try_clone()
+            .map(|tap_file| Tap {
+                tap_file,
+                if_name: self.if_name,
+                if_flags: self.if_flags,
+            })
+            .map_err(SysError::from)
+            .map_err(Error::CloneTap)
+    }
 }
 
 pub trait TapT: FileReadWriteVolatile + Read + Write + AsRawDescriptor + Send + Sized {
@@ -251,6 +260,12 @@ pub trait TapT: FileReadWriteVolatile + Read + Write + AsRawDescriptor + Send + 
 
     /// Set the netmask for the subnet that the tap interface will exist on.
     fn set_netmask(&self, netmask: net::Ipv4Addr) -> Result<()>;
+
+    /// Get the MTU for the tap interface.
+    fn mtu(&self) -> Result<u16>;
+
+    /// Set the MTU for the tap interface.
+    fn set_mtu(&self, mtu: u16) -> Result<()>;
 
     /// Get the mac address for the tap interface.
     fn mac_address(&self) -> Result<MacAddress>;
@@ -395,6 +410,38 @@ impl TapT for Tap {
         Ok(())
     }
 
+    fn mtu(&self) -> Result<u16> {
+        let sock = create_socket()?;
+        let mut ifreq = self.get_ifreq();
+
+        // ioctl is safe. Called with a valid sock fd, and we check the return.
+        let ret = unsafe {
+            ioctl_with_mut_ref(&sock, net_sys::sockios::SIOCGIFMTU as IoctlNr, &mut ifreq)
+        };
+        if ret < 0 {
+            return Err(Error::IoctlError(SysError::last()));
+        }
+
+        // We only access one field of the ifru union, hence this is safe.
+        let mtu = unsafe { ifreq.ifr_ifru.ifru_mtu } as u16;
+        Ok(mtu)
+    }
+
+    fn set_mtu(&self, mtu: u16) -> Result<()> {
+        let sock = create_socket()?;
+
+        let mut ifreq = self.get_ifreq();
+        ifreq.ifr_ifru.ifru_mtu = i32::from(mtu);
+
+        // ioctl is safe. Called with a valid sock fd, and we check the return.
+        let ret = unsafe { ioctl_with_ref(&sock, net_sys::sockios::SIOCSIFMTU as IoctlNr, &ifreq) };
+        if ret < 0 {
+            return Err(Error::IoctlError(SysError::last()));
+        }
+
+        Ok(())
+    }
+
     fn mac_address(&self) -> Result<MacAddress> {
         let sock = create_socket()?;
         let mut ifreq = self.get_ifreq();
@@ -527,6 +574,8 @@ impl AsRawDescriptor for Tap {
     }
 }
 
+impl IntoAsync for Tap {}
+
 volatile_impl!(Tap);
 
 pub mod fakes {
@@ -569,6 +618,14 @@ pub mod fakes {
         }
 
         fn set_netmask(&self, _: net::Ipv4Addr) -> Result<()> {
+            Ok(())
+        }
+
+        fn mtu(&self) -> Result<u16> {
+            Ok(1500)
+        }
+
+        fn set_mtu(&self, _: u16) -> Result<()> {
             Ok(())
         }
 

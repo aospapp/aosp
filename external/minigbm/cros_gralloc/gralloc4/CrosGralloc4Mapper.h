@@ -11,8 +11,7 @@
 
 class CrosGralloc4Mapper : public android::hardware::graphics::mapper::V4_0::IMapper {
   public:
-    CrosGralloc4Mapper();
-    ~CrosGralloc4Mapper();
+    CrosGralloc4Mapper() = default;
 
     android::hardware::Return<void> createDescriptor(const BufferDescriptorInfo& description,
                                                      createDescriptor_cb hidlCb) override;
@@ -75,7 +74,7 @@ class CrosGralloc4Mapper : public android::hardware::graphics::mapper::V4_0::IMa
     int getResolvedDrmFormat(android::hardware::graphics::common::V1_2::PixelFormat pixelFormat,
                              uint64_t bufferUsage, uint32_t* outDrmFormat);
 
-    cros_gralloc_driver* mDriver = nullptr;
+    cros_gralloc_driver* mDriver = cros_gralloc_driver::get_instance();
 };
 
 extern "C" android::hardware::graphics::mapper::V4_0::IMapper* HIDL_FETCH_IMapper(const char* name);

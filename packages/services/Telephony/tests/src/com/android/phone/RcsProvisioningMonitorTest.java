@@ -16,6 +16,10 @@
 
 package com.android.phone;
 
+import static com.android.internal.telephony.TelephonyStatsLog.RCS_ACS_PROVISIONING_STATS__RESPONSE_TYPE__PROVISIONING_XML;
+import static com.android.internal.telephony.TelephonyStatsLog.RCS_CLIENT_PROVISIONING_STATS__EVENT__DMA_CHANGED;
+import static com.android.internal.telephony.TelephonyStatsLog.RCS_CLIENT_PROVISIONING_STATS__EVENT__TRIGGER_RCS_RECONFIGURATION;
+
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertNull;
@@ -64,6 +68,7 @@ import android.util.Log;
 import com.android.ims.FeatureConnector;
 import com.android.ims.RcsFeatureManager;
 import com.android.internal.telephony.ITelephony;
+import com.android.internal.telephony.metrics.RcsStats;
 
 import org.junit.After;
 import org.junit.Before;
@@ -179,6 +184,10 @@ public class RcsProvisioningMonitorTest {
     private IRcsConfigCallback mCallback;
     @Mock
     private PackageManager mPackageManager;
+    @Mock
+    private RcsStats mRcsStats;
+    @Mock
+    private RcsStats.RcsProvisioningCallback mRcsProvisioningCallback;
 
     private Executor mExecutor = new Executor() {
         @Override
@@ -305,7 +314,6 @@ public class RcsProvisioningMonitorTest {
     @Test
     @SmallTest
     public void testInitWithSavedConfig() throws Exception {
-        ArgumentCaptor<Intent> captorIntent = ArgumentCaptor.forClass(Intent.class);
         createMonitor(3);
 
         for (int i = 0; i < 3; i++) {
@@ -313,10 +321,6 @@ public class RcsProvisioningMonitorTest {
                     mRcsProvisioningMonitor.getConfig(FAKE_SUB_ID_BASE + i)));
         }
 
-        verify(mPhone, times(3)).sendBroadcast(captorIntent.capture(), any());
-        Intent capturedIntent = captorIntent.getAllValues().get(1);
-        assertEquals(ProvisioningManager.ACTION_RCS_SINGLE_REGISTRATION_CAPABILITY_UPDATE,
-                capturedIntent.getAction());
         verify(mIImsConfig, times(3)).notifyRcsAutoConfigurationReceived(any(), anyBoolean());
     }
 
@@ -324,14 +328,8 @@ public class RcsProvisioningMonitorTest {
     @SmallTest
     public void testInitWithoutSavedConfig() throws Exception {
         when(mCursor.getBlob(anyInt())).thenReturn(null);
-        ArgumentCaptor<Intent> captorIntent = ArgumentCaptor.forClass(Intent.class);
         createMonitor(3);
 
-        verify(mPhone, times(3)).sendBroadcast(captorIntent.capture(), any());
-        Intent capturedIntent = captorIntent.getAllValues().get(1);
-
-        assertEquals(ProvisioningManager.ACTION_RCS_SINGLE_REGISTRATION_CAPABILITY_UPDATE,
-                capturedIntent.getAction());
         //Should not notify null config
         verify(mIImsConfig, never()).notifyRcsAutoConfigurationReceived(any(), anyBoolean());
     }
@@ -340,16 +338,12 @@ public class RcsProvisioningMonitorTest {
     @SmallTest
     public void testSubInfoChanged() throws Exception {
         createMonitor(3);
-        ArgumentCaptor<Intent> captorIntent = ArgumentCaptor.forClass(Intent.class);
 
         for (int i = 0; i < 3; i++) {
             assertTrue(Arrays.equals(CONFIG_DEFAULT.getBytes(),
                     mRcsProvisioningMonitor.getConfig(FAKE_SUB_ID_BASE + i)));
         }
-        verify(mPhone, times(3)).sendBroadcast(captorIntent.capture(), any());
-        Intent capturedIntent = captorIntent.getAllValues().get(1);
-        assertEquals(ProvisioningManager.ACTION_RCS_SINGLE_REGISTRATION_CAPABILITY_UPDATE,
-                capturedIntent.getAction());
+
         verify(mIImsConfig, times(3)).notifyRcsAutoConfigurationReceived(any(), anyBoolean());
 
         makeFakeActiveSubIds(1);
@@ -401,14 +395,20 @@ public class RcsProvisioningMonitorTest {
     @SmallTest
     public void testCarrierConfigChanged() throws Exception {
         createMonitor(1);
+        // should not broadcast message if carrier config is not ready
+        verify(mPhone, never()).sendBroadcast(any(), any());
+
         when(mPackageManager.hasSystemFeature(
                 eq(PackageManager.FEATURE_TELEPHONY_IMS_SINGLE_REGISTRATION))).thenReturn(true);
         ArgumentCaptor<Intent> captorIntent = ArgumentCaptor.forClass(Intent.class);
+        mBundle.putBoolean(CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, true);
         mBundle.putBoolean(
                 CarrierConfigManager.Ims.KEY_IMS_SINGLE_REGISTRATION_REQUIRED_BOOL, true);
+
         broadcastCarrierConfigChange(FAKE_SUB_ID_BASE);
         processAllMessages();
-        verify(mPhone, atLeastOnce()).sendBroadcast(captorIntent.capture(), any());
+
+        verify(mPhone, times(1)).sendBroadcast(captorIntent.capture(), any());
         Intent capturedIntent = captorIntent.getValue();
         assertEquals(capturedIntent.getAction(),
                 ProvisioningManager.ACTION_RCS_SINGLE_REGISTRATION_CAPABILITY_UPDATE);
@@ -421,7 +421,8 @@ public class RcsProvisioningMonitorTest {
                 CarrierConfigManager.Ims.KEY_IMS_SINGLE_REGISTRATION_REQUIRED_BOOL, false);
         broadcastCarrierConfigChange(FAKE_SUB_ID_BASE);
         processAllMessages();
-        verify(mPhone, atLeastOnce()).sendBroadcast(captorIntent.capture(), any());
+
+        verify(mPhone, times(2)).sendBroadcast(captorIntent.capture(), any());
         capturedIntent = captorIntent.getValue();
         assertEquals(capturedIntent.getAction(),
                 ProvisioningManager.ACTION_RCS_SINGLE_REGISTRATION_CAPABILITY_UPDATE);
@@ -435,7 +436,8 @@ public class RcsProvisioningMonitorTest {
                 eq(PackageManager.FEATURE_TELEPHONY_IMS_SINGLE_REGISTRATION))).thenReturn(false);
         broadcastCarrierConfigChange(FAKE_SUB_ID_BASE);
         processAllMessages();
-        verify(mPhone, atLeastOnce()).sendBroadcast(captorIntent.capture(), any());
+
+        verify(mPhone, times(3)).sendBroadcast(captorIntent.capture(), any());
         capturedIntent = captorIntent.getValue();
         assertEquals(capturedIntent.getAction(),
                 ProvisioningManager.ACTION_RCS_SINGLE_REGISTRATION_CAPABILITY_UPDATE);
@@ -479,6 +481,7 @@ public class RcsProvisioningMonitorTest {
 
         when(mPackageManager.hasSystemFeature(
                 eq(PackageManager.FEATURE_TELEPHONY_IMS_SINGLE_REGISTRATION))).thenReturn(false);
+        mBundle.putBoolean(CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, true);
         mBundle.putBoolean(
                 CarrierConfigManager.Ims.KEY_IMS_SINGLE_REGISTRATION_REQUIRED_BOOL, false);
         broadcastCarrierConfigChange(FAKE_SUB_ID_BASE);
@@ -580,13 +583,39 @@ public class RcsProvisioningMonitorTest {
     @Test
     @SmallTest
     public void testSendBroadcastWhenDmaChanged() throws Exception {
-        createMonitor(3);
-        verify(mPhone, times(3)).sendBroadcast(any(), any());
-
+        when(mCarrierConfigManager.getConfigForSubId(anyInt())).thenReturn(null);
+        mBundle.putBoolean(CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, true);
+        createMonitor(1);
         updateDefaultMessageApplication(DEFAULT_MESSAGING_APP2);
         processAllMessages();
 
-        verify(mPhone, times(6)).sendBroadcast(any(), any());
+        // should not broadcast message as no carrier config change happens
+        verify(mPhone, never()).sendBroadcast(any(), any());
+
+        when(mCarrierConfigManager.getConfigForSubId(anyInt())).thenReturn(mBundle);
+        when(mPackageManager.hasSystemFeature(
+                eq(PackageManager.FEATURE_TELEPHONY_IMS_SINGLE_REGISTRATION))).thenReturn(true);
+        ArgumentCaptor<Intent> captorIntent = ArgumentCaptor.forClass(Intent.class);
+        mBundle.putBoolean(
+                CarrierConfigManager.Ims.KEY_IMS_SINGLE_REGISTRATION_REQUIRED_BOOL, true);
+
+        broadcastCarrierConfigChange(FAKE_SUB_ID_BASE);
+        processAllMessages();
+
+        verify(mPhone, times(1)).sendBroadcast(captorIntent.capture(), any());
+        Intent capturedIntent = captorIntent.getValue();
+        assertEquals(capturedIntent.getAction(),
+                ProvisioningManager.ACTION_RCS_SINGLE_REGISTRATION_CAPABILITY_UPDATE);
+
+        updateDefaultMessageApplication(DEFAULT_MESSAGING_APP1);
+        processAllMessages();
+
+        // should broadcast message when default messaging application changed if carrier config
+        // has been loaded
+        verify(mPhone, times(2)).sendBroadcast(captorIntent.capture(), any());
+        capturedIntent = captorIntent.getValue();
+        assertEquals(capturedIntent.getAction(),
+                ProvisioningManager.ACTION_RCS_SINGLE_REGISTRATION_CAPABILITY_UPDATE);
     }
 
     @Test
@@ -611,6 +640,7 @@ public class RcsProvisioningMonitorTest {
 
         when(mPackageManager.hasSystemFeature(
                 eq(PackageManager.FEATURE_TELEPHONY_IMS_SINGLE_REGISTRATION))).thenReturn(true);
+        mBundle.putBoolean(CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, true);
         mBundle.putBoolean(
                 CarrierConfigManager.Ims.KEY_IMS_SINGLE_REGISTRATION_REQUIRED_BOOL, true);
         broadcastCarrierConfigChange(FAKE_SUB_ID_BASE);
@@ -694,6 +724,7 @@ public class RcsProvisioningMonitorTest {
 
         when(mPackageManager.hasSystemFeature(
                 eq(PackageManager.FEATURE_TELEPHONY_IMS_SINGLE_REGISTRATION))).thenReturn(true);
+        mBundle.putBoolean(CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL, true);
         mBundle.putBoolean(
                 CarrierConfigManager.Ims.KEY_IMS_SINGLE_REGISTRATION_REQUIRED_BOOL, true);
         broadcastCarrierConfigChange(FAKE_SUB_ID_BASE);
@@ -746,6 +777,66 @@ public class RcsProvisioningMonitorTest {
         assertNull(mRcsProvisioningMonitor.getImsFeatureValidationOverride(FAKE_SUB_ID_BASE));
     }
 
+    @Test
+    @SmallTest
+    public void testMetricsAcsNotUsed() throws Exception {
+        createMonitor(1);
+
+        // Not used ACS
+        mBundle.putBoolean(CarrierConfigManager.KEY_USE_ACS_FOR_RCS_BOOL, false);
+        broadcastCarrierConfigChange(FAKE_SUB_ID_BASE);
+        processAllMessages();
+        mRcsProvisioningMonitor.updateConfig(FAKE_SUB_ID_BASE, CONFIG_DEFAULT.getBytes(), false);
+        processAllMessages();
+        verify(mRcsStats, never()).onRcsAcsProvisioningStats(anyInt(), anyInt(),
+                anyInt(), anyBoolean());
+    }
+
+    @Test
+    @SmallTest
+    public void testMetricsAcsUsed() throws Exception {
+        when(mRcsStats.getRcsProvisioningCallback(anyInt(), anyBoolean()))
+                .thenReturn(mRcsProvisioningCallback);
+        createMonitor(1);
+
+        verify(mIImsConfig, times(1))
+                .notifyRcsAutoConfigurationReceived(any(), anyBoolean());
+        // verify RcsStats.getRcsProvisioningCallback() is called
+        verify(mRcsStats, times(1)).getRcsProvisioningCallback(
+                eq(FAKE_SUB_ID_BASE), anyBoolean());
+        // verify registered callback obj which comes from RcsStats.getRcsProvisioningCallback()
+        verify(mIImsConfig, times(1))
+                .addRcsConfigCallback(eq(mRcsProvisioningCallback));
+
+        // Config data received and ACS used
+        int errorCode = 200;
+        mBundle.putBoolean(CarrierConfigManager.KEY_USE_ACS_FOR_RCS_BOOL, true);
+        broadcastCarrierConfigChange(FAKE_SUB_ID_BASE);
+        processAllMessages();
+        mRcsProvisioningMonitor.updateConfig(FAKE_SUB_ID_BASE, CONFIG_DEFAULT.getBytes(), false);
+        processAllMessages();
+        verify(mRcsStats, times(1)).onRcsAcsProvisioningStats(eq(FAKE_SUB_ID_BASE), eq(errorCode),
+                eq(RCS_ACS_PROVISIONING_STATS__RESPONSE_TYPE__PROVISIONING_XML), anyBoolean());
+    }
+
+    @Test
+    @SmallTest
+    public void testMetricsClientProvisioningStats() throws Exception {
+        createMonitor(1);
+
+        // reconfig trigger
+        mRcsProvisioningMonitor.requestReconfig(FAKE_SUB_ID_BASE);
+        processAllMessages();
+        verify(mRcsStats, times(1)).onRcsClientProvisioningStats(eq(FAKE_SUB_ID_BASE),
+                eq(RCS_CLIENT_PROVISIONING_STATS__EVENT__TRIGGER_RCS_RECONFIGURATION));
+
+        // DMA changed
+        updateDefaultMessageApplication(DEFAULT_MESSAGING_APP2);
+        processAllMessages();
+        verify(mRcsStats, times(1)).onRcsClientProvisioningStats(eq(FAKE_SUB_ID_BASE),
+                eq(RCS_CLIENT_PROVISIONING_STATS__EVENT__DMA_CHANGED));
+    }
+
     private void createMonitor(int subCount) throws Exception {
         if (Looper.myLooper() == null) {
             Looper.prepare();
@@ -755,7 +846,7 @@ public class RcsProvisioningMonitorTest {
                 .thenReturn(mFeatureConnector);
         when(mFeatureManager.getConfig()).thenReturn(mIImsConfig);
         mRcsProvisioningMonitor = new RcsProvisioningMonitor(mPhone, mHandlerThread.getLooper(),
-                mRoleManager, mFeatureFactory);
+                mRoleManager, mFeatureFactory, mRcsStats);
         mHandler = mRcsProvisioningMonitor.getHandler();
         try {
             mLooper = new TestableLooper(mHandler.getLooper());

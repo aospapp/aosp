@@ -94,7 +94,7 @@ enum BinderLibTestTranscationCode {
     BINDER_LIB_TEST_NOP_TRANSACTION_WAIT,
     BINDER_LIB_TEST_GETPID,
     BINDER_LIB_TEST_ECHO_VECTOR,
-    BINDER_LIB_TEST_REJECT_BUF,
+    BINDER_LIB_TEST_REJECT_OBJECTS,
     BINDER_LIB_TEST_CAN_GET_SID,
 };
 
@@ -425,19 +425,10 @@ TEST_F(BinderLibTest, NopTransactionClear) {
 
 TEST_F(BinderLibTest, Freeze) {
     Parcel data, reply, replypid;
-    std::ifstream freezer_file("/sys/fs/cgroup/freezer/cgroup.freeze");
+    std::ifstream freezer_file("/sys/fs/cgroup/uid_0/cgroup.freeze");
 
-    //Pass test on devices where the freezer is not supported
+    // Pass test on devices where the cgroup v2 freezer is not supported
     if (freezer_file.fail()) {
-        GTEST_SKIP();
-        return;
-    }
-
-    std::string freezer_enabled;
-    std::getline(freezer_file, freezer_enabled);
-
-    //Pass test on devices where the freezer is disabled
-    if (freezer_enabled != "1") {
         GTEST_SKIP();
         return;
     }
@@ -447,9 +438,17 @@ TEST_F(BinderLibTest, Freeze) {
     for (int i = 0; i < 10; i++) {
         EXPECT_EQ(NO_ERROR, m_server->transact(BINDER_LIB_TEST_NOP_TRANSACTION_WAIT, data, &reply, TF_ONE_WAY));
     }
-    EXPECT_EQ(-EAGAIN, IPCThreadState::self()->freeze(pid, 1, 0));
-    EXPECT_EQ(-EAGAIN, IPCThreadState::self()->freeze(pid, 1, 0));
-    EXPECT_EQ(NO_ERROR, IPCThreadState::self()->freeze(pid, 1, 1000));
+
+    // Pass test on devices where BINDER_FREEZE ioctl is not supported
+    int ret = IPCThreadState::self()->freeze(pid, false, 0);
+    if (ret != 0) {
+        GTEST_SKIP();
+        return;
+    }
+
+    EXPECT_EQ(-EAGAIN, IPCThreadState::self()->freeze(pid, true, 0));
+    EXPECT_EQ(-EAGAIN, IPCThreadState::self()->freeze(pid, true, 0));
+    EXPECT_EQ(NO_ERROR, IPCThreadState::self()->freeze(pid, true, 1000));
     EXPECT_EQ(FAILED_TRANSACTION, m_server->transact(BINDER_LIB_TEST_NOP_TRANSACTION, data, &reply));
 
     bool sync_received, async_received;
@@ -459,6 +458,14 @@ TEST_F(BinderLibTest, Freeze) {
 
     EXPECT_EQ(sync_received, 1);
     EXPECT_EQ(async_received, 0);
+
+    uint32_t sync_received2, async_received2;
+
+    EXPECT_EQ(NO_ERROR, IPCThreadState::self()->getProcessFreezeInfo(pid, &sync_received2,
+                &async_received2));
+
+    EXPECT_EQ(sync_received2, 1);
+    EXPECT_EQ(async_received2, 0);
 
     EXPECT_EQ(NO_ERROR, IPCThreadState::self()->freeze(pid, 0, 0));
     EXPECT_EQ(NO_ERROR, m_server->transact(BINDER_LIB_TEST_NOP_TRANSACTION, data, &reply));
@@ -1120,11 +1127,51 @@ TEST_F(BinderLibTest, BufRejected) {
     memcpy(parcelData, &obj, sizeof(obj));
     data.setDataSize(sizeof(obj));
 
+    EXPECT_EQ(data.objectsCount(), 1);
+
     // Either the kernel should reject this transaction (if it's correct), but
     // if it's not, the server implementation should return an error if it
     // finds an object in the received Parcel.
-    EXPECT_THAT(server->transact(BINDER_LIB_TEST_REJECT_BUF, data, &reply),
+    EXPECT_THAT(server->transact(BINDER_LIB_TEST_REJECT_OBJECTS, data, &reply),
                 Not(StatusEq(NO_ERROR)));
+}
+
+TEST_F(BinderLibTest, WeakRejected) {
+    Parcel data, reply;
+    sp<IBinder> server = addServer();
+    ASSERT_TRUE(server != nullptr);
+
+    auto binder = sp<BBinder>::make();
+    wp<BBinder> wpBinder(binder);
+    flat_binder_object obj{
+            .hdr = {.type = BINDER_TYPE_WEAK_BINDER},
+            .flags = 0,
+            .binder = reinterpret_cast<uintptr_t>(wpBinder.get_refs()),
+            .cookie = reinterpret_cast<uintptr_t>(wpBinder.unsafe_get()),
+    };
+    data.setDataCapacity(1024);
+    // Write a bogus object at offset 0 to get an entry in the offset table
+    data.writeFileDescriptor(0);
+    EXPECT_EQ(data.objectsCount(), 1);
+    uint8_t *parcelData = const_cast<uint8_t *>(data.data());
+    // And now, overwrite it with the weak binder
+    memcpy(parcelData, &obj, sizeof(obj));
+    data.setDataSize(sizeof(obj));
+
+    // a previous bug caused other objects to be released an extra time, so we
+    // test with an object that libbinder will actually try to release
+    EXPECT_EQ(OK, data.writeStrongBinder(sp<BBinder>::make()));
+
+    EXPECT_EQ(data.objectsCount(), 2);
+
+    // send it many times, since previous error was memory corruption, make it
+    // more likely that the server crashes
+    for (size_t i = 0; i < 100; i++) {
+        EXPECT_THAT(server->transact(BINDER_LIB_TEST_REJECT_OBJECTS, data, &reply),
+                    StatusEq(BAD_VALUE));
+    }
+
+    EXPECT_THAT(server->pingBinder(), StatusEq(NO_ERROR));
 }
 
 TEST_F(BinderLibTest, GotSid) {
@@ -1433,7 +1480,7 @@ class BinderLibTestService : public BBinder
                 reply->writeUint64Vector(vector);
                 return NO_ERROR;
             }
-            case BINDER_LIB_TEST_REJECT_BUF: {
+            case BINDER_LIB_TEST_REJECT_OBJECTS: {
                 return data.objectsCount() == 0 ? BAD_VALUE : NO_ERROR;
             }
             case BINDER_LIB_TEST_CAN_GET_SID: {

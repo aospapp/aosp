@@ -23,6 +23,7 @@ from acts_contrib.test_utils.net import connectivity_const as cconsts
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts_contrib.test_utils.wifi.aware import aware_test_utils as autils
+from acts.controllers.openwrt_lib.openwrt_constants import OpenWrtWifiSetting
 import os
 
 WifiEnums = wutils.WifiEnums
@@ -427,3 +428,777 @@ class WifiRoamingTest(WifiBaseTest):
             self.log.info("Roaming failed to AP2 with incorrect BSSID")
             wutils.wait_for_disconnect(self.dut)
             self.log.info("Device is disconnect")
+
+    @test_tracker_info(uuid="641b35c1-7bf8-4d85-a813-1bc30d7bd0d4")
+    def test_roaming_between_psk_2g_to_psk_5g(self):
+        """Verify psk when after roaming from 2.4 Ghz to 5 Ghz with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs
+             2. Configure AP2 5Ghz and AP1 2.4Ghz WiFi to same SSID and password
+             3. Connect DUT to AP1 2.4Ghz WiFi
+             4. Roam to AP2 5Ghz WiFi
+             5. Verify the DUT can connect from 2.4Ghz to 5Ghz
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ap_count=2)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.reference_networks[0]["2g"]
+        ap2_network = self.reference_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["2g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Change 2 APs to same password and SSID
+        self.openwrt1.set_ssid(ssid_2g="testSSID")
+        self.openwrt2.set_ssid(ssid_5g="testSSID")
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        ap1_network["SSID"] = "testSSID"
+        ap2_network["SSID"] = "testSSID"
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="fa1fe3bb-abb9-4d75-88bd-cd88c04073c6")
+    def test_roaming_between_psk_withoutPMF_5g(self):
+        """Verify psk without PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs without PMF
+             2. Connect DUT to AP1
+             3. Roam to AP2
+             4. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=0)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap2_network = self.reference_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="496e048a-3da5-45c4-aa0f-c5bd127eb06f")
+    def test_roaming_between_psk_withPMF_5g(self):
+        """Verify psk with PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs with PMF
+             2. Connect DUT to AP1
+             3. Roam to AP2
+             4. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=2)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap2_network = self.reference_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="524c97c5-4bca-46b0-97f9-aad749768cd8")
+    def test_roaming_between_psk_wPMF_to_psk_woPMF_5g(self):
+        """Verify psk with/without PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs without PMF
+             2. Configure AP1 with PMF
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=0)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.reference_networks[0]["5g"]
+        ap2_network = self.reference_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 to enable PMF.
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ieee80211w=2)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="714ceac1-d8af-4679-9385-2c9c6d885634")
+    def test_roaming_between_psk_woPMF_to_psk_wPMF_5g(self):
+        """Verify psk without/with PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs with PMF
+             2. Configure AP1 without PMF
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=2)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.reference_networks[0]["5g"]
+        ap2_network = self.reference_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 to disable PMF.
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ieee80211w=0)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="4b201d7b-38ec-49c2-95c3-81cba51ba11d")
+    def test_roaming_between_psk_capablePMF_5g(self):
+        """Verify psk capable PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs with capable PMF
+             2. Connect DUT to AP1
+             3. Roam to AP2
+             4. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=1)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap2_network = self.reference_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="588a9279-1f84-44d2-acbb-051c5ba0bcb1")
+    def test_roaming_between_psk_capPMF_to_psk_woPMF_5g(self):
+        """Verify psk capable/without PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs without PMF
+             2. Configure AP1 with capable PMF
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=0)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.reference_networks[0]["5g"]
+        ap2_network = self.reference_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 to enable capable PMF.
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ieee80211w=1)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="d239b56d-515c-4589-b63a-ebce62c321af")
+    def test_roaming_between_psk_capPMF_to_psk_wPMF_5g(self):
+        """Verify psk capable/with PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs with PMF
+             2. Configure AP1 with capable PMF
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=2)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.reference_networks[0]["5g"]
+        ap2_network = self.reference_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 to enable capable PMF.
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                                ieee80211w=1)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="57ec9401-b336-40cb-bc46-c2b4cfc22516")
+    def test_roaming_between_psk_wPMF_to_psk_capPMF_5g(self):
+        """Verify psk with/capable PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs with capable PMF
+             2. Configure AP1 with PMF
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=1)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.reference_networks[0]["5g"]
+        ap2_network = self.reference_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 to enable PMF.
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ieee80211w=2)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="a32d24f0-36cc-41f0-90b4-db74973db29f")
+    def test_roaming_between_psk_woPMF_to_psk_capPMF_5g(self):
+        """Verify psk without/capable PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs with capable PMF
+             2. Configure AP1 without PMF
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=1)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.reference_networks[0]["5g"]
+        ap2_network = self.reference_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 to disable PMF.
+        self.configure_openwrt_ap_and_start(wpa_network=True,
+                                            ieee80211w=0)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="44f45dc9-e85c-419d-bbab-d02e9548a377")
+    def test_roaming_between_psk_to_saemixed_woPMF_5g(self):
+        """Verify psk to saemixed without PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs security type to saemixed without PMF
+             2. Configure AP1 security type to psk
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=0)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.saemixed_networks[0]["5g"]
+        ap2_network = self.saemixed_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 security type.
+        self.configure_openwrt_ap_and_start(wpa_network=True)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="9827f3b3-51cd-406b-ba2b-3ef4a9df7378")
+    def test_roaming_between_psk_to_saemixed_wPMF_5g(self):
+        """Verify psk to saemixed with PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs security type to saemixed with PMF
+             2. Configure AP1 security type to psk
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=2)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.saemixed_networks[0]["5g"]
+        ap2_network = self.saemixed_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 security type.
+        self.configure_openwrt_ap_and_start(wpa_network=True)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="037602b1-2ce8-4dbb-b46a-00e0a582d976")
+    def test_roaming_between_saemixed_withoutPMF_5g(self):
+        """Verify saemixed without PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs to saemixed without PMF
+             2. Connect DUT to AP1
+             3. Roam to AP2
+             4. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=0)
+        ap1_network = self.saemixed_networks[0]["5g"]
+        ap2_network = self.saemixed_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="94514f72-9e90-4d73-bba5-65b95e721cd8")
+    def test_roaming_between_saemixed_withPMF_5g(self):
+        """Verify saemixed with PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs to saemixed with PMF
+             2. Connect DUT to AP1
+             3. Roam to AP2
+             4. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=2)
+        ap1_network = self.saemixed_networks[0]["5g"]
+        ap2_network = self.saemixed_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="05834382-5c3f-48d9-a6e6-8794ebf176f8")
+    def test_roaming_between_saemixed_woPMF_to_saemixed_wPMF_5g(self):
+        """Verify saemixed without/with PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs to saemixed with PMF
+             2. Configure AP1 to saemixed without PMF
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=2)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.saemixed_networks[0]["5g"]
+        ap2_network = self.saemixed_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 to disable PMF.
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ieee80211w=0)
+        ap1_network = self.saemixed_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="4d7cba89-40f1-4a2a-891d-4bb757f73442")
+    def test_roaming_between_saemixed_wPMF_to_saemixed_woPMF_5g(self):
+        """Verify saemixed with/without PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs to saemixed without PMF
+             2. Configure AP1 to saemixed with PMF
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=0)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.saemixed_networks[0]["5g"]
+        ap2_network = self.saemixed_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 to enable PMF.
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ieee80211w=2)
+        ap1_network = self.saemixed_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="57caaf0a-5251-4191-b4d1-de31d7c12295")
+    def test_roaming_between_sae_to_saemixed_woPMF_5g(self):
+        """Verify sae to saemixed without PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs security type to saemixed without PMF
+             2. Configure AP1 security type to sae
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=0)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.saemixed_networks[0]["5g"]
+        ap2_network = self.saemixed_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 security type.
+        self.configure_openwrt_ap_and_start(sae_network=True)
+        ap1_network = self.sae_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="0f5ca9d9-ef40-4a95-bf55-4c78358a9a3e")
+    def test_roaming_between_sae_to_saemixed_wPMF_5g(self):
+        """Verify sae to saemixed with PMF when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs security type to saemixed with PMF
+             2. Configure AP1 security type to sae
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True,
+                                            ieee80211w=2)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.saemixed_networks[0]["5g"]
+        ap2_network = self.saemixed_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 security type.
+        self.configure_openwrt_ap_and_start(sae_network=True)
+        ap1_network = self.sae_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="e875233f-d242-4ddd-b357-8e3e215af050")
+    def test_roaming_fail_between_psk_to_sae_5g(self):
+        """Verify fail with diff security type after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs security type to sae
+             2. Configure AP1 security type to psk
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can't connect to AP2 after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(sae_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.sae_networks[0]["5g"]
+        ap2_network = self.sae_networks[1]["5g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        # Configure AP1 security type.
+        self.configure_openwrt_ap_and_start(wpa_network=True)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_5g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_5g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        try:
+          # DUT roaming from AP1 to AP2 with diff security type.
+          self.dut.log.info("Roaming via WPA2 AP1 to SAE AP2 [{}]"
+                            .format(ap2_network["bssid"]))
+          self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+        except:
+          self.dut.log.info("Failed roaming to AP2 with diff security type")
+        else:
+          raise signals.TestFailure("DUT unexpectedly connect to Wi-Fi.")
+
+    @test_tracker_info(uuid="76098016-56a4-4b92-8c13-7333a21c9a1b")
+    def test_roaming_between_psk_to_saemixed_2g(self):
+        """Verify psk to saemixed with 11n when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs security type to saemixed with 11n mode
+             2. Configure AP1 security type to psk with 11n mode
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.saemixed_networks[0]["2g"]
+        ap2_network = self.saemixed_networks[1]["2g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["2g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["2g"][ap2_network["SSID"]]
+
+        # Configure AP1 security type.
+        self.configure_openwrt_ap_and_start(wpa_network=True)
+        ap1_network = self.reference_networks[0]["2g"]
+        ap1_network["bssid"] = self.bssid_map[0]["2g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_2g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_2g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="2caf668d-6b05-4ba5-ac6b-1ec989fdf9ff")
+    def test_roaming_between_psk1_to_saemixed_2g(self):
+        """Verify psk1 to saemixed with 11n when after roaming with OpenWrtAP
+
+         Steps:
+             1. Configure 2 APs security type to saemixed with 11n mode
+             2. Configure AP1 security type to psk1 with 11n mode
+             3. Connect DUT to AP1
+             4. Roam to AP2
+             5. Verify the DUT can connect after roaming
+        """
+        # Use OpenWrt as Wi-Fi AP when it's available in testbed.
+        asserts.skip_if("OpenWrtAP" not in self.user_params, "OpenWrtAP not in user_params")
+        self.configure_openwrt_ap_and_start(saemixed_network=True,
+                                            ap_count=2,
+                                            mirror_ap=True)
+        self.openwrt1 = self.access_points[0]
+        self.openwrt2 = self.access_points[1]
+        ap1_network = self.saemixed_networks[0]["2g"]
+        ap2_network = self.saemixed_networks[1]["2g"]
+        # Get & Setup APs' BSSIDs.
+        ap1_network["bssid"] = self.bssid_map[0]["2g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["2g"][ap2_network["SSID"]]
+
+        # Configure AP1 security type.
+        self.configure_openwrt_ap_and_start(wpa1_network=True)
+        ap1_network = self.wpa1_networks[0]["2g"]
+        ap1_network["bssid"] = self.bssid_map[0]["2g"][ap1_network["SSID"]]
+
+        # Change AP2 password and SSID same as AP1.
+        self.openwrt2.set_password(pwd_2g=ap1_network["password"])
+        self.openwrt2.set_ssid(ssid_2g=ap1_network["SSID"])
+        ap2_network["SSID"] = ap1_network["SSID"]
+        ap2_network["password"] = ap1_network["password"]
+
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="cc8781ec-12fb-47a4-86d4-80d13231c75d")
+    def test_connect_to_wpa2_psk_2g_80211r(self):
+        """Test WPA2-PSK 802.11r 2G connectivity ant roaming."""
+        if "OpenWrtAP" in self.user_params:
+            self.openwrt1 = self.access_points[0]
+            self.openwrt2 = self.access_points[1]
+            self.configure_openwrt_ap_and_start(wpa_network=True,
+                                                ap_count=2,
+                                                mirror_ap=True)
+        ap1_network = self.reference_networks[0]["2g"]
+        ap2_network = self.reference_networks[1]["2g"]
+        ap1_network["bssid"] = self.bssid_map[0]["2g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["2g"][ap2_network["SSID"]]
+
+        md = self.openwrt1.generate_mobility_domain()
+        self.openwrt1.enable_80211r(OpenWrtWifiSetting.IFACE_2G, md)
+        self.openwrt2.enable_80211r(OpenWrtWifiSetting.IFACE_2G, md)
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)
+
+    @test_tracker_info(uuid="8b0ee65e-bba2-4786-a8b9-8990316d123d")
+    def test_connect_to_wpa2_psk_5g_80211r(self):
+        """Test WPA2-PSK 802.11r 5G connectivity and roaming."""
+        if "OpenWrtAP" in self.user_params:
+            self.openwrt1 = self.access_points[0]
+            self.openwrt2 = self.access_points[1]
+            self.configure_openwrt_ap_and_start(wpa_network=True,
+                                                ap_count=2,
+                                                mirror_ap=True)
+        ap1_network = self.reference_networks[0]["5g"]
+        ap2_network = self.reference_networks[1]["5g"]
+        ap1_network["bssid"] = self.bssid_map[0]["5g"][ap1_network["SSID"]]
+        ap2_network["bssid"] = self.bssid_map[1]["5g"][ap2_network["SSID"]]
+
+        md = self.openwrt1.generate_mobility_domain()
+        self.openwrt1.enable_80211r(OpenWrtWifiSetting.IFACE_5G, md)
+        self.openwrt2.enable_80211r(OpenWrtWifiSetting.IFACE_5G, md)
+        self.roaming_from_AP1_and_AP2(ap1_network, ap2_network)

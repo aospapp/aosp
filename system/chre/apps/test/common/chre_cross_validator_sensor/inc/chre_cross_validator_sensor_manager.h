@@ -32,6 +32,9 @@ namespace cross_validator_sensor {
 // TODO(b/154271551): Break up the Manager class into more fine-grained classes
 // to avoid it becoming to complex.
 
+//! The maximum size of a sensor name.
+constexpr size_t kMaxSensorNameSize = 128;
+
 /**
  * Class to manage a CHRE cross validator nanoapp.
  */
@@ -98,6 +101,9 @@ class Manager {
   //! Unset if start message was not received or error while processing start
   //! message.
   chre::Optional<CrossValidatorState> mCrossValidatorState;
+
+  //! A temporary global buffer where the sensor name is stored.
+  char mSensorNameArray[kMaxSensorNameSize];
 
   /**
    * Make a SensorDatapoint proto message.
@@ -383,6 +389,16 @@ class Manager {
    * during validation.
    */
   void cleanup();
+
+  /**
+   * @param sensorType The CHRE sensor type.
+   * @param sensorIndex The CHRE sensor index as defined in chreSensorFind.
+   * @param handle A non-null pointer where the sensor handle is stored, if
+   * found.
+   *
+   * @return true if the sensor corresponding to the input is available.
+   */
+  bool getSensor(uint32_t sensorType, uint32_t sensorIndex, uint32_t *handle);
 };
 
 // The chre cross validator manager singleton.

@@ -31,6 +31,7 @@ import android.provider.DeviceConfig.NAMESPACE_APP_HIBERNATION
 import android.provider.Settings
 import android.support.test.uiautomator.By
 import android.support.test.uiautomator.BySelector
+import android.support.test.uiautomator.UiDevice
 import android.support.test.uiautomator.UiObject2
 import android.support.test.uiautomator.UiScrollable
 import android.support.test.uiautomator.UiSelector
@@ -49,6 +50,7 @@ import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThat
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeFalse
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -119,8 +121,12 @@ class AppHibernationIntegrationTest {
                         packageManager.getApplicationInfo(APK_PACKAGE_NAME_S_APP, 0 /* flags */)
                     val stopped = ((ai.flags and ApplicationInfo.FLAG_STOPPED) != 0)
                     assertTrue(stopped)
-                    openUnusedAppsNotification()
 
+                    if (hasFeatureTV()) {
+                        // Skip checking unused apps screen because it may be unavailable on TV
+                        return
+                    }
+                    openUnusedAppsNotification()
                     waitFindObject(By.text(APK_PACKAGE_NAME_S_APP))
                 }
             }
@@ -129,6 +135,9 @@ class AppHibernationIntegrationTest {
 
     @Test
     fun testPreSVersionUnusedApp_doesntGetForceStopped() {
+        assumeFalse(
+            "TV may have different behaviour for Pre-S version apps",
+            hasFeatureTV())
         withUnusedThresholdMs(TEST_UNUSED_THRESHOLD) {
             withApp(APK_PATH_R_APP, APK_PACKAGE_NAME_R_APP) {
                 // Use app
@@ -154,6 +163,9 @@ class AppHibernationIntegrationTest {
     @AppModeFull(reason = "Uses application details settings")
     @Test
     fun testAppInfo_RemovePermissionsAndFreeUpSpaceToggleExists() {
+        assumeFalse(
+            "Remove permissions and free up space toggle may be unavailable on TV",
+            hasFeatureTV())
         withDeviceConfig(NAMESPACE_APP_HIBERNATION, "app_hibernation_enabled", "true") {
             withApp(APK_PATH_S_APP, APK_PACKAGE_NAME_S_APP) {
                 // Open app info
@@ -174,7 +186,9 @@ class AppHibernationIntegrationTest {
 
                 // Settings can have multiple scrollable containers so all of them should be
                 // searched.
-                var toggleFound = false
+                var toggleFound = UiDevice.getInstance(instrumentation)
+                    .findObject(UiSelector().text(title))
+                    .waitForExists(WAIT_TIME_MS)
                 var i = 0
                 var scrollableObject = UiScrollable(UiSelector().scrollable(true).instance(i))
                 while (!toggleFound && scrollableObject.waitForExists(WAIT_TIME_MS)) {

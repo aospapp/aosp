@@ -21,44 +21,53 @@ required-features = [ "direct" ]
 panic = 'abort'
 overflow-checks = true
 
+# We currently need to exclude some crates from the workspace to allow
+# these crates to be independently built by portage. These crates will
+# eventually be moved into separate repositories.
+# The only workspace members that need to be explicitly specified here are those
+# that are not dependencies of the crosvm root crate.
 [workspace]
 members = [
     "fuzz",
     "qcow_utils",
     "integration_tests",
     "libcrosvm_control",
+    "vhost_user_devices",
 ]
 exclude = [
     "assertions",
     "base",
+    "common",
     "cros_async",
     "data_model",
-    "rand_ish",
     "sync",
     "sys_util",
     "tempfile",
     "vm_memory",
+    "audio_streams",
 ]
 
 [features]
-default = ["audio", "gpu"]
-chromeos = ["base/chromeos"]
+audio = ["devices/audio"]
+audio_cras = ["devices/audio_cras"]
+chromeos = ["base/chromeos", "audio_cras"]
+composite-disk = ["protos/composite-disk", "protobuf", "disk/composite-disk"]
+default = ["audio", "gpu", "usb"]
 default-no-sandbox = []
 direct = ["devices/direct"]
-audio = ["devices/audio"]
+gdb = ["gdbstub", "gdbstub_arch", "thiserror",  "arch/gdb", "vm_control/gdb", "x86_64/gdb"]
+gfxstream = ["devices/gfxstream"]
 gpu = ["devices/gpu"]
 plugin = ["protos/plugin", "crosvm_plugin", "kvm", "kvm_sys", "protobuf"]
 power-monitor-powerd = ["arch/power-monitor-powerd"]
 tpm = ["devices/tpm"]
+usb = ["devices/usb"]
 video-decoder = ["devices/video-decoder"]
 video-encoder = ["devices/video-encoder"]
+virgl_renderer = ["devices/virgl_renderer"]
+virgl_renderer_next = ["rutabaga_gfx/virgl_renderer_next"]
 wl-dmabuf = ["devices/minigbm"]
 x = ["devices/x"]
-virgl_renderer_next = ["rutabaga_gfx/virgl_renderer_next"]
-composite-disk = ["protos/composite-disk", "protobuf", "disk/composite-disk"]
-virgl_renderer = ["devices/virgl_renderer"]
-gfxstream = ["devices/gfxstream"]
-gdb = ["gdbstub", "thiserror",  "arch/gdb", "vm_control/gdb", "x86_64/gdb"]
 
 [dependencies]
 arch = { path = "arch" }
@@ -71,7 +80,8 @@ data_model = "*"
 devices = { path = "devices" }
 disk = { path = "disk" }
 enumn = { path = "enumn" }
-gdbstub = { version = "0.4.0", optional = true }
+gdbstub = { version = "0.5.0", optional = true }
+gdbstub_arch = { version = "0.1.0", optional = true }
 rutabaga_gfx = { path = "rutabaga_gfx"}
 hypervisor = { path = "hypervisor" }
 kernel_cmdline = { path = "kernel_cmdline" }
@@ -82,12 +92,12 @@ libc = "0.2.93"
 libcras = "*"
 minijail = "*" # provided by ebuild
 net_util = { path = "net_util" }
-p9 = { path = "../vm_tools/p9" }
+p9 = "*"
 protobuf = { version = "2.3", optional = true }
 protos = { path = "protos", optional = true }
-rand_ish = { path = "rand_ish" }
 remain = "*"
 resources = { path = "resources" }
+serde_json = "*"
 sync = { path = "sync" }
 tempfile = "*"
 thiserror = { version = "1.0.20", optional = true }
@@ -107,16 +117,15 @@ base = "*"
 
 [patch.crates-io]
 assertions = { path = "assertions" }
-audio_streams = { path = "../adhd/audio_streams" } # ignored by ebuild
+audio_streams = { path = "audio_streams" }
 base = { path = "base" }
-cros_fuzz = { path = "../../platform2/cros-fuzz" } # ignored by ebuild
+cros_fuzz = { path = "common/cros-fuzz" } # ignored by ebuild
 data_model = { path = "data_model" }
-libchromeos = { path = "../libchromeos-rs" } # ignored by ebuild
-libcras = { path = "../adhd/cras/client/libcras" } # ignored by ebuild
-minijail = { path = "../minijail/rust/minijail" } # ignored by ebuild
-p9 = { path = "../vm_tools/p9" } # ignored by ebuild
+libcras = { path = "libcras_stub" } # ignored by ebuild
+p9 = { path = "common/p9" } # ignored by ebuild
 sync = { path = "sync" }
 sys_util = { path = "sys_util" }
 tempfile = { path = "tempfile" }
-wire_format_derive = { path = "../vm_tools/p9/wire_format_derive" } # ignored by ebuild
-vmm_vhost = { path = "../rust/crates/vhost", features = ["vhost-user-master"] } # ignored by ebuild
+wire_format_derive = { path = "common/p9/wire_format_derive" } # ignored by ebuild
+minijail = { path = "../minijail/rust/minijail" } # ignored by ebuild
+vmm_vhost = { path = "../rust/vmm_vhost", features = ["vhost-user-master", "vhost-user-slave"] } # ignored by ebuild

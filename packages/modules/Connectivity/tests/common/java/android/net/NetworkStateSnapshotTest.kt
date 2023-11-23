@@ -24,7 +24,7 @@ import android.os.Build
 import androidx.test.filters.SmallTest
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRunner
-import com.android.testutils.assertParcelSane
+import com.android.testutils.assertParcelingIsLossless
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.net.Inet4Address
@@ -67,7 +67,7 @@ class NetworkStateSnapshotTest {
                 LinkProperties(), null, TYPE_NONE)
         val snapshot = NetworkStateSnapshot(
                 Network(TEST_NETID), TEST_CAPABILITIES, TEST_LINK_PROPERTIES, TEST_IMSI, TYPE_WIFI)
-        assertParcelSane(emptySnapshot, 5)
-        assertParcelSane(snapshot, 5)
+        assertParcelingIsLossless(emptySnapshot)
+        assertParcelingIsLossless(snapshot)
     }
 }

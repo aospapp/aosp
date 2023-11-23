@@ -18,24 +18,23 @@ package com.android.bedstead.nene.activities;
 
 import android.content.ComponentName;
 
-import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.packages.ComponentReference;
-import com.android.bedstead.nene.packages.PackageReference;
+import com.android.bedstead.nene.packages.Package;
 
 /**
  * A representation of an activity on device which may or may not exist.
  */
 public final class ActivityReference extends ComponentReference {
-    public ActivityReference(TestApis testApis, PackageReference packageName, String className) {
-        super(testApis, packageName, className);
+    public ActivityReference(Package packageName, String className) {
+        super(packageName, className);
     }
 
-    public ActivityReference(TestApis testApis, ComponentName component) {
-        super(testApis, component);
+    public ActivityReference(ComponentName component) {
+        super(component);
     }
 
-    public ActivityReference(TestApis testApis, ComponentReference component) {
-        super(testApis, component.componentName());
+    public ActivityReference(ComponentReference component) {
+        super(component.componentName());
     }
 
     @Override

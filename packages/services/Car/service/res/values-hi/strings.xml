@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"कार पावर नीति कंट्रोल करें."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"टेंप्लेट बनाएं"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"टेंप्लेट बनाएं."</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"लॉन्च किए जाने वाले ऐप्लिकेशन कंट्रोल करता है"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"लॉन्च किए जाने वाले ऐप्लिकेशन कंट्रोल करता है."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"मेरा डिवाइस"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"मेहमान"</string>
     <string name="importance_default" msgid="8587741629268312938">"डिफ़ॉल्ट अहमियत"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"बाद में रीसेट करें"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"अगली बार कार के स्टार्ट होने पर, सूचना और मनोरंजन की सुविधा देने वाला डिवाइस रीसेट होगा."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"रीसेट शुरू करने के लिए ज़रूरी है कि कार पार्क हो."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g>, आपके सिस्टम की परफ़ॉर्मेंस पर असर डालता है"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"सिस्टम की परफ़ॉर्मेंस को बेहतर बनाने के लिए, ऐप्लिकेशन बंद करें. आप सेटिंग में जाकर, ऐप्लिकेशन को दोबारा चालू कर सकते हैं."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"ऐप्लिकेशन का इस्तेमाल करते रहने के लिए, उसे प्राथमिकता दें."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"सिस्टम की परफ़ॉर्मेंस को बेहतर बनाने के लिए, ऐप्लिकेशन को अनइंस्टॉल करें."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"ऐप्लिकेशन बंद करें"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"ऐप्लिकेशन को प्राथमिकता दें"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"ऐप्लिकेशन अनइंस्टॉल करें"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> को बंद कर दिया गया है. आप सेटिंग में जाकर, इसे दोबारा चालू कर सकते हैं."</string>
 </resources>

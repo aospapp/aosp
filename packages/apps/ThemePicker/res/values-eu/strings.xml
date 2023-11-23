@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"Aplikatu"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Sakatu editatzeko"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Utzi bere horretan horma-papera"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"Aplikatu"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Estiloaren aurrebista"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Saretaren aurrebista"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"Letraren aurrebista"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g> (aplikatuta dago)"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g> (aplikatuta eta aurrebista gisa ikusgai)"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g> (aurrebista gisa ikusgai)"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, aldatu hautatuta dagoena (aurreikusiten ari zarena)"</string>
     <string name="theme_description" msgid="3697012391785254635">"Letra: <xliff:g id="ID_1">%1$s</xliff:g>, ikonoak: <xliff:g id="ID_2">%2$s</xliff:g>, forma: <xliff:g id="ID_3">%3$s</xliff:g>, kolorea: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"Lehenetsia"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"Letra"</string>
@@ -70,7 +70,7 @@
     <string name="use_style_button" msgid="1754493078383627019">"Erabili <xliff:g id="ID_1">%1$s</xliff:g> estiloa"</string>
     <string name="no_thanks" msgid="7286616980115687627">"Ez"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g> erlojuaren aurrebista"</string>
-    <string name="something_went_wrong" msgid="529840112449799117">"Arazoren bat izan da."</string>
+    <string name="something_went_wrong" msgid="529840112449799117">"Arazo bat izan da."</string>
     <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Koloreak / Ikonoak"</string>
     <string name="style_info_description" msgid="2612473574431003251">"Letra-tipoen, ikonoen, aplikazio-formen eta koloreen aurrebista"</string>
     <string name="accessibility_custom_font_title" msgid="966867359157303705">"Letra pertsonalizatua"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Estilo pertsonalizatuaren izena"</string>
     <string name="mode_title" msgid="2394873501427436055">"Gai iluna"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"Aldi baterako desgaituta, bateria-aurrezlea dela eta"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"Aldatu da gaia"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"Ikono gaidunak"</string>
     <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Aldatu aplikazioen sareta"</string>

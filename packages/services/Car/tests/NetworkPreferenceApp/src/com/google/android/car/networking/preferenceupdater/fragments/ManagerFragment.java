@@ -126,9 +126,8 @@ public final class ManagerFragment extends Fragment {
         defineButtonActions();
         setDefaultValues();
 
-        // When we start app for the first time, means it never applied any PANS policies.
-        // Set the text to false.
-        updatePansPolicyInEffectStatus(false);
+        // Check if PANS reapply logic is enabled. If yes, most likely PANS is in effect
+        updatePansPolicyInEffectStatus(mPersonalStorage.getReapplyPansOnBootCompleteState());
 
         // Let's start watching OEM traffic and updating indicators
         mMetricDisplay.startWatching();
@@ -275,7 +274,6 @@ public final class ManagerFragment extends Fragment {
         mOEMPaidWifiSSIDsEditText.setText(Utils.toString(mPersonalStorage.getOemPaidWifiSsids()));
         mOEMPrivateWifiSSIDsEditText.setText(
                 Utils.toString(mPersonalStorage.getOemPrivateWifiSsids()));
-        updatePansPolicyInEffectStatus(mPersonalStorage.getReapplyPansOnBootCompleteState());
     }
 
     private String getFromStorage(int type) {

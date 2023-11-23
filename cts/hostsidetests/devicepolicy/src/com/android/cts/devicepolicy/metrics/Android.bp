@@ -24,4 +24,7 @@ java_library_host {
     libs: [
         "tradefed",
     ],
+    static_libs: [
+        "cts-statsd-atom-host-test-utils",
+    ],
 }

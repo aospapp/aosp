@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"Колдонуу"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Өзгөртүү үчүн таптап коюңуз"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Учурдагы тушкагаз калсын"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"Колдонуу"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Стилди алдын ала көрүү"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Торчону алдын ала көрүү"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"Арипти алдын ала көрүү"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, учурда колдонулууда"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, учурда колдонулуп, текшерилди"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, учурда текшерилип жатат"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, өзгөрүү тандалды жана алдын ала көрүлдү"</string>
     <string name="theme_description" msgid="3697012391785254635">"Арип: <xliff:g id="ID_1">%1$s</xliff:g>, сүрөтчөлөр: <xliff:g id="ID_2">%2$s</xliff:g>, форма: <xliff:g id="ID_3">%3$s</xliff:g>, түс: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"Демейки"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"Арип"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Жеке стилдин аталышы"</string>
     <string name="mode_title" msgid="2394873501427436055">"Караңгы тема"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"Батареяны үнөмдөөчү режимде убактылуу өчүрүлдү"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"Тема өзгөртүлдү"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"Тематикалык сүрөтчөлөр"</string>
     <string name="beta_title" msgid="8703819523760746458">"Бета"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Колдонмонун торчосун өзгөртүү"</string>

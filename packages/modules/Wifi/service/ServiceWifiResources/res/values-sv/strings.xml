@@ -63,12 +63,12 @@
     <string name="wifi_p2p_frequency_conflict_message" product="default" msgid="2226863827636191980">"Mobilen kommer tillfälligt att kopplas från wifi när den är ansluten till <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
     <string name="dlg_ok" msgid="254496739491689405">"OK"</string>
     <string name="wifi_cannot_connect_with_randomized_mac_title" msgid="2344570489693915253">"Det gick inte att ansluta till <xliff:g id="SSID">%1$s</xliff:g>"</string>
-    <string name="wifi_cannot_connect_with_randomized_mac_message" msgid="4834133226521813352">"Tryck för att ändra sekretessinställningar och försök igen"</string>
-    <string name="wifi_disable_mac_randomization_dialog_title" msgid="2054540994993681606">"Vill du ändra sekretessinställningar?"</string>
+    <string name="wifi_cannot_connect_with_randomized_mac_message" msgid="4834133226521813352">"Tryck för att ändra integritetsinställningar och försök igen"</string>
+    <string name="wifi_disable_mac_randomization_dialog_title" msgid="2054540994993681606">"Vill du ändra integritetsinställningar?"</string>
     <string name="wifi_disable_mac_randomization_dialog_message" msgid="8874064864332248988">"<xliff:g id="SSID">%1$s</xliff:g> måste använda enhetens MAC-adress (en unik identifierare) vid anslutningen. Just nu används en slumpgenererad identifierare enligt integritetsinställningarna för nätverket. \n\nDetta kan göra det möjligt för enheter i närheten att spåra enhetens plats."</string>
     <string name="wifi_disable_mac_randomization_dialog_confirm_text" msgid="6954419863076751626">"Ändra inställning"</string>
     <string name="wifi_disable_mac_randomization_dialog_success" msgid="5849155828154391387">"Inställningen har uppdaterats. Försök ansluta igen."</string>
-    <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"Det gick inte att ändra sekretessinställningen"</string>
+    <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"Det gick inte att ändra integritetsinställningen"</string>
     <string name="wifi_disable_mac_randomization_dialog_network_not_found" msgid="7359256966900782004">"Nätverket hittades inte"</string>
     <string name="wifi_eap_error_message_code_32760" msgid="5258191595973470188">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 32760"</string>
     <string name="wifi_eap_error_message_code_32761" msgid="3962610712123291591">"<xliff:g id="SSID">%1$s</xliff:g>: EAP-autentiseringsfel 32761"</string>

@@ -2420,11 +2420,14 @@ void expectFirewallAllowlistMode() {
 }
 
 void expectFirewallDenylistMode() {
-    for (const auto& binary : {IPTABLES_PATH, IP6TABLES_PATH}) {
-        EXPECT_EQ(2, iptablesRuleLineLength(binary, FIREWALL_INPUT));
-        EXPECT_EQ(2, iptablesRuleLineLength(binary, FIREWALL_OUTPUT));
-        EXPECT_EQ(2, iptablesRuleLineLength(binary, FIREWALL_FORWARD));
-    }
+    EXPECT_EQ(2, iptablesRuleLineLength(IPTABLES_PATH, FIREWALL_INPUT));
+    EXPECT_EQ(2, iptablesRuleLineLength(IPTABLES_PATH, FIREWALL_OUTPUT));
+    EXPECT_EQ(2, iptablesRuleLineLength(IPTABLES_PATH, FIREWALL_FORWARD));
+
+    // for IPv6 there is an extra OUTPUT rule to DROP ::1 sourced packets to non-loopback devices
+    EXPECT_EQ(2, iptablesRuleLineLength(IP6TABLES_PATH, FIREWALL_INPUT));
+    EXPECT_EQ(3, iptablesRuleLineLength(IP6TABLES_PATH, FIREWALL_OUTPUT));
+    EXPECT_EQ(2, iptablesRuleLineLength(IP6TABLES_PATH, FIREWALL_FORWARD));
 }
 
 bool iptablesFirewallInterfaceFirstRuleExists(const char* binary, const char* chainName,

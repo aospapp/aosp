@@ -27,16 +27,19 @@
         android:key="@string/pk_default_ringtone"
         android:ringtoneType="ringtone"
         android:title="@string/ringtone_title"
+        android:summary="@string/empty_placeholder"
         settings:controller="com.android.car.settings.sound.RingtonePreferenceController"/>
     <com.android.car.settings.sound.RingtonePreference
         android:key="@string/pk_default_notification"
         android:ringtoneType="notification"
         android:title="@string/notification_ringtone_title"
+        android:summary="@string/empty_placeholder"
         settings:controller="com.android.car.settings.sound.RingtonePreferenceController"/>
     <com.android.car.settings.sound.RingtonePreference
         android:key="@string/pk_default_alarm"
         android:ringtoneType="alarm"
         android:title="@string/alarm_ringtone_title"
+        android:summary="@string/empty_placeholder"
         settings:controller="com.android.car.settings.sound.RingtonePreferenceController"/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_sounds_extra_settings"

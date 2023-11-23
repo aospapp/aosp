@@ -31,6 +31,8 @@ import androidx.preference.PreferenceScreen;
 
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.model.livedatatypes.PermGroupPackagesUiInfo;
+import com.android.permissioncontroller.permission.ui.model.ManagePermissionsViewModel;
+import com.android.permissioncontroller.permission.ui.model.PermissionGroupPreferenceUtils;
 import com.android.permissioncontroller.permission.utils.Utils;
 
 import java.util.List;

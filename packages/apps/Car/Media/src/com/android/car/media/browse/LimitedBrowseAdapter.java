@@ -22,6 +22,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.media.R;
 import com.android.car.media.common.MediaItemMetadata;
+import com.android.car.ui.recyclerview.CarUiGridLayoutStyle;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.recyclerview.DelegatingContentLimitingAdapter;
 
 import java.util.List;
@@ -31,21 +33,23 @@ import java.util.List;
  */
 public class LimitedBrowseAdapter extends DelegatingContentLimitingAdapter<BrowseViewHolder> {
 
+    private final CarUiRecyclerView mRecyclerView;
     private final BrowseAdapter mBrowseAdapter;
-    private final GridLayoutManager mLayoutManager;
     private final int mMaxSpanSize;
 
     @Nullable private String mAnchorId;
 
-    public LimitedBrowseAdapter(BrowseAdapter browseAdapter, GridLayoutManager manager,
+    public LimitedBrowseAdapter(CarUiRecyclerView recyclerView, BrowseAdapter browseAdapter,
             BrowseAdapter.Observer browseAdapterObserver) {
         super(browseAdapter, R.id.browse_list_uxr_config);
 
+        mRecyclerView = recyclerView;
         mBrowseAdapter = browseAdapter;
-        mLayoutManager = manager;
-        mMaxSpanSize = manager.getSpanCount();
 
-        mLayoutManager.setSpanSizeLookup(mSpanSizeLookup);
+        CarUiGridLayoutStyle layoutStyle = (CarUiGridLayoutStyle) mRecyclerView.getLayoutStyle();
+        mMaxSpanSize = layoutStyle.getSpanCount();
+        layoutStyle.setSpanSizeLookup(mSpanSizeLookup);
+        mRecyclerView.setLayoutStyle(layoutStyle);
         mBrowseAdapter.registerObserver(browseAdapterObserver);
         mBrowseAdapter.setOnListChangedListener(((previousList, currentList) -> {
             updateUnderlyingDataChanged(currentList.size(), validateAnchor());
@@ -119,17 +123,17 @@ public class LimitedBrowseAdapter extends DelegatingContentLimitingAdapter<Brows
     }
 
     private int getFirstVisibleItemPosition() {
-        int firstItem = mLayoutManager.findFirstCompletelyVisibleItemPosition();
+        int firstItem = mRecyclerView.findFirstCompletelyVisibleItemPosition();
         if (firstItem == RecyclerView.NO_POSITION) {
-            firstItem = mLayoutManager.findFirstVisibleItemPosition();
+            firstItem = mRecyclerView.findFirstVisibleItemPosition();
         }
         return firstItem;
     }
 
     private int getLastVisibleItemPosition() {
-        int lastItem = mLayoutManager.findLastCompletelyVisibleItemPosition();
+        int lastItem = mRecyclerView.findLastCompletelyVisibleItemPosition();
         if (lastItem == RecyclerView.NO_POSITION) {
-            lastItem = mLayoutManager.findLastVisibleItemPosition();
+            lastItem = mRecyclerView.findLastVisibleItemPosition();
         }
         return lastItem;
     }

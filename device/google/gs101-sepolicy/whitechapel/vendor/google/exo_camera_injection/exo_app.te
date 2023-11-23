@@ -1,0 +1,3 @@
+# Allow exo app to find and bind exo camera injection hal.
+allow exo_app hal_exo_camera_injection_hwservice:hwservice_manager find;
+binder_call(exo_app, hal_exo_camera_injection)

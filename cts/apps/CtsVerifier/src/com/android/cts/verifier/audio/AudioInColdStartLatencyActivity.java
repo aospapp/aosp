@@ -48,7 +48,7 @@ public class AudioInColdStartLatencyActivity
     // MegaAudio
     private Recorder mRecorder;
 
-    private TextView mCallbackDeltaTxt;
+//    private TextView mCallbackDeltaTxt;
 
     private long mPreviousCallbackTime;
     private long mCallbackDeltaTime;
@@ -88,13 +88,22 @@ public class AudioInColdStartLatencyActivity
     }
 
     void showInResults() {
-        showColdStartLatency();
-
         calcTestResult();
+        showColdStartLatency();
     }
 
     protected void stopAudio() {
         stopAudioTest();
+    }
+
+    @Override
+    int getRequiredTimeMS() {
+        return LATENCY_MS_MUST;
+    }
+
+    @Override
+    int getRecommendedTimeMS() {
+        return LATENCY_MS_RECOMMEND;
     }
 
     //
@@ -124,7 +133,7 @@ public class AudioInColdStartLatencyActivity
 
             mIsTestRunning = true;
         } catch (RecorderBuilder.BadStateException badStateException) {
-            mResultsTxt.setText("Can't Start Recorder.");
+            mLatencyTxt.setText("Can't Start Recorder.");
             Log.e(TAG, "BadStateException: " + badStateException);
             mIsTestRunning = false;
         }
@@ -150,6 +159,7 @@ public class AudioInColdStartLatencyActivity
         }
 
         mRecorder.stopStream();
+        mRecorder.teardownStream();
 
         mIsTestRunning = false;
 
@@ -164,7 +174,7 @@ public class AudioInColdStartLatencyActivity
     // Callback for Recorder
     /*
      * Monitor callbacks until they become consistent (i.e. delta between callbacks is below
-     * some threshold like 1/8 the "nominal" callback time. This is defined as the "cold start
+     * some threshold like 1/8 the "nominal" callback time). This is defined as the "cold start
      * latency". Calculate that time and display the results.
      */
     class ColdStartAppCallback implements AppCallback {

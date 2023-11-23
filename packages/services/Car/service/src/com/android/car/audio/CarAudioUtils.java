@@ -16,11 +16,19 @@
 
 package com.android.car.audio;
 
+import static android.media.AudioDeviceInfo.TYPE_BUILTIN_MIC;
+
+import android.media.AudioDeviceInfo;
+
 final class CarAudioUtils {
     private CarAudioUtils() {
     }
 
     static boolean hasExpired(long startTimeMs, long currentTimeMs, int timeoutMs) {
         return (currentTimeMs - startTimeMs) > timeoutMs;
+    }
+
+    static boolean isMicrophoneInputDevice(AudioDeviceInfo device) {
+        return device.getType() == TYPE_BUILTIN_MIC;
     }
 }

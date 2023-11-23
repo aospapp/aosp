@@ -23,17 +23,15 @@ import static android.server.wm.app.Components.UnresponsiveActivity.EXTRA_DELAY_
 import static android.server.wm.app.Components.UnresponsiveActivity.EXTRA_ON_CREATE_DELAY_MS;
 import static android.server.wm.app.Components.UnresponsiveActivity.EXTRA_ON_KEYDOWN_DELAY_MS;
 import static android.server.wm.app.Components.UnresponsiveActivity.EXTRA_ON_MOTIONEVENT_DELAY_MS;
-import static android.view.Display.DEFAULT_DISPLAY;
 
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
-import android.app.ActivityTaskManager;
 import android.content.ComponentName;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
-import android.server.wm.app.Components.RenderService;
 import android.provider.Settings;
+import android.server.wm.app.Components.RenderService;
 import android.server.wm.settings.SettingsSession;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
@@ -43,14 +41,16 @@ import android.util.EventLog;
 import android.util.Log;
 import android.view.KeyEvent;
 
+import androidx.test.core.app.ActivityScenario;
+import androidx.test.filters.FlakyTest;
+import androidx.test.platform.app.InstrumentationRegistry;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
-
-import androidx.test.filters.FlakyTest;
-import androidx.test.platform.app.InstrumentationRegistry;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Test scenarios that lead to ANR dialog being shown.
@@ -123,12 +123,11 @@ public class AnrTests extends ActivityManagerTestBase {
         startUnresponsiveActivity(EXTRA_ON_MOTIONEVENT_DELAY_MS, true /* waitForCompletion */,
                 UNRESPONSIVE_ACTIVITY);
 
-        // TODO(b/143566069) investigate why we need multiple taps on display to trigger anr.
         mWmState.computeState();
-        tapOnDisplayCenterAsync(DEFAULT_DISPLAY);
-        SystemClock.sleep(1000);
-        tapOnDisplayCenterAsync(DEFAULT_DISPLAY);
-
+        // Tap on the UnresponsiveActivity
+        final WindowManagerState.Task unresponsiveActivityTask =
+                mWmState.getTaskByActivity(UNRESPONSIVE_ACTIVITY);
+        mTouchHelper.tapOnTaskCenterAsync(unresponsiveActivityTask);
         clickCloseAppOnAnrDialog();
         assertEventLogsContainsAnr(UnresponsiveActivity.PROCESS_NAME);
     }
@@ -138,16 +137,19 @@ public class AnrTests extends ActivityManagerTestBase {
      */
     @Test
     public void embeddedWindowTriggersAnr() {
-        startUnresponsiveActivity(EXTRA_ON_MOTIONEVENT_DELAY_MS, true  /* waitForCompletion */,
-                HOST_ACTIVITY);
-
-        // TODO(b/143566069) investigate why we need multiple taps on display to trigger anr.
-        mWmState.computeState();
-        tapOnDisplayCenterAsync(DEFAULT_DISPLAY);
-        SystemClock.sleep(1000);
-        tapOnDisplayCenterAsync(DEFAULT_DISPLAY);
-
-        clickCloseAppOnAnrDialog();
+        try (ActivityScenario<HostActivity> scenario =
+                     ActivityScenario.launch(HostActivity.class)) {
+            CountDownLatch[] latch = new CountDownLatch[1];
+            scenario.onActivity(activity -> latch[0] = activity.mEmbeddedViewAttachedLatch);
+            latch[0].await();
+            mWmState.computeState();
+            final WindowManagerState.Task hostActivityTask =
+                    mWmState.getTaskByActivity(new ComponentName("android.server.wm.cts",
+                            "android.server.wm.HostActivity"));
+            mTouchHelper.tapOnTaskCenterAsync(hostActivityTask);
+            clickCloseAppOnAnrDialog();
+        } catch (InterruptedException ignored) {
+        }
         assertEventLogsContainsAnr(RenderService.PROCESS_NAME);
     }
 

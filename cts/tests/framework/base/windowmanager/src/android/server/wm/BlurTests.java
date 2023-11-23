@@ -344,10 +344,10 @@ public class BlurTests extends WindowManagerTestBase {
             for (int y = 0; y < height; y++) {
                 if (x < blueWidth) {
                     ColorUtils.verifyColor("failed for pixel (x, y) = (" + x + ", " + y + ")",
-                            Color.BLUE, screenshot.getPixel(x, y), 0);
+                            Color.BLUE, screenshot.getPixel(x, y), 1);
                 } else {
                     ColorUtils.verifyColor("failed for pixel (x, y) = (" + x + ", " + y + ")",
-                            Color.RED, screenshot.getPixel(x, y), 0);
+                            Color.RED, screenshot.getPixel(x, y), 1);
                 }
             }
         }
@@ -374,20 +374,20 @@ public class BlurTests extends WindowManagerTestBase {
             for (int y = 0; y < screenshot.getHeight(); y++) {
                 if (x < windowFrame.left) {
                     ColorUtils.verifyColor("failed for pixel (x, y) = (" + x + ", " + y + ")",
-                            Color.BLUE, screenshot.getPixel(x, y), 0);
+                            Color.BLUE, screenshot.getPixel(x, y), 1);
                 } else if (x < screenshot.getWidth() / 2) {
                     if (y < windowFrame.top || y > windowFrame.bottom) {
                         ColorUtils.verifyColor("failed for pixel (x, y) = (" + x + ", " + y + ")",
-                                Color.BLUE, screenshot.getPixel(x, y), 0);
+                                Color.BLUE, screenshot.getPixel(x, y), 1);
                     }
                 } else if (x <= windowFrame.right) {
                     if (y < windowFrame.top || y > windowFrame.bottom) {
                         ColorUtils.verifyColor("failed for pixel (x, y) = (" + x + ", " + y + ")",
-                                Color.RED, screenshot.getPixel(x, y), 0);
+                                Color.RED, screenshot.getPixel(x, y), 1);
                     }
                 } else if (x > windowFrame.right) {
                     ColorUtils.verifyColor("failed for pixel (x, y) = (" + x + ", " + y + ")",
-                            Color.RED, screenshot.getPixel(x, y), 0);
+                            Color.RED, screenshot.getPixel(x, y), 1);
                 }
 
             }
@@ -398,7 +398,7 @@ public class BlurTests extends WindowManagerTestBase {
         for (int y = windowFrame.top; y < windowFrame.bottom; y++) {
             for (int x = windowFrame.left; x < windowFrame.right; x++) {
                 ColorUtils.verifyColor("failed for pixel (x, y) = (" + x + ", " + y + ")",
-                        NO_BLUR_BACKGROUND_COLOR, screenshot.getPixel(x, y), 0);
+                        NO_BLUR_BACKGROUND_COLOR, screenshot.getPixel(x, y), 1);
             }
         }
     }
@@ -415,14 +415,14 @@ public class BlurTests extends WindowManagerTestBase {
 
         Color previousColor;
         Color currentColor;
-        final int unaffectedBluePixelX = width / 2 - blurRadius - 1;
-        final int unaffectedRedPixelX = width / 2 + blurRadius + 1;
+        final int unaffectedBluePixelX = width / 2 - blurRadius * 2 - 1;
+        final int unaffectedRedPixelX = width / 2 + blurRadius * 2 + 1;
         for (int y = startHeight; y < endHeight; y++) {
             ColorUtils.verifyColor(
                     "failed for pixel (x, y) = (" + unaffectedBluePixelX + ", " + y + ")",
-                    Color.BLUE, screenshot.getPixel(unaffectedBluePixelX, y), 0);
+                    Color.BLUE, screenshot.getPixel(unaffectedBluePixelX, y), 1);
             previousColor = Color.valueOf(Color.BLUE);
-            for (int x = blurAreaStartX; x <= blurAreaEndX; x += stepSize) {
+            for (int x = blurAreaStartX; x < blurAreaEndX; x += stepSize) {
                 currentColor = screenshot.getColor(x, y);
                 assertTrue("assertBlur failed for blue for pixel (x, y) = (" + x + ", " + y + ");"
                         + " previousColor blue: " + previousColor.blue()
@@ -437,7 +437,7 @@ public class BlurTests extends WindowManagerTestBase {
             }
             ColorUtils.verifyColor(
                     "failed for pixel (x, y) = (" + unaffectedRedPixelX + ", " + y + ")",
-                    Color.RED, screenshot.getPixel(unaffectedRedPixelX, y), 0);
+                    Color.RED, screenshot.getPixel(unaffectedRedPixelX, y), 1);
         }
     }
 

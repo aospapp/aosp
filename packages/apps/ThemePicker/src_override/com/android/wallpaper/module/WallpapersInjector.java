@@ -72,8 +72,9 @@ public class WallpapersInjector extends BaseWallpaperInjector {
             WallpaperInfo wallpaperInfo,
             int mode,
             boolean viewAsHome,
+            boolean viewFullScreen,
             boolean testingModeEnabled) {
-        return ImagePreviewFragment.newInstance(wallpaperInfo, mode, viewAsHome,
+        return ImagePreviewFragment.newInstance(wallpaperInfo, mode, viewAsHome, viewFullScreen,
                 testingModeEnabled);
     }
 

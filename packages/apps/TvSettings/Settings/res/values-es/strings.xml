@@ -161,7 +161,7 @@
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Nunca"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Aunque la aplicación lo solicite, tu dispositivo nunca intentará mostrar en su velocidad de fotogramas original el contenido que ves."</string>
     <string name="font_scale_settings_title" msgid="4114019544800225980">"Ajuste de texto"</string>
-    <string name="font_scale_item_detail" msgid="1558315053348778805">"Escalar al <xliff:g id="SCALE">%1$d</xliff:g> %%"</string>
+    <string name="font_scale_item_detail" msgid="1558315053348778805">"Ajustar al <xliff:g id="SCALE">%1$d</xliff:g> %%"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"Texto de ejemplo"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"El maravilloso mago de Oz"</string>
     <string name="font_scale_preview_text_subtitle" msgid="677394182922188048">"Capítulo 11: La Ciudad Esmeralda"</string>
@@ -548,7 +548,7 @@
     <string name="storage_removable_storage_section" msgid="280332107650735088">"Almacenamiento extraíble"</string>
     <string name="storage_reset_section" msgid="3896575204828589494">"Restablecer"</string>
     <string name="storage_mount_success" msgid="4459298609971461753">"<xliff:g id="NAME">%1$s</xliff:g> se ha activado"</string>
-    <string name="storage_mount_failure" msgid="8521666906216755903">"Error al activar <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_mount_failure" msgid="8521666906216755903">"Error al montar <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_adopted" msgid="8880688040694403520">"Se ha vuelto a conectar el almacenamiento USB"</string>
     <string name="storage_unmount_success" msgid="8024867595129715661">"<xliff:g id="NAME">%1$s</xliff:g> se ha expulsado de forma segura"</string>
     <string name="storage_unmount_failure" msgid="2228448194484319930">"No se ha podido expulsar <xliff:g id="NAME">%1$s</xliff:g> de forma segura"</string>

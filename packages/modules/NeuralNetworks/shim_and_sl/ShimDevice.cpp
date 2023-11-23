@@ -416,7 +416,7 @@ class ShimBuffer : public BnBuffer {
                              "ShimDriver::allocate -- ANeuralNetworksMemoryDesc_addInputRole fail");
         }
         const auto& model = pmodel->getMainModel();
-        const auto& op = model.getOperands()[model.getInputs()[role.ioIndex]];
+        const auto& op = model.getOperands()[model.getOutputs()[role.ioIndex]];
         auto operandType = static_cast<::android::nn::OperandType>(op.operandType.type);
         if (!type) {
             type = operandType;

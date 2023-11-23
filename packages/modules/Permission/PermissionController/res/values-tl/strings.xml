@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"Mga pahintulot sa app"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Mga hindi ginagamit na app"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Walang hindi ginagamit na app"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"0 hindi ginagamit na app"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"I-disable ang app"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Kung idi-disable mo ang app na ito, baka hindi na gumana ang Android at iba pang app gaya ng inaasahan. Tandaan, hindi mo made-delete ang app na ito dahil naka-preinstall ito sa iyong device. Sa pamamagitan ng pag-disable nito, io-off mo ang app na ito at itatago mo ito sa iyong device."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Manager ng pahintulot"</string>

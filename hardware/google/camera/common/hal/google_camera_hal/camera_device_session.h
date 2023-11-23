@@ -424,6 +424,9 @@ class CameraDeviceSession {
   std::set<uint32_t> ignore_shutters_;
 
   static constexpr int32_t kInvalidStreamId = -1;
+
+  // Whether measure the time of buffer allocation
+  bool measure_buffer_allocation_time_ = false;
 };
 
 }  // namespace google_camera_hal

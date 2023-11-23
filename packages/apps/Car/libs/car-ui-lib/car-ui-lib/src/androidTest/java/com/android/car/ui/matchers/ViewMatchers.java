@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.not;
 
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 import android.view.View;
 
 import androidx.annotation.DrawableRes;
@@ -37,6 +38,11 @@ public class ViewMatchers {
     public static Matcher<View> withDrawable(
             @NonNull Context context, @DrawableRes int drawableId) {
         return new DrawableMatcher(context, drawableId);
+    }
+
+    public static Matcher<View> withDrawable(
+            @NonNull Drawable drawable) {
+        return new DrawableMatcher(drawable);
     }
 
     public static Matcher<View> nthChildOfView(Matcher<View> parentMatcher, int n) {

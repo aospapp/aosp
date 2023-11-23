@@ -114,3 +114,19 @@ included in linker arguments when using lld.
   and uses pc relative FDEs, the unwind will be incorrect. This tends
   to truncate unwinds since the unwinder could not find the correct unwind
   information for a given pc.
+
+## Android 12 ("S", API level 31)
+* Fix bug where, if a shared library is dlopen'ed from within an apk file,
+  is not readable, and the shared library only produces a single read-
+  executable map for the elf data and executable data, the offset into the
+  apk will not be displayed. Previously the line would look like:
+
+    #01 pc 000000000222675c  GoogleCamera.apk
+
+  to:
+
+    #01 pc 000000000222675c  GoogleCamera.apk (offset 0x269f000)
+
+  If the apk file is readable, or dlopen'ing the shared library creates
+  a read-only map of the elf data, and a read-executable map of the
+  code, the offset will be displayed properly without this fix.

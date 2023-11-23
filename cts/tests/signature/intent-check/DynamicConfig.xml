@@ -26,6 +26,9 @@
     Bug: 150153196 android.intent.action.LOAD_DATA (system in API 30)
     Bug: 150153196 android.intent.action.PACKAGE_UNSUSPENDED_MANUALLY (system in API 30)
     Bug: 186495404 android.intent.action.REBOOT_READY
+    Bug: 206897736 android.intent.action.MANAGE_PERMISSION_USAGE
+    Bug: 206897736 android.intent.action.VIEW_APP_FEATURES
+    Bug: 209528070 android.intent.action.APPLICATION_LOCALE_CHANGED
 -->
 <dynamicConfig>
     <entry key ="intent_whitelist">
@@ -40,5 +43,8 @@
       <value>android.intent.action.LOAD_DATA</value>
       <value>android.intent.action.PACKAGE_UNSUSPENDED_MANUALLY</value>
       <value>android.intent.action.REBOOT_READY</value>
+      <value>android.intent.action.MANAGE_PERMISSION_USAGE</value>
+      <value>android.intent.action.VIEW_APP_FEATURES</value>
+      <value>android.intent.action.APPLICATION_LOCALE_CHANGED</value>
     </entry>
 </dynamicConfig>

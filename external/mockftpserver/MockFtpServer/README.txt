@@ -26,5 +26,3 @@ DEPENDENCIES
 
 MockFtpServer requires 
  - Java (JDK) version 1.4 or later
- - The Log4J jar, version 1.2.13 or later, accessible on the CLASSPATH
-   (http://logging.apache.org/log4j/index.html).

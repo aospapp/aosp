@@ -48,7 +48,7 @@ bool IsInNativeAbi() {
   return in_native_abi == 1;
 }
 
-#if defined(__arm__)
+#if defined(__linux__)
 // Check if we can get a non-zero instruction event count by monitoring current thread.
 static bool HasNonZeroInstructionEventCount() {
   const simpleperf::EventType* type = simpleperf::FindEventTypeByName("instructions", false);
@@ -70,32 +70,38 @@ static bool HasNonZeroInstructionEventCount() {
   }
   return false;
 }
-#endif  // defined(__arm__)
 
 bool HasHardwareCounter() {
-#if defined(__linux__)
   static int has_hw_counter = -1;
   if (has_hw_counter == -1) {
     has_hw_counter = 1;
-#if defined(__x86__) || defined(__x86_64__)
-    // On x86 and x86_64, it's likely to run on an emulator or vm without hardware perf counters.
-    // It's hard to enumerate them all. So check the support at runtime.
-    const simpleperf::EventType* type = simpleperf::FindEventTypeByName("cpu-cycles", false);
-    CHECK(type != nullptr);
-    perf_event_attr attr = CreateDefaultPerfEventAttr(*type);
-    has_hw_counter = IsEventAttrSupported(attr, "cpu-cycles") ? 1 : 0;
-#elif defined(__arm__)
-    // For arm32 devices, external non-invasive debug signal controls PMU counters. Once it is
-    // disabled for security reason, we always get zero values for PMU counters. And we want to
-    // skip hardware counter tests once we detect it.
-    has_hw_counter &= HasNonZeroInstructionEventCount() ? 1 : 0;
-#endif  // defined(__arm__)
+    auto arch = GetBuildArch();
+    std::string fingerprint = android::base::GetProperty("ro.system.build.fingerprint", "");
+    bool is_emulator = android::base::StartsWith(fingerprint, "google/sdk_gphone") ||
+                       android::base::StartsWith(fingerprint, "generic/cf");
+
+    if (arch == ARCH_X86_64 || arch == ARCH_X86_32 || is_emulator) {
+      // On x86 and x86_64, it's likely to run on an emulator or vm without hardware perf
+      // counters. It's hard to enumerate them all. So check the support at runtime.
+      const simpleperf::EventType* type = simpleperf::FindEventTypeByName("cpu-cycles", false);
+      CHECK(type != nullptr);
+      perf_event_attr attr = CreateDefaultPerfEventAttr(*type);
+      has_hw_counter = IsEventAttrSupported(attr, "cpu-cycles") ? 1 : 0;
+    } else if (arch == ARCH_ARM) {
+      // For arm32 devices, external non-invasive debug signal controls PMU counters. Once it is
+      // disabled for security reason, we always get zero values for PMU counters. And we want to
+      // skip hardware counter tests once we detect it.
+      has_hw_counter &= HasNonZeroInstructionEventCount() ? 1 : 0;
+    }
   }
   return has_hw_counter == 1;
-#else   // defined(__linux__)
-  return false;
-#endif  // defined(__linux__)
 }
+
+#else   // !defined(__linux__)
+bool HasHardwareCounter() {
+  return false;
+}
+#endif  // !defined(__linux__)
 
 bool HasPmuCounter() {
   static int has_pmu_counter = -1;

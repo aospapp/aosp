@@ -79,8 +79,8 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
     private static final boolean DBG = false;
     private static final String MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC;
 
-    private static final long DEFAULT_WAIT_TIMEOUT_MS = 10000;
-    private static final long DEFAULT_WAIT_TIMEOUT_US = DEFAULT_WAIT_TIMEOUT_MS * 1000;
+    private static final long DEFAULT_WAIT_TIMEOUT_MS = 10000;  // 10 seconds
+    private static final long DEQUEUE_TIMEOUT_US = 3000000;  // 3 seconds
 
     private static final int COLOR_RED =  makeColor(100, 0, 0);
     private static final int COLOR_GREEN =  makeColor(0, 100, 0);
@@ -231,7 +231,7 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
                         }
                         return;
                     }
-                    int inputBufferIndex = mDecoder.dequeueInputBuffer(DEFAULT_WAIT_TIMEOUT_US);
+                    int inputBufferIndex = mDecoder.dequeueInputBuffer(DEQUEUE_TIMEOUT_US);
                     if (inputBufferIndex < 0) {
                         if (DBG) {
                             Log.i(TAG, "dequeueInputBuffer returned:" + inputBufferIndex);
@@ -319,7 +319,7 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
         BufferInfo info = new BufferInfo();
         for (int i = 0; i < NUM_MAX_RETRY; i++) {
             renderer.doRendering(color);
-            int bufferIndex = mDecoder.dequeueOutputBuffer(info,  DEFAULT_WAIT_TIMEOUT_US);
+            int bufferIndex = mDecoder.dequeueOutputBuffer(info,  DEQUEUE_TIMEOUT_US);
             if (DBG) {
                 Log.i(TAG, "decoder dequeueOutputBuffer returned " + bufferIndex);
             }
@@ -345,7 +345,7 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
         BufferInfo info = new BufferInfo();
         for (int i = 0; i < NUM_MAX_RETRY; i++) {
             renderer.doRendering(-1);
-            int bufferIndex = mDecoder.dequeueOutputBuffer(info,  DEFAULT_WAIT_TIMEOUT_US);
+            int bufferIndex = mDecoder.dequeueOutputBuffer(info,  DEQUEUE_TIMEOUT_US);
             if (DBG) {
                 Log.i(TAG, "decoder dequeueOutputBuffer returned " + bufferIndex);
             }
@@ -427,7 +427,8 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
      * Determines if two color values are approximately equal.
      */
     private static boolean approxEquals(int expected, int actual) {
-        final int MAX_DELTA = 7;
+        // allow differences between BT.601 and BT.709 conversions during encoding/decoding for now
+        final int MAX_DELTA = 17;
         return Math.abs(expected - actual) <= MAX_DELTA;
     }
 

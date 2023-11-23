@@ -23,10 +23,10 @@ import android.os.Build
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
 
-import com.android.testutils.assertParcelSane
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo
+import com.android.testutils.assertParcelingIsLossless
 
 import java.lang.IllegalStateException
 
@@ -50,7 +50,7 @@ class MatchAllNetworkSpecifierTest {
 
     @Test
     fun testParcel() {
-        assertParcelSane(MatchAllNetworkSpecifier(), 0)
+        assertParcelingIsLossless(MatchAllNetworkSpecifier())
     }
 
     @Test

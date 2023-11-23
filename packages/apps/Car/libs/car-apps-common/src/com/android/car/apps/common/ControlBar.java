@@ -240,6 +240,24 @@ public class ControlBar extends RelativeLayout implements ExpandableControlBar {
     }
 
     @Override
+    public int getFocusedViewIndex() {
+        for (int slotIndex = 0; slotIndex < mSlots.length; slotIndex++) {
+            FrameLayout slot = mSlots[slotIndex];
+            if ((slot != null) && slot.hasFocus()) {
+                return slotIndex;
+            }
+        }
+        return INVALID_VIEW_INDEX;
+    }
+
+    @Override
+    public void setFocusAtViewIndex(int i) {
+        if ((INVALID_VIEW_INDEX < i) && (i < mSlots.length) && (mSlots[i] != null)) {
+            mSlots[i].requestFocus();
+        }
+    }
+
+    @Override
     public void registerExpandCollapseCallback(@Nullable ExpandCollapseCallback callback) {
         mExpandCollapseCallback = callback;
     }

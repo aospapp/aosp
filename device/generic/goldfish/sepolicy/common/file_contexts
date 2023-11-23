@@ -29,19 +29,12 @@
 /system_ext/bin/init\.qemu-adb-keys\.sh u:object_r:goldfish_system_setup_exec:s0
 /vendor/bin/init\.ranchu-core\.sh u:object_r:goldfish_setup_exec:s0
 /vendor/bin/init\.ranchu-net\.sh u:object_r:goldfish_setup_exec:s0
-/vendor/bin/init\.wifi\.sh   u:object_r:goldfish_setup_exec:s0
 /vendor/bin/qemu-adb-keys    u:object_r:qemu_adb_keys_exec:s0
+/vendor/bin/qemu-device-state u:object_r:qemu_device_state_exec:s0
 /vendor/bin/qemu-props       u:object_r:qemu_props_exec:s0
 /vendor/bin/mac80211_create_radios u:object_r:mac80211_create_radios_exec:s0
-/vendor/bin/createns         u:object_r:createns_exec:s0
-/vendor/bin/execns           u:object_r:execns_exec:s0
-/vendor/bin/ip               u:object_r:goldfish_ip_exec:s0
 /vendor/bin/hw/libgoldfish-rild               u:object_r:rild_exec:s0
-/vendor/bin/iw               u:object_r:goldfish_iw_exec:s0
 /vendor/bin/dhcpclient       u:object_r:dhcpclient_exec:s0
-/vendor/bin/hostapd_nohidl   u:object_r:hostapd_nohidl_exec:s0
-/vendor/bin/netmgr           u:object_r:netmgr_exec:s0
-/vendor/bin/wifi_forwarder   u:object_r:wifi_forwarder_exec:s0
 
 /vendor/bin/hw/android\.hardware\.bluetooth@1\.1-service\.sim  u:object_r:hal_bluetooth_sim_exec:s0
 /vendor/bin/hw/android\.hardware\.drm@[0-9]+\.[0-9]+-service\.widevine          u:object_r:hal_drm_widevine_exec:s0

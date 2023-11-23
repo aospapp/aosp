@@ -18,8 +18,6 @@ package com.android.car.messenger.impl.datamodels;
 
 import static com.android.car.messenger.core.shared.MessageConstants.KEY_MUTED_CONVERSATIONS;
 
-import androidx.lifecycle.LiveData;
-import androidx.lifecycle.Transformations;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -28,6 +26,8 @@ import android.provider.Telephony;
 import android.telephony.SmsManager;
 
 import androidx.annotation.NonNull;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.Transformations;
 
 import com.android.car.messenger.common.Conversation;
 import com.android.car.messenger.core.interfaces.AppFactory;
@@ -43,7 +43,6 @@ import java.util.Set;
 
 /** Queries the telephony data model to retrieve the SMS/MMS messages */
 public class TelephonyDataModel implements DataModel {
-
     @NonNull
     @Override
     public LiveData<Collection<UserAccount>> getAccounts() {
@@ -52,8 +51,9 @@ public class TelephonyDataModel implements DataModel {
     }
 
     @Override
-    public void refreshUserAccounts() {
+    public void refresh() {
         UserAccountLiveData.getInstance().refresh();
+        RefreshLiveData.getInstance().refresh();
     }
 
     @NonNull

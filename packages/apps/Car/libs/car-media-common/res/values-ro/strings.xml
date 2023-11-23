@@ -29,6 +29,6 @@
     <string name="error_code_not_available_in_region" msgid="5840935836875073145">"Conținutul nu poate fi descărcat aici"</string>
     <string name="error_code_content_already_playing" msgid="1306236349553004461">"Conținutul se redă deja"</string>
     <string name="error_code_skip_limit_reached" msgid="4203743406433151146">"Nu mai pot fi omise melodii"</string>
-    <string name="error_code_action_aborted" msgid="8611777981356536501">"Nu s-a putut finaliza. Încercați din nou."</string>
+    <string name="error_code_action_aborted" msgid="8611777981356536501">"Nu s-a putut finaliza. Reîncercați."</string>
     <string name="error_code_end_of_queue" msgid="6935022448319288887">"Nu mai există elemente în coadă"</string>
 </resources>

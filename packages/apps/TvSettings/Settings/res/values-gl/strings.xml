@@ -704,7 +704,7 @@
     <string name="system_accessibility_service_on_confirm_desc" msgid="1291445700158602622">"<xliff:g id="SERVICE">%1$s</xliff:g> pode recompilar todo o texto que escribes (excepto os contrasinais), incluídos datos persoais, como números de tarxetas de crédito."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="1110904358228641834">"Deter <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="3486513644923267157">"Se seleccionas Aceptar, deterase <xliff:g id="SERVICE">%1$s</xliff:g>."</string>
-    <string name="system_accessibility_tts_output" msgid="3186078508203212288">"Síntese de voz"</string>
+    <string name="system_accessibility_tts_output" msgid="3186078508203212288">"Conversión de texto a voz"</string>
     <string name="system_accessibility_tts_engine_config" msgid="4757760652785865532">"Configuración do motor"</string>
     <string name="system_speak_passwords" msgid="8556036524146404052">"Pronunciar contrasinais"</string>
     <string name="system_preferred_engine" msgid="3545505072652708443">"Motor preferido"</string>

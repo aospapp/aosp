@@ -222,4 +222,7 @@
 
     <!-- Toast message for when the user selects cellular as the internet provider and Wi-Fi auto-connect is temporarily disabled -->
     <string name="wifitrackerlib_wifi_wont_autoconnect_for_now">Wi-Fi won\u2019t auto-connect for now</string>
+
+    <!-- [DO NOT TRANSLATE] Comma-separated list of packages whose saved networks should show no attribution annotation. -->
+    <string name="wifitrackerlib_no_attribution_annotation_packages">com.google.android.setupwizard,com.google.android.gms</string>
 </resources>

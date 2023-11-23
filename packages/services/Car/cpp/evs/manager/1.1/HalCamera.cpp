@@ -63,7 +63,7 @@ sp<VirtualCamera> HalCamera::makeVirtualCamera() {
 }
 
 
-bool HalCamera::ownVirtualCamera(sp<VirtualCamera> virtualCamera) {
+bool HalCamera::ownVirtualCamera(sp<VirtualCamera>& virtualCamera) {
 
     if (virtualCamera == nullptr) {
         LOG(ERROR) << "Failed to create virtualCamera camera object";
@@ -86,20 +86,45 @@ bool HalCamera::ownVirtualCamera(sp<VirtualCamera> virtualCamera) {
     return true;
 }
 
-
-void HalCamera::disownVirtualCamera(sp<VirtualCamera> virtualCamera) {
+void HalCamera::disownVirtualCamera(sp<VirtualCamera>& virtualCamera) {
     // Ignore calls with null pointers
-    if (virtualCamera.get() == nullptr) {
+    if (virtualCamera == nullptr) {
         LOG(WARNING) << "Ignoring disownVirtualCamera call with null pointer";
         return;
     }
 
     // Remove the virtual camera from our client list
-    unsigned clientCount = mClients.size();
+    const auto clientCount = mClients.size();
     mClients.remove(virtualCamera);
     if (clientCount != mClients.size() + 1) {
-        LOG(ERROR) << "Couldn't find camera in our client list to remove it; "
-                   << "this client may be removed already.";
+        LOG(WARNING) << "Couldn't find camera in our client list to remove it; "
+                     << "this client may be removed already.";
+    }
+
+    // Recompute the number of buffers required with the target camera removed from the list
+    if (!changeFramesInFlight(0)) {
+        LOG(ERROR) << "Error when trying to reduce the in flight buffer count";
+    }
+
+    // Update statistics
+    mUsageStats->updateNumClients(mClients.size());
+}
+
+void HalCamera::disownVirtualCamera(const VirtualCamera* clientToDisown) {
+    // Ignore calls with null pointers
+    if (clientToDisown == nullptr) {
+        LOG(WARNING) << "Ignoring disownVirtualCamera call with null pointer";
+        return;
+    }
+
+    // Remove the virtual camera from our client list
+    const auto clientCount = mClients.size();
+    mClients.remove_if([&clientToDisown](wp<VirtualCamera>& client) {
+                           return client == clientToDisown;
+                       });
+    if (clientCount == mClients.size()) {
+        LOG(WARNING) << "Couldn't find camera in our client list to remove it; "
+                     << "this client may be removed already.";
     }
 
     // Recompute the number of buffers required with the target camera removed from the list

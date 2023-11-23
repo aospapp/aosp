@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"應用程式權限"</string>
     <string name="unused_apps" msgid="2058057455175955094">"未使用的應用程式"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"沒有未使用的應用程式"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"沒有未使用的應用程式"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"停用應用程式"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"如果你停用這個應用程式，Android 和其他應用程式可能無法正常運作。請注意，這是預先安裝在裝置上的應用程式，因此無法刪除。不過，只要停用這個應用程式，即可將應用程式關閉並在裝置上隱藏。"</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"權限管理員"</string>
@@ -341,10 +342,10 @@
     <string name="app_perms_content_provider_all_files" msgid="3315281519230304799">"上次存取時間：過去 24 小時內 • 所有檔案"</string>
     <string name="no_permissions_allowed" msgid="6081976856354669209">"未授予任何權限"</string>
     <string name="no_permissions_denied" msgid="8159923922804043282">"未拒絕授予任何權限"</string>
-    <string name="no_apps_allowed" msgid="7718822655254468631">"未授權給任何應用程式"</string>
+    <string name="no_apps_allowed" msgid="7718822655254468631">"未允許任何應用程式"</string>
     <string name="no_apps_allowed_full" msgid="8011716991498934104">"未授予任何應用程式「允許存取所有檔案」的權限"</string>
     <string name="no_apps_allowed_scoped" msgid="4908850477787659501">"未授予任何應用程式「僅允許存取媒體檔案」的權限"</string>
-    <string name="no_apps_denied" msgid="7663435886986784743">"未拒絕授權給任何應用程式"</string>
+    <string name="no_apps_denied" msgid="7663435886986784743">"未拒絕任何應用程式"</string>
     <string name="car_permission_selected" msgid="180837028920791596">"已選取"</string>
     <string name="settings" msgid="5409109923158713323">"設定"</string>
     <string name="accessibility_service_dialog_title_single" msgid="7956432823014102366">"「<xliff:g id="SERVICE_NAME">%s</xliff:g>」可完整存取你的裝置"</string>

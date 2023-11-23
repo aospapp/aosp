@@ -4,6 +4,7 @@
 ifeq ($(filter $(TARGET_PRODUCT), qemu_trusty_arm64),)
 ifeq ($(filter $(MAKECMDGOALS), sdk win_sdk sdk_repo goog_emu_imgs),)
 emulator_img_source_prop := $(TARGET_OUT_INTERMEDIATES)/source.properties
+target_notice_file_txt := $(TARGET_OUT_INTERMEDIATES)/NOTICE.txt
 $(emulator_img_source_prop): $(PRODUCT_SDK_ADDON_SYS_IMG_SOURCE_PROP)
 	@echo Generate $@
 	$(hide) mkdir -p $(dir $@)

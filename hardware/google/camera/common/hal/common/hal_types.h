@@ -368,6 +368,15 @@ struct BufferReturn {
   BuffersValue val;
 };
 
+// See the definition of
+// ::android::hardware::camera::provider::V2_5::DeviceState
+enum class DeviceState : uint64_t {
+  kNormal = 0ull,
+  kBackCovered = 1ull,
+  kFrontCovered = 2ull,
+  kFolded = 4ull
+};
+
 // Callback function invoked to process capture results.
 using ProcessCaptureResultFunc =
     std::function<void(std::unique_ptr<CaptureResult> /*result*/)>;

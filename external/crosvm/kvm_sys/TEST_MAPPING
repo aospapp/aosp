@@ -11,10 +11,10 @@
 //    },
 //    {
 //      "host": true,
-//      "name": "kvm_sys_host_test_tests_sanity"
+//      "name": "kvm_sys_host_test_tests_basic"
 //    },
 //    {
-//      "name": "kvm_sys_device_test_tests_sanity"
+//      "name": "kvm_sys_device_test_tests_basic"
 //    }
 //  ]
 }

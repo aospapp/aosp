@@ -43,12 +43,12 @@ Namespace BuildVndkNamespace([[maybe_unused]] const Context& ctx,
     name = "vndk";
   }
 
-  // Isolated but visible when used in the [system] or [unrestricted] section to
+  // Isolated and visible when used in the [system] or [unrestricted] section to
   // allow links to be created at runtime, e.g. through android_link_namespaces
-  // in libnativeloader. Otherwise it isn't isolated, so visibility doesn't
-  // matter.
+  // in libnativeloader. Otherwise namespace should be isolated but not visible
+  // so namespace itself keep strict and links would not be modified at runtime.
   Namespace ns(name,
-               /*is_isolated=*/ctx.IsSystemSection() || ctx.IsApexBinaryConfig(),
+               /*is_isolated=*/true,
                /*is_visible=*/is_system_or_unrestricted_section);
 
   std::vector<std::string> lib_paths;
@@ -78,8 +78,7 @@ Namespace BuildVndkNamespace([[maybe_unused]] const Context& ctx,
   // 2. VNDK APEX
   ns.AddSearchPath("/apex/com.android.vndk.v" + vndk_version + "/${LIB}");
 
-  if (is_system_or_unrestricted_section &&
-      vndk_user == VndkUserPartition::Vendor) {
+  if (vndk_user == VndkUserPartition::Vendor) {
     // It is for vendor sp-hal
     ns.AddPermittedPath("/odm/${LIB}/hw");
     ns.AddPermittedPath("/odm/${LIB}/egl");

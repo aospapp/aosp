@@ -17,6 +17,7 @@
 <resources>
     <style name="Theme.App" parent="android:Theme.DeviceDefault">
         <item name="android:buttonStyle">@style/ButtonStyle</item>
+        <item name="carUiActivity">true</item>
     </style>
 
     <style name="ButtonStyle" parent="android:Widget.Button">

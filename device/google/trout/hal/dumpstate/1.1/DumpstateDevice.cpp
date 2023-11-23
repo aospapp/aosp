@@ -24,6 +24,7 @@
 #include <fstream>
 #include <string>
 
+using android::base::GetProperty;
 using android::os::dumpstate::CommandOptions;
 using android::os::dumpstate::DumpFileToFd;
 using std::chrono::duration_cast;
@@ -37,6 +38,8 @@ static constexpr const char* VENDOR_VERBOSE_LOGGING_ENABLED_PROPERTY =
 
 static constexpr const char* VENDOR_HELPER_SYSTEM_LOG_LOC_PROPERTY =
         "ro.vendor.helpersystem.log_loc";
+
+static constexpr const char* BOOT_HYPERVISOR_VERSION_PROPERTY = "ro.boot.hypervisor.version";
 
 namespace android::hardware::dumpstate::V1_1::implementation {
 
@@ -119,6 +122,19 @@ bool DumpstateDevice::dumpRemoteLogs(
     return true;
 }
 
+bool DumpstateDevice::dumpString(const std::string& text, const fs::path& dumpPath) {
+    std::fstream logFile(dumpPath, std::fstream::out | std::fstream::binary);
+
+    if (!logFile.is_open()) {
+        LOG(ERROR) << "Failed to open file " << dumpPath;
+        return false;
+    }
+
+    logFile.write(text.c_str(), text.size());
+
+    return true;
+}
+
 bool DumpstateDevice::dumpHelperSystem(int textFd, int binFd) {
     std::string helperSystemLogDir =
             android::base::GetProperty(VENDOR_HELPER_SYSTEM_LOG_LOC_PROPERTY, "");
@@ -156,6 +172,14 @@ bool DumpstateDevice::dumpHelperSystem(int textFd, int binFd) {
         ::grpc::ClientContext context;
         auto reader = mGrpcStub->GetSystemLogs(&context, ::google::protobuf::Empty());
         dumpRemoteLogs(reader.get(), helperSysLogPath / "system_log");
+    }
+
+    {
+        // Dumping host system info
+        const std::string hyp =
+                "Host version information: " +
+                GetProperty(BOOT_HYPERVISOR_VERSION_PROPERTY, "missing/unavailable");
+        dumpString(hyp, helperSysLogPath / "host_info");
     }
 
     // Request for service list every time to allow the service list to change on the server side.

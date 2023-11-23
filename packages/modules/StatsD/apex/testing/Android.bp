@@ -16,14 +16,7 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-soong_config_module_type_import {
-    from: "packages/modules/common/Android.bp",
-    module_types: [
-        "module_apex_test",
-    ],
-}
-
-module_apex_test {
+apex_test {
     name: "test_com.android.os.statsd",
     visibility: [
         "//system/apex/tests",
@@ -33,10 +26,4 @@ module_apex_test {
     file_contexts: ":com.android.os.statsd-file_contexts",
     // Test APEX, should never be installed
     installable: false,
-    enabled: false,
-    soong_config_variables: {
-        module_build_from_source: {
-            enabled: true,
-        },
-    },
 }

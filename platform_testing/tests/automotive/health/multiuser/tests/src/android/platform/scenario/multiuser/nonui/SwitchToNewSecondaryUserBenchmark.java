@@ -17,7 +17,17 @@
 package android.platform.scenario.multiuser;
 
 import android.platform.test.microbenchmark.Microbenchmark;
+import android.platform.test.microbenchmark.Microbenchmark.TightMethodRule;
+import android.platform.test.rule.StopwatchRule;
+import android.platform.test.scenario.SleepAtTestFinishRule;
+import org.junit.Rule;
 import org.junit.runner.RunWith;
 
 @RunWith(Microbenchmark.class)
-public class SwitchToNewSecondaryUserBenchmark extends SwitchToNewSecondaryUser {}
+public class SwitchToNewSecondaryUserBenchmark extends SwitchToNewSecondaryUser {
+    @Rule
+    public SleepAtTestFinishRule sleepRule =
+            new SleepAtTestFinishRule(MultiUserConstants.WAIT_FOR_IDLE_TIME_MS);
+
+    @TightMethodRule public StopwatchRule stopwatchRule = new StopwatchRule();
+}

@@ -60,6 +60,27 @@ public abstract class ApiPresenceCheckerTest<T extends ApiPresenceChecker> {
         return clz;
     }
 
+    protected static void addConstructor(JDiffClassDescription clz, String... paramTypes) {
+        JDiffClassDescription.JDiffConstructor constructor =
+            new JDiffClassDescription.JDiffConstructor(clz.getShortClassName(), Modifier.PUBLIC);
+        if (paramTypes != null) {
+            for (String type : paramTypes) {
+                constructor.addParam(type);
+            }
+        }
+        clz.addConstructor(constructor);
+    }
+
+    protected static void addPublicVoidMethod(JDiffClassDescription clz, String name) {
+        clz.addMethod(method(name, Modifier.PUBLIC, "void"));
+    }
+
+    protected static void addPublicBooleanField(JDiffClassDescription clz, String name) {
+        JDiffClassDescription.JDiffField field = new JDiffClassDescription.JDiffField(
+                name, "boolean", Modifier.PUBLIC, VALUE);
+        clz.addField(field);
+    }
+
     void checkSignatureCompliance(JDiffClassDescription classDescription,
             String... excludedRuntimeClassNames) {
         ResultObserver resultObserver = new NoFailures();

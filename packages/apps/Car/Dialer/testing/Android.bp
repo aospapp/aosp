@@ -10,6 +10,10 @@ android_library {
 
     sdk_version: "system_current",
 
+    min_sdk_version: "29",
+
+    target_sdk_version: "31",
+
     srcs: ["src/**/*.java"],
 
     resource_dirs: ["res"],
@@ -17,6 +21,7 @@ android_library {
     libs: ["android.car-system-stubs"],
 
     static_libs: [
+        "car-ui-lib",
         "androidx.lifecycle_lifecycle-extensions",
         "androidx.test.espresso.core",
         "androidx.test.espresso.contrib",

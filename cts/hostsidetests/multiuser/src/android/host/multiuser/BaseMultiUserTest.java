@@ -136,6 +136,10 @@ public abstract class BaseMultiUserTest extends BaseHostJUnit4Test {
         return -1;
     }
 
+    protected void assumeGuestDoesNotExist() throws Exception {
+        assumeTrue("Device already has a guest user", getGuestUser() == -1);
+    }
+
     protected void assumeIsAutomotive() throws Exception {
         assumeTrue("Device does not have " + FEATURE_AUTOMOTIVE,
                 getDevice().hasFeature(FEATURE_AUTOMOTIVE));

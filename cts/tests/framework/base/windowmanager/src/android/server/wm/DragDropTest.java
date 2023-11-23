@@ -17,6 +17,7 @@
 package android.server.wm;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -318,7 +319,7 @@ public class DragDropTest extends WindowManagerTestBase {
     @Before
     public void setUp() throws InterruptedException {
         assumeFalse(isWatchDevice());
-        mActivity = startActivity(DragDropActivity.class);
+        mActivity = startActivityInWindowingMode(DragDropActivity.class, WINDOWING_MODE_FULLSCREEN);
 
         mStartReceived = new CountDownLatch(1);
         mEndReceived = new CountDownLatch(1);
@@ -714,7 +715,8 @@ public class DragDropTest extends WindowManagerTestBase {
     @Test
     public void testSoftwareCanvas() throws InterruptedException {
         SoftwareCanvasDragDropActivity activity =
-                startActivity(SoftwareCanvasDragDropActivity.class);
+                startActivityInWindowingMode(SoftwareCanvasDragDropActivity.class,
+                        WINDOWING_MODE_FULLSCREEN);
         assertDragCanvasHwAcceleratedState(activity, false);
     }
 

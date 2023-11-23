@@ -17,7 +17,7 @@
 package android.net;
 
 import static com.android.testutils.MiscAsserts.assertThrows;
-import static com.android.testutils.ParcelUtils.assertParcelSane;
+import static com.android.testutils.ParcelUtils.assertParcelingIsLossless;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -101,7 +101,7 @@ public class OemNetworkPreferencesTest {
 
         final OemNetworkPreferences prefs = mBuilder.build();
 
-        assertParcelSane(prefs, 1 /* fieldCount */);
+        assertParcelingIsLossless(prefs);
     }
 
     @Test

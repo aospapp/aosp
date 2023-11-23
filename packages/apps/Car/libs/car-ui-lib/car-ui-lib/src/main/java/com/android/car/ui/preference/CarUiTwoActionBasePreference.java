@@ -16,6 +16,9 @@
 
 package com.android.car.ui.preference;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
@@ -25,13 +28,18 @@ import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StyleableRes;
+import androidx.preference.Preference;
 
 import com.android.car.ui.R;
+
+import java.util.function.Consumer;
 
 /**
  * A base class for several types of preferences, that all have a main click action along
  * with a secondary action.
  */
+@SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(MIN_TARGET_API)
 public abstract class CarUiTwoActionBasePreference extends CarUiPreference {
 
     protected boolean mSecondaryActionEnabled = true;
@@ -67,7 +75,7 @@ public abstract class CarUiTwoActionBasePreference extends CarUiPreference {
                 .obtainStyledAttributes(attrs, R.styleable.CarUiTwoActionBasePreference);
         try {
             disallowResourceIds(a,
-                    R.styleable.CarUiTwoActionBasePreference_layout,
+                    R.styleable.CarUiTwoActionBasePreference_carUiLayout,
                     R.styleable.CarUiTwoActionBasePreference_android_layout,
                     R.styleable.CarUiTwoActionBasePreference_widgetLayout,
                     R.styleable.CarUiTwoActionBasePreference_android_widgetLayout);
@@ -123,8 +131,19 @@ public abstract class CarUiTwoActionBasePreference extends CarUiPreference {
      * Like {@link #onClick()}, but for the secondary action.
      */
     public void performSecondaryActionClick() {
-        if (mSecondaryActionEnabled && mSecondaryActionVisible) {
-            performSecondaryActionClickInternal();
+        if (isSecondaryActionEnabled()) {
+            if (isUxRestricted()) {
+                Consumer<Preference> restrictedListener = getOnClickWhileRestrictedListener();
+                if (restrictedListener != null) {
+                    restrictedListener.accept(this);
+                }
+            } else {
+                performSecondaryActionClickInternal();
+            }
+        } else if (isClickableWhileDisabled()) {
+            if (getDisabledClickListener() != null) {
+                getDisabledClickListener().accept(this);
+            }
         }
     }
 

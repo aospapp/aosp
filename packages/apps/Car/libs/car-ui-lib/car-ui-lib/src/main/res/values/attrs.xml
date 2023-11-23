@@ -20,6 +20,8 @@
         <attr name="carUiBaseLayout" format="boolean"/>
         <!-- When set to true, a CarUi Toolbar will be provided in the window decor -->
         <attr name="carUiToolbar" format="boolean"/>
+        <!-- Indicates that this is a CarUi activity. Used to disable CarUi on phone/tv/wear activities -->
+        <attr name="carUiActivity" format="boolean"/>
     </declare-styleable>
 
     <declare-styleable name="CarUiToolbar">
@@ -31,20 +33,8 @@
         <attr name="searchHint" format="string"/>
         <!-- Whether or not to show the MenuItems while searching. Default false. -->
         <attr name="showMenuItemsWhileSearching" format="boolean"/>
-        <!-- Initial state of the toolbar. See the Toolbar.State enum for more information -->
-        <attr name="car_ui_state" format="enum">
-            <enum name="home" value="0"/>
-            <enum name="subpage" value="1"/>
-            <enum name="search" value="2"/>
-        </attr>
         <!-- Whether or not the toolbar should have a background. Default true. -->
         <attr name="showBackground" format="boolean"/>
-        <!-- Mode of the navigation button See the Toolbar.NavButtonMode enum for more information -->
-        <attr name="car_ui_navButtonMode" format="enum">
-            <enum name="back" value="0"/>
-            <enum name="close" value="1"/>
-            <enum name="down" value="2"/>
-        </attr>
         <!-- XML resource of MenuItems. See Toolbar.setMenuItems(int) for more information. -->
         <attr name="menuItems" format="reference"/>
         <!-- Whether or not to show tabs in the SUBPAGE state. Default false -->
@@ -63,7 +53,7 @@
         <!-- Title -->
         <attr name="title"/>
         <!-- Icon -->
-        <attr name="icon" format="reference"/>
+        <attr name="carUiIcon" format="reference"/>
         <!-- True to tint the icon to a consistent color. Default true, all the other booleans default to false -->
         <attr name="tinted" format="boolean"/>
         <!-- Show both the icon and title at the same time -->
@@ -138,13 +128,17 @@
         <attr name="android:orientation" />
         <!-- car ui recyclerview layout reversed -->
         <attr name="reverseLayout" format="boolean" />
+        <!-- car ui recyclerview layoutmanager -->
+        <attr name="layoutManager" format="string" />
     </declare-styleable>
 
     <declare-styleable name="CarUiPreference">
         <!-- Toggle for showing chevron -->
-        <attr name="showChevron" format="boolean" />
+        <attr name="carUiShowChevron" format="boolean" />
         <!-- Display this preference as ux restricted. -->
         <attr name="car_ui_ux_restricted" format="boolean" />
+        <!-- Allow the preference to be clicked when disabled. -->
+        <attr name="carUiClickableWhileDisabled" format="boolean" />
     </declare-styleable>
 
     <declare-styleable name="CarUiTwoActionPreference">
@@ -156,7 +150,7 @@
 
     <declare-styleable name="CarUiTwoActionBasePreference">
         <!-- All of these are disallowed -->
-        <attr name="layout" format="reference"/>
+        <attr name="carUiLayout" format="reference"/>
         <attr name="android:layout" format="reference"/>
         <attr name="widgetLayout" format="reference"/>
         <attr name="android:widgetLayout" format="reference"/>
@@ -179,9 +173,6 @@
 
     <!-- Theme attribute to specify a default style for all CarUiPreferences -->
     <attr name="carUiPreferenceStyle" format="reference" />
-
-    <!-- Theme attribute to specify a default style for all CarUiRecyclerViews -->
-    <attr name="carUiRecyclerViewStyle" format="reference" />
 
     <attr name="state_ux_restricted" format="boolean" />
 

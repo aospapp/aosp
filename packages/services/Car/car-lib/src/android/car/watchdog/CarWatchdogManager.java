@@ -410,8 +410,8 @@ public final class CarWatchdogManager extends CarManagerBase {
     /**
      * Returns resource overuse stats for a specific user package.
      *
-     * @param packageName Name of the package whose stats should to be returned.
-     * @param userId ID of the user whose stats should be returned.
+     * @param packageName Name of the package whose stats should be returned.
+     * @param userHandle Handle of the user whose stats should be returned.
      * @param resourceOveruseFlag Flag to indicate the types of resource overuse stats to return.
      * @param maxStatsPeriod Maximum period to aggregate the resource overuse stats.
      *
@@ -635,7 +635,10 @@ public final class CarWatchdogManager extends CarManagerBase {
      * exception. This API may be used by CarSettings application or UI notification.
      *
      * @param packageName Name of the package whose setting should to be updated.
-     * @param userHandle  User whose setting should to be updated.
+     *                    Note: All packages under shared UID share the killable state as well. Thus
+     *                    setting the killable state for one package will set the killable state for
+     *                    all other packages that share a UID.
+     * @param userHandle  User whose setting should be updated.
      * @param isKillable  Whether or not the package for the specified user is killable on resource
      *                    overuse.
      *
@@ -657,7 +660,7 @@ public final class CarWatchdogManager extends CarManagerBase {
      *
      * <p>This API may be used by CarSettings application or UI notification.
      *
-     * @param userHandle User whose killable states for all packages should to be returned.
+     * @param userHandle User whose killable states for all packages should be returned.
      *
      * @hide
      */

@@ -19,4 +19,5 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="owner_name" msgid="3416113395996003764">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‏‏‏‏‏‏‏‏‏‏‏‏‏‏‏‏‎‏‎‏‏‏‏‎‏‏‎‏‎‎‎‎‏‏‏‏‎‎‏‎‎‎‎‏‎‎‎‏‏‎‎‏‎‎‎‏‏‎‎‏‎‏‏‏‎‎‎‏‏‎‏‏‎‏‏‎‏‎‎‎Driver‎‏‎‎‏‎"</string>
     <string name="permlab_accessCoarseLocation" msgid="2494909511737161237">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‏‏‏‏‏‏‏‏‏‏‏‏‏‏‏‏‎‏‎‎‎‏‎‏‎‎‏‏‏‏‏‏‎‏‏‎‎‏‎‏‏‏‏‏‎‏‏‎‏‏‏‏‎‎‏‏‏‎‏‎‏‏‎‎‎‏‏‎‏‏‎‎‎‎‏‎‏‎‏‎access approximate location only in the foreground‎‏‎‎‏‎"</string>
+    <string name="sensor_privacy_start_use_dialog_turn_on_button" msgid="2297855099350562159">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‏‏‏‏‏‏‏‏‏‏‏‏‏‏‏‎‏‏‏‏‏‏‏‏‏‎‎‎‏‏‏‎‎‏‏‏‏‏‎‎‎‎‏‎‎‏‏‏‎‎‏‏‏‎‎‎‎‏‏‏‎‎‎‎‏‏‎‏‎‏‎‏‏‎‏‏‏‏‎Turn on microphone‎‏‎‎‏‎"</string>
 </resources>

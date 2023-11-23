@@ -6,14 +6,21 @@
 set -e
 
 cargo2android() {
-  cargo2android.py --run --device --tests --dependencies $@
-  rm -r cargo.out target.tmp
+  # Some crates need special options to cargo2android.py, if there's a config file then use it.
+  if [[ -f "cargo2android.json" ]]; then
+    cargo2android.py --config cargo2android.json
+  else
+    cargo2android.py --run --device --tests $@
+  fi
+  rm -f cargo.out
+  rm -rf target.tmp || /bin/true
 }
 
 # Run in the main crosvm directory.
 cargo2android --no-subdir
 
-for dir in */src
+initial_dir=`pwd`
+for dir in */src common/*/src
 do
   base=`dirname $dir`
   echo "$base"
@@ -36,5 +43,5 @@ do
     cargo2android --global_defaults=crosvm_defaults --add_workspace
   fi
 
-  cd ..
+  cd "$initial_dir"
 done

@@ -26,7 +26,7 @@ import java.lang.Override;
 /**
  * A simple activity that requests permissions and returns the result.
  */
-public class PermissionActivity extends Activity {
+public final class PermissionActivity extends Activity {
     private static final String TAG = "PermissionActivity";
 
     private static final String ACTION_CHECK_HAS_PERMISSION

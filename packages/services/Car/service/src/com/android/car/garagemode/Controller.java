@@ -16,6 +16,8 @@
 
 package com.android.car.garagemode;
 
+import static com.android.car.internal.testing.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.app.job.JobScheduler;
 import android.car.hardware.power.CarPowerManager;
 import android.car.hardware.power.CarPowerManager.CarPowerStateListener;
@@ -28,6 +30,7 @@ import android.os.UserHandle;
 
 import com.android.car.CarLocalServices;
 import com.android.car.CarLog;
+import com.android.car.internal.testing.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.systeminterface.SystemInterface;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.utils.Slogf;
@@ -116,6 +119,7 @@ public class Controller implements CarPowerStateListenerWithCompletion {
     /**
      * Prints Garage Mode's status, including what jobs it is waiting for
      */
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     void dump(PrintWriter writer) {
         mGarageMode.dump(writer);
     }

@@ -382,7 +382,12 @@ Return<void> HidlCameraProvider::getCameraDeviceInterface_V3_x(
 }
 
 Return<void> HidlCameraProvider::notifyDeviceStateChange(
-    hardware::hidl_bitfield<DeviceState> /*newState*/) {
+    hardware::hidl_bitfield<DeviceState> new_state) {
+  google_camera_hal::DeviceState device_state =
+      google_camera_hal::DeviceState::kNormal;
+  ::android::hardware::camera::implementation::hidl_utils::ConvertToHalDeviceState(
+      new_state, device_state);
+  google_camera_provider_->NotifyDeviceStateChange(device_state);
   return Void();
 }
 

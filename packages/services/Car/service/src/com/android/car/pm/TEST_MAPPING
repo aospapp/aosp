@@ -19,6 +19,12 @@
         },
         {
           "include-filter": "com.android.car.pm.VendorServiceInfoTest"
+        },
+        {
+          "include-filter": "com.android.car.pm.CarSafetyAccessibilityServiceTest"
+        },
+        {
+          "include-filter": "com.android.car.pm.WindowDumpParserTest"
         }
       ]
     },

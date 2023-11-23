@@ -30,6 +30,8 @@ import android.os.UserHandle;
 import android.util.ArraySet;
 import android.util.SparseArray;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.settings.common.AsyncLoader;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.profiles.ProfileHelper;
@@ -53,10 +55,16 @@ public class StorageAsyncLoader
     private final ProfileHelper mProfileHelper;
 
     public StorageAsyncLoader(Context context, StorageStatsSource source) {
+        this(context, source, context.getPackageManager(), ProfileHelper.getInstance(context));
+    }
+
+    @VisibleForTesting
+    StorageAsyncLoader(Context context, StorageStatsSource source,
+            PackageManager packageManager, ProfileHelper profileHelper) {
         super(context);
         mStatsManager = source;
-        mPackageManager = context.getPackageManager();
-        mProfileHelper = ProfileHelper.getInstance(context);
+        mPackageManager = packageManager;
+        mProfileHelper = profileHelper;
     }
 
     @Override

@@ -16,6 +16,10 @@
 
 package com.android.bedstead.harrier.annotations.meta;
 
+import static com.android.bedstead.harrier.OptionalBoolean.ANY;
+
+import com.android.bedstead.harrier.OptionalBoolean;
+
 import java.lang.annotation.Target;
 
 /**
@@ -26,4 +30,9 @@ import java.lang.annotation.Target;
 public @interface EnsureHasUser {
     /** Whether the test app should be installed in the user. */
     boolean installTestApp() default true;
+
+    /**
+     * Should we ensure that we are switched to the given user
+     */
+    OptionalBoolean switchedToUser() default ANY;
 }

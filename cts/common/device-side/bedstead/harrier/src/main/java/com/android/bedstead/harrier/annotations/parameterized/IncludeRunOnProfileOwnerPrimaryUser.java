@@ -16,6 +16,9 @@
 
 package com.android.bedstead.harrier.annotations.parameterized;
 
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.LATE;
+
+import com.android.bedstead.harrier.annotations.AnnotationRunPrecedence;
 import com.android.bedstead.harrier.annotations.RequireRunOnPrimaryUser;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoDeviceOwner;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasProfileOwner;
@@ -32,8 +35,20 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @ParameterizedAnnotation
+// Explicitly primary user which excludes headless users as this isn't a valid mode on headless
 @RequireRunOnPrimaryUser
 @EnsureHasNoDeviceOwner
 @EnsureHasProfileOwner(isPrimary = true)
 public @interface IncludeRunOnProfileOwnerPrimaryUser {
+    /**
+     * Weight sets the order that annotations will be resolved.
+     *
+     * <p>Annotations with a lower weight will be resolved before annotations with a higher weight.
+     *
+     * <p>If there is an order requirement between annotations, ensure that the weight of the
+     * annotation which must be resolved first is lower than the one which must be resolved later.
+     *
+     * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
+     */
+    int weight() default LATE;
 }

@@ -155,7 +155,8 @@ public class LayoutTests extends WindowManagerTestBase {
                             }
                         }
                     });
-            activity.addWindow(view, new LayoutParams());
+            // Use a sub window type so the test is robust when remote inset controller is used.
+            activity.addWindow(view, new LayoutParams(TYPE_APPLICATION_PANEL));
         });
 
         // Wait for the possible failure.

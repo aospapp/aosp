@@ -39,8 +39,8 @@
     <string name="cert_not_saved" msgid="4037698479662830270">"प्रमाणपत्र इंस्टॉल केले नाही."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"स्‍थापित करण्‍यासाठी कोणतेही प्रमाणपत्र नाही."</string>
     <string name="invalid_cert" msgid="7704228670980743590">"प्रमाणपत्र अवैध आहे."</string>
-    <string name="action_missing_private_key" msgid="7543470057312920042">"प्रमाणपत्र इंस्टॉल करण्यासाठी खाजगी की ची आवश्यकता आहे"</string>
-    <string name="action_missing_user_cert" msgid="3727411730202316771">"खाजगी की इंस्टॉल करण्यासाठी प्रमाणपत्राची आवश्यकता आहे"</string>
+    <string name="action_missing_private_key" msgid="7543470057312920042">"प्रमाणपत्र इंस्टॉल करण्यासाठी प्रायव्हेट की ची आवश्यकता आहे"</string>
+    <string name="action_missing_user_cert" msgid="3727411730202316771">"प्रायव्हेट की इंस्टॉल करण्यासाठी प्रमाणपत्राची आवश्यकता आहे"</string>
     <string name="select_certificate_usage_title" msgid="8853023485944920851">"प्रमाणपत्राचा प्रकार निवडा"</string>
     <string name="redirect_ca_certificate_title" msgid="3457516863949244510">"सेटिंग्ज मध्ये CA प्रमाणपत्रे इंस्टॉल करा"</string>
     <string name="redirect_ca_certificate_with_app_info_message" msgid="934477720755323579">"<xliff:g id="REQUESTING_APP">%1$s</xliff:g> कडील हे प्रमाणपत्र सेटिंग्ज मध्ये इंस्टॉल केलेले असणे आवश्यक आहे. फक्त तुमचा विश्वास असलेल्या संस्थांकडील CA प्रमाणपत्रे इंस्टॉल करा."</string>

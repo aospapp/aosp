@@ -15,20 +15,66 @@ limitations under the License.-->
 <!-- THIS FILE WAS AUTO GENERATED, DO NOT EDIT MANUALLY. -->
 <resources>
   <overlayable name="car-ui-lib">
-    <policy type="public">
+    <policy type="odm|oem|product|signature|system|vendor">
       <item type="array" name="car_ui_ime_wide_screen_allowed_package_list"/>
       <item type="attr" name="CarUiToolbarStyle"/>
+      <item type="attr" name="actionEnabled"/>
+      <item type="attr" name="actionShown"/>
+      <item type="attr" name="activatable"/>
+      <item type="attr" name="activated"/>
+      <item type="attr" name="barrierAllowsGoneWidgets"/>
       <item type="attr" name="barrierDirection"/>
+      <item type="attr" name="barrierMargin"/>
+      <item type="attr" name="carUiActivity"/>
+      <item type="attr" name="carUiBaseLayout"/>
+      <item type="attr" name="carUiClickableWhileDisabled"/>
+      <item type="attr" name="carUiIcon"/>
+      <item type="attr" name="carUiLayout"/>
       <item type="attr" name="carUiPreferenceStyle"/>
       <item type="attr" name="carUiRecyclerViewStyle"/>
+      <item type="attr" name="carUiShowChevron"/>
+      <item type="attr" name="carUiSize"/>
+      <item type="attr" name="carUiToolbar"/>
+      <item type="attr" name="car_ui_ux_restricted"/>
       <item type="attr" name="chainUseRtl"/>
+      <item type="attr" name="checkable"/>
+      <item type="attr" name="checked"/>
       <item type="attr" name="constraintSet"/>
       <item type="attr" name="constraint_referenced_ids"/>
+      <item type="attr" name="displayBehavior"/>
+      <item type="attr" name="enableDivider"/>
+      <item type="attr" name="flow_firstHorizontalBias"/>
+      <item type="attr" name="flow_firstHorizontalStyle"/>
+      <item type="attr" name="flow_firstVerticalBias"/>
+      <item type="attr" name="flow_firstVerticalStyle"/>
+      <item type="attr" name="flow_horizontalAlign"/>
+      <item type="attr" name="flow_horizontalBias"/>
+      <item type="attr" name="flow_horizontalGap"/>
+      <item type="attr" name="flow_horizontalStyle"/>
+      <item type="attr" name="flow_lastHorizontalBias"/>
+      <item type="attr" name="flow_lastHorizontalStyle"/>
+      <item type="attr" name="flow_lastVerticalBias"/>
+      <item type="attr" name="flow_lastVerticalStyle"/>
+      <item type="attr" name="flow_maxElementsWrap"/>
+      <item type="attr" name="flow_verticalAlign"/>
+      <item type="attr" name="flow_verticalBias"/>
+      <item type="attr" name="flow_verticalGap"/>
+      <item type="attr" name="flow_verticalStyle"/>
+      <item type="attr" name="flow_wrapMode"/>
+      <item type="attr" name="id"/>
+      <item type="attr" name="layoutDescription"/>
+      <item type="attr" name="layoutManager"/>
+      <item type="attr" name="layoutStyle"/>
+      <item type="attr" name="layout_constrainedHeight"/>
+      <item type="attr" name="layout_constrainedWidth"/>
       <item type="attr" name="layout_constraintBaseline_creator"/>
       <item type="attr" name="layout_constraintBaseline_toBaselineOf"/>
       <item type="attr" name="layout_constraintBottom_creator"/>
       <item type="attr" name="layout_constraintBottom_toBottomOf"/>
       <item type="attr" name="layout_constraintBottom_toTopOf"/>
+      <item type="attr" name="layout_constraintCircle"/>
+      <item type="attr" name="layout_constraintCircleAngle"/>
+      <item type="attr" name="layout_constraintCircleRadius"/>
       <item type="attr" name="layout_constraintDimensionRatio"/>
       <item type="attr" name="layout_constraintEnd_toEndOf"/>
       <item type="attr" name="layout_constraintEnd_toStartOf"/>
@@ -50,6 +96,7 @@ limitations under the License.-->
       <item type="attr" name="layout_constraintRight_toRightOf"/>
       <item type="attr" name="layout_constraintStart_toEndOf"/>
       <item type="attr" name="layout_constraintStart_toStartOf"/>
+      <item type="attr" name="layout_constraintTag"/>
       <item type="attr" name="layout_constraintTop_creator"/>
       <item type="attr" name="layout_constraintTop_toBottomOf"/>
       <item type="attr" name="layout_constraintTop_toTopOf"/>
@@ -69,9 +116,29 @@ limitations under the License.-->
       <item type="attr" name="layout_goneMarginStart"/>
       <item type="attr" name="layout_goneMarginTop"/>
       <item type="attr" name="layout_optimizationLevel"/>
+      <item type="attr" name="logo"/>
+      <item type="attr" name="menuItems"/>
+      <item type="attr" name="numOfColumns"/>
+      <item type="attr" name="onClick"/>
       <item type="attr" name="preferenceStyle"/>
+      <item type="attr" name="reverseLayout"/>
+      <item type="attr" name="rotaryScrollEnabled"/>
+      <item type="attr" name="search"/>
+      <item type="attr" name="searchHint"/>
+      <item type="attr" name="secondaryActionIcon"/>
+      <item type="attr" name="secondaryActionStyle"/>
+      <item type="attr" name="secondaryActionText"/>
+      <item type="attr" name="settings"/>
+      <item type="attr" name="showBackground"/>
+      <item type="attr" name="showIconAndTitle"/>
+      <item type="attr" name="showMenuItemsWhileSearching"/>
+      <item type="attr" name="showTabsInSubpage"/>
       <item type="attr" name="state_ux_restricted"/>
+      <item type="attr" name="tinted"/>
       <item type="attr" name="title"/>
+      <item type="attr" name="uxRestrictions"/>
+      <item type="attr" name="visible"/>
+      <item type="attr" name="widgetLayout"/>
       <item type="bool" name="car_ui_alert_dialog_force_dismiss_button"/>
       <item type="bool" name="car_ui_escrow_check_components_automatically"/>
       <item type="bool" name="car_ui_ime_wide_screen_aligned_left"/>
@@ -166,6 +233,10 @@ limitations under the License.-->
       <item type="dimen" name="car_ui_list_item_action_divider_width"/>
       <item type="dimen" name="car_ui_list_item_avatar_icon_height"/>
       <item type="dimen" name="car_ui_list_item_avatar_icon_width"/>
+      <item type="dimen" name="car_ui_list_item_check_box_end_inset"/>
+      <item type="dimen" name="car_ui_list_item_check_box_height"/>
+      <item type="dimen" name="car_ui_list_item_check_box_icon_container_width"/>
+      <item type="dimen" name="car_ui_list_item_check_box_start_inset"/>
       <item type="dimen" name="car_ui_list_item_content_icon_height"/>
       <item type="dimen" name="car_ui_list_item_content_icon_width"/>
       <item type="dimen" name="car_ui_list_item_end_inset"/>
@@ -174,6 +245,10 @@ limitations under the License.-->
       <item type="dimen" name="car_ui_list_item_height"/>
       <item type="dimen" name="car_ui_list_item_icon_container_width"/>
       <item type="dimen" name="car_ui_list_item_icon_size"/>
+      <item type="dimen" name="car_ui_list_item_radio_button_end_inset"/>
+      <item type="dimen" name="car_ui_list_item_radio_button_height"/>
+      <item type="dimen" name="car_ui_list_item_radio_button_icon_container_width"/>
+      <item type="dimen" name="car_ui_list_item_radio_button_start_inset"/>
       <item type="dimen" name="car_ui_list_item_start_inset"/>
       <item type="dimen" name="car_ui_list_item_supplemental_icon_size"/>
       <item type="dimen" name="car_ui_list_item_text_no_icon_start_margin"/>
@@ -329,10 +404,12 @@ limitations under the License.-->
       <item type="id" name="car_ui_list_item_start_guideline"/>
       <item type="id" name="car_ui_list_item_supplemental_icon"/>
       <item type="id" name="car_ui_list_item_switch_widget"/>
+      <item type="id" name="car_ui_list_item_text_container"/>
       <item type="id" name="car_ui_list_item_title"/>
       <item type="id" name="car_ui_list_item_touch_interceptor"/>
       <item type="id" name="car_ui_list_limiting_message"/>
       <item type="id" name="car_ui_preference_container_without_widget"/>
+      <item type="id" name="car_ui_preference_fragment_container"/>
       <item type="id" name="car_ui_recycler_view"/>
       <item type="id" name="car_ui_scroll_bar"/>
       <item type="id" name="car_ui_scrollbar_page_down"/>
@@ -342,6 +419,7 @@ limitations under the License.-->
       <item type="id" name="car_ui_second_action_container"/>
       <item type="id" name="car_ui_secondary_action"/>
       <item type="id" name="car_ui_secondary_action_concrete"/>
+      <item type="id" name="car_ui_toolbar"/>
       <item type="id" name="car_ui_toolbar_background"/>
       <item type="id" name="car_ui_toolbar_bottom_guideline"/>
       <item type="id" name="car_ui_toolbar_bottom_styleable"/>
@@ -395,6 +473,7 @@ limitations under the License.-->
       <item type="id" name="spinner"/>
       <item type="id" name="textbox"/>
       <item type="id" name="title_template"/>
+      <item type="id" name="toolbar"/>
       <item type="integer" name="car_ui_default_max_string_length"/>
       <item type="integer" name="car_ui_scrollbar_longpress_initial_delay"/>
       <item type="integer" name="car_ui_scrollbar_longpress_repeat_interval"/>
@@ -403,18 +482,21 @@ limitations under the License.-->
       <item type="layout" name="car_ui_alert_dialog_title_with_subtitle"/>
       <item type="layout" name="car_ui_base_layout"/>
       <item type="layout" name="car_ui_base_layout_toolbar"/>
+      <item type="layout" name="car_ui_base_layout_toolbar_legacy"/>
       <item type="layout" name="car_ui_header_list_item"/>
       <item type="layout" name="car_ui_ims_wide_screen_input_view"/>
       <item type="layout" name="car_ui_list_item"/>
       <item type="layout" name="car_ui_list_item_compact"/>
       <item type="layout" name="car_ui_list_limiting_message"/>
       <item type="layout" name="car_ui_list_preference"/>
+      <item type="layout" name="car_ui_list_preference_with_toolbar"/>
       <item type="layout" name="car_ui_preference"/>
       <item type="layout" name="car_ui_preference_category"/>
       <item type="layout" name="car_ui_preference_chevron"/>
       <item type="layout" name="car_ui_preference_dialog_edittext"/>
       <item type="layout" name="car_ui_preference_dropdown"/>
       <item type="layout" name="car_ui_preference_fragment"/>
+      <item type="layout" name="car_ui_preference_fragment_with_toolbar"/>
       <item type="layout" name="car_ui_preference_two_action_icon"/>
       <item type="layout" name="car_ui_preference_two_action_switch"/>
       <item type="layout" name="car_ui_preference_two_action_text"/>
@@ -444,6 +526,7 @@ limitations under the License.-->
       <item type="string" name="car_ui_ellipsis"/>
       <item type="string" name="car_ui_ime_wide_screen_system_property_name"/>
       <item type="string" name="car_ui_installer_process_name"/>
+      <item type="string" name="car_ui_plugin_package_provider_authority_name"/>
       <item type="string" name="car_ui_preference_switch_off"/>
       <item type="string" name="car_ui_preference_switch_on"/>
       <item type="string" name="car_ui_restricted_while_driving"/>
@@ -451,13 +534,13 @@ limitations under the License.-->
       <item type="string" name="car_ui_scrollbar_page_down_button"/>
       <item type="string" name="car_ui_scrollbar_page_up_button"/>
       <item type="string" name="car_ui_scrolling_limited_message"/>
-      <item type="string" name="car_ui_shared_library_package_system_property_name"/>
       <item type="string" name="car_ui_toolbar_default_search_hint"/>
       <item type="string" name="car_ui_toolbar_menu_item_overflow_title"/>
       <item type="string" name="car_ui_toolbar_menu_item_search_title"/>
       <item type="string" name="car_ui_toolbar_menu_item_settings_title"/>
       <item type="string" name="car_ui_toolbar_nav_icon_content_description"/>
       <item type="style" name="CarUiPreferenceTheme"/>
+      <item type="style" name="CarUiPreferenceTheme.WithToolbar"/>
       <item type="style" name="Preference.CarUi"/>
       <item type="style" name="Preference.CarUi.Category"/>
       <item type="style" name="Preference.CarUi.CheckBoxPreference"/>
@@ -477,6 +560,7 @@ limitations under the License.-->
       <item type="style" name="Preference.CarUi.SeekBarPreference"/>
       <item type="style" name="Preference.CarUi.SwitchPreference"/>
       <item type="style" name="PreferenceFragment.CarUi"/>
+      <item type="style" name="PreferenceFragment.CarUi.WithToolbar"/>
       <item type="style" name="PreferenceFragmentList.CarUi"/>
       <item type="style" name="TextAppearance.CarUi"/>
       <item type="style" name="TextAppearance.CarUi.AlertDialog.Subtitle"/>

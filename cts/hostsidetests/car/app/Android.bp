@@ -32,3 +32,22 @@ android_test_helper_app {
 
     libs: ["android.car"],
 }
+
+android_test_helper_app {
+    name: "CtsCarWatchdogSharedApp",
+    defaults: ["cts_defaults"],
+    srcs: ["src/**/*.java"],
+    sdk_version: "test_current",
+
+    manifest: "AndroidManifestWithSharedUserId.xml",
+
+    enforce_uses_libs: false,
+    static_libs: [
+        "android.frameworks.automotive.powerpolicy-V1-java",
+        "android.hardware.automotive.vehicle-V2.0-java",
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+    ],
+
+    libs: ["android.car"],
+}

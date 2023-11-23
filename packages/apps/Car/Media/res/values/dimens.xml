@@ -97,7 +97,7 @@
     <!-- BrowseFragment.java -->
     <!-- Spacer used between the app bar and the top of the browse list/grid -->
     <dimen name="browse_spacer_height">@dimen/car_ui_padding_2</dimen>
-    <dimen name="grid_item_spacing">@dimen/car_ui_padding_3</dimen>
+    <dimen name="grid_item_spacing">@dimen/car_ui_padding_1</dimen>
 
     <!--  Space between title and subtitle on media browse list/grid  -->
     <dimen name="media_browse_subtitle_margin_top">@dimen/car_ui_padding_0</dimen>

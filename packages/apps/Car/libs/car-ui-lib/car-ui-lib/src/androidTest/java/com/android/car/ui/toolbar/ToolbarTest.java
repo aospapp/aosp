@@ -23,6 +23,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.matchers.ViewMatchers.doesNotExistOrIsNotDisplayed;
 import static com.android.car.ui.matchers.ViewMatchers.withDrawable;
 
@@ -31,6 +32,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.TestCase.assertEquals;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 
 import androidx.core.content.ContextCompat;
@@ -39,7 +41,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.core.CarUi;
-import com.android.car.ui.sharedlibrarysupport.SharedLibraryFactorySingleton;
+import com.android.car.ui.pluginsupport.PluginFactorySingleton;
 import com.android.car.ui.test.R;
 
 import org.junit.Rule;
@@ -53,20 +55,21 @@ import java.util.function.Consumer;
 /** Unit test for {@link ToolbarController}. */
 @SuppressWarnings("AndroidJdkLibsChecker")
 @RunWith(Parameterized.class)
+@TargetApi(MIN_TARGET_API)
 public class ToolbarTest {
 
     @Parameterized.Parameters
     public static Object[] data() {
-        // It's important to do no shared library first, so that the shared library will
+        // It's important to do no plugin first, so that the plugin will
         // still be enabled when this test finishes
         return new Object[] { false, true };
     }
 
-    private final boolean mSharedLibEnabled;
+    private final boolean mPluginEnabled;
 
-    public ToolbarTest(boolean sharedLibEnabled) {
-        mSharedLibEnabled = sharedLibEnabled;
-        SharedLibraryFactorySingleton.setSharedLibEnabled(sharedLibEnabled);
+    public ToolbarTest(boolean pluginEnabled) {
+        mPluginEnabled = pluginEnabled;
+        PluginFactorySingleton.setPluginEnabledForTesting(pluginEnabled);
     }
 
     @Rule
@@ -89,13 +92,13 @@ public class ToolbarTest {
     }
 
     /**
-     * This is somewhat of a bug, but various tests in other apps rely on this functionality.
+     * Various tests in other apps rely on this functionality.
      */
     @Test
     public void test_setTitle_null_returns_nonNull() {
         CharSequence[] getTitleResult = new CharSequence[] {"Something obviously incorrect"};
         runWithToolbar((toolbar) -> {
-            toolbar.setTitle(null);
+            toolbar.setTitle((CharSequence) null);
             getTitleResult[0] = toolbar.getTitle();
         });
 
@@ -103,13 +106,13 @@ public class ToolbarTest {
     }
 
     /**
-     * This is somewhat of a bug, but various tests in other apps rely on this functionality.
+     * Various tests in other apps rely on this functionality.
      */
     @Test
     public void test_setSubtitle_null_returns_nonNull() {
         CharSequence[] getTitleResult = new CharSequence[] {"Something obviously incorrect"};
         runWithToolbar((toolbar) -> {
-            toolbar.setSubtitle(null);
+            toolbar.setSubtitle((CharSequence) null);
             getTitleResult[0] = toolbar.getSubtitle();
         });
 
@@ -135,14 +138,14 @@ public class ToolbarTest {
             toolbar.setSearchHint("Foo2");
             toolbar.setShowMenuItemsWhileSearching(true);
             toolbar.setState(Toolbar.State.SUBPAGE);
-            toolbar.setNavButtonMode(Toolbar.NavButtonMode.CLOSE);
+            toolbar.setNavButtonMode(NavButtonMode.CLOSE);
 
             assertThat(toolbar.getTitle().toString()).isEqualTo("Foo");
             assertThat(toolbar.getSearchHint().toString()).isEqualTo("Foo2");
             assertThat(toolbar.getShowMenuItemsWhileSearching()).isEqualTo(true);
             assertThat(toolbar.getState()).isEquivalentAccordingToCompareTo(Toolbar.State.SUBPAGE);
             assertThat(toolbar.getNavButtonMode()).isEquivalentAccordingToCompareTo(
-                    Toolbar.NavButtonMode.CLOSE);
+                    NavButtonMode.CLOSE);
         });
     }
 
@@ -237,9 +240,9 @@ public class ToolbarTest {
             backgroundShown[0] = toolbar.getBackgroundShown();
         });
 
-        if (mSharedLibEnabled) {
-            // Shared lib doesn't support hiding the background
-            // Temporarily disabled while we're not using the shared lib
+        if (mPluginEnabled) {
+            // The plugin doesn't support hiding the background
+            // Temporarily disabled while we're not using the plugin
             // assertThat(backgroundShown[0]).isTrue();
         } else {
             assertThat(backgroundShown[0]).isFalse();

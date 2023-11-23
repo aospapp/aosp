@@ -16,6 +16,7 @@
 
 package com.android.car.settings.bluetooth;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 
@@ -35,6 +36,14 @@ public class BluetoothPairingSelectionFragment extends SettingsFragment {
 
     @VisibleForTesting
     final BluetoothCallback mCallback = new BluetoothCallback() {
+        @Override
+        public void onBluetoothStateChanged(int bluetoothState) {
+            // If bluetooth is turned off, go back since pairing is no longer possible
+            if (bluetoothState == BluetoothAdapter.STATE_OFF) {
+                goBack();
+            }
+        }
+
         @Override
         public void onScanningStateChanged(boolean started) {
         }

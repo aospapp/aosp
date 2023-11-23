@@ -59,29 +59,29 @@ class PermissionTapjackingTest : BaseUsePermissionTest() {
     fun testTapjackGrantDialog_partialOverlay() {
         // PermissionController for television uses a floating window.
         assumeFalse(isTv)
-        // Automotive doesn't support detecting partial overlays yet: b/192088266
-        assumeFalse(isAutomotive)
 
         assertAppHasPermission(ACCESS_FINE_LOCATION, false)
         requestAppPermissionsForNoResult(ACCESS_FINE_LOCATION) {}
 
-        val buttonCenter = waitFindObject(By.text(
+        val foregroundButtonCenter = waitFindObject(By.text(
                 getPermissionControllerString(ALLOW_FOREGROUND_BUTTON_TEXT))).visibleCenter
-        val dialogBounds = waitFindObject(By.res(
-                "com.android.permissioncontroller", "grant_dialog")).visibleBounds
-        val messageBottom = waitFindObject(By.res(
-                "com.android.permissioncontroller", "permission_message")).visibleBounds.bottom
+        val oneTimeButton = waitFindObjectOrNull(By.text(
+                getPermissionControllerString(ALLOW_ONE_TIME_BUTTON_TEXT)))
+        // If one-time button is not available, fallback to deny button
+        val overlayButtonBounds = oneTimeButton?.visibleBounds
+                ?: waitFindObject(By.text(getPermissionControllerString(
+                        DENY_BUTTON_TEXT))).visibleBounds
 
         // Wait for overlay to hide the dialog
         context.sendBroadcast(Intent(ACTION_SHOW_OVERLAY)
                 .putExtra(EXTRA_FULL_OVERLAY, false)
-                .putExtra(DIALOG_LEFT, dialogBounds.left)
-                .putExtra(DIALOG_TOP, dialogBounds.top)
-                .putExtra(DIALOG_RIGHT, dialogBounds.right)
-                .putExtra(MESSAGE_BOTTOM, messageBottom))
+                .putExtra(DIALOG_LEFT, overlayButtonBounds.left)
+                .putExtra(DIALOG_TOP, overlayButtonBounds.top)
+                .putExtra(DIALOG_RIGHT, overlayButtonBounds.right)
+                .putExtra(MESSAGE_BOTTOM, overlayButtonBounds.bottom))
         waitFindObject(By.res("android.permission3.cts.usepermission:id/overlay"))
 
-        tryClicking(buttonCenter)
+        tryClicking(foregroundButtonCenter)
     }
 
     private fun tryClicking(buttonCenter: Point) {

@@ -48,6 +48,10 @@ public final class IoOveruseConfiguration implements Parcelable {
     /**
      * Package specific thresholds only for system and vendor packages.
      *
+     * NOTE: For packages that share a UID, the package name should be the shared package name
+     * because the I/O usage is aggregated for all packages under the shared UID. The shared
+     * package names should have the prefix 'shared:'.
+     *
      * <p>System component must provide package specific thresholds only for system packages.
      * <p>Vendor component must provide package specific thresholds only for vendor packages.
      */

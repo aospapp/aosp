@@ -1,0 +1,14 @@
+android_library {
+    name: "SensorPrivacyTestAppUtils",
+
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt"
+    ],
+
+    static_libs: [
+        "androidx.annotation_annotation",
+    ],
+
+    sdk_version: "test_current",
+}

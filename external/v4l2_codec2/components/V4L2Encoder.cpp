@@ -17,6 +17,7 @@
 #include <log/log.h>
 #include <ui/Rect.h>
 
+#include <v4l2_codec2/common/EncodeHelpers.h>
 #include <v4l2_codec2/common/Fourcc.h>
 #include <v4l2_codec2/common/V4L2Device.h>
 #include <v4l2_codec2/components/BitstreamBuffer.h>
@@ -54,6 +55,7 @@ size_t GetMaxOutputBufferSize(const ui::Size& size) {
 std::unique_ptr<VideoEncoder> V4L2Encoder::create(
         C2Config::profile_t outputProfile, std::optional<uint8_t> level,
         const ui::Size& visibleSize, uint32_t stride, uint32_t keyFramePeriod,
+        C2Config::bitrate_mode_t bitrateMode, uint32_t bitrate, std::optional<uint32_t> peakBitrate,
         FetchOutputBufferCB fetchOutputBufferCb, InputBufferDoneCB inputBufferDoneCb,
         OutputBufferDoneCB outputBufferDoneCb, DrainDoneCB drainDoneCb, ErrorCB errorCb,
         scoped_refptr<::base::SequencedTaskRunner> taskRunner) {
@@ -62,7 +64,8 @@ std::unique_ptr<VideoEncoder> V4L2Encoder::create(
     std::unique_ptr<V4L2Encoder> encoder = ::base::WrapUnique<V4L2Encoder>(new V4L2Encoder(
             std::move(taskRunner), std::move(fetchOutputBufferCb), std::move(inputBufferDoneCb),
             std::move(outputBufferDoneCb), std::move(drainDoneCb), std::move(errorCb)));
-    if (!encoder->initialize(outputProfile, level, visibleSize, stride, keyFramePeriod)) {
+    if (!encoder->initialize(outputProfile, level, visibleSize, stride, keyFramePeriod, bitrateMode,
+                             bitrate, peakBitrate)) {
         return nullptr;
     }
     return encoder;
@@ -161,6 +164,19 @@ bool V4L2Encoder::setBitrate(uint32_t bitrate) {
     return true;
 }
 
+bool V4L2Encoder::setPeakBitrate(uint32_t peakBitrate) {
+    ALOGV("%s()", __func__);
+    ALOG_ASSERT(mTaskRunner->RunsTasksInCurrentSequence());
+
+    if (!mDevice->setExtCtrls(V4L2_CTRL_CLASS_MPEG,
+                              {V4L2ExtCtrl(V4L2_CID_MPEG_VIDEO_BITRATE_PEAK, peakBitrate)})) {
+        // TODO(b/190336806): Our stack doesn't support dynamic peak bitrate changes yet, ignore
+        // errors for now.
+        ALOGW("Setting peak bitrate to %u failed", peakBitrate);
+    }
+    return true;
+}
+
 bool V4L2Encoder::setFramerate(uint32_t framerate) {
     ALOGV("%s()", __func__);
     ALOG_ASSERT(mTaskRunner->RunsTasksInCurrentSequence());
@@ -189,8 +205,9 @@ VideoPixelFormat V4L2Encoder::inputFormat() const {
 }
 
 bool V4L2Encoder::initialize(C2Config::profile_t outputProfile, std::optional<uint8_t> level,
-                             const ui::Size& visibleSize, uint32_t stride,
-                             uint32_t keyFramePeriod) {
+                             const ui::Size& visibleSize, uint32_t stride, uint32_t keyFramePeriod,
+                             C2Config::bitrate_mode_t bitrateMode, uint32_t bitrate,
+                             std::optional<uint32_t> peakBitrate) {
     ALOGV("%s()", __func__);
     ALOG_ASSERT(mTaskRunner->RunsTasksInCurrentSequence());
     ALOG_ASSERT(keyFramePeriod > 0);
@@ -237,6 +254,12 @@ bool V4L2Encoder::initialize(C2Config::profile_t outputProfile, std::optional<ui
         ALOGE("Failed to get V4L2 device queues");
         return false;
     }
+
+    // Configure the requested bitrate mode and bitrate on the device.
+    if (!configureBitrateMode(bitrateMode) || !setBitrate(bitrate)) return false;
+
+    // If the bitrate mode is VBR we also need to configure the peak bitrate on the device.
+    if ((bitrateMode == C2Config::BITRATE_VARIABLE) && !setPeakBitrate(*peakBitrate)) return false;
 
     // First try to configure the specified output format, as changing the output format can affect
     // the configured input format.
@@ -582,7 +605,7 @@ bool V4L2Encoder::configureDevice(C2Config::profile_t outputProfile,
                                                 V4L2ExtCtrl(V4L2_CID_MPEG_VIDEO_GOP_SIZE, 0)});
 
     // All controls below are H.264-specific, so we can return here if the profile is not H.264.
-    if (outputProfile >= C2Config::PROFILE_AVC_BASELINE ||
+    if (outputProfile >= C2Config::PROFILE_AVC_BASELINE &&
         outputProfile <= C2Config::PROFILE_AVC_ENHANCED_MULTIVIEW_DEPTH_HIGH) {
         return configureH264(outputProfile, outputH264Level);
     }
@@ -594,17 +617,18 @@ bool V4L2Encoder::configureH264(C2Config::profile_t outputProfile,
                                 std::optional<const uint8_t> outputH264Level) {
     // When encoding H.264 we want to prepend SPS and PPS to each IDR for resilience. Some
     // devices support this through the V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR control.
-    // TODO(b/161495502): V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR is currently not supported
-    // yet, just log a warning if the operation was unsuccessful for now.
+    // Otherwise we have to cache the latest SPS and PPS and inject these manually.
     if (mDevice->isCtrlExposed(V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR)) {
         if (!mDevice->setExtCtrls(V4L2_CTRL_CLASS_MPEG,
                                   {V4L2ExtCtrl(V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR, 1)})) {
             ALOGE("Failed to configure device to prepend SPS and PPS to each IDR");
             return false;
         }
+        mInjectParamsBeforeIDR = false;
         ALOGV("Device supports prepending SPS and PPS to each IDR");
     } else {
-        ALOGW("Device doesn't support prepending SPS and PPS to IDR");
+        mInjectParamsBeforeIDR = true;
+        ALOGV("Device doesn't support prepending SPS and PPS to IDR, injecting manually.");
     }
 
     std::vector<V4L2ExtCtrl> h264Ctrls;
@@ -634,6 +658,21 @@ bool V4L2Encoder::configureH264(C2Config::profile_t outputProfile,
     // Ignore return value as these controls are optional.
     mDevice->setExtCtrls(V4L2_CTRL_CLASS_MPEG, std::move(h264Ctrls));
 
+    return true;
+}
+
+bool V4L2Encoder::configureBitrateMode(C2Config::bitrate_mode_t bitrateMode) {
+    ALOGV("%s()", __func__);
+    ALOG_ASSERT(mTaskRunner->RunsTasksInCurrentSequence());
+
+    v4l2_mpeg_video_bitrate_mode v4l2BitrateMode =
+            V4L2Device::C2BitrateModeToV4L2BitrateMode(bitrateMode);
+    if (!mDevice->setExtCtrls(V4L2_CTRL_CLASS_MPEG,
+                              {V4L2ExtCtrl(V4L2_CID_MPEG_VIDEO_BITRATE_MODE, v4l2BitrateMode)})) {
+        // TODO(b/190336806): Our stack doesn't support bitrate mode changes yet. We default to CBR
+        // which is currently the only supported mode so we can safely ignore this for now.
+        ALOGW("Setting bitrate mode to %u failed", v4l2BitrateMode);
+    }
     return true;
 }
 
@@ -780,7 +819,7 @@ bool V4L2Encoder::enqueueOutputBuffer() {
     size_t bufferId = buffer->bufferId();
 
     std::vector<int> fds;
-    fds.push_back(bitstreamBuffer->dmabuf_fd);
+    fds.push_back(bitstreamBuffer->dmabuf->handle()->data[0]);
     if (!std::move(*buffer).queueDMABuf(fds)) {
         ALOGE("Failed to queue output buffer using QueueDMABuf");
         onError();
@@ -875,11 +914,51 @@ bool V4L2Encoder::dequeueOutputBuffer() {
         return false;
     }
 
-    std::unique_ptr<BitstreamBuffer> bitstream_buffer =
+    std::unique_ptr<BitstreamBuffer> bitstreamBuffer =
             std::move(mOutputBuffers[buffer->bufferId()]);
     if (encodedDataSize > 0) {
-        mOutputBufferDoneCb.Run(encodedDataSize, timestamp.InMicroseconds(), buffer->isKeyframe(),
-                                std::move(bitstream_buffer));
+        if (!mInjectParamsBeforeIDR) {
+            // No need to inject SPS or PPS before IDR frames, we can just return the buffer as-is.
+            mOutputBufferDoneCb.Run(encodedDataSize, timestamp.InMicroseconds(),
+                                    buffer->isKeyframe(), std::move(bitstreamBuffer));
+        } else if (!buffer->isKeyframe()) {
+            // We need to inject SPS and PPS before IDR frames, but this frame is not a key frame.
+            // We can return the buffer as-is, but need to update our SPS and PPS cache if required.
+            C2ConstLinearBlock constBlock = bitstreamBuffer->dmabuf->share(
+                    bitstreamBuffer->dmabuf->offset(), encodedDataSize, C2Fence());
+            C2ReadView readView = constBlock.map().get();
+            extractSPSPPS(readView.data(), encodedDataSize, &mCachedSPS, &mCachedPPS);
+            mOutputBufferDoneCb.Run(encodedDataSize, timestamp.InMicroseconds(),
+                                    buffer->isKeyframe(), std::move(bitstreamBuffer));
+        } else {
+            // We need to inject our cached SPS and PPS NAL units to the IDR frame. It's possible
+            // this frame already has SPS and PPS NAL units attached, in which case we only need to
+            // update our cached SPS and PPS.
+            C2ConstLinearBlock constBlock = bitstreamBuffer->dmabuf->share(
+                    bitstreamBuffer->dmabuf->offset(), encodedDataSize, C2Fence());
+            C2ReadView readView = constBlock.map().get();
+
+            // Allocate a new buffer to copy the data with prepended SPS and PPS into.
+            std::unique_ptr<BitstreamBuffer> prependedBitstreamBuffer;
+            mFetchOutputBufferCb.Run(mOutputBufferSize, &prependedBitstreamBuffer);
+            if (!prependedBitstreamBuffer) {
+                ALOGE("Failed to fetch output block");
+                onError();
+                return false;
+            }
+            C2WriteView writeView = prependedBitstreamBuffer->dmabuf->map().get();
+
+            // If there is not enough space in the output buffer just return the original buffer.
+            size_t newSize = prependSPSPPSToIDR(readView.data(), encodedDataSize, writeView.data(),
+                                                writeView.size(), &mCachedSPS, &mCachedPPS);
+            if (newSize > 0) {
+                mOutputBufferDoneCb.Run(newSize, timestamp.InMicroseconds(), buffer->isKeyframe(),
+                                        std::move(prependedBitstreamBuffer));
+            } else {
+                mOutputBufferDoneCb.Run(encodedDataSize, timestamp.InMicroseconds(),
+                                        buffer->isKeyframe(), std::move(bitstreamBuffer));
+            }
+        }
     }
 
     // If the buffer is marked as last and we were flushing the encoder, flushing is now done.

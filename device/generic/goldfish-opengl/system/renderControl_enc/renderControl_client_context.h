@@ -75,6 +75,9 @@ struct renderControl_client_context_t {
 	rcCreateDisplayById_client_proc_t rcCreateDisplayById;
 	rcSetDisplayPoseDpi_client_proc_t rcSetDisplayPoseDpi;
 	rcReadColorBufferDMA_client_proc_t rcReadColorBufferDMA;
+	rcGetFBDisplayConfigsCount_client_proc_t rcGetFBDisplayConfigsCount;
+	rcGetFBDisplayConfigsParam_client_proc_t rcGetFBDisplayConfigsParam;
+	rcGetFBDisplayActiveConfig_client_proc_t rcGetFBDisplayActiveConfig;
 	virtual ~renderControl_client_context_t() {}
 
 	typedef renderControl_client_context_t *CONTEXT_ACCESSOR_TYPE(void);

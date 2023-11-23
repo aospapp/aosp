@@ -557,6 +557,9 @@ public class ImsMmTelManagerTest {
             assertNotNull(resultQueue.poll(ImsUtils.TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS));
         } catch (SecurityException e) {
             fail("isSupported requires READ_PRIVILEGED_PHONE_STATE permission.");
+        } catch (ImsException ignore) {
+            // We are only testing method permissions here, so the actual ImsException does not
+            // matter, since it shows that the permission check passed.
         }
         try {
             LinkedBlockingQueue<Integer> resultQueue = new LinkedBlockingQueue<>(1);

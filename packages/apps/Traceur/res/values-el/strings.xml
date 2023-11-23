@@ -4,6 +4,7 @@
     <string name="system_tracing" msgid="4719188511746319848">"Ανίχνευση συστήματος"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"Καταγράψτε τη δραστηριότητα του συστήματος και αναλύστε την αργότερα για να βελτιώσετε την απόδοση"</string>
     <string name="record_trace" msgid="6416875085186661845">"Εγγραφή ίχνους"</string>
+    <string name="start_new_trace" msgid="8177130420802170353">"Έναρξη νέου ίχνους"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Ανίχνευση εφαρμογών με δυνατότητα εντοπισμού σφαλμάτων"</string>
     <string name="categories" msgid="2280163673538611008">"Κατηγορίες"</string>
     <string name="restore_default_categories" msgid="5090536794637169521">"Επαναφορά προεπιλεγμένων κατηγοριών"</string>

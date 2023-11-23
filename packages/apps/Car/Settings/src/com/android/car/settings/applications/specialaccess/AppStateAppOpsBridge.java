@@ -60,16 +60,19 @@ public class AppStateAppOpsBridge implements AppEntryListManager.ExtraInfoBridge
      *                     operation.
      */
     public AppStateAppOpsBridge(Context context, int appOpsOpCode, String permission) {
-        this(context, appOpsOpCode, permission, AppGlobals.getPackageManager());
+        this(context, appOpsOpCode, permission, AppGlobals.getPackageManager(),
+                UserManager.get(context).getUserProfiles(),
+                context.getSystemService(AppOpsManager.class));
     }
 
     @VisibleForTesting
     AppStateAppOpsBridge(Context context, int appOpsOpCode, String permission,
-            IPackageManager packageManager) {
+            IPackageManager packageManager, List<UserHandle> profiles,
+            AppOpsManager appOpsManager) {
         mContext = context;
         mIPackageManager = packageManager;
-        mProfiles = UserManager.get(context).getUserProfiles();
-        mAppOpsManager = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
+        mProfiles = profiles;
+        mAppOpsManager = appOpsManager;
         mAppOpsOpCode = appOpsOpCode;
         mPermission = permission;
     }

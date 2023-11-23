@@ -20,7 +20,6 @@
     device policies or APIs.
     -->
     <string-array translatable="false" name="policy_exempt_apps">
-        <item>com.android.car.carlauncher</item>
         <item>com.android.car.cluster.home</item>
         <item>com.android.car.hvac</item>
         <item>com.android.car.media</item>

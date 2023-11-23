@@ -139,8 +139,7 @@ keymaster_error_t EcKeyFactory::GenerateKey(const AuthorizationSet& key_descript
         return KM_ERROR_ATTESTATION_CHALLENGE_MISSING;
     } else {
         *cert_chain = context_.GenerateSelfSignedCertificate(
-            key, key_description,
-            !key_description.Contains(TAG_PURPOSE, KM_PURPOSE_SIGN) /* fake_signature */, &error);
+            key, key_description, !IsCertSigningKey(key_description) /* fake_signature */, &error);
     }
 
     return error;
@@ -185,8 +184,7 @@ keymaster_error_t EcKeyFactory::ImportKey(const AuthorizationSet& key_descriptio
         return KM_ERROR_ATTESTATION_CHALLENGE_MISSING;
     } else {
         *cert_chain = context_.GenerateSelfSignedCertificate(
-            key, key_description,
-            !key_description.Contains(TAG_PURPOSE, KM_PURPOSE_SIGN) /* fake_signature */, &error);
+            key, key_description, !IsCertSigningKey(key_description) /* fake_signature */, &error);
     }
 
     return error;

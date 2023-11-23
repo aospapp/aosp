@@ -46,6 +46,8 @@ include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := CtsSystemApiSignatureTestCases
 
+LOCAL_STATIC_JAVA_LIBRARIES := cts-signature-with-dynamic-config
+
 LOCAL_JAVA_RESOURCE_FILES := $(all_system_api_zip_file)
 
 LOCAL_SIGNATURE_API_FILES := \

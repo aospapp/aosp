@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"Programtoestemmings"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Ongebruikte programme"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Geen ongebruikte programme nie"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"0 ongebruikte programme"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Deaktiveer program"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"As jy hierdie program deaktiveer, sal Android en ander programme dalk nie meer soos bedoel werk nie. Hou in gedagte dat jy nie hierdie program kan uitvee nie, want dit is vooraf op jou toestel geïnstalleer. Deur dit te deaktiveer, skakel jy hierdie program af en versteek jy dit op jou toestel."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Toestemmingbestuurder"</string>

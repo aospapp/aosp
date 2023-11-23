@@ -182,6 +182,21 @@ public class StatsdHelper {
         return config;
     }
 
+    /** Returns accumulated StatsdStats. */
+    public com.android.os.nano.StatsLog.StatsdStatsReport getStatsdStatsReport() {
+        com.android.os.nano.StatsLog.StatsdStatsReport report =
+                new com.android.os.nano.StatsLog.StatsdStatsReport();
+        try {
+            adoptShellIdentity();
+            byte[] serializedReports = getStatsManager().getStatsMetadata();
+            report = com.android.os.nano.StatsLog.StatsdStatsReport.parseFrom(serializedReports);
+            dropShellIdentity();
+        } catch (InvalidProtocolBufferNanoException | StatsUnavailableException se) {
+            Log.e(LOG_TAG, "Retrieving StatsdStats report failed.", se);
+        }
+        return report;
+    }
+
     /** Returns the list of EventMetricData tracked under the config. */
     public List<com.android.os.nano.StatsLog.EventMetricData> getEventMetrics() {
         List<com.android.os.nano.StatsLog.EventMetricData> eventData = new ArrayList<>();
@@ -196,7 +211,7 @@ public class StatsdHelper {
                 dropShellIdentity();
             }
         } catch (InvalidProtocolBufferNanoException | StatsUnavailableException se) {
-            Log.e(LOG_TAG, "Retreiving event metrics failed.", se);
+            Log.e(LOG_TAG, "Retrieving event metrics failed.", se);
             return eventData;
         }
 
@@ -230,7 +245,7 @@ public class StatsdHelper {
                 dropShellIdentity();
             }
         } catch (InvalidProtocolBufferNanoException | StatsUnavailableException se) {
-            Log.e(LOG_TAG, "Retreiving gauge metrics failed.", se);
+            Log.e(LOG_TAG, "Retrieving gauge metrics failed.", se);
             return gaugeData;
         }
 

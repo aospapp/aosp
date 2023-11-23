@@ -31,6 +31,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import static org.junit.Assume.assumeTrue;
 
 import java.util.Map;
 
@@ -187,6 +188,7 @@ public class StorageHostTest extends BaseHostJUnit4Test {
 
     @Test
     public void testFullDisk() throws Exception {
+        assumeTrue(!isWatch());
         // Clear all other cached and external storage data to give ourselves a
         // clean slate to test against
         getDevice().executeShellCommand("pm trim-caches 4096G");
@@ -259,6 +261,14 @@ public class StorageHostTest extends BaseHostJUnit4Test {
             } else {
                 throw new AssertionFailedError("Error when running device tests.");
             }
+        }
+    }
+
+    private boolean isWatch() {
+        try {
+             return getDevice().hasFeature("feature:android.hardware.type.watch");
+        } catch (DeviceNotAvailableException e) {
+            return false;
         }
     }
 }

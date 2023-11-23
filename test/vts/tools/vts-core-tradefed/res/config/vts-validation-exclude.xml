@@ -24,6 +24,7 @@
     <option name="compatibility:exclude-filter" value="CtsResourcesLoaderTests" />
     <option name="compatibility:exclude-filter" value="CtsWindowManagerJetpackTestCases" />
     <option name="compatibility:exclude-filter" value="KernelDynamicPartitionsTest" />
+    <option name="compatibility:exclude-filter" value="VtsHalBluetoothV1_0TargetTest" />
     <option name="compatibility:exclude-filter" value="vts_compatibilityMatrix_validate_test" />
     <option name="compatibility:exclude-filter" value="vts_core_liblp_test" />
     <option name="compatibility:exclude-filter" value="vts_defaultPermissions_validate_test" />
@@ -41,6 +42,8 @@
     <option name="compatibility:exclude-filter" value="vts_permission_validate_test" />
     <option name="compatibility:exclude-filter" value="vts_ltp_test_arm_64" />
     <option name="compatibility:exclude-filter" value="vts_ltp_test" />
+    <option name="compatibility:exclude-filter" value="vts_security_avb_test AvbTest#SystemHashtree" />
+    <option name="compatibility:exclude-filter" value="vts_security_avb_test AvbTest#SystemDescriptor" />
     <option name="compatibility:exclude-filter" value="vts_test_binary_bow_module" />
     <option name="compatibility:exclude-filter" value="vts_treble_platform_version_test" />
     <option name="compatibility:exclude-filter" value="vts_treble_sys_prop_test" />

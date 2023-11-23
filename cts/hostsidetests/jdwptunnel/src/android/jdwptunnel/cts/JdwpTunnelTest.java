@@ -26,6 +26,7 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.util.AbiUtils;
 import com.sun.jdi.Bootstrap;
 import com.sun.jdi.ReferenceType;
 import com.sun.jdi.VirtualMachine;
@@ -41,6 +42,7 @@ import java.io.*;
 import java.net.Socket;
 import java.time.Instant;
 import java.util.Map;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -269,6 +271,11 @@ public class JdwpTunnelTest extends BaseHostJUnit4Test {
         }
     }
 
+    private String getDeviceBaseArch() throws Exception {
+        String abi = mDevice.executeShellCommand("getprop ro.product.cpu.abi").replace("\n", "");
+        return AbiUtils.getBaseArchForAbi(abi);
+    }
+
     /**
      * Tests that we don't get any DDMS messages before the handshake.
      *
@@ -277,6 +284,11 @@ public class JdwpTunnelTest extends BaseHostJUnit4Test {
      */
     @Test
     public void testDdmsWaitsForHandshake() throws DeviceNotAvailableException, Exception {
+        // Skip this test if not running on the device's native abi.
+        String testingArch = AbiUtils.getBaseArchForAbi(getAbi().getName());
+        String deviceArch = getDeviceBaseArch();
+        Assume.assumeTrue(testingArch.equals(deviceArch));
+
         String port =
             startupForwarding(DDMS_TEST_APP_PACKAGE_NAME, DDMS_TEST_APP_ACTIVITY_CLASS_NAME, false);
         Socket sock = new Socket("localhost", Integer.decode(port).intValue());

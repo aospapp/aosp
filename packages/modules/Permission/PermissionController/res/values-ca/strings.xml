@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"Permisos d\'aplicacions"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Aplicacions no utilitzades"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Cap aplicació sense utilitzar"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"0 aplicacions no utilitzades"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Desactiva l\'aplicació"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Si desactives aquesta aplicació, és possible que Android i altres aplicacions deixin de funcionar com esperes. Tingues en compte que no pots suprimir aquesta aplicació perquè estava preinstal·lada al dispositiu. Si la desactives, l\'aplicació s\'amagarà al dispositiu."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Gestor de permisos"</string>
@@ -88,7 +89,7 @@
     <!-- no translation found for background_access_chooser_dialog_choices:1 (9127301153688725448) -->
     <!-- no translation found for background_access_chooser_dialog_choices:2 (4305536986042401191) -->
     <string name="permission_access_always" msgid="1474641821883823446">"Permet sempre"</string>
-    <string name="permission_access_only_foreground" msgid="7801170728159326195">"Permet mentre s\'utilitza l\'aplicació"</string>
+    <string name="permission_access_only_foreground" msgid="7801170728159326195">"Permet només mentre s\'utilitza l\'aplicació"</string>
     <string name="permission_access_never" msgid="4647014230217936900">"No permetis"</string>
     <string name="loading" msgid="4789365003890741082">"S\'està carregant…"</string>
     <string name="all_permissions" msgid="6911125611996872522">"Tots els permisos"</string>

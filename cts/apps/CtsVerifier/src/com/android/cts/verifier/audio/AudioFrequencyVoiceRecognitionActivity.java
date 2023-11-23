@@ -267,7 +267,7 @@ public class AudioFrequencyVoiceRecognitionActivity extends AudioFrequencyActivi
 
         //Init bands for Mic test
         mBandSpecsMic[0] = new AudioBandSpecs(
-                5, 100,          /* frequency start,stop */
+                30, 100,         /* frequency start,stop */
                 20.0, -20.0,     /* start top,bottom value */
                 20.0, -20.0      /* stop top,bottom value */);
 

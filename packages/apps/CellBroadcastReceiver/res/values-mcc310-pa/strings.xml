@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"ਸੁਰੱਖਿਆ ਸੁਚੇਤਨਾ ਸਿਸਟਮ ਵੱਲੋਂ ਲੋੜੀਂਦੀਆਂ ਮਹੀਨਾਵਾਰ ਜਾਂਚਾਂ ਪ੍ਰਾਪਤ ਕਰੋ"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"ਰਾਸ਼ਟਰੀ ਸੁਚੇਤਨਾ"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"ਪਹਿਲੀ ਸੁਚੇਤਨਾ ਦਿਖਾਉਣ ਤੋਂ ਬਾਅਦ ਹਟਣ ਦੀ ਚੋਣ ਸੰਬੰਧੀ ਇੱਕ ਵਿੰਡੋ ਦਿਖਾਓ (ਰਾਸ਼ਟਰੀ ਸੁਚੇਤਨਾ ਤੋਂ ਇਲਾਵਾ)।"</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"ਰਾਸ਼ਟਰੀ ਸੁਚੇਤਨਾਵਾਂ"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"ਰਾਸ਼ਟਰੀ ਚਿਤਾਵਨੀ ਸੰਬੰਧੀ ਸੁਨੇਹੇ। ਇਨ੍ਹਾਂ ਨੂੰ ਬੰਦ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ।"</string>
 </resources>

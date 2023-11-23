@@ -26,7 +26,7 @@
     <string name="cmas_exercise_alert" msgid="5775307523978007483">"ವ್ಯಾಯಾಮ"</string>
     <string name="cmas_required_monthly_test" msgid="638043663020315444">"ಪರೀಕ್ಷೆ ಎಚ್ಚರಿಕೆ"</string>
     <string name="state_local_test_alert" msgid="5347253401221487116">"ಪರೀಕ್ಷೆ ಎಚ್ಚರಿಕೆ"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="5365080705719184919">"ಮುನ್ಸೂಚನೆಯ ಎಚ್ಚರಿಕೆಗಳು"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="5365080705719184919">"ಮುನ್ಸೂಚನೆಯ ಅಲರ್ಟ್‌ಗಳು"</string>
     <string name="enable_public_safety_messages_title" msgid="4702006823902961758">"ಸಾರ್ವಜನಿಕ ಸುರಕ್ಷತೆಯ ಎಚ್ಚರಿಕೆಗಳು"</string>
     <string name="enable_cmas_test_alerts_title" msgid="3586102183699625309">"ಪರೀಕ್ಷೆ ಎಚ್ಚರಿಕೆಗಳು"</string>
 </resources>

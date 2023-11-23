@@ -84,7 +84,7 @@
     <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"Išjungti, kad visuomenės saugumo pranešimai būtų siunčiami tik į jūsų SMS programą"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Valstybinių ir vietinių institucijų bandymai"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Gauti bandomuosius pranešimus iš valstybinių ir vietinių institucijų"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Nepaprastosios padėties įspėjimai"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Kritinės padėties įspėjimai"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Įspėti apie gyvybei grėsmingus įvykius"</string>
     <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Bandomieji įspėjimai"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Gauti operatoriaus testus ir mėnesinius testus iš saugos įspėjimų sistemos"</string>

@@ -28,8 +28,9 @@
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:scaleType="centerCrop"
-        app:layout_constraintStart_toStartOf="parent"
         android:layout_marginBottom="@dimen/media_browse_list_item_thumbnail_margin_bottom"
+        style="@style/MediaIconContainerStyle"
+        app:layout_constraintStart_toStartOf="parent"
         app:aspect_ratio="1"/>
 
     <!-- This guideline is necessary because there are icons preceding the text which typically have

@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Қауіпсіздік жөнінде хабарлау жүйесінен ай сайынғы міндетті сынақ хабарландыруларын алып отыру"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Ел бойынша ескерту"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Алғашқы ескерту (ел бойынша ескертуден бөлек) берілген соң, бас тарту диалогтік терезесі шығады."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Мемлекеттік деңгейдегі ескертулер"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Мемлекеттік деңгейдегі ескерту хабарлары. Оларды өшіруге болмайды."</string>
 </resources>

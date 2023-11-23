@@ -29,6 +29,7 @@ import androidx.test.InstrumentationRegistry;
  */
 public interface Scrollable {
     int DEFAULT_MARGIN = 5;
+    int DEFAULT_DURATION_MS = 1000;
 
     /**
      * Setup expectations: None
@@ -47,6 +48,15 @@ public interface Scrollable {
      */
     public default void scrollUpOnePage(long durationMs) {
         scrollUp(100f, durationMs);
+    }
+
+    /**
+     * Scroll up from the bottom of the scrollable region to top of the scrollable region (i.e. by
+     * one page).
+     */
+    public default boolean scrollUpOnePage() {
+        scrollUpOnePage(DEFAULT_DURATION_MS);
+        return true;
     }
 
     /**
@@ -74,6 +84,15 @@ public interface Scrollable {
      */
     public default void scrollDownOnePage(long durationMs) {
         scrollDown(100f, durationMs);
+    }
+
+    /**
+     * Scroll down from the top of the scrollable region to bottom of the scrollable region (i.e. by
+     * one page).
+     */
+    public default boolean scrollDownOnePage() {
+        scrollDownOnePage(DEFAULT_DURATION_MS);
+        return true;
     }
 
     /**

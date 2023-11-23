@@ -31,11 +31,11 @@ public class MixedDeviceOwnerTestApi25 extends DeviceAndProfileOwnerTestApi25 {
 
         mUserId = mPrimaryUserId;
 
-        installAppAsUser(DEVICE_ADMIN_APK, mUserId);
+        installDeviceOwnerApp(DEVICE_ADMIN_APK);
         if (!setDeviceOwner(
-                DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId,
+                DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mDeviceOwnerUserId,
                 /*expectFailure*/ false)) {
-            removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId);
+            removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mDeviceOwnerUserId);
             getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
             fail("Failed to set device owner");
         }

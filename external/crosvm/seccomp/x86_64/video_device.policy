@@ -18,12 +18,13 @@ getsockname: 1
 getuid: 1
 # ioctl: arg1 == DRM_IOCTL_*
 ioctl: arg1 & 0x6400
+memfd_create: 1
 openat: 1
-sched_yield: 1
 setpriority: 1
 socket: arg0 == AF_UNIX
 stat: 1
 fstat: 1
+fstatfs: 1
 
 # Rules needed for minigbm on AMD devices.
 getrandom: 1
@@ -34,7 +35,6 @@ mprotect: arg2 == PROT_READ|PROT_WRITE || arg2 == PROT_NONE || arg2 == PROT_READ
 readlink: 1
 sched_setaffinity: 1
 sched_setscheduler: arg1 == SCHED_IDLE || arg1 == SCHED_BATCH
-uname: 1
 
 # Required by mesa on AMD GPU
 sysinfo: 1

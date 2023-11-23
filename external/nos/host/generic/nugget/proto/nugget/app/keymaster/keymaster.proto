@@ -138,6 +138,11 @@ service Keymaster {
   rpc VigoReleaseSecret(VigoReleaseSecretRequest)
       returns (VigoReleaseSecretResponse);
 
+  /*
+   * pKVM implementation
+   */
+  rpc GetPerFactoryResetValue(GetPerFactoryResetValueRequest) returns (GetPerFactoryResetValueResponse);
+
   // These are implemented with a enum, so new RPCs must be appended, and
   // deprecated RPCs need placeholders.
 }
@@ -563,4 +568,15 @@ message IdentityFinishAttestKeyResponse {
   bytes certificate_epilogue = 2;
   ChipFusing chip_fusing = 3;
   bool nodelocked_ro = 4;
+}
+
+// pKVM messages
+message GetPerFactoryResetValueRequest {
+  bool bootloader_only = 1;
+  bytes input = 2;
+}
+
+message GetPerFactoryResetValueResponse {
+  ErrorCode error_code = 1;
+  bytes output = 2;
 }

@@ -16,18 +16,39 @@
 
 package com.android.car.ui.recyclerview;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
+import android.view.View.OnLayoutChangeListener;
+import android.view.View.OnTouchListener;
+import android.view.ViewGroup;
+import android.view.ViewParent;
+import android.view.ViewTreeObserver;
 
+import androidx.annotation.IdRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.OrientationHelper;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView.Adapter;
+import androidx.recyclerview.widget.RecyclerView.ItemAnimator;
+import androidx.recyclerview.widget.RecyclerView.ItemDecoration;
+import androidx.recyclerview.widget.RecyclerView.LayoutManager;
+import androidx.recyclerview.widget.RecyclerView.OnChildAttachStateChangeListener;
+import androidx.recyclerview.widget.RecyclerView.OnFlingListener;
+import androidx.recyclerview.widget.RecyclerView.OnScrollListener;
+import androidx.recyclerview.widget.RecyclerView.ViewHolder;
 
-import com.android.car.ui.sharedlibrarysupport.SharedLibraryFactorySingleton;
+import com.android.car.ui.pluginsupport.PluginFactorySingleton;
 
 import java.lang.annotation.Retention;
 
@@ -36,24 +57,16 @@ import java.lang.annotation.Retention;
  * customizable by OEM.
  * <p>
  * This is the base class for CarUiRecyclerView implementation.
+ * <p>
+ * Rendered views will comply with
+ * <a href="https://source.android.com/devices/automotive/hmi/car_ui/appendix_b">customization guardrails</a>
  */
-public abstract class CarUiRecyclerView extends RecyclerView {
-
-    /**
-     * Use this method to create an instance of CarUiRecyclerView at runtime.
-     */
-    public static CarUiRecyclerView create(Context context) {
-        return SharedLibraryFactorySingleton.get(context)
-                .createRecyclerView(context, null);
-    }
-
-    /**
-     * Use this method to create an instance of CarUiRecyclerView at runtime.
-     */
-    public static CarUiRecyclerView create(Context context, AttributeSet attributeSet) {
-        return SharedLibraryFactorySingleton.get(context)
-                .createRecyclerView(context, attributeSet);
-    }
+@TargetApi(MIN_TARGET_API)
+@SuppressLint("Instantiatable")
+public interface CarUiRecyclerView {
+    int SIZE_SMALL = 0;
+    int SIZE_MEDIUM = 1;
+    int SIZE_LARGE = 2;
 
     /**
      * Describes the expected relative size of the {@link CarUiRecyclerView}. The list may be
@@ -61,24 +74,21 @@ public abstract class CarUiRecyclerView extends RecyclerView {
      */
     @Retention(SOURCE)
     @IntDef({SIZE_SMALL, SIZE_MEDIUM, SIZE_LARGE})
-    public @interface Size {}
-    public static final int SIZE_SMALL = 0;
-    public static final int SIZE_MEDIUM = 1;
-    public static final int SIZE_LARGE = 2;
+    @interface Size {}
 
     /**
      * The possible values for setScrollBarPosition. The default value is {@link
      * CarUiRecyclerViewLayout#LINEAR}.
      */
     @IntDef({
-            CarUiRecyclerViewLayout.LINEAR,
-            CarUiRecyclerViewLayout.GRID,
+        CarUiRecyclerViewLayout.LINEAR,
+        CarUiRecyclerViewLayout.GRID,
     })
     @Retention(SOURCE)
-    public @interface CarUiRecyclerViewLayout {
+    @interface CarUiRecyclerViewLayout {
         /**
-         * Arranges items either horizontally in a single row or vertically in a single column. This
-         * is default.
+         * Arranges items either horizontally in a single row or vertically in a single column.
+         * This is the default value.
          */
         int LINEAR = 0;
 
@@ -103,184 +113,388 @@ public abstract class CarUiRecyclerView extends RecyclerView {
      * }
      * }</pre>
      */
-    public interface ItemCap {
-
-        /**
-         * A value to pass to {@link #setMaxItems(int)} that indicates there should be no limit.
-         */
-        int UNLIMITED = -1;
-
+    interface ItemCap {
         /**
          * Sets the maximum number of items available in the adapter. A value less than '0' means
          * the list should not be capped.
          */
         void setMaxItems(int maxItems);
-    }
-
-    public CarUiRecyclerView(Context context) {
-        super(context);
-    }
-
-    public CarUiRecyclerView(Context context, AttributeSet attrs) {
-        super(context, attrs);
-    }
-
-    public CarUiRecyclerView(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
+        /**
+         * A value to pass to {@link #setMaxItems(int)} that indicates there should be no limit.
+         */
+        int UNLIMITED = -1;
     }
 
     /**
-     * Return's the container which contains the scrollbar and this RecyclerView.
+     * The RecyclerView is not currently scrolling.
+     *
+     * @see #getScrollState()
      */
-    public abstract View getContainer();
+    int SCROLL_STATE_IDLE = 0;
 
     /**
-     * Set the {@link LayoutManager} that this RecyclerView will use.
+     * The RecyclerView is currently being dragged by outside input such as user touch input.
      *
-     * <p>In contrast to other adapter-backed views such as {@link android.widget.ListView}
-     * or {@link android.widget.GridView}, RecyclerView allows client code to provide custom layout
-     * arrangements for child views. These arrangements are controlled by the {@link LayoutManager}.
-     * A LayoutManager must be provided for RecyclerView to function.</p>
+     * @see #getScrollState()
+     */
+    int SCROLL_STATE_DRAGGING = 1;
+
+    /**
+     * The RecyclerView is currently animating to a final position while not under
+     * outside control.
      *
-     * <p>Several default strategies are provided for common uses such as lists and grids.</p>
-     *
-     * @param layoutManager LayoutManager to use
-     * @deprecated to be implemented by OEM
+     * @see #getScrollState()
+     */
+    int SCROLL_STATE_SETTLING = 2;
+
+    /**
+     * Equivalent of {@link RecyclerView.OnScrollListener}
+     */
+    interface OnScrollListener {
+        void onScrolled(CarUiRecyclerView recyclerView, int dx, int dy);
+        void onScrollStateChanged(CarUiRecyclerView recyclerView, int newState);
+    }
+
+    /**
+     * Adapters that implement this interface will receive the calls
+     */
+    interface OnAttachListener {
+        void onAttachedToCarUiRecyclerView(@NonNull CarUiRecyclerView carUiRecyclerView);
+        void onDetachedFromCarUiRecyclerView(@NonNull CarUiRecyclerView carUiRecyclerView);
+    }
+
+    /**
+     * Use this method to create an instance of CarUiRecyclerView at runtime.
+     */
+    static CarUiRecyclerView create(Context context) {
+        return PluginFactorySingleton.get(context)
+            .createRecyclerView(context, null);
+    }
+
+    /**
+     * Use this method to create an instance of CarUiRecyclerView at runtime.
+     */
+    static CarUiRecyclerView create(Context context, AttributeSet attributeSet) {
+        return PluginFactorySingleton.get(context)
+            .createRecyclerView(context, attributeSet);
+    }
+
+    /**
+     * see {@link RecyclerView#addItemDecoration(ItemDecoration)}
+     * @deprecated this will fail when there is a oem implementation
      */
     @Deprecated
-    @Override
-    public void setLayoutManager(@Nullable LayoutManager layoutManager) {
-        super.setLayoutManager(layoutManager);
-    }
+    void addItemDecoration(@NonNull ItemDecoration decor);
 
     /**
-     * Return the {@link LayoutManager} currently responsible for
-     * layout policy for this RecyclerView.
-     *
-     * @return The currently bound LayoutManager
-     * @deprecated will return null for OEM implementation.
+     * see {@link RecyclerView#addItemDecoration(ItemDecoration, int)}
+     * @deprecated this will fail when there is a oem implementation
+     */
+    @Deprecated
+    void addItemDecoration(@NonNull ItemDecoration decor, int index);
+
+    /** see {@link RecyclerView#addOnChildAttachStateChangeListener} */
+    void addOnChildAttachStateChangeListener(OnChildAttachStateChangeListener listener);
+
+    /** see {@link View#addOnLayoutChangeListener(OnLayoutChangeListener)} */
+    void addOnLayoutChangeListener(OnLayoutChangeListener listener);
+
+    /** see {@link RecyclerView#addOnScrollListener(RecyclerView.OnScrollListener)} */
+    void addOnScrollListener(OnScrollListener scrollListener);
+
+    /** {@link RecyclerView#clearOnChildAttachStateChangeListeners()} */
+    void clearOnChildAttachStateChangeListeners();
+
+    /** {@link RecyclerView#clearOnScrollListeners()} */
+    void clearOnScrollListeners();
+
+    /** see {@link LinearLayoutManager#findFirstCompletelyVisibleItemPosition()} */
+    int findFirstCompletelyVisibleItemPosition();
+
+    /** see {@link LinearLayoutManager#findFirstVisibleItemPosition()} */
+    int findFirstVisibleItemPosition();
+
+    /** see {@link LinearLayoutManager#findLastCompletelyVisibleItemPosition()} */
+    int findLastCompletelyVisibleItemPosition();
+
+    /** see {@link LinearLayoutManager#findLastVisibleItemPosition()} */
+    int findLastVisibleItemPosition();
+
+    /**
+     * see {@link View#findViewById(int)}
+     * @deprecated this will fail when there is a oem implementation
+     */
+    @Deprecated
+    <T extends View> T findViewById(int id);
+
+    /** see {@link RecyclerView#findViewHolderForAdapterPosition(int)} */
+    ViewHolder findViewHolderForAdapterPosition(int position);
+
+    /** see {@link RecyclerView#findViewHolderForAdapterPosition(int)} */
+    ViewHolder findViewHolderForLayoutPosition(int position);
+
+    /** see {@link ViewGroup#focusableViewAvailable(View)} */
+    void focusableViewAvailable(View v);
+
+    /** see {@link RecyclerView#getAdapter()} */
+    Adapter<?> getAdapter();
+
+    /** see {@link View#getAlpha()} */
+    float getAlpha();
+
+    /**
+     * see {@link ViewGroup#getChildAt(int)}
+     * @deprecated this will fail when there is a oem implementation
      */
     @Deprecated
     @Nullable
-    @Override
-    public LayoutManager getLayoutManager() {
-        return super.getLayoutManager();
-    }
+    View getChildAt(int index);
 
     /**
-     * Add an {@link ItemDecoration} to this RecyclerView. Item decorations can affect both
-     * measurement and drawing of individual item views.
-     *
-     * <p>Item decorations are ordered. Decorations placed earlier in the list will
-     * be run/queried/drawn first for their effects on item views. Padding added to views will be
-     * nested; a padding added by an earlier decoration will mean further item decorations in the
-     * list will be asked to draw/pad within the previous decoration's given area.</p>
-     *
-     * @param decor Decoration to add
-     * @deprecated to be implemented by OEMs
+     * see {@link ViewGroup#getChildCount()}
+     * @deprecated this will fail when there is a oem implementation
      */
     @Deprecated
-    @Override
-    public void addItemDecoration(@NonNull ItemDecoration decor) {
-        super.addItemDecoration(decor);
-    }
+    int getChildCount();
 
     /**
-     * Add an {@link ItemDecoration} to this RecyclerView. Item decorations can affect both
-     * measurement and drawing of individual item views.
-     *
-     * <p>Item decorations are ordered. Decorations placed earlier in the list will
-     * be run/queried/drawn first for their effects on item views. Padding added to views will be
-     * nested; a padding added by an earlier decoration will mean further item decorations in the
-     * list will be asked to draw/pad within the previous decoration's given area.</p>
-     *
-     * @param decor Decoration to add
-     * @param index Position in the decoration chain to insert this decoration at. If this value is
-     *              negative the decoration will be added at the end.
-     * @deprecated to be implemented by OEM
+     * see {@link RecyclerView#getChildLayoutPosition(View)}
      */
-    @Deprecated
-    @Override
-    public void addItemDecoration(@NonNull ItemDecoration decor, int index) {
-        super.addItemDecoration(decor, index);
-    }
+    int getChildLayoutPosition(View child);
+
+    /** see {@link View#getContentDescription()} */
+    CharSequence getContentDescription();
+
+    /** see {@link View#getContext()} */
+    Context getContext();
+
+    /** see {@link OrientationHelper#getEndAfterPadding()} */
+    int getEndAfterPadding();
+
+    /** see {@link View#getHeight()} */
+    int getHeight();
 
     /**
-     * Returns an {@link ItemDecoration} previously added to this RecyclerView.
-     *
-     * @param index The index position of the desired ItemDecoration.
-     * @return the ItemDecoration at index position
-     * @throws IndexOutOfBoundsException on invalid index
-     * @deprecated to be handled by OEM
+     * see {@link RecyclerView#getItemDecorationAt(int)}
+     * @deprecated this will fail when there is a oem implementation
      */
     @Deprecated
-    @Override
+    @Nullable
+    ItemDecoration getItemDecorationAt(int index);
+
+    /**
+     * see {@link RecyclerView#getItemDecorationCount()}
+     * @deprecated this will fail when there is a oem implementation
+     */
+    @Deprecated
+    int getItemDecorationCount();
+
+    /**
+     * see {@link RecyclerView#getLayoutManager()}
+     * @deprecated this will fail when there is a oem implementation
+     */
+    @Deprecated
+    @Nullable
+    LayoutManager getLayoutManager();
+
+    /** Use this instead of {@link #getLayoutManager} */
+    @Nullable
+    CarUiLayoutStyle getLayoutStyle();
+
+    /** {@link RecyclerView#hasFixedSize()} */
+    boolean hasFixedSize();
+
+    /** see {@link View#getPaddingLeft()} */
+    int getPaddingLeft();
+
+    /** see {@link View#getPaddingRight()} */
+    int getPaddingRight();
+
+    /** see {@link View#getPaddingBottom()} */
+    int getPaddingBottom();
+
+    /** see {@link View#getPaddingEnd()} */
+    int getPaddingEnd();
+
+    /** see {@link View#getPaddingStart()} */
+    int getPaddingStart();
+
+    /** see {@link View#getPaddingTop()} */
+    int getPaddingTop();
+
+    /**
+     * see {@link View#getParent()}
+     * @deprecated this will fail when there is a oem implementation
+     */
+    @Deprecated
+    ViewParent getParent();
+
+    /**
+     * see {@link LayoutManager#getChildCount()}
+     * Prefer this method over {@link #getChildCount()}
+     */
+    int getRecyclerViewChildCount();
+
+    /**
+     * see {@link LayoutManager#getChildAt(int)}
+     * Prefer this method over {@link #getChildAt(int)}
+     */
+    @Nullable
+    View getRecyclerViewChildAt(int index);
+
+    /** see {@link RecyclerView#getScrollState()} */
+    int getScrollState();
+
+    /** see {@link OrientationHelper#getStartAfterPadding()} */
+    int getStartAfterPadding();
+
+    /** see {@link View#getTag()} */
+    Object getTag();
+
+    /** see {@link OrientationHelper#getTotalSpace()} */
+    int getTotalSpace();
+
+    /**
+     * Returns a view that will be attached to the view hierarchy.
+     */
     @NonNull
-    public ItemDecoration getItemDecorationAt(int index) {
-        return super.getItemDecorationAt(index);
-    }
+    View getView();
+
+    /** see {@link View#getViewTreeObserver()} */
+    ViewTreeObserver getViewTreeObserver();
 
     /**
-     * Returns the number of {@link ItemDecoration} currently added to this RecyclerView.
-     *
-     * @return number of ItemDecorations currently added added to this RecyclerView.
-     * @deprecated to be handled by OEM
+     * see {@link RecyclerView#invalidateItemDecorations()}
+     * @deprecated this will fail value when there is a oem implementation
      */
     @Deprecated
-    @Override
-    public int getItemDecorationCount() {
-        return super.getItemDecorationCount();
-    }
+    void invalidateItemDecorations();
+
+    /** see {@link View#post(Runnable)} */
+    boolean post(Runnable runnable);
 
     /**
-     * Removes the {@link ItemDecoration} associated with the supplied index position.
-     *
-     * @param index The index position of the ItemDecoration to be removed.
-     * @deprecated to be handled by OEM
+     * see {@link RecyclerView#removeItemDecoration(ItemDecoration)}
+     * @deprecated this will fail value when there is a oem implementation
      */
     @Deprecated
-    @Override
-    public void removeItemDecorationAt(int index) {
-        super.removeItemDecorationAt(index);
-    }
+    void removeItemDecoration(@NonNull ItemDecoration decor);
 
     /**
-     * Remove an {@link ItemDecoration} from this RecyclerView.
-     *
-     * <p>The given decoration will no longer impact the measurement and drawing of
-     * item views.</p>
-     *
-     * @param decor Decoration to remove
-     * @see #addItemDecoration(ItemDecoration)
-     * @deprecated to be handled by OEM
+     * see {@link RecyclerView#removeItemDecorationAt(int)}
+     * @deprecated this will fail value when there is a oem implementation
      */
     @Deprecated
-    @Override
-    public void removeItemDecoration(@NonNull ItemDecoration decor) {
-        super.removeItemDecoration(decor);
-    }
+    void removeItemDecorationAt(int index);
+
+    /** see {@link RecyclerView#removeOnChildAttachStateChangeListener} */
+    void removeOnChildAttachStateChangeListener(OnChildAttachStateChangeListener listener);
+
+    /** see {@link View#removeOnLayoutChangeListener(OnLayoutChangeListener)} */
+    void removeOnLayoutChangeListener(OnLayoutChangeListener listener);
+
+    /** see {@link View#requestLayout()} */
+    void requestLayout();
+
+    /** see {@link RecyclerView#removeOnScrollListener(OnScrollListener)} */
+    void removeOnScrollListener(OnScrollListener scrollListener);
+
+    /** see {@link View#requireViewById(int)} */
+    <T extends View> T requireViewById(int id);
+
+    /** see {@link View#scrollBy(int, int)} */
+    void scrollBy(int x, int y);
+
+    /** see {@link RecyclerView#scrollToPosition(int)} */
+    void scrollToPosition(int position);
+
+    /** see {@link RecyclerView#setAdapter(Adapter)} */
+    void setAdapter(Adapter<?> adapter);
+
+    /** see {@link View#setAlpha(float)} */
+    void setAlpha(float alpha);
+
+    /** see {@link RecyclerView#setClipToPadding(boolean)} */
+    void setClipToPadding(boolean enabled);
+
+    /** see {@link View#setContentDescription(CharSequence)} */
+    void setContentDescription(CharSequence contentDescription);
+
+    /** see {@link RecyclerView#setHasFixedSize(boolean)} */
+    void setHasFixedSize(boolean hasFixedSize);
 
     /**
-     * @deprecated this will return incorrect value when there is a oem implementation
+     * see {@link View#setFadingEdgeLength(int)}
+     * @deprecated this will fail when there is a oem implementation
      */
-    @Override
     @Deprecated
-    public int getChildCount() {
-        return super.getChildCount();
-    }
+    void setFadingEdgeLength(int length);
+
+    /** see {@link RecyclerView#setOnFlingListener(OnFlingListener)} */
+    void setOnFlingListener(OnFlingListener listener);
+
+    /** see {@link View#setId(int)}  */
+    void setId(@IdRes int id);
 
     /**
-     * @deprecated this will return incorrect value when there is a oem implementation
+     * see {@link RecyclerView#setItemAnimator(ItemAnimator)}
+     * @deprecated this will fail when there is a oem implementation
      */
     @Deprecated
-    @Override
-    public View getChildAt(int index) {
-        return super.getChildAt(index);
-    }
+    void setItemAnimator(ItemAnimator itemAnimator);
 
     /**
-     * Use this instead of setLayoutManager
-     * @param layoutStyle
+     * see {@link RecyclerView#setLayoutManager(LayoutManager)}
+     * @deprecated this will fail when there is a oem implementation
      */
-    public abstract void setLayoutStyle(CarUiLayoutStyle layoutStyle);
+    @Deprecated
+    default void setLayoutManager(@Nullable LayoutManager layoutManager) {}
+
+    /** Use this instead of {@link #setLayoutManager} */
+    void setLayoutStyle(@Nullable CarUiLayoutStyle layoutStyle);
+
+    /** see {@link View#setOnTouchListener(OnTouchListener)} */
+    void setOnTouchListener(OnTouchListener listener);
+
+    /** see {@link View#setPadding(int, int, int, int)} */
+    void setPadding(int left, int top, int right, int bottom);
+
+    /** see {@link View#setPaddingRelative(int, int, int, int)} */
+    void setPaddingRelative(int start, int top, int end, int bottom);
+
+    /** Will get called when {@link SpanSizeLookup} changes at runtime. */
+    void setSpanSizeLookup(@NonNull SpanSizeLookup spanSizeLookup);
+
+    /** see {@link View#setTag(Object)} */
+    void setTag(Object tag);
+
+    /**
+     * see {@link View#setVerticalFadingEdgeEnabled(boolean)}
+     * @deprecated this will fail when there is a oem implementation
+     */
+    @Deprecated
+    void setVerticalFadingEdgeEnabled(boolean enabled);
+
+    /**
+     * see {@link View#setVerticalScrollBarEnabled(boolean)}
+     * @deprecated this will fail when there is a oem implementation
+     */
+    @Deprecated
+    void setVerticalScrollBarEnabled(boolean enabled);
+
+    /**
+     * see {@link View#setVerticalScrollbarPosition(int)}
+     * @deprecated this will fail when there is a oem implementation
+     */
+    @Deprecated
+    void setVerticalScrollbarPosition(int position);
+
+    /** see {@link View#setVisibility(int)} */
+    void setVisibility(int visible);
+
+    /** see {@link RecyclerView#smoothScrollBy(int, int)} */
+    void smoothScrollBy(int dx, int dy);
+
+    /** see {@link RecyclerView#smoothScrollToPosition(int) */
+    void smoothScrollToPosition(int position);
 }

@@ -89,8 +89,8 @@
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"VMS বাৰ্তাৰ গ্ৰাহকভুক্তি কৰিব পাৰে"</string>
     <string name="car_permission_label_bind_vms_client" msgid="4889732900973280313">"VMS ক্লায়েণ্ট সেৱা"</string>
     <string name="car_permission_desc_bind_vms_client" msgid="4062835325264330564">"VMS ক্লায়েণ্টৰ সৈতে সংযুক্ত হ’ব পাৰে"</string>
-    <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"সঞ্চয়াগাৰ নিৰীক্ষণ কৰিব"</string>
-    <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"সঞ্চয়াগাৰ ব্যৱহাৰৰ তথ্য নিৰীক্ষণ কৰিব"</string>
+    <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"ফ্লেশ্ব ষ্ট’ৰেজ নিৰীক্ষণ কৰা"</string>
+    <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"ফ্লেশ্ব ষ্ট’ৰেজৰ ব্যৱহাৰ নিৰীক্ষণ কৰক"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"গাড়ী চালনাৰ স্থিতি সলনি হ’লে সেইয়া জানিব"</string>
     <string name="car_permission_desc_driving_state" msgid="2684025262811635737">"গাড়ী চালনাৰ স্থিতি সলনি হ’লে সেইয়া জানিব।"</string>
     <string name="car_permission_label_use_telemetry_service" msgid="948005838683758846">"গাড়ীৰ টেলিমেট্ৰী সেৱা ব্যৱহাৰ কৰক"</string>
@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"গাড়ীৰ পাৱাৰ পলিচী নিয়ন্ত্ৰণ কৰে।"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"টেমপ্লে’ট প্ৰদান কৰক"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"টেমপ্লে’ট প্ৰদান কৰক।"</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"এপ্লিকেশ্বন লঞ্চ হোৱাটো নিয়ন্ত্ৰণ কৰে"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"এপ্লিকেশ্বন লঞ্চ হোৱাটো নিয়ন্ত্ৰণ কৰে।"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"মোৰ ডিভাইচ"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"অতিথি"</string>
     <string name="importance_default" msgid="8587741629268312938">"ডিফ’ল্ট গুৰুত্ব"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"পাছত ৰিছেট কৰক"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"ইনফ’টেইনমেণ্ট ছিষ্টেমটোৱে পৰৱৰ্তী সময়ত গাড়ীখন ষ্টাৰ্ট হ\'লে ৰিছেট কৰিব।"</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"ৰিছেট কৰাটো আৰম্ভ কৰিবলৈ গাড়ীখন ৰখাই থ\'বই লাগিব।"</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g>এ আপোনাৰ ছিষ্টেমৰ কাৰ্যদক্ষতাত প্ৰভাৱ পেলাইছে"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"ছিষ্টেমৰ কাৰ্যদক্ষতা উন্নত কৰিবলৈ এপ্ অক্ষম কৰক। আপুনি ছেটিঙত পুনৰ এপ্‌টো সক্ষম কৰিব পাৰে।"</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"এপ্‌টো ব্যৱহাৰ কৰি থাকিবলৈ এপক অগ্ৰাধিকাৰ দিয়ক।"</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"ছিষ্টেমৰ কাৰ্যদক্ষতা উন্নত কৰিবলৈ এপ্ আনইনষ্টল কৰক।"</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"এপ্ অক্ষম কৰক"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"এপক অগ্ৰাধিকাৰ দিয়ক"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"এপ্ আনইনষ্টল কৰক"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g>ক অক্ষম কৰা হৈছে। আপুনি এইটো ছেটিঙত পুনৰ সক্ষম কৰিব পাৰে।"</string>
 </resources>

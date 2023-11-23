@@ -258,6 +258,7 @@ public class SystemServicesTestRule implements TestRule {
         final ActivityManagerInternal amInternal = mAmService.mInternal;
         spyOn(amInternal);
         doNothing().when(amInternal).trimApplications();
+        doNothing().when(amInternal).scheduleAppGcs();
         doNothing().when(amInternal).updateCpuStats();
         doNothing().when(amInternal).updateOomAdj();
         doNothing().when(amInternal).updateBatteryStats(any(), anyInt(), anyInt(), anyBoolean());
@@ -270,7 +271,6 @@ public class SystemServicesTestRule implements TestRule {
         doNothing().when(amInternal).cleanUpServices(anyInt(), any(), any());
         doReturn(UserHandle.USER_SYSTEM).when(amInternal).getCurrentUserId();
         doReturn(TEST_USER_PROFILE_IDS).when(amInternal).getCurrentProfileIds();
-        doReturn(true).when(amInternal).isCurrentProfile(anyInt());
         doReturn(true).when(amInternal).isUserRunning(anyInt(), anyInt());
         doReturn(true).when(amInternal).hasStartedUserState(anyInt());
         doReturn(false).when(amInternal).shouldConfirmCredentials(anyInt());

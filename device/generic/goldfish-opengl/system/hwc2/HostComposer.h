@@ -36,14 +36,7 @@ class HostComposer : public Composer {
 
   HWC2::Error init(const HotplugCallback& cb) override;
 
-  HWC2::Error createDisplays(
-      Device* device,
-      const AddDisplayToDeviceFunction& addDisplayToDeviceFn) override;
-
-  HWC2::Error createDisplay(
-      Device* device, uint32_t displayId, uint32_t width, uint32_t height,
-      uint32_t dpiX, uint32_t dpiY, uint32_t refreshRateHz,
-      const AddDisplayToDeviceFunction& addDisplayToDeviceFn) override;
+  HWC2::Error onDisplayCreate(Display* display) override;
 
   HWC2::Error onDisplayDestroy(Display* display) override;
 
@@ -60,13 +53,9 @@ class HostComposer : public Composer {
   HWC2::Error presentDisplay(Display* display,
                              int32_t* outPresentFence) override;
 
+  HWC2::Error onActiveConfigChange(Display* display) override;
+
  private:
-  HWC2::Error createPrimaryDisplay(
-      Device* device, const AddDisplayToDeviceFunction& addDisplayToDeviceFn);
-
-  HWC2::Error createSecondaryDisplays(
-      Device* device, const AddDisplayToDeviceFunction& addDisplayToDeviceFn);
-
   HWC2::Error createHostComposerDisplayInfo(Display* display,
                                             uint32_t hostDisplayId);
 
@@ -74,6 +63,8 @@ class HostComposer : public Composer {
             buffer_handle_t h);
 
   bool mIsMinigbm = false;
+
+  bool mUseAngle = false;
 
   int mSyncDeviceFd = -1;
 

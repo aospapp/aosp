@@ -21,3 +21,6 @@ is the list of the changes:
    more lightweight. The Agent is only created when it's actually
    needed. This makes it possible to instrument a lot of more core
    libraries without creating a circular dependency at runtime.
+4) Disable use of 'constant dynamic' bytecode in
+   org.jacoco.core.internal.instr.ProbeArrayStrategyFactory, because R8/D8 doesn't support it.
+   (https://issuetracker.google.com/178172809)

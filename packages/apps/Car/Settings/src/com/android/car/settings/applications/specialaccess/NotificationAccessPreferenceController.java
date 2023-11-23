@@ -67,6 +67,8 @@ public class NotificationAccessPreferenceController extends PreferenceController
     private final IconDrawableFactory mIconDrawableFactory;
 
     private final ServiceListing.Callback mCallback = this::onServicesReloaded;
+    @VisibleForTesting
+    AsyncTask<Void, Void, Void> mAsyncTask;
 
     private final ConfirmationDialogFragment.ConfirmListener mGrantConfirmListener = arguments -> {
         ComponentName service = arguments.getParcelable(KEY_SERVICE);
@@ -80,8 +82,16 @@ public class NotificationAccessPreferenceController extends PreferenceController
 
     public NotificationAccessPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                context.getSystemService(NotificationManager.class));
+    }
+
+    @VisibleForTesting
+    NotificationAccessPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            NotificationManager notificationManager) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mNm = context.getSystemService(NotificationManager.class);
+        mNm = notificationManager;
         mServiceListing = new ServiceListing.Builder(context)
                 .setPermission(Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE)
                 .setIntentAction(NotificationListenerService.SERVICE_INTERFACE)
@@ -136,7 +146,8 @@ public class NotificationAccessPreferenceController extends PreferenceController
         mServiceListing.removeCallback(mCallback);
     }
 
-    private void onServicesReloaded(List<ServiceInfo> services) {
+    @VisibleForTesting
+    void onServicesReloaded(List<ServiceInfo> services) {
         PackageManager packageManager = getContext().getPackageManager();
         services.sort(new PackageItemInfo.DisplayNameComparator(packageManager));
         getPreference().removeAll();
@@ -180,11 +191,16 @@ public class NotificationAccessPreferenceController extends PreferenceController
 
     private void revokeNotificationAccess(ComponentName service) {
         mNm.setNotificationListenerAccessGranted(service, /* granted= */ false);
-        AsyncTask.execute(() -> {
-            if (!mNm.isNotificationPolicyAccessGrantedForPackage(service.getPackageName())) {
-                mNm.removeAutomaticZenRules(service.getPackageName());
+        mAsyncTask = new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... unused) {
+                if (!mNm.isNotificationPolicyAccessGrantedForPackage(service.getPackageName())) {
+                    mNm.removeAutomaticZenRules(service.getPackageName());
+                }
+                return null;
             }
-        });
+        };
+        mAsyncTask.execute();
     }
 
     private boolean promptUserToConfirmChange(ComponentName service, String label,

@@ -30,6 +30,8 @@
   <option name="compatibility:module-arg" value="AndroidAutomotiveSettingsScenarioTests:instrumentation-arg:listener:=android.device.collectors.ProcLoadListener,android.device.collectors.AppStartupListener" />
   <option name="compatibility:module-arg" value="AndroidAutomotiveSettingsScenarioTests:instrumentation-arg:iterations:=20" />
   <option name="compatibility:module-arg" value="AndroidAutomotiveSettingsScenarioTests:instrumentation-arg:favor-shell-commands:=true" />
+  <option name="compatibility:module-arg" value="AndroidAutomotiveSettingsScenarioTests:instrumentation-arg:rename-iterations:=true" />
+  <option name="compatibility:module-arg" value="AndroidAutomotiveSettingsScenarioTests:instrumentation-arg:iteration-separator:=$" />
 
   <!-- Cold App Start Up Options -->
   <option name="compatibility:module-arg" value="AndroidAutomotiveSettingsScenarioTests:instrumentation-arg:press-home:=false" />
@@ -37,8 +39,14 @@
   <option name="compatibility:module-arg" value="AndroidAutomotiveSettingsScenarioTests:instrumentation-arg:drop-cache:=true" />
 
   <!-- Test Package -->
-  <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:package:android.platform.scenario.settings" />
+  <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:package:android.platform.test.scenario.settings" />
 
   <!-- Test -->
-  <option name="compatibility:include-filter" value="AndroidAutomotiveSettingsScenarioTests android.platform.scenario.settings.OpenAppMicrobenchmark#testOpen" />
+  <option name="compatibility:include-filter" value="AndroidAutomotiveSettingsScenarioTests android.platform.test.scenario.settings.OpenAppMicrobenchmark#testOpen" />
+
+  <!-- Test Metrics Report Options -->
+  <option name="report-log-name" value="CatboxPerformanceTests" />
+  <option name="report-test-name-mapping" key="android.platform.test.scenario.settings.OpenAppMicrobenchmark#testOpen" value="settings_app_start_up" />
+  <option name="report-all-metrics" value="false" />
+  <option name="report-metric-key-mapping" key="cold_startup_com.android.car.settings-median" value="cold_start_up" />
 </configuration>

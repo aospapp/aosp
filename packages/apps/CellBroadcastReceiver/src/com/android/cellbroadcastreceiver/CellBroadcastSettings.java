@@ -45,7 +45,6 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceFragment;
 import androidx.preference.PreferenceManager;
-import androidx.preference.PreferenceScreen;
 import androidx.preference.TwoStatePreference;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -149,9 +148,6 @@ public class CellBroadcastSettings extends CollapsingToolbarBaseActivity {
     // Preference key for emergency alerts history
     public static final String KEY_EMERGENCY_ALERT_HISTORY = "emergency_alert_history";
 
-    // For watch layout
-    private static final String KEY_WATCH_ALERT_REMINDER = "watch_alert_reminder";
-
     // Whether to receive alert in second language code
     public static final String KEY_RECEIVE_CMAS_IN_SECOND_LANGUAGE =
             "receive_cmas_in_second_language";
@@ -176,9 +172,6 @@ public class CellBroadcastSettings extends CollapsingToolbarBaseActivity {
 
     // Key for shared preference which represents whether user has changed any preference
     private static final String ANY_PREFERENCE_CHANGED_BY_USER = "any_preference_changed_by_user";
-
-    // Test override for disabling the subId specific resources
-    private static boolean sUseResourcesForSubId = true;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -264,12 +257,9 @@ public class CellBroadcastSettings extends CollapsingToolbarBaseActivity {
           Log.d(TAG, "In not test harness mode. reset main toggle.");
           e.remove(KEY_ENABLE_ALERTS_MASTER_TOGGLE);
         }
-        PackageManager pm = c.getPackageManager();
-        if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-            e.remove(KEY_WATCH_ALERT_REMINDER);
-        }
         e.commit();
 
+        PackageManager pm = c.getPackageManager();
         if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
             PreferenceManager.setDefaultValues(c, R.xml.watch_preferences, true);
         } else {
@@ -319,9 +309,6 @@ public class CellBroadcastSettings extends CollapsingToolbarBaseActivity {
         private PreferenceCategory mAlertCategory;
         private PreferenceCategory mAlertPreferencesCategory;
         private boolean mDisableSevereWhenExtremeDisabled = true;
-
-        // WATCH
-        private TwoStatePreference mAlertReminder;
 
         // Show checkbox for Presidential alerts in settings
         private TwoStatePreference mPresidentialCheckBox;
@@ -381,27 +368,7 @@ public class CellBroadcastSettings extends CollapsingToolbarBaseActivity {
                     findPreference(KEY_ENABLE_CMAS_PRESIDENTIAL_ALERTS);
 
             PackageManager pm = getActivity().getPackageManager();
-            if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-                mAlertReminder = (TwoStatePreference)
-                        findPreference(KEY_WATCH_ALERT_REMINDER);
-                if (Integer.valueOf(mReminderInterval.getValue()) == 0) {
-                    mAlertReminder.setChecked(false);
-                } else {
-                    mAlertReminder.setChecked(true);
-                }
-                mAlertReminder.setOnPreferenceChangeListener((p, newVal) -> {
-                    try {
-                        mReminderInterval.setValueIndex((Boolean) newVal ? 1 : 3);
-                    } catch (IndexOutOfBoundsException e) {
-                        mReminderInterval.setValue(String.valueOf(0));
-                        Log.w(TAG, "Setting default value");
-                    }
-                    return true;
-                });
-                PreferenceScreen watchScreen = (PreferenceScreen)
-                        findPreference(KEY_CATEGORY_ALERT_PREFERENCES);
-                watchScreen.removePreference(mReminderInterval);
-            } else {
+            if (!pm.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
                 mAlertPreferencesCategory = (PreferenceCategory)
                         findPreference(KEY_CATEGORY_ALERT_PREFERENCES);
                 mAlertCategory = (PreferenceCategory)
@@ -845,16 +812,6 @@ public class CellBroadcastSettings extends CollapsingToolbarBaseActivity {
     }
 
     /**
-     * Override used by tests so that we don't call
-     * SubscriptionManager.getResourcesForSubId, which is a static unmockable
-     * method.
-     */
-    @VisibleForTesting
-    public static void setUseResourcesForSubId(boolean useResourcesForSubId) {
-        sUseResourcesForSubId = useResourcesForSubId;
-    }
-
-    /**
      * Get the device resource based on SIM
      *
      * @param context Context
@@ -863,14 +820,12 @@ public class CellBroadcastSettings extends CollapsingToolbarBaseActivity {
      * @return The resource
      */
     public static @NonNull Resources getResources(@NonNull Context context, int subId) {
-        // based on the latest design, subId can be valid earlier than mcc mnc is known to telephony
-        // check if sim is loaded to avoid caching the wrong resources.
-        TelephonyManager tm = context.getSystemService(TelephonyManager.class);
-        boolean isSimLoaded = tm.getSimApplicationState(SubscriptionManager.getSlotIndex(subId))
-                == TelephonyManager.SIM_STATE_LOADED;
         if (subId == SubscriptionManager.DEFAULT_SUBSCRIPTION_ID
-                || !SubscriptionManager.isValidSubscriptionId(subId) || !sUseResourcesForSubId
-                || !isSimLoaded) {
+                || !SubscriptionManager.isValidSubscriptionId(subId)
+                // based on the latest design, subId can be valid earlier than mcc mnc is known to
+                // telephony. check if sim is loaded to avoid caching the wrong resources.
+                || context.getSystemService(TelephonyManager.class).getSimApplicationState(
+                SubscriptionManager.getSlotIndex(subId)) != TelephonyManager.SIM_STATE_LOADED) {
             return context.getResources();
         }
 

@@ -47,6 +47,16 @@
     <style name="Theme.CarDeveloperOptions" parent="@style/Theme.CarUi.WithToolbar">
         <item name="alertDialogTheme">@style/Theme.AlertDialog</item>
         <item name="switchBarTheme">@style/ThemeOverlay.SwitchBar.Settings</item>
+        <item name="preferenceTheme">@style/CarDeveloperOptionsPreferenceTheme</item>
+    </style>
+
+    <style name="CarDeveloperOptionsPreferenceTheme" parent="@style/CarUiPreferenceTheme">
+        <item name="preferenceFragmentCompatStyle">@style/CarDeveloperOptionsPreferenceFragment</item>
+        <item name="preferenceFragmentStyle">@style/CarDeveloperOptionsPreferenceFragment</item>
+    </style>
+
+    <style name="CarDeveloperOptionsPreferenceFragment" parent="@style/PreferenceFragment.CarUi">
+        <item name="android:layout">@layout/preference_list_fragment</item>
     </style>
 
 </resources>

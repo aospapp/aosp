@@ -1,7 +1,7 @@
 use core::convert::{TryFrom, TryInto};
 use core::num::NonZeroUsize;
 
-use super::decode_hex;
+use super::hex::decode_hex;
 
 /// Tid/Pid Selector.
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
@@ -11,7 +11,7 @@ pub enum IdKind {
     /// Any thread (0)
     Any,
     /// Thread with specific ID (id > 0)
-    WithID(NonZeroUsize),
+    WithId(NonZeroUsize),
 }
 
 /// Unique Thread ID.
@@ -59,7 +59,7 @@ impl TryFrom<&[u8]> for IdKind {
         Ok(match s {
             b"-1" => IdKind::All,
             b"0" => IdKind::Any,
-            id => IdKind::WithID(NonZeroUsize::new(decode_hex(id).map_err(drop)?).ok_or(())?),
+            id => IdKind::WithId(NonZeroUsize::new(decode_hex(id).map_err(drop)?).ok_or(())?),
         })
     }
 }
@@ -77,5 +77,51 @@ impl TryFrom<&mut [u8]> for IdKind {
 
     fn try_from(s: &mut [u8]) -> Result<Self, ()> {
         Self::try_from(s as &[u8])
+    }
+}
+
+/// Like [`IdKind`], without the `Any` variant. Typically used when working
+/// with vCont (i.e: where the `Any` variant wouldn't be valid).
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub enum SpecificIdKind {
+    /// Thread with specific ID (id > 0)
+    WithId(core::num::NonZeroUsize),
+    /// All threads (-1)
+    All,
+}
+
+/// Like [`ThreadId`], without the `Any` variants. Typically used when working
+/// with vCont (i.e: where the `Any` variant wouldn't be valid).
+#[derive(Debug, Copy, Clone)]
+pub struct SpecificThreadId {
+    /// Process ID (may or may not be present).
+    pub pid: Option<SpecificIdKind>,
+    /// Thread ID.
+    pub tid: SpecificIdKind,
+}
+
+impl TryFrom<IdKind> for SpecificIdKind {
+    type Error = ();
+
+    fn try_from(id: IdKind) -> Result<SpecificIdKind, ()> {
+        Ok(match id {
+            IdKind::All => SpecificIdKind::All,
+            IdKind::WithId(id) => SpecificIdKind::WithId(id),
+            IdKind::Any => return Err(()),
+        })
+    }
+}
+
+impl TryFrom<ThreadId> for SpecificThreadId {
+    type Error = ();
+
+    fn try_from(thread: ThreadId) -> Result<SpecificThreadId, ()> {
+        Ok(SpecificThreadId {
+            pid: match thread.pid {
+                None => None,
+                Some(id_kind) => Some(id_kind.try_into()?),
+            },
+            tid: thread.tid.try_into()?,
+        })
     }
 }

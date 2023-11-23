@@ -55,6 +55,7 @@ import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
 
+import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -82,6 +83,12 @@ public class RoundedCornerTests {
 
     @Parameterized.Parameter(1)
     public String orientationName;
+
+    @After
+    public void tearDown() {
+        mTestActivity.finishActivity();
+        new WindowManagerStateHelper().waitForDisplayUnfrozen();
+    }
 
     @Rule
     public final ActivityTestRule<TestActivity> mTestActivity =

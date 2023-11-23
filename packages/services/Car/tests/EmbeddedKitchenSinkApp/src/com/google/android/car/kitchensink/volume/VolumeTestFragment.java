@@ -62,7 +62,8 @@ public final class VolumeTestFragment extends Fragment {
     public static final class CarAudioZoneVolumeInfo {
         public int groupId;
         public String id;
-        public String maxGain;
+        public int maxGain;
+        public int minGain;
         public String currentGain;
         public boolean hasAudioFocus;
         public boolean isMuted;

@@ -19,25 +19,26 @@ package com.android.server.wm.traces.parser.windowmanager
 import android.app.ActivityTaskManager
 import android.app.Instrumentation
 import android.app.WindowConfiguration
-import android.content.ComponentName
 import android.graphics.Rect
 import android.graphics.Region
 import android.os.SystemClock
 import android.util.Log
 import android.view.Display
-import androidx.annotation.VisibleForTesting
 import androidx.test.platform.app.InstrumentationRegistry
-import com.android.server.wm.traces.common.layers.LayerTraceEntry
-import com.android.server.wm.traces.common.windowmanager.WindowManagerState
-import com.android.server.wm.traces.parser.getCurrentStateDump
 import com.android.server.wm.traces.common.windowmanager.windows.ConfigurationContainer
 import com.android.server.wm.traces.common.windowmanager.windows.WindowContainer
 import com.android.server.wm.traces.common.windowmanager.windows.WindowState
-import com.android.server.wm.traces.parser.Condition
+import com.android.server.wm.traces.common.Condition
+import com.android.server.wm.traces.common.DeviceStateDump
+import com.android.server.wm.traces.common.FlickerComponentName
+import com.android.server.wm.traces.common.FlickerComponentName.Companion.IME
 import com.android.server.wm.traces.parser.LOG_TAG
-import com.android.server.wm.traces.parser.toActivityName
+import com.android.server.wm.traces.common.WaitCondition
+import com.android.server.wm.traces.common.layers.LayerTraceEntry
+import com.android.server.wm.traces.common.WindowManagerConditionsFactory
+import com.android.server.wm.traces.common.windowmanager.WindowManagerState
+import com.android.server.wm.traces.parser.getCurrentStateDump
 import com.android.server.wm.traces.parser.toAndroidRegion
-import com.android.server.wm.traces.parser.toWindowName
 
 open class WindowManagerStateHelper @JvmOverloads constructor(
     /**
@@ -47,52 +48,50 @@ open class WindowManagerStateHelper @JvmOverloads constructor(
     /**
      * Predicate to supply a new UI information
      */
-    private val deviceDumpSupplier: () -> Dump = {
-        val currState = getCurrentStateDump(
-            instrumentation.uiAutomation)
-        Dump(
-            currState.wmTrace?.entries?.first() ?: error("Unable to parse WM trace"),
-            currState.layersTrace?.entries?.first() ?: error("Unable to parse Layers trace")
+    private val deviceDumpSupplier: () -> DeviceStateDump<WindowManagerState, LayerTraceEntry> = {
+        val currState = getCurrentStateDump(instrumentation.uiAutomation)
+        DeviceStateDump(
+            currState.wmState ?: error("Unable to parse WM trace"),
+            currState.layerState ?: error("Unable to parse Layers trace")
         )
     },
     /**
      * Number of attempts to satisfy a wait condition
      */
-    private val numRetries: Int = 5,
+    private val numRetries: Int = WaitCondition.DEFAULT_RETRY_LIMIT,
     /**
      * Interval between wait for state dumps during wait conditions
      */
-    private val retryIntervalMs: Long = 500L
+    private val retryIntervalMs: Long = WaitCondition.DEFAULT_RETRY_INTERVAL_MS
 ) {
-    /**
-     * Fetches the current device state
-     */
-    val currentState: Dump
-        get() = computeState(ignoreInvalidStates = true)
+    private var internalState: DeviceStateDump<WindowManagerState, LayerTraceEntry>? = null
 
     /**
      * Queries the supplier for a new device state
-     *
-     * @param ignoreInvalidStates If false, retries up to [numRetries] times (with a sleep
-     * interval of [retryIntervalMs] ms to obtain a complete WM state, otherwise returns the
-     * first state
      */
-    protected open fun computeState(ignoreInvalidStates: Boolean = false): Dump {
-        var newState = deviceDumpSupplier.invoke()
-        for (retryNr in 0..numRetries) {
-            val wmState = newState.wmState
-            if (!ignoreInvalidStates && wmState.isIncomplete()) {
-                Log.w(LOG_TAG, "***Incomplete AM state: ${wmState.getIsIncompleteReason()}" +
-                    " Waiting ${retryIntervalMs}ms and retrying ($retryNr/$numRetries)...")
-                SystemClock.sleep(retryIntervalMs)
-                newState = deviceDumpSupplier.invoke()
+    val currentState: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+        get() {
+            if (internalState == null) {
+                internalState = deviceDumpSupplier.invoke()
             } else {
-                break
+                waitForValidState()
             }
-        }
-
-        return newState
+            return internalState ?: error("Unable to fetch an internal state")
     }
+
+    protected open fun updateCurrState(
+        value: DeviceStateDump<WindowManagerState, LayerTraceEntry>
+    ) {
+        internalState = value
+    }
+
+    private fun createConditionBuilder():
+        WaitCondition.Builder<DeviceStateDump<WindowManagerState, LayerTraceEntry>> =
+        WaitCondition.Builder(deviceDumpSupplier, numRetries)
+            .onSuccess { updateCurrState(it) }
+            .onFailure { updateCurrState(it) }
+            .onLog { Log.d(LOG_TAG, it) }
+            .onRetry { SystemClock.sleep(retryIntervalMs) }
 
     private fun ConfigurationContainer.isWindowingModeCompatible(
         requestedWindowingMode: Int
@@ -111,16 +110,15 @@ open class WindowManagerStateHelper @JvmOverloads constructor(
      * @param waitForActivitiesVisible array of activity states to wait for.
      */
     fun waitForValidState(vararg waitForActivitiesVisible: WaitForValidActivityState): Boolean {
-        val success = Condition.waitFor<WindowManagerState>("valid stacks and activities states",
-            retryLimit = numRetries, retryIntervalMs = retryIntervalMs) {
-            // TODO: Get state of AM and WM at the same time to avoid mismatches caused by
-            // requesting dump in some intermediate state.
-            val state = computeState()
-            !(shouldWaitForValidityCheck(state) ||
-                shouldWaitForValidStacks(state) ||
-                shouldWaitForActivities(state, *waitForActivitiesVisible) ||
-                shouldWaitForWindows(state))
+        val builder = createConditionBuilder()
+            .withCondition(WindowManagerConditionsFactory.isWMStateComplete())
+
+        if (waitForActivitiesVisible.isNotEmpty()) {
+            builder.withCondition("!shouldWaitForActivities") {
+                !shouldWaitForActivities(it, *waitForActivitiesVisible)
+            }
         }
+        val success = builder.build().waitFor()
         if (!success) {
             Log.e(LOG_TAG, "***Waiting for states failed: " +
                 waitForActivitiesVisible.contentToString())
@@ -128,225 +126,140 @@ open class WindowManagerStateHelper @JvmOverloads constructor(
         return success
     }
 
-    fun waitForFullScreenApp(componentName: ComponentName): Boolean =
+    fun waitForFullScreenApp(component: FlickerComponentName): Boolean =
             waitForValidState(
                     WaitForValidActivityState
-                            .Builder(componentName)
+                            .Builder(component)
                             .setWindowingMode(WindowConfiguration.WINDOWING_MODE_FULLSCREEN)
                             .setActivityType(WindowConfiguration.ACTIVITY_TYPE_STANDARD)
                             .build())
 
-    fun waitForHomeActivityVisible(): Boolean {
-        return waitFor { it.wmState.homeActivity?.isVisible == true } &&
-            waitForNavBarStatusBarVisible() &&
-            waitForAppTransitionIdle()
-    }
+    fun waitForHomeActivityVisible(): Boolean =
+        createConditionBuilder()
+            .withCondition(WindowManagerConditionsFactory.isHomeActivityVisible())
+            .withCondition(
+                WindowManagerConditionsFactory.isAppTransitionIdle(Display.DEFAULT_DISPLAY))
+            .withCondition(WindowManagerConditionsFactory.isNavBarVisible())
+            .withCondition(WindowManagerConditionsFactory.isStatusBarVisible())
+            .build()
+            .waitFor()
 
     fun waitForRecentsActivityVisible(): Boolean =
-        waitFor("recents activity to be visible") {
-            it.wmState.isRecentsActivityVisible
-        }
-
-    fun waitForAodShowing(): Boolean =
-        waitFor("AOD showing") {
-            it.wmState.keyguardControllerState.isAodShowing
-        }
-
-    fun waitForKeyguardGone(): Boolean =
-        waitFor("Keyguard gone") {
-            !it.wmState.keyguardControllerState.isKeyguardShowing
-        }
+        createConditionBuilder()
+            .withCondition("isRecentsActivityVisible") {
+                it.wmState.isRecentsActivityVisible
+            }
+            .build()
+            .waitFor()
 
     /**
      * Wait for specific rotation for the default display. Values are Surface#Rotation
      */
     @JvmOverloads
-    fun waitForRotation(rotation: Int, displayId: Int = Display.DEFAULT_DISPLAY): Boolean =
-        waitFor("Rotation: $rotation") {
-            val currRotation = it.wmState.getRotation(displayId)
-            val rotationLayerExists = it.layerState.isVisible(ROTATION_LAYER_NAME)
-            val blackSurfaceLayerExists = it.layerState.isVisible(BLACK_SURFACE_LAYER_NAME)
-            val anyLayerAnimating = it.layerState.visibleLayers.any { layer ->
-                !layer.transform.isSimpleRotation
+    fun waitForRotation(rotation: Int, displayId: Int = Display.DEFAULT_DISPLAY): Boolean {
+        val hasRotationCondition = WindowManagerConditionsFactory.hasRotation(rotation, displayId)
+        return createConditionBuilder()
+            .withCondition("waitForRotation[$rotation]") {
+                if (!it.wmState.canRotate) {
+                    Log.v(LOG_TAG, "Rotation is not allowed in the state")
+                    true
+                } else {
+                    hasRotationCondition.isSatisfied(it)
+                }
             }
-            Log.v(LOG_TAG, "currRotation($currRotation) " +
-                "anyLayerAnimating($anyLayerAnimating) " +
-                "blackSurfaceLayerExists($blackSurfaceLayerExists) " +
-                "rotationLayerExists($rotationLayerExists)")
-            currRotation == rotation &&
-                !anyLayerAnimating &&
-                !rotationLayerExists &&
-                !blackSurfaceLayerExists
-        }
+            .withCondition(
+                WindowManagerConditionsFactory.isAppTransitionIdle(Display.DEFAULT_DISPLAY))
+            .build()
+            .waitFor()
+    }
 
-    /**
-     * Wait for specific orientation for the default display.
-     * Values are ActivityInfo.ScreenOrientation
-     */
-    @JvmOverloads
-    fun waitForLastOrientation(
-        orientation: Int,
-        displayId: Int = Display.DEFAULT_DISPLAY
-    ): Boolean =
-        waitFor("LastOrientation: $orientation") {
-            val result = it.wmState.getOrientation(displayId)
-            Log.v(LOG_TAG, "Current: $result Expected: $orientation")
-            result == orientation
-        }
-
-    fun waitForActivityState(activity: ComponentName, activityState: String): Boolean {
+    fun waitForActivityState(activity: FlickerComponentName, activityState: String): Boolean {
         val activityName = activity.toActivityName()
-        return waitFor("state of $activityName to be $activityState") {
-            it.wmState.hasActivityState(activityName, activityState)
-        }
+        return createConditionBuilder()
+            .withCondition("state of $activityName to be $activityState") {
+                it.wmState.hasActivityState(activityName, activityState)
+            }
+            .build()
+            .waitFor()
     }
 
     /**
      * Waits until the navigation and status bars are visible (windows and layers)
      */
     fun waitForNavBarStatusBarVisible(): Boolean =
-        waitFor("Navigation and Status bar to be visible") {
-            val navBarWindowVisible = it.wmState.isWindowVisible(NAV_BAR_WINDOW_NAME)
-            val statusBarWindowVisible = it.wmState.isWindowVisible(STATUS_BAR_WINDOW_NAME)
-            val navBarLayerVisible = it.layerState.isVisible(NAV_BAR_LAYER_NAME)
-            val navBarLayerAlpha = it.layerState.getLayerWithBuffer(NAV_BAR_LAYER_NAME)
-                ?.color?.a ?: 0f
-            val statusBarLayerVisible = it.layerState.isVisible(STATUS_BAR_LAYER_NAME)
-            val statusBarLayerAlpha = it.layerState.getLayerWithBuffer(STATUS_BAR_LAYER_NAME)
-                ?.color?.a ?: 0f
-            val result = navBarWindowVisible &&
-                navBarLayerVisible &&
-                statusBarWindowVisible &&
-                statusBarLayerVisible &&
-                navBarLayerAlpha == 1f &&
-                statusBarLayerAlpha == 1f
+        createConditionBuilder()
+            .withCondition(WindowManagerConditionsFactory.isNavBarVisible())
+            .withCondition(WindowManagerConditionsFactory.isStatusBarVisible())
+            .build()
+            .waitFor()
 
-            Log.v(LOG_TAG, "Current $result " +
-                "navBarWindowVisible($navBarWindowVisible) " +
-                "navBarLayerVisible($navBarLayerVisible) " +
-                "statusBarWindowVisible($statusBarWindowVisible) " +
-                "statusBarLayerVisible($statusBarLayerVisible) " +
-                "navBarLayerAlpha($navBarLayerAlpha) " +
-                "statusBarLayerAlpha($statusBarLayerAlpha)")
+    fun waitForVisibleWindow(component: FlickerComponentName): Boolean =
+        createConditionBuilder()
+            .withCondition(WindowManagerConditionsFactory.containsActivity(component))
+            .withCondition(WindowManagerConditionsFactory.containsWindow(component))
+            .withCondition(WindowManagerConditionsFactory.isActivityVisible(component))
+            .withCondition(WindowManagerConditionsFactory.isWindowSurfaceShown(component))
+            .withCondition(
+                WindowManagerConditionsFactory.isAppTransitionIdle(Display.DEFAULT_DISPLAY))
+            .build()
+            .waitFor()
 
-            result
-        }
-
-    fun waitForVisibleWindow(activity: ComponentName): Boolean {
-        val activityName = activity.toActivityName()
-        val windowName = activity.toWindowName()
-        return waitFor("$activityName to exist") {
-            val containsActivity = it.wmState.containsActivity(activityName)
-            val containsWindow = it.wmState.containsWindow(windowName)
-            val activityVisible = containsActivity && it.wmState.isActivityVisible(activityName)
-            val windowVisible = containsWindow && it.wmState.isWindowSurfaceShown(windowName)
-            val result = containsActivity &&
-                containsWindow &&
-                activityVisible &&
-                windowVisible
-
-            Log.v(LOG_TAG, "Current: $result " +
-                "containsActivity($containsActivity) " +
-                "containsWindow($containsWindow) " +
-                "activityVisible($activityVisible) " +
-                "windowVisible($windowVisible)")
-
-            result
-        }
-    }
-
-    fun waitForActivityRemoved(activity: ComponentName): Boolean {
-        val activityName = activity.toActivityName()
-        val windowName = activity.toWindowName()
-        return waitFor("$activityName to be removed") {
-            val containsActivity = it.wmState.containsActivity(activityName)
-            val containsWindow = it.wmState.containsWindow(windowName)
-            val result = !containsActivity && !containsWindow
-
-            Log.v(LOG_TAG, "Current: $result" +
-                "containsActivity($containsActivity)" +
-                "containsWindow($containsWindow)")
-            result
-        }
-    }
-
-    fun waitForPendingActivityContain(activity: ComponentName): Boolean {
-        val activityName: String = activity.toActivityName()
-        return waitFor("$activityName in pending list") {
-            it.wmState.pendingActivityContain(activityName)
-        }
-    }
+    fun waitForActivityRemoved(component: FlickerComponentName): Boolean =
+        createConditionBuilder()
+            .withCondition(WindowManagerConditionsFactory.containsActivity(component).negate())
+            .withCondition(WindowManagerConditionsFactory.containsWindow(component).negate())
+            .withCondition(
+                WindowManagerConditionsFactory.isAppTransitionIdle(Display.DEFAULT_DISPLAY))
+            .build()
+            .waitFor()
 
     @JvmOverloads
     fun waitForAppTransitionIdle(displayId: Int = Display.DEFAULT_DISPLAY): Boolean =
-        waitFor("app transition idle on Display $displayId") {
-            val result =
-                it.wmState.getDisplay(displayId)?.appTransitionState
-            Log.v(LOG_TAG, "Current: $result")
-            WindowManagerState.APP_STATE_IDLE == result
-        }
+        createConditionBuilder()
+            .withCondition(WindowManagerConditionsFactory.isAppTransitionIdle(displayId))
+            .build()
+            .waitFor()
 
-    fun waitForWindowSurfaceDisappeared(componentName: ComponentName): Boolean {
-        val windowName = componentName.toWindowName()
-        return waitFor("$windowName's surface is disappeared") {
-            !it.wmState.isWindowSurfaceShown(windowName)
-        }
+    fun waitForWindowSurfaceDisappeared(component: FlickerComponentName): Boolean {
+        val condition = WindowManagerConditionsFactory.isWindowSurfaceShown(component).negate()
+        return createConditionBuilder()
+            .withCondition(condition)
+            .withCondition(
+                WindowManagerConditionsFactory.isAppTransitionIdle(Display.DEFAULT_DISPLAY))
+            .build()
+            .waitFor()
     }
 
-    fun waitForSurfaceAppeared(surfaceName: String): Boolean {
-        return waitFor("$surfaceName surface is appeared") {
-            it.wmState.isWindowSurfaceShown(surfaceName)
-        }
-    }
+    fun waitForSurfaceAppeared(surfaceName: String): Boolean =
+        createConditionBuilder()
+            .withCondition(WindowManagerConditionsFactory.isWindowSurfaceShown(surfaceName))
+            .withCondition(
+                WindowManagerConditionsFactory.isAppTransitionIdle(Display.DEFAULT_DISPLAY))
+            .build()
+            .waitFor()
 
-    fun waitWindowingModeTopFocus(
-        windowingMode: Int,
-        topFocus: Boolean,
-        message: String
-    ): Boolean = waitFor(message) {
-        val stack = it.wmState.getStandardStackByWindowingMode(windowingMode)
-        (stack != null && topFocus == (it.wmState.focusedStackId == stack.rootTaskId))
+    fun waitFor(
+        vararg conditions: Condition<DeviceStateDump<WindowManagerState, LayerTraceEntry>>
+    ): Boolean {
+        val builder = createConditionBuilder()
+        conditions.forEach { builder.withCondition(it) }
+        return builder.build().waitFor()
     }
 
     @JvmOverloads
     fun waitFor(
         message: String = "",
-        waitCondition: (Dump) -> Boolean
-    ): Boolean = Condition.waitFor<Dump>(message, retryLimit = numRetries,
-        retryIntervalMs = retryIntervalMs) {
-        val state = computeState()
-        waitCondition.invoke(state)
-    }
-
-    /**
-     * @return true if should wait for valid stacks state.
-     */
-    private fun shouldWaitForValidStacks(state: Dump): Boolean {
-        if (state.wmState.stackCount == 0) {
-            Log.i(LOG_TAG, "***stackCount=0")
-            return true
-        }
-        if (!state.wmState.keyguardControllerState.isKeyguardShowing &&
-            state.wmState.resumedActivities.isEmpty()) {
-            if (!state.wmState.keyguardControllerState.isKeyguardShowing) {
-                Log.i(LOG_TAG, "***resumedActivitiesCount=0")
-            } else {
-                Log.i(LOG_TAG, "***isKeyguardShowing=true")
-            }
-            return true
-        }
-        if (state.wmState.focusedActivity.isEmpty()) {
-            Log.i(LOG_TAG, "***focusedActivity=null")
-            return true
-        }
-        return false
-    }
+        waitCondition: (DeviceStateDump<WindowManagerState, LayerTraceEntry>) -> Boolean
+    ): Boolean = createConditionBuilder()
+            .withCondition(message, waitCondition)
+            .build()
+            .waitFor()
 
     /**
      * @return true if should wait for some activities to become visible.
      */
     private fun shouldWaitForActivities(
-        state: Dump,
+        state: DeviceStateDump<WindowManagerState, LayerTraceEntry>,
         vararg waitForActivitiesVisible: WaitForValidActivityState
     ): Boolean {
         if (waitForActivitiesVisible.isEmpty()) {
@@ -397,65 +310,35 @@ open class WindowManagerStateHelper @JvmOverloads constructor(
     }
 
     /**
-     * @return true if should wait for the valid windows state.
-     */
-    private fun shouldWaitForWindows(state: Dump): Boolean {
-        return when {
-            state.wmState.frontWindow == null -> {
-                Log.i(LOG_TAG, "***frontWindow=null")
-                true
-            }
-            state.wmState.focusedWindow.isEmpty() -> {
-                Log.i(LOG_TAG, "***focusedWindow=null")
-                true
-            }
-            state.wmState.focusedApp.isEmpty() -> {
-                Log.i(LOG_TAG, "***focusedApp=null")
-                true
-            }
-            else -> false
-        }
-    }
-
-    private fun shouldWaitForValidityCheck(state: Dump): Boolean {
-        return !state.wmState.isComplete()
-    }
-
-    /**
      * Waits until the IME window and layer are visible
      */
     @JvmOverloads
-    fun waitImeWindowShown(displayId: Int = Display.DEFAULT_DISPLAY): Boolean =
-        waitFor("IME window shown") {
-            val imeSurfaceShown = it.wmState.inputMethodWindowState?.isSurfaceShown == true
-            val imeDisplay = it.wmState.inputMethodWindowState?.displayId
-            val imeLayerShown = it.layerState.isVisible(IME_LAYER_NAME)
-            val result = imeSurfaceShown && imeLayerShown && imeDisplay == displayId
-
-            Log.v(LOG_TAG, "Current: $result " +
-                "imeSurfaceShown($imeSurfaceShown) " +
-                "imeLayerShown($imeLayerShown) " +
-                "imeDisplay($imeDisplay)")
-            result
-        }
+    fun waitImeShown(displayId: Int = Display.DEFAULT_DISPLAY): Boolean =
+        createConditionBuilder()
+            .withCondition(WindowManagerConditionsFactory.isImeShown(displayId))
+            .withCondition(
+                WindowManagerConditionsFactory.isAppTransitionIdle(Display.DEFAULT_DISPLAY))
+            .build()
+            .waitFor()
 
     /**
      * Waits until the IME layer is no longer visible. Cannot wait for the window as
      * its visibility information is updated at a later state and is not reliable in
      * the trace
      */
-    fun waitImeWindowGone(): Boolean =
-        waitFor("IME window gone") {
-            val imeLayerShown = it.layerState.isVisible(IME_LAYER_NAME)
-            Log.v(LOG_TAG, "imeLayerShown($imeLayerShown)")
-            !imeLayerShown
-        }
+    fun waitImeGone(): Boolean =
+        createConditionBuilder()
+            .withCondition(WindowManagerConditionsFactory.isLayerVisible(IME).negate())
+            .withCondition(
+                WindowManagerConditionsFactory.isAppTransitionIdle(Display.DEFAULT_DISPLAY))
+            .build()
+            .waitFor()
 
     /**
      * Obtains a [WindowContainer] from the current device state, or null if the WindowContainer
      * doesn't exist
      */
-    fun getWindow(activity: ComponentName): WindowState? {
+    fun getWindow(activity: FlickerComponentName): WindowState? {
         val windowName = activity.toWindowName()
         return this.currentState.wmState.windowStates
             .firstOrNull { it.title == windowName }
@@ -464,40 +347,8 @@ open class WindowManagerStateHelper @JvmOverloads constructor(
     /**
      * Obtains the region of a window in the state, or an empty [Rect] is there are none
      */
-    fun getWindowRegion(activity: ComponentName): Region {
+    fun getWindowRegion(activity: FlickerComponentName): Region {
         val window = getWindow(activity)
         return window?.frameRegion?.toAndroidRegion() ?: Region()
     }
-
-    companion object {
-        @VisibleForTesting
-        const val NAV_BAR_WINDOW_NAME = "NavigationBar0"
-        @VisibleForTesting
-        const val STATUS_BAR_WINDOW_NAME = "StatusBar"
-        @VisibleForTesting
-        const val NAV_BAR_LAYER_NAME = "$NAV_BAR_WINDOW_NAME#0"
-        @VisibleForTesting
-        const val STATUS_BAR_LAYER_NAME = "$STATUS_BAR_WINDOW_NAME#0"
-        @VisibleForTesting
-        const val ROTATION_LAYER_NAME = "RotationLayer#0"
-        @VisibleForTesting
-        const val BLACK_SURFACE_LAYER_NAME = "BackColorSurface#0"
-        @VisibleForTesting
-        const val IME_LAYER_NAME = "InputMethod#0"
-        @VisibleForTesting
-        const val SPLASH_SCREEN_NAME = "Splash Screen"
-        @VisibleForTesting
-        const val SNAPSHOT_WINDOW_NAME = "SnapshotStartingWindow"
-    }
-
-    data class Dump(
-        /**
-         * Window manager state
-         */
-        @JvmField val wmState: WindowManagerState,
-        /**
-         * Layers state
-         */
-        @JvmField val layerState: LayerTraceEntry
-    )
 }

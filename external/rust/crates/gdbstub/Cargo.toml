@@ -13,7 +13,7 @@
 [package]
 edition = "2018"
 name = "gdbstub"
-version = "0.4.5"
+version = "0.5.0"
 authors = ["Daniel Prilik <danielprilik@gmail.com>"]
 exclude = ["examples/**/*.elf", "examples/**/*.o"]
 description = "An implementation of the GDB Remote Serial Protocol in Rust"

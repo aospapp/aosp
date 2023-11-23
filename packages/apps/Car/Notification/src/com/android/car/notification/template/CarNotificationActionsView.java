@@ -21,11 +21,16 @@ import android.content.res.TypedArray;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Icon;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
-import android.widget.Button;
-import android.widget.RelativeLayout;
+import android.widget.LinearLayout;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -43,8 +48,10 @@ import java.util.List;
 /**
  * Notification actions view that contains the buttons that fire actions.
  */
-public class CarNotificationActionsView extends RelativeLayout implements
+public class CarNotificationActionsView extends LinearLayout implements
         PreprocessingManager.CallStateListener {
+    private static final boolean DEBUG = Build.IS_DEBUGGABLE;
+    private static final String TAG = "CarNotificationActionsView";
 
     // Maximum 3 actions
     // https://developer.android.com/reference/android/app/Notification.Builder.html#addAction
@@ -54,11 +61,40 @@ public class CarNotificationActionsView extends RelativeLayout implements
     static final int FIRST_MESSAGE_ACTION_BUTTON_INDEX = 0;
     @VisibleForTesting
     static final int SECOND_MESSAGE_ACTION_BUTTON_INDEX = 1;
+    @VisibleForTesting
+    static final int THIRD_MESSAGE_ACTION_BUTTON_INDEX = 2;
 
-    private final List<Button> mActionButtons = new ArrayList<>();
+    private final List<CarNotificationActionButton> mActionButtons = new ArrayList<>();
     private final Context mContext;
     private final CarAssistUtils mCarAssistUtils;
+    private final Drawable mActionButtonBackground;
+    private final Drawable mCallButtonBackground;
+    private final Drawable mDeclineButtonBackground;
+    private final Drawable mUnmuteButtonBackground;
+    private final String mReplyButtonText;
+    private final String mPlayButtonText;
+    private final String mMuteText;
+    private final String mUnmuteText;
+    @ColorInt
+    private final int mUnmuteTextColor;
+    @ColorInt
+    private final int mTextColor;
+    private final boolean mEnableDirectReply;
+    private final boolean mEnablePlay;
 
+    @VisibleForTesting
+    final Drawable mPlayButtonDrawable;
+    @VisibleForTesting
+    final Drawable mReplyButtonDrawable;
+    @VisibleForTesting
+    final Drawable mMuteButtonDrawable;
+    @VisibleForTesting
+    final Drawable mUnmuteButtonDrawable;
+
+
+    private NotificationDataManager mNotificationDataManager;
+    private NotificationClickHandlerFactory mNotificationClickHandlerFactory;
+    private AlertEntry mAlertEntry;
     private boolean mIsCategoryCall;
     private boolean mIsInCall;
 
@@ -86,7 +122,40 @@ public class CarNotificationActionsView extends RelativeLayout implements
 
         mContext = context;
         mCarAssistUtils = carAssistUtils;
+        mNotificationDataManager = NotificationDataManager.getInstance();
+        mActionButtonBackground = mContext.getDrawable(R.drawable.action_button_background);
+        mCallButtonBackground = mContext.getDrawable(R.drawable.call_action_button_background);
+        mCallButtonBackground.setColorFilter(
+                new PorterDuffColorFilter(mContext.getColor(R.color.call_accept_button),
+                        PorterDuff.Mode.SRC_IN));
+        mDeclineButtonBackground = mContext.getDrawable(R.drawable.call_action_button_background);
+        mDeclineButtonBackground.setColorFilter(
+                new PorterDuffColorFilter(mContext.getColor(R.color.call_decline_button),
+                        PorterDuff.Mode.SRC_IN));
+        mUnmuteButtonBackground = mContext.getDrawable(R.drawable.call_action_button_background);
+        mUnmuteButtonBackground.setColorFilter(
+                new PorterDuffColorFilter(mContext.getColor(R.color.unmute_button),
+                        PorterDuff.Mode.SRC_IN));
+        mPlayButtonText =  mContext.getString(R.string.assist_action_play_label);
+        mReplyButtonText = mContext.getString(R.string.assist_action_reply_label);
+        mMuteText =  mContext.getString(R.string.action_mute_short);
+        mUnmuteText =  mContext.getString(R.string.action_unmute_short);
+        mPlayButtonDrawable = mContext.getDrawable(R.drawable.ic_play_arrow);
+        mReplyButtonDrawable = mContext.getDrawable(R.drawable.ic_reply);
+        mMuteButtonDrawable = mContext.getDrawable(R.drawable.ic_mute);
+        mUnmuteButtonDrawable = mContext.getDrawable(R.drawable.ic_unmute);
+        mEnablePlay =
+                mContext.getResources().getBoolean(R.bool.config_enableMessageNotificationPlay);
+        mEnableDirectReply = mContext.getResources()
+                .getBoolean(R.bool.config_enableMessageNotificationDirectReply);
+        mUnmuteTextColor = mContext.getColor(R.color.dark_icon_tint);
+        mTextColor = mContext.getColor(R.color.notification_accent_color);
         init(attrs);
+    }
+
+    @VisibleForTesting
+    void setNotificationDataManager(NotificationDataManager notificationDataManager) {
+        mNotificationDataManager = notificationDataManager;
     }
 
     private void init(@Nullable AttributeSet attrs) {
@@ -98,8 +167,6 @@ public class CarNotificationActionsView extends RelativeLayout implements
                             /* defaultValue= */ false);
             attributes.recycle();
         }
-
-        PreprocessingManager.getInstance(mContext).addCallStateListener(this);
 
         inflate(mContext, R.layout.car_notification_actions_view, /* root= */ this);
     }
@@ -114,27 +181,45 @@ public class CarNotificationActionsView extends RelativeLayout implements
         Notification notification = alertEntry.getNotification();
         Notification.Action[] actions = notification.actions;
         if (actions == null || actions.length == 0) {
+            setVisibility(View.GONE);
             return;
         }
 
+        PreprocessingManager.getInstance(mContext).addCallStateListener(this);
+
+        mNotificationClickHandlerFactory = clickHandlerFactory;
+        mAlertEntry = alertEntry;
+
+        setVisibility(View.VISIBLE);
+
         if (CarAssistUtils.isCarCompatibleMessagingNotification(
                 alertEntry.getStatusBarNotification())) {
-            boolean canPlayMessage = mCarAssistUtils.hasActiveAssistant()
+            boolean canPlayMessage = mEnablePlay && mCarAssistUtils.hasActiveAssistant()
                     || mCarAssistUtils.isFallbackAssistantEnabled();
+            boolean canReplyMessage = mEnableDirectReply && mCarAssistUtils.hasActiveAssistant()
+                    && clickHandlerFactory.getReplyAction(alertEntry.getNotification()) != null;
             if (canPlayMessage) {
                 createPlayButton(clickHandlerFactory, alertEntry);
             }
-            createMuteButton(clickHandlerFactory, alertEntry);
+            if (canReplyMessage) {
+                createReplyButton(clickHandlerFactory, alertEntry);
+            }
+            createMuteButton(clickHandlerFactory, alertEntry, canReplyMessage);
             return;
         }
 
         int length = Math.min(actions.length, MAX_NUM_ACTIONS);
         for (int i = 0; i < length; i++) {
             Notification.Action action = actions[i];
-            Button button = mActionButtons.get(i);
+            CarNotificationActionButton button = mActionButtons.get(i);
             button.setVisibility(View.VISIBLE);
             // clear spannables and only use the text
             button.setText(action.title.toString());
+            Icon icon = action.getIcon();
+            if (icon != null) {
+                icon.loadDrawableAsync(mContext, drawable -> button.setImageDrawable(drawable),
+                        Handler.createAsync(Looper.myLooper()));
+            }
 
             if (action.actionIntent != null) {
                 button.setOnClickListener(clickHandlerFactory.getActionClickHandler(alertEntry, i));
@@ -142,19 +227,8 @@ public class CarNotificationActionsView extends RelativeLayout implements
         }
 
         if (mIsCategoryCall) {
-            Drawable acceptButton = mContext.getResources().getDrawable(
-                    R.drawable.call_action_button_background);
-            acceptButton.setColorFilter(
-                    new PorterDuffColorFilter(mContext.getColor(R.color.call_accept_button),
-                            PorterDuff.Mode.SRC_IN));
-            mActionButtons.get(0).setBackground(acceptButton);
-
-            Drawable declineButton = mContext.getResources().getDrawable(
-                    R.drawable.call_action_button_background);
-            declineButton.setColorFilter(
-                    new PorterDuffColorFilter(mContext.getColor(R.color.call_decline_button),
-                            PorterDuff.Mode.SRC_IN));
-            mActionButtons.get(1).setBackground(declineButton);
+            mActionButtons.get(0).setBackground(mCallButtonBackground);
+            mActionButtons.get(1).setBackground(mDeclineButtonBackground);
         }
     }
 
@@ -162,12 +236,19 @@ public class CarNotificationActionsView extends RelativeLayout implements
      * Resets the notification actions empty for recycling.
      */
     public void reset() {
-        for (Button button : mActionButtons) {
+        resetButtons();
+        PreprocessingManager.getInstance(getContext()).removeCallStateListener(this);
+        mAlertEntry = null;
+        mNotificationClickHandlerFactory = null;
+    }
+
+    private void resetButtons() {
+        for (CarNotificationActionButton button : mActionButtons) {
             button.setVisibility(View.GONE);
             button.setText(null);
+            button.setImageDrawable(null);
             button.setOnClickListener(null);
         }
-        PreprocessingManager.getInstance(getContext()).removeCallStateListener(this);
     }
 
     @Override
@@ -179,7 +260,7 @@ public class CarNotificationActionsView extends RelativeLayout implements
     }
 
     @VisibleForTesting
-    List<Button> getActionButtons() {
+    List<CarNotificationActionButton> getActionButtons() {
         return mActionButtons;
     }
 
@@ -196,11 +277,29 @@ public class CarNotificationActionsView extends RelativeLayout implements
             AlertEntry alertEntry) {
         if (mIsInCall) return;
 
-        Button button = mActionButtons.get(FIRST_MESSAGE_ACTION_BUTTON_INDEX);
-        button.setText(mContext.getString(R.string.assist_action_play_label));
+        CarNotificationActionButton button = mActionButtons.get(FIRST_MESSAGE_ACTION_BUTTON_INDEX);
+        button.setText(mPlayButtonText);
+        button.setImageDrawable(mPlayButtonDrawable);
         button.setVisibility(View.VISIBLE);
         button.setOnClickListener(
                 clickHandlerFactory.getPlayClickHandler(alertEntry));
+    }
+
+    /**
+     * The Reply button triggers the assistant to read the message aloud, optionally prompting the
+     * user to reply to the message afterwards.
+     */
+    private void createReplyButton(NotificationClickHandlerFactory clickHandlerFactory,
+            AlertEntry alertEntry) {
+        if (mIsInCall) return;
+        int index = SECOND_MESSAGE_ACTION_BUTTON_INDEX;
+
+        CarNotificationActionButton button = mActionButtons.get(index);
+        button.setText(mReplyButtonText);
+        button.setImageDrawable(mReplyButtonDrawable);
+        button.setVisibility(View.VISIBLE);
+        button.setOnClickListener(
+                clickHandlerFactory.getReplyClickHandler(alertEntry));
     }
 
     /**
@@ -208,22 +307,71 @@ public class CarNotificationActionsView extends RelativeLayout implements
      * statusBarNotification key will be shown with a HUN and trigger a notification sound.
      */
     private void createMuteButton(NotificationClickHandlerFactory clickHandlerFactory,
-            AlertEntry alertEntry) {
-        int index = SECOND_MESSAGE_ACTION_BUTTON_INDEX;
+            AlertEntry alertEntry, boolean canReply) {
+        int index = THIRD_MESSAGE_ACTION_BUTTON_INDEX;
+        if (!canReply) index = SECOND_MESSAGE_ACTION_BUTTON_INDEX;
         if (mIsInCall) index = FIRST_MESSAGE_ACTION_BUTTON_INDEX;
 
-        Button button = mActionButtons.get(index);
-        NotificationDataManager manager = clickHandlerFactory.getNotificationDataManager();
-        button.setText((manager != null && manager.isMessageNotificationMuted(alertEntry))
-                ? mContext.getString(R.string.action_unmute_long)
-                : mContext.getString(R.string.action_mute_long));
+        CarNotificationActionButton button = mActionButtons.get(index);
+        setMuteStatus(button, mNotificationDataManager.isMessageNotificationMuted(alertEntry));
         button.setVisibility(View.VISIBLE);
-        button.setOnClickListener(clickHandlerFactory.getMuteClickHandler(button, alertEntry));
+        button.setOnClickListener(
+                clickHandlerFactory.getMuteClickHandler(button, alertEntry, this::setMuteStatus));
+    }
+
+    private void setMuteStatus(CarNotificationActionButton button, boolean isMuted) {
+        button.setText(isMuted ? mUnmuteText : mMuteText);
+        button.setTextColor(isMuted ? mUnmuteTextColor : mTextColor);
+        button.setImageDrawable(isMuted ? mUnmuteButtonDrawable : mMuteButtonDrawable);
+        button.setBackground(isMuted ? mUnmuteButtonBackground :  mActionButtonBackground);
     }
 
     /** Implementation of {@link PreprocessingManager.CallStateListener} **/
     @Override
     public void onCallStateChanged(boolean isInCall) {
+        if (mIsInCall == isInCall) {
+            return;
+        }
+
         mIsInCall = isInCall;
+
+        if (mNotificationClickHandlerFactory == null || mAlertEntry == null) {
+            return;
+        }
+
+        if (DEBUG) {
+            if (isInCall) {
+                Log.d(TAG, "Call state activated: " + mAlertEntry);
+            } else {
+                Log.d(TAG, "Call state deactivated: " + mAlertEntry);
+            }
+        }
+
+        int focusedButtonIndex = getFocusedButtonIndex();
+        resetButtons();
+        bind(mNotificationClickHandlerFactory, mAlertEntry);
+
+        // If not in touch mode and action button had focus, then have original or preceding button
+        // request focus.
+        if (!isInTouchMode() && focusedButtonIndex != -1) {
+            for (int i = focusedButtonIndex; i != -1; i--) {
+                CarNotificationActionButton button = getActionButtons().get(i);
+                if (button.getVisibility() == View.VISIBLE) {
+                    button.requestFocus();
+                    return;
+                }
+            }
+        }
+    }
+
+    private int getFocusedButtonIndex() {
+        for (int i = FIRST_MESSAGE_ACTION_BUTTON_INDEX; i <= THIRD_MESSAGE_ACTION_BUTTON_INDEX;
+                i++) {
+            boolean hasFocus = getActionButtons().get(i).hasFocus();
+            if (hasFocus) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

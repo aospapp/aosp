@@ -10,6 +10,7 @@
        android:protectionLevel="signature"/>
 
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <uses-permission android:name="android.permission.LAUNCH_MULTI_PANE_SETTINGS_DEEP_LINK" />
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
   <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
@@ -111,8 +112,16 @@
          android:theme="@style/WallpaperTheme.Preview">
     </activity>
 
+    <activity
+         android:name="com.android.wallpaper.picker.FullPreviewActivity"
+         android:taskAffinity="@string/full_screen_task_affinity"
+         android:resizeableActivity="false"
+         android:theme="@style/WallpaperTheme.Preview">
+    </activity>
+
     <activity android:name="com.android.wallpaper.picker.StandalonePreviewActivity"
          android:resizeableActivity="false"
+         android:relinquishTaskIdentity="true"
          android:theme="@style/WallpaperTheme.Preview"
          android:exported="true">
       <intent-filter>

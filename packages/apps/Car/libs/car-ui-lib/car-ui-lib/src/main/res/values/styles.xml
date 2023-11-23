@@ -43,7 +43,6 @@
 
     <style name="Widget.CarUi.Toolbar.NavIcon">
         <item name="android:tint">@color/car_ui_toolbar_nav_icon_color</item>
-        <item name="android:src">@drawable/car_ui_icon_arrow_back</item>
         <item name="android:background">@drawable/car_ui_toolbar_menu_item_icon_ripple</item>
     </style>
 
@@ -131,10 +130,6 @@
         <item name="android:singleLine">true</item>
         <item name="android:gravity">center</item>
         <item name="android:textAppearance">@style/TextAppearance.CarUi.Widget.Toolbar.Tab</item>
-    </style>
-
-    <style name="Widget.CarUi.CarUiRecyclerView">
-        <item name="android:scrollbars">vertical</item>
     </style>
 
     <style name="Widget.CarUi.AlertDialog"/>
@@ -226,7 +221,6 @@
 
     <style name="PreferenceFragment.CarUi">
         <item name="android:divider">?android:attr/listDivider</item>
-        <!-- TODO(b/150230923) change this to car_ui_preference_fragment -->
         <item name="android:layout">@layout/car_ui_preference_fragment</item>
     </style>
 
@@ -282,8 +276,8 @@
 
     <style name="TextAppearance.CarUi.PreferenceEditTextDialogMessage" parent="TextAppearance.CarUi.Body3"/>
 
-    <style name="TextAppearance.CarUi.AlertDialog.Title" parent="TextAppearance.CarUi.Body3"/>
-    <style name="TextAppearance.CarUi.AlertDialog.Subtitle" parent="TextAppearance.CarUi.Sub3"/>
+    <style name="TextAppearance.CarUi.AlertDialog.Title" parent="TextAppearance.CarUi.Body1"/>
+    <style name="TextAppearance.CarUi.AlertDialog.Subtitle" parent="TextAppearance.CarUi.Body3"/>
 
     <style name="TextAppearance.CarUi.Widget" parent="android:TextAppearance.DeviceDefault.Widget"/>
 

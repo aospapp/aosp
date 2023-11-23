@@ -535,7 +535,7 @@ public class ExtrasProvisioningDataParser implements ProvisioningDataParser {
                 parseOrganizationLogoUrlFromExtras(context, intent);
             }
 
-            DisclaimersParam disclaimersParam = new DisclaimersParser(context, provisioningId)
+            DisclaimersParam disclaimersParam = new DisclaimersParserImpl(context, provisioningId)
                     .parse(getParcelableArrayExtraFromLongName(
                             intent, EXTRA_PROVISIONING_DISCLAIMERS));
 

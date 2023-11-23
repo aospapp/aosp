@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"സുരക്ഷാ മുന്നറിയിപ്പ് സംവിധാനത്തിൽ നിന്ന് ആവശ്യമായ പ്രതിമാസ പരിശോധനകൾ സ്വീകരിക്കുക"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"ദേശീയ മുന്നറിയിപ്പ്"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"ആദ്യത്തെ മുന്നറിയിപ്പിന് ശേഷം ഒരു ഒഴിവാക്കൽ ഡയലോഗ് കാണിക്കുക (ദേശീയ മുന്നറിയിപ്പ് കൂടാതെ)."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"ദേശീയ മുന്നറിയിപ്പുകൾ"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"ദേശീയ മുന്നറിയിപ്പ് സന്ദേശങ്ങൾ. ഓഫാക്കാനാകില്ല."</string>
 </resources>

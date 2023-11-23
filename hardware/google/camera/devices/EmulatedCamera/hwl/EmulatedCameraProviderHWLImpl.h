@@ -30,6 +30,7 @@ using google_camera_hal::CameraDeviceHwl;
 using google_camera_hal::CameraDeviceStatus;
 using google_camera_hal::CameraIdAndStreamConfiguration;
 using google_camera_hal::CameraProviderHwl;
+using google_camera_hal::DeviceState;
 using google_camera_hal::HalCameraMetadata;
 using google_camera_hal::HwlCameraProviderCallback;
 using google_camera_hal::HwlPhysicalCameraDeviceStatusChangeFunc;
@@ -71,6 +72,8 @@ class EmulatedCameraProviderHwlImpl : public CameraProviderHwl {
 
   status_t CreateBufferAllocatorHwl(std::unique_ptr<CameraBufferAllocatorHwl>*
                                         camera_buffer_allocator_hwl) override;
+
+  status_t NotifyDeviceStateChange(DeviceState device_state) override;
   // End of override functions in CameraProviderHwl.
 
  private:

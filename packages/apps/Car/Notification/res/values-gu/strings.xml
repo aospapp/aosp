@@ -18,6 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assist_action_play_label" msgid="6278705468288338172">"ચલાવો"</string>
+    <string name="assist_action_reply_label" msgid="6946087036560525072">"જવાબ આપો"</string>
     <string name="action_mute_short" msgid="5239851786101022633">"મ્યૂટ કરો"</string>
     <string name="action_mute_long" msgid="6846675719189989477">"વાતચીત મ્યૂટ કરો"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"અનમ્યૂટ કરો"</string>
@@ -31,13 +32,21 @@
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
     <string name="show_more" msgid="7291378544926443344">"વધુ બતાવો"</string>
     <string name="notification_header" msgid="324550431063568049">"નોટિફિકેશન"</string>
+    <string name="notification_recents" msgid="5855769440781958546">"તાજેતરનાં"</string>
+    <string name="notification_older" msgid="8162161020296499690">"જૂના નોટિફિકેશન"</string>
     <string name="empty_notification_header" msgid="4928379791607839720">"કોઈ નોટિફિકેશન નથી"</string>
-    <string name="show_less" msgid="7342677676229302829">"ઓછું બતાવો"</string>
+    <string name="collapse_group" msgid="4923097735600949715">"ગ્રૂપ નાનું કરો"</string>
+    <string name="show_more_from_app" msgid="4270626118092846628">"<xliff:g id="APP">%2$s</xliff:g> તરફથી વધુ <xliff:g id="COUNT">%1$d</xliff:g>"</string>
     <string name="show_count_more" msgid="480555295700318609">" <xliff:g id="COUNT">%d</xliff:g>  વધુ બતાવો"</string>
-    <string name="message_unshown_count" msgid="2234421277246741233">" +<xliff:g id="COUNT">%d</xliff:g> વધુ"</string>
-    <plurals name="restricted_message_text" formatted="false" msgid="507312322886633308">
-      <item quantity="one"><xliff:g id="COUNT">%d</xliff:g> નવો સંદેશ</item>
-      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> નવા સંદેશા</item>
+    <plurals name="message_unshown_count" formatted="false" msgid="2454776257150137504">
+      <item quantity="one">વધુ <xliff:g id="COUNT_1">%d</xliff:g> મેસેજ</item>
+      <item quantity="other">વધુ <xliff:g id="COUNT_1">%d</xliff:g> મેસેજ</item>
     </plurals>
+    <plurals name="restricted_numbered_message_content" formatted="false" msgid="232398073855919710">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> નવો મેસેજ</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> નવા મેસેજ</item>
+    </plurals>
+    <string name="see_more_message" msgid="6343183827924395955">"વધુ જુઓ"</string>
+    <string name="restricted_hun_message_content" msgid="631111937988857716">"નવો સંદેશ"</string>
     <string name="manage_text" msgid="4225197445283791757">"મેનેજ કરો"</string>
 </resources>

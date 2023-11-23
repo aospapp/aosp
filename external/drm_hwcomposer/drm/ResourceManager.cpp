@@ -18,17 +18,18 @@
 
 #include "ResourceManager.h"
 
-#include <cutils/properties.h>
-#include <log/log.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #include <sstream>
 
 #include "bufferinfo/BufferInfoGetter.h"
+#include "utils/log.h"
+#include "utils/properties.h"
 
 namespace android {
 
-ResourceManager::ResourceManager() : num_displays_(0), gralloc_(NULL) {
+ResourceManager::ResourceManager() : num_displays_(0), gralloc_(nullptr) {
 }
 
 int ResourceManager::Init() {
@@ -46,12 +47,12 @@ int ResourceManager::Init() {
       std::ostringstream path;
       path << path_pattern << idx;
 
-      struct stat buf;
-      if (stat(path.str().c_str(), &buf)) {
+      struct stat buf {};
+      if (stat(path.str().c_str(), &buf))
         break;
-      } else if (IsKMSDev(path.str().c_str())) {
+
+      if (IsKMSDev(path.str().c_str()))
         ret = AddDrmDevice(path.str());
-      }
     }
   }
 
@@ -73,19 +74,11 @@ int ResourceManager::Init() {
                        (const hw_module_t **)&gralloc_);
 }
 
-int ResourceManager::AddDrmDevice(std::string path) {
-  std::unique_ptr<DrmDevice> drm = std::make_unique<DrmDevice>();
-  int displays_added, ret;
+int ResourceManager::AddDrmDevice(const std::string &path) {
+  auto drm = std::make_unique<DrmDevice>();
+  int displays_added = 0;
+  int ret = 0;
   std::tie(ret, displays_added) = drm->Init(path.c_str(), num_displays_);
-  if (ret)
-    return ret;
-  std::shared_ptr<Importer> importer;
-  importer.reset(new DrmGenericImporter(drm.get()));
-  if (!importer) {
-    ALOGE("Failed to create importer instance");
-    return -ENODEV;
-  }
-  importers_.push_back(importer);
   drms_.push_back(std::move(drm));
   num_displays_ += displays_added;
   return ret;
@@ -93,7 +86,7 @@ int ResourceManager::AddDrmDevice(std::string path) {
 
 DrmConnector *ResourceManager::AvailableWritebackConnector(int display) {
   DrmDevice *drm_device = GetDrmDevice(display);
-  DrmConnector *writeback_conn = NULL;
+  DrmConnector *writeback_conn = nullptr;
   if (drm_device) {
     writeback_conn = drm_device->AvailableWritebackConnector(display);
     if (writeback_conn)
@@ -114,7 +107,7 @@ bool ResourceManager::IsKMSDev(const char *path) {
   if (fd < 0)
     return false;
 
-  auto res = drmModeGetResources(fd);
+  auto *res = drmModeGetResources(fd);
   if (!res) {
     close(fd);
     return false;
@@ -134,15 +127,7 @@ DrmDevice *ResourceManager::GetDrmDevice(int display) {
     if (drm->HandlesDisplay(display))
       return drm.get();
   }
-  return NULL;
-}
-
-std::shared_ptr<Importer> ResourceManager::GetImporter(int display) {
-  for (unsigned int i = 0; i < drms_.size(); i++) {
-    if (drms_[i]->HandlesDisplay(display))
-      return importers_[i];
-  }
-  return NULL;
+  return nullptr;
 }
 
 const gralloc_module_t *ResourceManager::gralloc() {

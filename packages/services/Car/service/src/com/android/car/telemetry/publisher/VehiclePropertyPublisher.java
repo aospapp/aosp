@@ -20,24 +20,27 @@ import android.car.VehiclePropertyIds;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.property.CarPropertyEvent;
 import android.car.hardware.property.ICarPropertyEventListener;
-import android.os.Bundle;
+import android.os.Handler;
+import android.os.PersistableBundle;
 import android.os.RemoteException;
-import android.util.Slog;
+import android.util.ArraySet;
 import android.util.SparseArray;
 
 import com.android.car.CarLog;
 import com.android.car.CarPropertyService;
 import com.android.car.telemetry.TelemetryProto;
+import com.android.car.telemetry.TelemetryProto.Publisher.PublisherCase;
 import com.android.car.telemetry.databroker.DataSubscriber;
 import com.android.internal.util.Preconditions;
+import com.android.server.utils.Slogf;
 
-import java.util.Collection;
 import java.util.List;
 
 /**
  * Publisher for Vehicle Property changes, aka {@code CarPropertyService}.
  *
- * <p>TODO(b/187525360): Add car property listener logic
+ * <p> When a subscriber is added, it registers a car property change listener for the
+ * property id of the subscriber and starts pushing the change events to the subscriber.
  */
 public class VehiclePropertyPublisher extends AbstractPublisher {
     private static final boolean DEBUG = false;  // STOPSHIP if true
@@ -46,14 +49,24 @@ public class VehiclePropertyPublisher extends AbstractPublisher {
     public static final String CAR_PROPERTY_EVENT_KEY = "car_property_event";
 
     private final CarPropertyService mCarPropertyService;
+    private final Handler mTelemetryHandler;
+
+    // The class only reads, no need to synchronize this object.
+    // Maps property_id to CarPropertyConfig.
     private final SparseArray<CarPropertyConfig> mCarPropertyList;
+
+    // SparseArray and ArraySet are memory optimized, but they can be bit slower for more
+    // than 100 items. We're expecting much less number of subscribers, so these DS are ok.
+    // Maps property_id to the set of DataSubscriber.
+    private final SparseArray<ArraySet<DataSubscriber>> mCarPropertyToSubscribers =
+            new SparseArray<>();
 
     private final ICarPropertyEventListener mCarPropertyEventListener =
             new ICarPropertyEventListener.Stub() {
                 @Override
                 public void onEvent(List<CarPropertyEvent> events) throws RemoteException {
                     if (DEBUG) {
-                        Slog.d(CarLog.TAG_TELEMETRY,
+                        Slogf.d(CarLog.TAG_TELEMETRY,
                                 "Received " + events.size() + " vehicle property events");
                     }
                     for (CarPropertyEvent event : events) {
@@ -62,17 +75,21 @@ public class VehiclePropertyPublisher extends AbstractPublisher {
                 }
             };
 
-    public VehiclePropertyPublisher(CarPropertyService carPropertyService) {
+    public VehiclePropertyPublisher(CarPropertyService carPropertyService,
+            PublisherFailureListener failureListener, Handler handler) {
+        super(failureListener);
         mCarPropertyService = carPropertyService;
+        mTelemetryHandler = handler;
         // Load car property list once, as the list doesn't change runtime.
-        mCarPropertyList = new SparseArray<>();
-        for (CarPropertyConfig property : mCarPropertyService.getPropertyList()) {
+        List<CarPropertyConfig> propertyList = mCarPropertyService.getPropertyList();
+        mCarPropertyList = new SparseArray<>(propertyList.size());
+        for (CarPropertyConfig property : propertyList) {
             mCarPropertyList.append(property.getPropertyId(), property);
         }
     }
 
     @Override
-    protected void onDataSubscriberAdded(DataSubscriber subscriber) {
+    public void addDataSubscriber(DataSubscriber subscriber) {
         TelemetryProto.Publisher publisherParam = subscriber.getPublisherParam();
         Preconditions.checkArgument(
                 publisherParam.getPublisherCase()
@@ -88,31 +105,80 @@ public class VehiclePropertyPublisher extends AbstractPublisher {
                         || config.getAccess()
                         == CarPropertyConfig.VEHICLE_PROPERTY_ACCESS_READ_WRITE,
                 "No access. Cannot read " + VehiclePropertyIds.toString(propertyId) + ".");
-        mCarPropertyService.registerListener(
-                propertyId,
-                publisherParam.getVehicleProperty().getReadRate(),
-                mCarPropertyEventListener);
+
+        ArraySet<DataSubscriber> subscribers = mCarPropertyToSubscribers.get(propertyId);
+        if (subscribers == null) {
+            subscribers = new ArraySet<>();
+            mCarPropertyToSubscribers.put(propertyId, subscribers);
+            // Register the listener only once per propertyId.
+            mCarPropertyService.registerListener(
+                    propertyId,
+                    publisherParam.getVehicleProperty().getReadRate(),
+                    mCarPropertyEventListener);
+        }
+        subscribers.add(subscriber);
     }
 
     @Override
-    protected void onDataSubscribersRemoved(Collection<DataSubscriber> subscribers) {
-        // TODO(b/190230611): Remove car property listener
+    public void removeDataSubscriber(DataSubscriber subscriber) {
+        TelemetryProto.Publisher publisherParam = subscriber.getPublisherParam();
+        if (publisherParam.getPublisherCase() != PublisherCase.VEHICLE_PROPERTY) {
+            Slogf.w(CarLog.TAG_TELEMETRY,
+                    "Expected VEHICLE_PROPERTY publisher, but received "
+                            + publisherParam.getPublisherCase().name());
+            return;
+        }
+        int propertyId = publisherParam.getVehicleProperty().getVehiclePropertyId();
+
+        ArraySet<DataSubscriber> subscribers = mCarPropertyToSubscribers.get(propertyId);
+        if (subscribers == null) {
+            return;
+        }
+        subscribers.remove(subscriber);
+        if (subscribers.isEmpty()) {
+            mCarPropertyToSubscribers.remove(propertyId);
+            // Doesn't throw exception as listener is not null. mCarPropertyService and
+            // local mCarPropertyToSubscribers will not get out of sync.
+            mCarPropertyService.unregisterListener(propertyId, mCarPropertyEventListener);
+        }
+    }
+
+    @Override
+    public void removeAllDataSubscribers() {
+        for (int i = 0; i < mCarPropertyToSubscribers.size(); i++) {
+            int propertyId = mCarPropertyToSubscribers.keyAt(i);
+            // Doesn't throw exception as listener is not null. mCarPropertyService and
+            // local mCarPropertyToSubscribers will not get out of sync.
+            mCarPropertyService.unregisterListener(propertyId, mCarPropertyEventListener);
+        }
+        mCarPropertyToSubscribers.clear();
+    }
+
+    @Override
+    public boolean hasDataSubscriber(DataSubscriber subscriber) {
+        TelemetryProto.Publisher publisherParam = subscriber.getPublisherParam();
+        if (publisherParam.getPublisherCase() != PublisherCase.VEHICLE_PROPERTY) {
+            return false;
+        }
+        int propertyId = publisherParam.getVehicleProperty().getVehiclePropertyId();
+        ArraySet<DataSubscriber> subscribers = mCarPropertyToSubscribers.get(propertyId);
+        return subscribers != null && subscribers.contains(subscriber);
     }
 
     /**
-     * Called when publisher receives new events. It's called on CarPropertyService's worker
-     * thread.
+     * Called when publisher receives new event. It's executed on a CarPropertyService's
+     * worker thread.
      */
     private void onVehicleEvent(CarPropertyEvent event) {
-        Bundle bundle = new Bundle();
-        bundle.putParcelable(CAR_PROPERTY_EVENT_KEY, event);
-        for (DataSubscriber subscriber : getDataSubscribers()) {
-            TelemetryProto.Publisher publisherParam = subscriber.getPublisherParam();
-            if (event.getCarPropertyValue().getPropertyId()
-                    != publisherParam.getVehicleProperty().getVehiclePropertyId()) {
-                continue;
+        // move the work from CarPropertyService's worker thread to the telemetry thread
+        mTelemetryHandler.post(() -> {
+            // TODO(b/197269115): convert CarPropertyEvent into PersistableBundle
+            PersistableBundle bundle = new PersistableBundle();
+            ArraySet<DataSubscriber> subscribersClone = new ArraySet<>(
+                    mCarPropertyToSubscribers.get(event.getCarPropertyValue().getPropertyId()));
+            for (DataSubscriber subscriber : subscribersClone) {
+                subscriber.push(bundle);
             }
-            subscriber.push(bundle);
-        }
+        });
     }
 }

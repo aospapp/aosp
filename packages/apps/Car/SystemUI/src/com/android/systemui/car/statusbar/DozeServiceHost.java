@@ -89,11 +89,6 @@ public class DozeServiceHost implements DozeHost {
     }
 
     @Override
-    public void setAnimateScreenOff(boolean animateScreenOff) {
-        // No op.
-    }
-
-    @Override
     public void onSlpiTap(float x, float y) {
         // No op.
     }

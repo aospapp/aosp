@@ -48,6 +48,12 @@
              android:resizeableActivity="true"
              android:allowEmbedded="true">
         </activity>
+        <activity android:name=".ColorPalette"
+             android:label="@string/palette_elements"
+             android:windowSoftInputMode="stateUnchanged"
+             android:resizeableActivity="true"
+             android:allowEmbedded="true">
+        </activity>
         <activity android:name=".ProgressBarSamples"
                   android:label="@string/progress_bar_elements"
                   android:windowSoftInputMode="stateUnchanged"
@@ -68,6 +74,7 @@
         </activity>
         <activity android:name=".CarUiRecyclerViewSamples"
              android:label="@string/car_ui_recycler_view"
+             android:theme="@style/Theme.CarUi"
              android:parentActivityName="com.android.car.themeplayground.TextSamples">
         </activity>
         <activity android:name=".DefaultThemeSamples"

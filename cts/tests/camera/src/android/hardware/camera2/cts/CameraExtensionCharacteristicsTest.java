@@ -21,6 +21,7 @@ import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraExtensionCharacteristics;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestRule;
+import android.platform.test.annotations.AppModeFull;
 import android.renderscript.Allocation;
 import android.util.Log;
 import android.util.Range;
@@ -125,6 +126,7 @@ public class CameraExtensionCharacteristicsTest {
     }
 
     @Test
+    @AppModeFull(reason = "Instant apps can't access Test API")
     public void testExtensionAvailability() throws Exception {
         boolean extensionsAdvertised = false;
         for (String id : mTestRule.getCameraIdsUnderTest()) {

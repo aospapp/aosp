@@ -16,19 +16,23 @@
 
 package com.android.car.dialer.bluetooth;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 
 import androidx.annotation.MainThread;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 import androidx.lifecycle.LiveData;
 
 import com.android.car.dialer.log.L;
 
+import java.util.Collections;
 import java.util.Set;
 
 import javax.inject.Inject;
@@ -81,6 +85,12 @@ class BluetoothPairListLiveData extends LiveData<Set<BluetoothDevice>> {
     }
 
     private void updateList() {
+        if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED) {
+            L.d(TAG, "Permission denied to read paired devices");
+            setValue(Collections.emptySet());
+            return;
+        }
         Set<BluetoothDevice> devices = mBluetoothAdapter.getBondedDevices();
         L.d(TAG, "updateList to %s", devices);
         setValue(devices);

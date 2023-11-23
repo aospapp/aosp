@@ -27,10 +27,7 @@
     <string name="night_mode_tile_label" msgid="6603597795502131664">"حالت شب"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"شبکه و اینترنت"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"شبکه تلفن همراه"</string>
-    <plurals name="mobile_network_summary_count" formatted="false" msgid="6917348330386831454">
-      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> سیم‌کارت</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> سیم‌کارت</item>
-    </plurals>
+    <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# سیم‌کارت}one{# سیم‌کارت}other{# سیم‌کارت}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"فعال / سیم‌کارت"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"غیرفعال / سیم‌کارت"</string>
     <string name="mobile_network_active_esim" msgid="5864100786496761032">"فعال / سیم‌کارت بارگیری‌شده"</string>
@@ -38,6 +35,8 @@
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"افزودن موارد بیشتر"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"داده تلفن همراه"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"دسترسی به داده‌ها با استفاده از شبکه تلفن همراه"</string>
+    <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"شبکه تلفن همراه"</string>
+    <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"استفاده از داده تلفن همراه"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"داده تلفن همراه خاموش شود؟"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"انتخاب ضروری است"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"استفاده از <xliff:g id="CARRIER">%1$s</xliff:g> برای داده همراه؟"</string>
@@ -53,10 +52,7 @@
     <string name="cell_data_warning" msgid="8997739664336571149">"<xliff:g id="ID_1">^1</xliff:g> هشدار داده"</string>
     <string name="cell_data_limit" msgid="6862164869877993009">"<xliff:g id="ID_1">^1</xliff:g> محدودیت داده"</string>
     <string name="cell_data_warning_and_limit" msgid="5003954080814312475">"<xliff:g id="ID_1">^1</xliff:g> هشدار داده / <xliff:g id="ID_2">^2</xliff:g> محدودیت داده"</string>
-    <plurals name="billing_cycle_days_left" formatted="false" msgid="9163059632851951402">
-      <item quantity="one">%d روز باقی‌مانده است</item>
-      <item quantity="other">%d روز باقی‌مانده است</item>
-    </plurals>
+    <string name="billing_cycle_days_left" msgid="1810100330204239102">"{count,plural, =1{# روز باقی مانده است}one{# روز باقی مانده است}other{# روز باقی مانده است}}"</string>
     <string name="billing_cycle_none_left" msgid="3499893148398931302">"هیچ زمانی باقی نمانده است"</string>
     <string name="billing_cycle_less_than_one_day_left" msgid="8121013296375203759">"کمتر از ۱ روز باقی مانده است"</string>
     <string name="carrier_and_update_text" msgid="4351043160977741244">"<xliff:g id="ID_2">^2</xliff:g> قبل <xliff:g id="ID_1">^1</xliff:g> به‌روزرسانی کرد"</string>
@@ -71,6 +67,7 @@
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"تنظیم"</string>
     <string name="data_warning_limit_title" msgid="4950868241810828601">"محدودیت و هشدار داده"</string>
     <string name="app_usage_cycle" msgid="8445927080245880296">"دوره مصرف داده برنامه"</string>
+    <string name="mobile_data_usage" msgid="8171519864391091861">"مصرف داده تلفن همراه"</string>
     <string name="set_data_warning" msgid="6628236612886588097">"تنظیم هشدار داده"</string>
     <string name="data_warning" msgid="116776633806885370">"هشدار داده"</string>
     <string name="set_data_limit" msgid="7136539812414500084">"تنظیم محدودیت داده"</string>
@@ -79,8 +76,14 @@
     <string name="data_usage_limit_dialog_mobile" msgid="3633960011913085089">"وقتی داده تلفن همراهتان به محدودیتی که تنظیم کرده‌اید برسد، سیستم صوتی خودروی شما خاموش خواهد شد.\n\nاز آنجایی‌که سیستم صوتی شما مصرف داد‌ه را محاسبه می‌کند و ممکن است شرکت مخابراتی‌تان مصرف داده را به روش دیگری محاسبه کند، سعی کنید محدودیت محافظه‌کارانه‌ای تنظیم کنید."</string>
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"تنظیم هشدار مصرف داده"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"تنظیم حد مصرف داده"</string>
+    <string name="data_usage_settings_footer" msgid="681881387909678237">"دستگاهتان میزان مصرف داده را اندازه‌گیری می‌کند. این میزان ممکن است با میزانی که شرکت مخابراتی تلفن همراهتان اندازه‌گیری می‌کند متفاوت باشد."</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"تنظیم کردن"</string>
+    <string name="data_usage_warning_save_title" msgid="2900544287239037695">"ذخیره"</string>
     <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"شبکه OEM"</string>
+    <string name="network_and_internet_vehicle_internet_title" msgid="2518848595673002736">"اینترنت خودرو"</string>
+    <string name="network_and_internet_oem_network_dialog_description" msgid="4469178879867702066">"اگر اینترنت خودرو خاموش شود، ممکن است برخی‌از برنامه‌ها یا ویژگی‌های خودرو کار نکنند.\n\nداده‌های مهمی که برای عملکرد خودرو ضروری هستند همچنان با سازنده خودرو هم‌رسانی خواهند شد."</string>
+    <string name="network_and_internet_oem_network_dialog_confirm_label" msgid="2630033932472996255">"درهرصورت خاموش شود"</string>
+    <string name="network_and_internet_oem_network_disabled_footer" msgid="3529208167627034245">"اینترنت خودرو خاموش است. این موضوع ممکن است برخی‌از برنامه‌ها یا ویژگی‌های خودرو را از کار بیندازد. داده‌های مهمی که برای عملکرد خودرو ضروری هستند همچنان با سازنده خودرو هم‌رسانی خواهند شد."</string>
     <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"%1$s مصرف داده از %2$s تا %3$s"</string>
     <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"پیوستن به شبکه‌ای دیگر"</string>
     <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"اولویت‌های شبکه"</string>
@@ -94,6 +97,7 @@
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"افزودن شبکه"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"اتصال"</string>
     <string name="wifi_connecting" msgid="1930665730621677960">"درحال اتصال…"</string>
+    <string name="wifi_disconnected" msgid="4485699234859368137">"متصل نیست"</string>
     <string name="wifi_not_in_range_message" msgid="2617126307140203787">"شبکه در محدوده نیست"</string>
     <string name="wifi_password" msgid="5565632142720292397">"گذرواژه"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"نمایش گذرواژه"</string>
@@ -121,7 +125,7 @@
     <string name="wifi_band_24ghz" msgid="8972492390639295220">"۲٫۴ گیگاهرتز"</string>
     <string name="wifi_band_5ghz" msgid="2023762623523105080">"۵ گیگاهرتز"</string>
     <string name="wifi_network_detail" msgid="9070182553555487360">"جزئیات شبکه"</string>
-    <string name="wifi_mac_address" msgid="1466178247802349180">"نشانی MAC"</string>
+    <string name="wifi_mac_address" msgid="1466178247802349180">"نشانی واد"</string>
     <string name="wifi_ip_address_title" msgid="300539799594024884">"نشانی IP"</string>
     <string name="wifi_subnet_mask" msgid="6238171812379380608">"پوشش زیرشبکه"</string>
     <string name="wifi_dns" msgid="1841448353154932801">"DNS"</string>
@@ -155,6 +159,7 @@
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"حداقل یک باند برای نقطه اتصال Wi‑Fi انتخاب کنید:"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"نقطه اتصال و اشتراک‌گذاری اینترنت"</string>
     <string name="hotspot_settings_title" msgid="8220814387592756713">"نقطه اتصال"</string>
+    <string name="wifi_hotspot_state_off" msgid="6096709579204322798">"خاموش"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"خاموش شدن خودکار نقطه اتصال"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"اگر دستگاهی متصل نباشد، نقطه اتصال Wi‑Fi خاموش خواهد شد"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> می‌خواهد Wi-Fi را روشن کند"</string>
@@ -297,10 +302,10 @@
     <string name="force_stop" msgid="2153183697014720520">"توقف اجباری"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"توقف اجباری؟"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"توقف اجباری یک برنامه ممکن است باعث عملکرد نادرست آن شود."</string>
-    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"محافظت از عملکرد خاموش شود؟"</string>
-    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"اگر این کار را انجام دهید، ممکن است نرم‌افزار و سخت‌افزارتان هم دیگر کار نکنند."</string>
-    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"روشن بماند"</string>
-    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"خاموش شود"</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"اولویت‌بندی عملکرد برنامه روشن شود؟"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"خاموش کردن آن می‌تواند منجر به ناپایداری احتمالی سیستم یا تأثیرات سخت‌افزاری بلندمدت شود. می‌خواهید ادامه دهید؟"</string>
+    <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"بله"</string>
+    <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"نه متشکرم"</string>
     <string name="disable_text" msgid="4358165448648990820">"غیرفعال کردن"</string>
     <string name="enable_text" msgid="1794971777861881238">"فعال کردن"</string>
     <string name="uninstall_text" msgid="277907956072833012">"حذف نصب"</string>
@@ -310,25 +315,30 @@
     <string name="permissions_label" msgid="2701446753515612685">"مجوزها"</string>
     <string name="notifications_label" msgid="6586089149665170731">"اعلان‌ها"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"فضای ذخیره‌سازی و حافظه پنهان"</string>
-    <string name="peak_performance_label" msgid="1592816366516845648">"تضمین عملکرد بهینه"</string>
+    <string name="prioritize_app_performance_label" msgid="7264505023347026606">"اولویت‌بندی عملکرد برنامه"</string>
     <string name="application_version_label" msgid="8556889839783311649">"نسخه: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"اجازه‌ای داده نشده"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"اجازه‌ای درخواست نشده"</string>
     <string name="unused_apps" msgid="648471933781010395">"برنامه‌های استفاده‌نشده"</string>
-    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> برنامه استفاده‌نشده</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> برنامه استفاده‌نشده</item>
-    </plurals>
+    <string name="unused_apps_summary" msgid="8257304516038923072">"{count,plural, =1{# برنامه استفاده‌نشده}one{# برنامه استفاده‌نشده}other{# برنامه استفاده‌نشده}}"</string>
     <string name="unused_apps_switch" msgid="4433958286200341563">"برداشتن اجازه‌ها و آزاد کردن فضا"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"%s در حافظه داخلی"</string>
-    <string name="peak_performance_summary" msgid="2450911487290019786">"درصورت لزوم، برنامه برای جلوگیری از استفاده بیش‌ازحد از منابع بسته می‌شود"</string>
+    <string name="prioritize_app_performance_summary" msgid="1081874788185691418">"از منابع سیستم برای اولویت‌بندی عملکرد برنامه استفاده می‌کند"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"مصرف داده"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"مصرف داده برنامه"</string>
+    <string name="data_usage_usage_history_title" msgid="2386346082501471648">"سابقه مصرف"</string>
+    <string name="data_usage_all_apps_title" msgid="5956991037518761599">"همه برنامه‌ها"</string>
+    <string name="app_data_usage_title" msgid="6991057296054761322">"مصرف داده و Wi-Fi"</string>
+    <string name="app_data_usage_usage_history_title" msgid="5861801915345874959">"سابقه مصرف"</string>
+    <string name="app_data_usage_total_usage" msgid="6166480544992906281">"میزان کل مصرف"</string>
+    <string name="app_data_usage_foreground" msgid="76513424438149709">"پیش‌نما"</string>
+    <string name="app_data_usage_background" msgid="6972054078770685280">"پس‌زمینه"</string>
+    <string name="app_data_usage_allow_data_title" msgid="2713343973040466293">"مجاز کردن داده"</string>
+    <string name="app_data_usage_allow_data_summary" msgid="7431118326573403774">"این برنامه می‌تواند از داده تلفن همراه استفاده کند"</string>
+    <string name="app_data_usage_restrict_data_title" msgid="7080736007645963633">"محدود کردن داده"</string>
+    <string name="app_data_usage_background_data_summary" msgid="4445472217737386826">"فقط در پیش‌نما می‌تواند از داده همراه استفاده کند"</string>
     <string name="computing_size" msgid="5791407621793083965">"درحال محاسبه..."</string>
-    <plurals name="runtime_permissions_additional_count" formatted="false" msgid="3513360187065317613">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> اجازه تکمیلی</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> اجازه‌های تکمیلی</item>
-    </plurals>
+    <string name="runtime_permissions_additional_count" msgid="3920383880473283764">"{count,plural, =1{# مجوز اضافی}one{# مجوز اضافی}other{# مجوز اضافی}}"</string>
     <string name="direct_boot_unaware_dialog_message_car" msgid="2857599310518724080">"توجه: پس از راه‌اندازی مجدد، تا قفل وسیله‌تان را باز نکنید، این برنامه نمی‌تواند شروع به کار کند."</string>
     <string name="assist_and_voice_input_settings" msgid="8813195157136637132">"همیار و ورودی گفتاری"</string>
     <string name="assist_app_settings" msgid="9085261410166776497">"برنامه همیار"</string>
@@ -385,12 +395,35 @@
     <string name="wifi_control_description" msgid="6021926850423169261">"کنترل Wi-Fi به برنامه‌ اجازه می‌دهد Wi-Fi را روشن یا خاموش کند، شبکه‌های Wi-Fi را اسکن کند و به آن‌ها متصل شود، شبکه‌ها را اضافه یا حذف کند یا نقطه اتصالی فقط محلی راه‌اندازی کند."</string>
     <string name="more_special_access_title" msgid="166115485446645971">"بیشتر"</string>
     <string name="location_settings_title" msgid="901334356682423679">"مکان"</string>
+    <string name="location_toggle_title" msgid="836779750812064601">"استفاده از مکان"</string>
+    <string name="location_toggle_summary" msgid="7977868708102299495">"به برنامه‌های انتخابی‌تان اجازه دسترسی به مکان داده می‌شود"</string>
+    <string name="location_toggle_off_warning" msgid="8396854289251143748">"اگر این ویژگی را خاموش کنید، دسترسی به مکان را برای همه برنامه حذف خواهد کرد. برنامه‌های «دستیار راننده» همچنان دسترسی خواهند داشت."</string>
+    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"استفاده از مکان برای «دستیار راننده»"</string>
+    <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"مکان خودرو خاموش است"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"برنامه‌های «دستیار راننده» نمی‌توانند به مکانتان دسترسی پیدا کنند"</string>
+    <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"تغییر"</string>
+    <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"به برنامه‌های یاری‌رسان رانندگی اجازه دسترسی به مکان داده می‌شود"</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"اگر این تنظیم را خاموش کنید، برنامه‌های «دستیار راننده» که بر اطلاعات مکان متکی‌اند غیرفعال خواهد شد."</string>
+    <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"درهرصورت خاموش شود"</string>
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"درخواست‌های اخیر مکان"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"درخواست مکان جدیدی وجود ندارد"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"اجازه‌های سطح برنامه"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"خدمات مکان"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"استفاده از مکان"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"«مکان» ممکن است برای تخمین مکان دستگاهتان از منابعی مانند GPS،‏ Wi-Fi، شبکه تلفن همراه و حسگرها استفاده کند."</string>
+    <string name="driver_assistance_settings_title" msgid="4915804073177128915">"دستیار راننده"</string>
+    <string name="adas_settings_footer" msgid="5128483877858058534">"اطلاعات مکان ارسال‌شده به برنامه‌های «دستیار راننده» حاوی اطلاعات شناساننده هویت شما نیستند. این اطلاعات حداکثر ۲ روز ذخیره می‌مانند و بعداز آن حذف می‌شوند."</string>
+    <string name="microphone_settings_title" msgid="7125554350537136922">"میکروفون"</string>
+    <string name="microphone_toggle_title" msgid="911586035332827275">"استفاده از میکروفون"</string>
+    <string name="microphone_toggle_summary" msgid="2682653449849128626">"همه برنامه‌ها مجاز می‌شوند به میکروفون دسترسی داشته باشند"</string>
+    <string name="microphone_manage_permissions" msgid="7280905792151988183">"مدیریت مجوزهای میکروفون"</string>
+    <string name="microphone_recently_accessed" msgid="2084292372486026607">"برنامه‌هایی که اخیراً دسترسی داشته‌اند"</string>
+    <string name="microphone_no_recent_access" msgid="6412908936060990649">"هیچ برنامه جدیدی موجود نیست"</string>
+    <string name="microphone_app_permission_summary_microphone_off" msgid="6139321726246115550">"هیچ برنامه‌ای دسترسی ندارد"</string>
+    <string name="microphone_app_permission_summary_microphone_on" msgid="7870834777359783838">"{count,plural, =1{# برنامه از {total_count} برنامه دسترسی دارد}one{# برنامه از {total_count} برنامه دسترسی دارد}other{# برنامه از {total_count} برنامه دسترسی دارد}}"</string>
+    <string name="microphone_settings_recent_requests_title" msgid="8154796551134761329">"برنامه‌هایی که اخیراً دسترسی داشته‌اند"</string>
+    <string name="microphone_settings_recent_requests_view_all_title" msgid="4339820818072842872">"نمایش همه"</string>
+    <string name="microphone_settings_loading_app_permission_stats" msgid="4357161201098081615">"درحال بارگیری…"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"سیستم"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"به‌روزرسانی‌های سیستم"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"پیشرفته"</string>
@@ -429,10 +462,7 @@
     <string name="settings_license_activity_title" msgid="8499293744313077709">"مجوزهای شخص ثالث"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"مشکلی در بارگیری مجوزها وجود دارد."</string>
     <string name="settings_license_activity_loading" msgid="6163263123009681841">"درحال بار کردن…"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="2968627665608969405">
-      <item quantity="one">اکنون <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> قدم تا برنامه‌نویس شدن فاصله دارید.</item>
-      <item quantity="other">اکنون <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> قدم تا برنامه‌نویس شدن فاصله دارید.</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="7416958516942072383">"{count,plural, =1{اکنون # گام تا توسعه‌دهنده شدن فاصله دارید.}one{اکنون # گام تا توسعه‌دهنده شدن فاصله دارید.}other{اکنون # گام تا توسعه‌دهنده شدن فاصله دارید.}}"</string>
     <string name="show_dev_on" msgid="5339077400040834808">"شما اکنون یک برنامه‌نویس هستید!"</string>
     <string name="show_dev_already" msgid="1678087328973865736">"نیازی نیست، شما اکنون برنامه‌نویس هستید."</string>
     <string name="developer_options_settings" msgid="1530739225109118480">"گزینه‌های تولیدکننده"</string>
@@ -501,14 +531,11 @@
     <string name="user_add_user_message_setup" msgid="812616230454605159">"بعداز اینکه نمایه جدیدی ایجاد کردید، آن فرد باید نمایه را برای خودش سفارشی کند."</string>
     <string name="user_add_user_message_update" msgid="3836353291078729240">"هر نمایه‌ای می‌تواند برنامه‌ها را برای استفاده همه نمایه‌های دیگر به‌روزرسانی کند."</string>
     <string name="user_limit_reached_title" msgid="5677729355746623293">"تعداد نمایه به حد مجاز رسیده است"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
-      <item quantity="one">حداکثر <xliff:g id="COUNT">%d</xliff:g> نمایه می‌توانید ایجاد کنید.</item>
-      <item quantity="other">حداکثر <xliff:g id="COUNT">%d</xliff:g> نمایه می‌توانید ایجاد کنید.</item>
-    </plurals>
+    <string name="user_limit_reached_message" msgid="2773441357248819721">"{count,plural, =1{فقط یک نمایه می‌توانید ایجاد کنید.}one{حداکثر # نمایه می‌توانید ایجاد کنید.}other{حداکثر # نمایه می‌توانید ایجاد کنید.}}"</string>
     <string name="add_user_error_title" msgid="7589792057846396341">"نمایه جدید ایجاد نشد"</string>
     <string name="delete_user_dialog_title" msgid="575517556232943687">"این نمایه حذف شود؟"</string>
     <string name="delete_user_dialog_message" msgid="3916865958419051299">"همه برنامه‌ها و داده‌های این نمایه حذف خواهند شد"</string>
-    <string name="delete_user_error_title" msgid="6422249596301690254">"نمایه حذف نشد."</string>
+    <string name="delete_user_error_title" msgid="287249031795906102">"نمایه حذف نشد. می‌توانید دستگاه را بازراه‌اندازی و دوباره امتحان کنید."</string>
     <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"وقتی به نمایه دیگری بروید یا خودرو را بازراه‌اندازی کنید، این نمایه حذف خواهد شد."</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"نپذیرفتن"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"امتحان مجدد"</string>
@@ -621,6 +648,7 @@
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"نحوه ترسیم الگوی بازگشایی قفل"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"خطای ذخیره الگو"</string>
     <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"تلاش‌های نادرست زیادی انجام شده است. <xliff:g id="NUMBER">%d</xliff:g> ثانیه دیگر دوباره امتحان کنید."</string>
+    <string name="lockpattern_does_not_support_rotary" msgid="7356367113555659428">"الگو از چرخش پشتیبانی نمی‌کند، لطفاً از لمس کردن استفاده کنید"</string>
     <string name="okay" msgid="4589873324439764349">"تأیید"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"قفل صفحه برداشته شود؟"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"این کار به همه افراد اجازه می‌دهد به حسابتان دسترسی پیدا کنند"</string>
@@ -652,30 +680,6 @@
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"پین‌های رایج توسط سرپرست سیستمتان شما مسدود شده‌اند. پین متفاوتی را امتحان کنید."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"نمی‌تواند نویسه نامعتبر داشته باشد."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"گذرواژه نامعتبر است، گذرواژه باید حداقل ۴ نویسه داشته باشد."</string>
-    <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
-      <item quantity="one">باید حداقل <xliff:g id="COUNT">%d</xliff:g> حرف داشته باشد</item>
-      <item quantity="other">باید حداقل <xliff:g id="COUNT">%d</xliff:g> حرف داشته باشد</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_lowercase" formatted="false" msgid="2267487180744744833">
-      <item quantity="one">باید حداقل <xliff:g id="COUNT">%d</xliff:g> حرف کوچک داشته باشد</item>
-      <item quantity="other">باید حداقل <xliff:g id="COUNT">%d</xliff:g> حرف کوچک داشته باشد</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_uppercase" formatted="false" msgid="7999264563026517898">
-      <item quantity="one">باید حداقل <xliff:g id="COUNT">%d</xliff:g> حرف بزرگ داشته باشد</item>
-      <item quantity="other">باید حداقل <xliff:g id="COUNT">%d</xliff:g> حرف بزرگ داشته باشد</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_numeric" formatted="false" msgid="7935079851855168646">
-      <item quantity="one">باید حداقل <xliff:g id="COUNT">%d</xliff:g> عدد داشته باشد</item>
-      <item quantity="other">باید حداقل <xliff:g id="COUNT">%d</xliff:g> عدد داشته باشد</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_symbols" formatted="false" msgid="3994046435150094132">
-      <item quantity="one">باید حداقل <xliff:g id="COUNT">%d</xliff:g> نماد ویژه داشته باشد</item>
-      <item quantity="other">باید حداقل <xliff:g id="COUNT">%d</xliff:g> نماد ویژه داشته باشد</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="6878486326748506524">
-      <item quantity="one">باید حداقل <xliff:g id="COUNT">%d</xliff:g> نویسه غیرحرف داشته باشد</item>
-      <item quantity="other">باید حداقل <xliff:g id="COUNT">%d</xliff:g> نویسه غیرحرف داشته باشد</item>
-    </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"سرپرست دستگاه اجازه استفاده از گذرواژه اخیر را نمی‌دهد"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"خطای ذخیره گذرواژه"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"گذرواژه‌های رایج توسط سرپرست سیستمتان مسدود شده‌اند. گذرواژه متفاوتی را امتحان کنید."</string>
@@ -718,5 +722,66 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"افزودن یک نمایه"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"حذف کردن این نمایه"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"افزودن نمایه"</string>
+    <string name="qc_display_brightness" msgid="2939655289816201170">"روشنایی نمایشگر"</string>
+    <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"برای دیدن دستگاه‌ها، بلوتوث را روشن کنید"</string>
+    <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"برای مرتبط کردن دستگاه، تنظیمات بلوتوث را باز کنید"</string>
+    <string name="device_admin_add_title" msgid="1294399588284546811">"سرپرست سیستم اطلاعات-سرگرمی"</string>
+    <string name="device_admin_activated_apps" msgid="568075063362271751">"برنامه‌های فعال"</string>
+    <string name="device_admin_deactivated_apps" msgid="3797263682500122872">"برنامه‌های غیرفعال"</string>
+    <string name="device_admin_apps_description" msgid="1371935499168453457">"برنامه‌هایی که این اجازه را داشته باشند به داده‌های این خودرو دسترسی دارند"</string>
+    <string name="device_admin_apps_list_empty" msgid="7634804595645191123">"هیچ برنامه‌ای برای سرپرست خودرو وجود ندارد"</string>
+    <string name="device_admin_status" msgid="4041772636856135168">"این برنامه سرپرست سیستم اطلاعات-سرگرمی فعال است و به برنامه <xliff:g id="APP_NAME">%1$s</xliff:g> اجازه می‌دهد عملکردهای زیر را انجام دهد:"</string>
+    <string name="device_admin_warning" msgid="8997805999333600901">"فعال کردن این برنامه سیستم اطلاعات-سرگرمی به برنامه <xliff:g id="APP_NAME">%1$s</xliff:g> اجازه می‌دهد عملکردهای زیر را انجام دهد:"</string>
+    <string name="add_device_admin_msg" msgid="8188888666879499482">"برنامه سیستم اطلاعات-سرگرمی فعال شود؟"</string>
+    <string name="add_device_admin" msgid="7674707256074840333">"فعال کردن این برنامه سیستم اطلاعات-سرگرمی"</string>
+    <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"غیرفعال کردن و حذف کردن نصب"</string>
+    <string name="remove_device_admin" msgid="3595343390502030723">"غیرفعال کردن این برنامه سیستم اطلاعات-سرگرمی"</string>
+    <string name="admin_support_more_info" msgid="380785608579390750">"جزئیات بیشتر"</string>
+    <string name="admin_profile_owner_message" msgid="8361351256802954556">"مدیر سازمان می‌تواند بر برنامه‌ها و داده‌های مرتبط با این نمایه، ازجمله تنظیمات، اجازه‌ها، دسترسی شرکتی، فعالیت شبکه، و اطلاعات مکان خودرو نظارت داشته باشد و آن‌ها را مدیریت کند."</string>
+    <string name="admin_profile_owner_user_message" msgid="366072696508275753">"مدیر سازمان می‌تواند بر برنامه‌ها و داده‌های مرتبط با این نمایه، ازجمله تنظیمات، اجازه‌ها، دسترسی شرکتی، فعالیت شبکه، و اطلاعات مکان دستگاه نظارت داشته باشد و آن‌ها را مدیریت کند."</string>
+    <string name="admin_device_owner_message" msgid="896530502350904835">"مدیر سازمان می‌تواند بر برنامه‌ها و داده‌های مرتبط با این سیستم اطلاعات-سرگرمی، ازجمله تنظیمات، اجازه‌ها، دسترسی شرکتی، فعالیت شبکه، و اطلاعات مکان خودرو نظارت داشته باشد و آن‌ها را مدیریت کند."</string>
+    <string name="admin_financed_message" msgid="7357397436233684082">"مدیر سازمان ممکن است بتواند به داده‌های مرتبط با این سیستم اطلاعات-سرگرمی دسترسی داشته باشد، برنامه‌ها را مدیریت کند، و تنظیمات این خودرو را تغییر دهد."</string>
+    <string name="disabled_by_policy_title" msgid="1121694702115232518">"دردسترس نیست"</string>
+    <string name="disabled_by_policy_title_adjust_volume" msgid="7002865820552702232">"نمی‌توانید میزان صدا را در این خودروی تحت‌مدیریت تغییر دهید"</string>
+    <string name="disabled_by_policy_title_outgoing_calls" msgid="158752542663419500">"نمی‌توانید در این خودروی تحت‌مدیریت تماس برقرار کنید"</string>
+    <string name="disabled_by_policy_title_sms" msgid="3044491214572494290">"پیامک در این خودروی تحت‌مدیریت مجاز نیست"</string>
+    <string name="disabled_by_policy_title_camera" msgid="8929782627587059121">"دوربین در این خودروی تحت‌مدیریت دردسترس نیست"</string>
+    <string name="disabled_by_policy_title_screen_capture" msgid="4059715943558852466">"در این خودروی تحت‌مدیریت نمی‌توانید نماگرفت بگیرید"</string>
+    <string name="disabled_by_policy_title_suspend_packages" msgid="7505332012990359725">"نمی‌توانید این برنامه را در این خودروی تحت‌مدیریت باز کنید"</string>
+    <string name="disabled_by_policy_title_financed_device" msgid="6005343494788285981">"ارائه‌دهنده اعتبارتان آن را مسدود کرده است"</string>
+    <string name="default_admin_support_msg" msgid="2986598061733013282">"سازمانتان دسترسی به برخی‌از ویژگی‌ها را محدود کرده است.\n\nاگر سؤالی دارید، با مدیر سازمان تماس بگیرید."</string>
+    <string name="help_url_action_disabled_by_it_admin" msgid="1479392394986580260"></string>
+    <string name="manage_device_admin" msgid="7087659697154317316">"برنامه‌های سرپرست خودرو"</string>
+    <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# برنامه فعال}one{# برنامه فعال}other{# برنامه فعال}}"</string>
+    <string name="number_of_device_admins_none" msgid="5547493703413973954">"برنامه فعالی وجود ندارد"</string>
+    <string name="work_policy_privacy_settings" msgid="5263835989260149968">"خط‌مشی وسیله نقلیه <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
+    <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"تنظیمات تحت‌کنترل مدیر سازمان"</string>
+    <string name="footer_learn_more_content_description" msgid="7749452309729272078">"درباره <xliff:g id="SERVICE">%1$s</xliff:g> بیشتر بدانید"</string>
+    <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"گزارش اشکال به‌اشتراک گذاشته شود؟"</string>
+    <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"مدیر سازمان این خودرو برای کمک به عیب‌یابی این دستگاه، گزارش اشکال درخواست کرده است. ممکن است برنامه‌ها و داده‌ها هم‌رسانی شود."</string>
+    <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"مدیر سازمان این خودرو برای کمک به عیب‌یابی این دستگاه، گزارش اشکال درخواست کرده است. ممکن است برنامه‌ها و داده‌ها هم‌رسانی شود و سرعت دستگاهتان موقتاً کاهش یابد."</string>
+    <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"این گزارش اشکال درحال هم‌رسانی با مدیر سازمان این خودرو است. برای جزئیات بیشتر با او تماس بگیرید."</string>
+    <string name="share_remote_bugreport_action" msgid="5364819432179581532">"هم‌رسانی"</string>
+    <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"رد کردن"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"درحال‌حاضر نمی‌توان این تنظیم را تغییر داد"</string>
+    <string name="accessibility_settings_title" msgid="2615042088419230347">"دسترس‌پذیری"</string>
+    <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"زیرنویس ناشنوایان"</string>
+    <string name="captions_settings_title" msgid="5738067618097295831">"اولویت‌های زیرنویس ناشنوایان"</string>
+    <string name="captions_settings_off" msgid="7568096968016015626">"خاموش"</string>
+    <string name="captions_settings_on" msgid="5374984113566914978">"روشن"</string>
+    <string name="screen_reader_settings_title" msgid="4012734340987826872">"صفحه‌خوان"</string>
+    <string name="show_captions_toggle_title" msgid="710582308974826311">"نشان دادن زیرنویس ناشنوایان"</string>
+    <string name="captions_text_size_title" msgid="1960814652560877963">"اندازه متن"</string>
+    <string name="captions_settings_style_header" msgid="944591388386054372">"اندازه و سبک زیرنویس"</string>
+    <string name="captions_settings_text_size_very_small" msgid="7476485317028306502">"بسیار کوچک"</string>
+    <string name="captions_settings_text_size_small" msgid="1481895299805450566">"کوچک"</string>
+    <string name="captions_settings_text_size_default" msgid="2227802573224038267">"پیش‌فرض"</string>
+    <string name="captions_settings_text_size_large" msgid="5198207220911360512">"بزرگ"</string>
+    <string name="captions_settings_text_size_very_large" msgid="949511539689307969">"بسیار بزرگ"</string>
+    <string name="captions_text_style_title" msgid="8547777957403577760">"سبک زیرنویس"</string>
+    <string name="captions_settings_text_style_by_app" msgid="7014882290456996444">"تنظیم‌شده توسط برنامه"</string>
+    <string name="captions_settings_text_style_white_on_black" msgid="5758084000323596070">"سفید در سیاه"</string>
+    <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"سیاه در سفید"</string>
+    <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"زرد در سیاه"</string>
+    <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"زرد در آبی"</string>
 </resources>

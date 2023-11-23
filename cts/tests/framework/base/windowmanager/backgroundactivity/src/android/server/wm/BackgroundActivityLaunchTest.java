@@ -49,10 +49,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import android.Manifest;
+import android.app.UiAutomation;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.UserInfo;
 import android.os.ResultReceiver;
+import android.os.UserManager;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.SystemUserOnly;
 import android.server.wm.backgroundactivity.common.CommonComponents.Event;
@@ -60,6 +64,7 @@ import android.server.wm.backgroundactivity.common.EventReceiver;
 
 import androidx.annotation.Nullable;
 import androidx.test.filters.FlakyTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.AppOpsUtils;
 
@@ -97,6 +102,9 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
     public static final ComponentName APP_A_PIP_ACTIVITY =
             new ComponentName(TEST_PACKAGE_APP_A,
                     "android.server.wm.backgroundactivity.appa.PipActivity");
+    public static final ComponentName APP_A_VIRTUAL_DISPLAY_ACTIVITY =
+            new ComponentName(TEST_PACKAGE_APP_A,
+                    "android.server.wm.backgroundactivity.appa.VirtualDisplayActivity");
     private static final String SHELL_PACKAGE = "com.android.shell";
 
     /**
@@ -480,6 +488,45 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         assertTaskStack(null, APP_A_BACKGROUND_ACTIVITY);
     }
 
+    /**
+     * Returns a list of alive users on the device
+     */
+    private List<UserInfo> getAliveUsers() {
+        // Setting the CREATE_USERS permission in AndroidManifest.xml has no effect when the test
+        // is run through the CTS harness, so instead adopt it as a shell permission. We use
+        // the CREATE_USERS permission instead of MANAGE_USERS because the shell can never use
+        // MANAGE_USERS.
+        UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        uiAutomation.adoptShellPermissionIdentity(Manifest.permission.CREATE_USERS);
+        List<UserInfo> userList = mContext.getSystemService(UserManager.class)
+                .getUsers(/* excludePartial= */ true,
+                        /* excludeDying= */ true,
+                        /* excludePreCreated= */ true);
+        uiAutomation.dropShellPermissionIdentity();
+        return userList;
+    }
+
+    /**
+     * Removes the guest user from the device if present
+     */
+    private void removeGuestUser() {
+        List<UserInfo> userList = getAliveUsers();
+        for (UserInfo info : userList) {
+            if (info.isGuest()) {
+                removeUser(info.id);
+                // Device is only allowed to have one alive guest user, so stop if it's found
+                break;
+            }
+        }
+    }
+
+    /**
+     * Removes a user from the device given their ID
+     */
+    private void removeUser(int userId) {
+        executeShellCommand(String.format("pm remove-user %d", userId));
+    }
+
     @Test
     @SystemUserOnly(reason = "Device owner must be SYSTEM user")
     public void testDeviceOwner() throws Exception {
@@ -488,6 +535,15 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         if (!mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN)) {
             return;
         }
+
+        // Remove existing guest user. The device may already have a guest present if it is
+        // configured with config_guestUserAutoCreated.
+        //
+        // In production flow the DO can only be created before device provisioning finishes
+        // (e.g. during SUW), and we make sure the guest user in only created after the device
+        // provision is finished. Ideally this test would use the provisioning flow and Device
+        // Owner (DO) creation in a similar manner as that of production flow.
+        removeGuestUser();
 
         String cmdResult = runShellCommand("dpm set-device-owner --user 0 "
                 + APP_A_SIMPLE_ADMIN_RECEIVER.flattenToString());
@@ -542,6 +598,24 @@ public class BackgroundActivityLaunchTest extends ActivityManagerTestBase {
         // test will will try to start background activity, but we expect the background activity
         // will be blocked even the app has a visible pip window, as we do not allow background
         // activity to be started after pressing home button.
+        pressHomeAndWaitHomeResumed();
+
+        assertActivityNotResumed();
+    }
+
+    // Check that a presentation on a virtual display won't allow BAL after pressing home.
+    @Test
+    public void testVirtualDisplayCannotStartAfterHomeButton() throws Exception {
+        Intent intent = new Intent();
+        intent.setComponent(APP_A_VIRTUAL_DISPLAY_ACTIVITY);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+
+        assertTrue("VirtualDisplay activity not started", waitUntilForegroundChanged(
+                TEST_PACKAGE_APP_A, true, ACTIVITY_START_TIMEOUT_MS));
+
+        // Click home button, and test app activity onPause() will trigger which tries to launch
+        // the background activity.
         pressHomeAndWaitHomeResumed();
 
         assertActivityNotResumed();

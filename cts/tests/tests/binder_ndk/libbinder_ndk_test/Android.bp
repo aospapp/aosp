@@ -82,6 +82,7 @@ aidl_interface {
     srcs: [":libbinder_ndk_compat_test_interface_srcs"],
     versions: [
         "1",
+        "2",
     ],
     backend: {
         java: {

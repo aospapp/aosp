@@ -67,7 +67,7 @@ public class DataParser {
         return rawDatas;
     }
 
-    private <T extends RawData> List<T> getRawDataList(Context context, String file, Type type) {
+    private <T> List<T> getRawDataList(Context context, String file, Type type) {
         List<T> rawDataList = null;
         try {
             InputStream inputStream = context.getAssets().open(file);

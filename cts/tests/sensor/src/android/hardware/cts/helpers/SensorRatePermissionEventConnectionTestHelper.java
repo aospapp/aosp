@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
  * A helper class to test sensor APIs related to sampling rates of SensorEventConnections.
  */
 public class SensorRatePermissionEventConnectionTestHelper {
-    public static final int CAPPED_SAMPLE_RATE_HZ = 220; // Capped rate 200 Hz + 10% headroom
+    public static final int CAPPED_SAMPLE_RATE_HZ = 270; // Capped rate 200 Hz + headroom
     // Set of sensors that are throttled
     public static final ImmutableSet<Integer> CAPPED_SENSOR_TYPE_SET = ImmutableSet.of(
             Sensor.TYPE_ACCELEROMETER,

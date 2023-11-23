@@ -22,63 +22,67 @@
      - Hid the emergency call at the bottom
 -->
 
-<com.android.keyguard.KeyguardPatternView
+<com.android.systemui.car.keyguard.CarKeyguardPatternView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:androidprv="http://schemas.android.com/apk/res-auto"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/keyguard_pattern_view"
-    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    androidprv:layout_maxWidth="@dimen/keyguard_security_width"
-    android:gravity="center_horizontal">
-
-    <FrameLayout
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    app:layout_maxWidth="@dimen/keyguard_security_width">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/pattern_container"
+        android:layout_height="match_parent"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:orientation="vertical"
+        android:layout_gravity="center">
 
-        <LinearLayout
-            android:id="@+id/pattern_container"
-            android:layout_height="wrap_content"
+        <TextView
+            android:id="@+id/pattern_prompt"
             android:layout_width="wrap_content"
-            android:orientation="vertical"
-            android:layout_gravity="center">
+            android:layout_height="wrap_content"
+            android:layout_margin="@*android:dimen/car_padding_2"
+            android:gravity="center"
+            android:textColor="@android:color/white"
+            android:textSize="@*android:dimen/car_body1_size"
+            android:text="@string/keyguard_enter_your_pattern"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="@id/lockPatternView"/>
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_margin="@*android:dimen/car_padding_2"
-                android:gravity="center"
-                android:textColor="@android:color/white"
-                android:textSize="@*android:dimen/car_body1_size"
-                android:text="@string/keyguard_enter_your_pattern" />
+        <include layout="@layout/keyguard_message_area" />
 
-            <include layout="@layout/keyguard_message_area" />
+        <com.android.internal.widget.LockPatternView
+            android:id="@+id/lockPatternView"
+            android:layout_width="@dimen/keyguard_pattern_dimension"
+            android:layout_height="@dimen/keyguard_pattern_dimension"
+            android:layout_marginVertical="@dimen/pin_pattern_pad_margin_vertical"
+            android:layout_gravity="center_horizontal"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:gravity="center" />
 
-            <com.android.internal.widget.LockPatternView
-                android:id="@+id/lockPatternView"
-                android:layout_width="@dimen/keyguard_pattern_dimension"
-                android:layout_height="@dimen/keyguard_pattern_dimension"
-                android:layout_marginVertical="@dimen/pin_pattern_pad_margin_vertical"
-                android:layout_gravity="center_horizontal"
-                android:gravity="center" />
+        <Button
+            android:id="@+id/cancel_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/KeyguardButton"
+            android:text="@string/cancel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/lockPatternView"/>
 
-            <Button
-                android:id="@+id/cancel_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                style="@style/KeyguardButton"
-                android:text="@string/cancel"/>
-
-          <include layout="@layout/keyguard_eca"
-              android:id="@+id/keyguard_selector_fade_container"
-              android:layout_width="match_parent"
-              android:layout_height="wrap_content"
-              android:orientation="vertical"
-              android:layout_gravity="bottom|center_horizontal"
-              android:gravity="center_horizontal"
-              android:visibility="gone" />
-        </LinearLayout>
-    </FrameLayout>
-
-</com.android.keyguard.KeyguardPatternView>
+      <include layout="@layout/keyguard_eca"
+          android:id="@+id/keyguard_selector_fade_container"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          android:layout_gravity="bottom|center_horizontal"
+          android:gravity="center_horizontal"
+          android:visibility="gone" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.android.systemui.car.keyguard.CarKeyguardPatternView>

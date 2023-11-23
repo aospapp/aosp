@@ -30,6 +30,7 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +42,7 @@ import java.util.regex.Pattern;
  * Uses reflection to obtain runtime representations of elements in the API.
  */
 public class ReflectionHelper {
+    private static final String TAG = "ReflectionHelper";
 
     /**
      * Finds the reflected class for the class under test.
@@ -135,6 +137,16 @@ public class ReflectionHelper {
     static Constructor<?> findMatchingConstructor(Class<?> runtimeClass,
             JDiffConstructor jdiffDes, Map<Constructor, String> mismatchReasons) {
 
+        try {
+            return findMatchingConstructorImpl(runtimeClass, jdiffDes, mismatchReasons);
+        } catch (NoClassDefFoundError e) {
+            LogHelper.loge(TAG + ": Could not retrieve constructors of " + runtimeClass, e);
+            return null;
+        }
+    }
+
+    static Constructor<?> findMatchingConstructorImpl(Class<?> runtimeClass,
+            JDiffConstructor jdiffDes, Map<Constructor, String> mismatchReasons) {
         for (Constructor<?> c : runtimeClass.getDeclaredConstructors()) {
             Type[] params = c.getGenericParameterTypes();
             boolean isStaticClass = ((runtimeClass.getModifiers() & Modifier.STATIC) != 0);
@@ -230,6 +242,16 @@ public class ReflectionHelper {
      * @return the reflected method, or null if not found.
      */
     static Method findMatchingMethod(
+            Class<?> runtimeClass, JDiffMethod method, Map<Method, String> mismatchReasons) {
+        try {
+            return findMatchingMethodImpl(runtimeClass, method, mismatchReasons);
+        } catch (NoClassDefFoundError e) {
+            LogHelper.loge(TAG + ": Could not retrieve methods of " + runtimeClass, e);
+            return null;
+        }
+    }
+
+    static Method findMatchingMethodImpl(
             Class<?> runtimeClass, JDiffMethod method, Map<Method, String> mismatchReasons) {
 
         // Search through the class to find the methods just in case the method was actually
@@ -452,6 +474,17 @@ public class ReflectionHelper {
      */
     public static Set<Constructor<?>> getAnnotatedConstructors(Class<?> clazz,
             String annotationSpec) {
+        try {
+            return getAnnotatedConstructorsImpl(clazz, annotationSpec);
+        } catch (NoClassDefFoundError e) {
+            LogHelper.loge(TAG + ": Could not retrieve constructors of " + clazz
+                + " annotated with " + annotationSpec, e);
+            return Collections.emptySet();
+        }
+    }
+
+    private static Set<Constructor<?>> getAnnotatedConstructorsImpl(Class<?> clazz,
+        String annotationSpec) {
         Set<Constructor<?>> result = new HashSet<>();
         if (annotationSpec != null) {
             for (Constructor<?> c : clazz.getDeclaredConstructors()) {
@@ -474,6 +507,16 @@ public class ReflectionHelper {
      * Returns a list of methods which are annotated with the given annotation class.
      */
     public static Set<Method> getAnnotatedMethods(Class<?> clazz, String annotationSpec) {
+        try {
+            return getAnnotatedMethodsImpl(clazz, annotationSpec);
+        } catch (NoClassDefFoundError e) {
+            LogHelper.loge(TAG + ": Could not retrieve methods of " + clazz
+                + " annotated with " + annotationSpec, e);
+            return Collections.emptySet();
+        }
+    }
+
+    private static Set<Method> getAnnotatedMethodsImpl(Class<?> clazz, String annotationSpec) {
         Set<Method> result = new HashSet<>();
         if (annotationSpec != null) {
             for (Method m : clazz.getDeclaredMethods()) {
@@ -490,6 +533,16 @@ public class ReflectionHelper {
      * Returns a list of fields which are annotated with the given annotation class.
      */
     public static Set<Field> getAnnotatedFields(Class<?> clazz, String annotationSpec) {
+        try {
+            return getAnnotatedFieldsImpl(clazz, annotationSpec);
+        } catch (NoClassDefFoundError e) {
+            LogHelper.loge(TAG + ": Could not retrieve fields of " + clazz
+                + " annotated with " + annotationSpec, e);
+            return Collections.emptySet();
+        }
+    }
+
+    private static Set<Field> getAnnotatedFieldsImpl(Class<?> clazz, String annotationSpec) {
         Set<Field> result = new HashSet<>();
         if (annotationSpec != null) {
             for (Field f : clazz.getDeclaredFields()) {

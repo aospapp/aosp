@@ -63,18 +63,18 @@
     <string name="labelCdmaMore_with_label" msgid="7759692829160238152">"CDMA қоңырау параметрлері (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="apn_settings" msgid="1978652203074756623">"APN"</string>
     <string name="settings_label" msgid="9101778088412567956">"Желі параметрлері"</string>
-    <string name="phone_accounts" msgid="1216879437523774604">"Қоңырау шалу есептік жазбалары"</string>
+    <string name="phone_accounts" msgid="1216879437523774604">"Қоңырау шалу аккаунттары"</string>
     <string name="phone_accounts_make_calls_with" msgid="16747814788918145">"Келесінің көмегімен қоңыраулар шалу"</string>
     <string name="phone_accounts_make_sip_calls_with" msgid="4691221006731847255">"Келесінің көмегімен SIP қоңырауларын шалу"</string>
     <string name="phone_accounts_ask_every_time" msgid="6192347582666047168">"Алдымен сұрау"</string>
     <string name="phone_accounts_default_account_label" msgid="5107598881335931101">"Қолжетімді желі жоқ"</string>
     <string name="phone_accounts_settings_header" msgid="6296501692964706536">"Параметрлер"</string>
-    <string name="phone_accounts_choose_accounts" msgid="4748805293314824974">"Есептік жазбаларды таңдау"</string>
-    <string name="phone_accounts_selection_header" msgid="2945830843104108440">"Телефон есептік жазбалары"</string>
-    <string name="phone_accounts_add_sip_account" msgid="1437634802033309305">"SIP есептік жазбасын қосу"</string>
-    <string name="phone_accounts_configure_account_settings" msgid="6622119715253196586">"Есептік жазба параметрлерін конфигурациялау"</string>
-    <string name="phone_accounts_all_calling_accounts" msgid="1609600743500618823">"Барлық қоңырау шалу есептік жазбалары"</string>
-    <string name="phone_accounts_all_calling_accounts_summary" msgid="2214134955430107240">"Қай есептік жазбалардың қоңырау шала алатынын таңдау"</string>
+    <string name="phone_accounts_choose_accounts" msgid="4748805293314824974">"Аккаунттарды таңдау"</string>
+    <string name="phone_accounts_selection_header" msgid="2945830843104108440">"Телефон аккаунттары"</string>
+    <string name="phone_accounts_add_sip_account" msgid="1437634802033309305">"SIP аккаунтын қосу"</string>
+    <string name="phone_accounts_configure_account_settings" msgid="6622119715253196586">"Аккаунт параметрлерін конфигурациялау"</string>
+    <string name="phone_accounts_all_calling_accounts" msgid="1609600743500618823">"Барлық қоңырау шалу аккаунттары"</string>
+    <string name="phone_accounts_all_calling_accounts_summary" msgid="2214134955430107240">"Қай аккаунттардың қоңырау шала алатынын таңдау"</string>
     <string name="wifi_calling" msgid="3650509202851355742">"Wi-Fi қоңыраулары"</string>
     <string name="connection_service_default_label" msgid="7332739049855715584">"Кірістірілген байланыс қызметі"</string>
     <string name="voicemail" msgid="7697769412804195032">"Дауыстық пошта"</string>
@@ -294,8 +294,8 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"SIM картасының жұмысы шектеулі"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g> нөмірін пайдаланған кезде <xliff:g id="CARRIER_NAME">%1$s</xliff:g> қоңыраулары мен дерек тасымалдау қызметтері бөгелуі мүмкін."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Екінші SIM картасын пайдаланылғанда, <xliff:g id="CARRIER_NAME">%1$s</xliff:g> қоңырауы мен дерек қызметі бөгелуі мүмкін."</string>
-    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Қолданыстан шыққан SIP есептік жазбалары табылды және өшірілді"</string>
-    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Android платформасында бұдан былай SIP арқылы қоңырау шалу мүмкін емес.\nҚазіргі SIP есептік жазбаларыңыз (<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>) өшірілді.\nҚоңырау шалуға қолданылатын әдепкі есептік жазба параметрін растаңыз."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Қолданыстан шыққан SIP аккаунттары табылды және өшірілді"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Android платформасында бұдан былай SIP арқылы қоңырау шалу мүмкін емес.\nҚазіргі SIP аккаунтларыңыз (<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>) өшірілді.\nҚоңырау шалуға қолданылатын әдепкі аккаунт параметрін растаңыз."</string>
     <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Параметрлерге өту"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Қолданба деректерінің трафигі"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g> аралығында <xliff:g id="ID_1">%1$s</xliff:g> мобильдік дерек қолданылды"</string>
@@ -926,5 +926,5 @@
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Операторды инциализациялауды іске қосу"</string>
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Bluetooth сигналы нашар. Спикерфонға ауысып көріңіз."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"Қоңырау сапасы туралы хабарландыру"</string>
-    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Қолданыстан шыққан SIP есептік жазбалары"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Қолданыстан шыққан SIP аккаунттары"</string>
 </resources>

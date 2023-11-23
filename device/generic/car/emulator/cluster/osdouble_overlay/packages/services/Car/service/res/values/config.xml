@@ -57,6 +57,7 @@
         The default list defined below will enable all optional features defined.
     -->
     <!-- Override cluster_service with cluster_home_service. -->
+    <!-- TODO(b/205908527): this overlay is to temporarily disable CarEvsService by default. -->
     <string-array translatable="false" name="config_allowed_optional_car_features">
         <item>car_navigation_service</item>
         <item>cluster_home_service</item>
@@ -64,7 +65,6 @@
         <item>diagnostic</item>
         <item>storage_monitoring</item>
         <item>vehicle_map_service</item>
-        <item>car_evs_service</item>
         <item>car_telemetry_service</item>
     </string-array>
 </resources>

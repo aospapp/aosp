@@ -21,13 +21,13 @@
 #include "BufferInfoMapperMetadata.h"
 
 #include <drm/drm_fourcc.h>
-#include <inttypes.h>
-#include <log/log.h>
 #include <ui/GraphicBufferMapper.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
-using android::hardware::graphics::common::V1_1::BufferUsage;
+#include <cinttypes>
+
+#include "utils/log.h"
 
 namespace android {
 
@@ -107,7 +107,6 @@ int BufferInfoMapperMetadata::ConvertBoInfo(buffer_handle_t handle,
     ALOGE("Failed to get DRM Modifier err=%d", err);
     return err;
   }
-  bo->with_modifiers = true;
 
   uint64_t width = 0;
   err = mapper.getWidth(handle, &width);

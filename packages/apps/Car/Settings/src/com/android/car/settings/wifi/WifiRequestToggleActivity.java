@@ -26,7 +26,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.text.TextUtils;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.FragmentActivity;
@@ -94,9 +93,8 @@ public class WifiRequestToggleActivity extends FragmentActivity {
     };
 
     @VisibleForTesting
-    final ConfirmationDialogFragment.DismissListener mDismissListener = arguments -> {
-        finish();
-    };
+    final ConfirmationDialogFragment.DismissListener mDismissListener =
+            (arguments, positiveResult) -> finish();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -107,18 +105,12 @@ public class WifiRequestToggleActivity extends FragmentActivity {
 
         setResult(Activity.RESULT_CANCELED);
 
-        String packageName = getIntent().getStringExtra(Intent.EXTRA_PACKAGE_NAME);
-        if (TextUtils.isEmpty(packageName)) {
-            finish();
-            return;
-        }
-
         try {
-            ApplicationInfo applicationInfo = getPackageManager().getApplicationInfo(
-                    packageName, /* flags= */ 0);
-            mAppLabel = applicationInfo.loadSafeLabel(getPackageManager());
+            PackageManager pm = getPackageManager();
+            ApplicationInfo ai = pm.getApplicationInfo(getCallingPackage(), /* flags= */ 0);
+            mAppLabel = pm.getApplicationLabel(ai);
         } catch (PackageManager.NameNotFoundException e) {
-            LOG.e("Couldn't find app with package name " + packageName);
+            LOG.e("Couldn't find app with package name " + getCallingPackage());
             finish();
             return;
         }

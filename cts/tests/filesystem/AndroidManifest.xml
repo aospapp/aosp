@@ -23,6 +23,9 @@
 
     <application>
         <uses-library android:name="android.test.runner" />
+        <activity android:name=".FileActivity"
+             android:exported="true">
+        </activity>
     </application>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="android.filesystem.cts"

@@ -1,0 +1,3 @@
+com.google.hardware.pixel.display.IDisplay/default         u:object_r:hal_pixel_display_service:s0
+uwb_vendor                                                 u:object_r:uwb_vendor_service:s0
+hardware.qorvo.uwb.IUwb/default                            u:object_r:hal_uwb_service:s0

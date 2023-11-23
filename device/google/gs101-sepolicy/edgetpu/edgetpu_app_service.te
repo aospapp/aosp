@@ -1,0 +1,38 @@
+# EdgeTPU app server process which runs the EdgeTPU binder service.
+type edgetpu_app_server, coredomain, domain;
+type edgetpu_app_server_exec, exec_type, system_file_type, file_type;
+init_daemon_domain(edgetpu_app_server)
+
+# The server will use binder calls.
+binder_use(edgetpu_app_server);
+
+# The server will serve a binder service.
+binder_service(edgetpu_app_server);
+
+# EdgeTPU server to register the service to service_manager.
+add_service(edgetpu_app_server, edgetpu_app_service);
+
+# EdgeTPU service needs to access /dev/abrolhos.
+allow edgetpu_app_server edgetpu_device:chr_file rw_file_perms;
+allow edgetpu_app_server sysfs_edgetpu:dir r_dir_perms;
+allow edgetpu_app_server sysfs_edgetpu:file rw_file_perms;
+
+# Applications are not allowed to open the EdgeTPU device directly.
+neverallow appdomain edgetpu_device:chr_file { open };
+
+# Allow EdgeTPU service to access the Package Manager service.
+allow edgetpu_app_server package_native_service:service_manager find;
+binder_call(edgetpu_app_server, system_server);
+
+# Allow EdgeTPU service to read EdgeTPU service related system properties.
+get_prop(edgetpu_app_server, vendor_edgetpu_service_prop);
+
+# Allow EdgeTPU service to generate Perfetto traces.
+perfetto_producer(edgetpu_app_server);
+
+# Allow EdgeTPU service to connect to the EdgeTPU vendor version of the service.
+allow edgetpu_app_server edgetpu_vendor_service:service_manager find;
+binder_call(edgetpu_app_server, edgetpu_vendor_server);
+
+# Allow EdgeTPU service to log to stats service. (metrics)
+allow edgetpu_app_server fwk_stats_service:service_manager find;

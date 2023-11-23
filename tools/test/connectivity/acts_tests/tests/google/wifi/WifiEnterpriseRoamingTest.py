@@ -103,6 +103,14 @@ class WifiEnterpriseRoamingTest(WifiBaseTest):
             Ent.EAP: int(EAP.SIM),
             WifiEnums.SSID_KEY: self.ent_roaming_ssid,
         }
+        self.config_aka = {
+            Ent.EAP: int(EAP.AKA),
+            WifiEnums.SSID_KEY: self.ent_roaming_ssid,
+        }
+        self.config_aka_prime = {
+            Ent.EAP: int(EAP.AKA_PRIME),
+            WifiEnums.SSID_KEY: self.ent_roaming_ssid,
+        }
         self.attn_a = self.attenuators[0]
         self.attn_b = self.attenuators[2]
         if "OpenWrtAP" in self.user_params:
@@ -235,5 +243,17 @@ class WifiEnterpriseRoamingTest(WifiBaseTest):
         config = dict(self.config_peap)
         config[WifiEnums.Enterprise.PHASE2] = WifiEnums.EapPhase2.GTC.value
         self.roaming_between_a_and_b_logic(config)
+
+    @test_tracker_info(uuid="e014fc94-a547-4aa7-953e-cff3bfe3f20c")
+    def test_roaming_with_config_sim(self):
+        self.roaming_between_a_and_b_logic(self.config_sim)
+
+    @test_tracker_info(uuid="2e45a59e-ec22-4bf4-811f-1a3a4b9bb330")
+    def test_roaming_with_config_aka(self):
+        self.roaming_between_a_and_b_logic(self.config_aka)
+
+    @test_tracker_info(uuid="63ebfdf5-e765-47ff-9754-f60e3f6e7409")
+    def test_roaming_with_config_aka_prime(self):
+        self.roaming_between_a_and_b_logic(self.config_aka_prime)
 
     """ Tests End """

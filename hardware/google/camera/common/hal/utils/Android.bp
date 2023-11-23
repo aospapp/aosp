@@ -47,6 +47,7 @@ cc_library_shared {
         "vendor_tag_utils.cc",
         "zoom_ratio_mapper.cc",
         "zsl_buffer_manager.cc",
+        "zsl_result_dispatcher.cc",
     ],
     shared_libs: [
         "lib_profiler",

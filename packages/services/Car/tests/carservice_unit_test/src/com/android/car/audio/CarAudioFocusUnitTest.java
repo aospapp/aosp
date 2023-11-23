@@ -592,7 +592,7 @@ public class CarAudioFocusUnitTest {
                 delayedFocusRequest, AUDIOFOCUS_GAIN, mAudioPolicy);
 
         verify(mMockAudioManager).dispatchAudioFocusChange(
-                callRingFocusInfo, AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK, mAudioPolicy);
+                callRingFocusInfo, AUDIOFOCUS_GAIN, mAudioPolicy);
 
         carAudioFocus.onAudioFocusAbandon(callRingFocusInfo);
 

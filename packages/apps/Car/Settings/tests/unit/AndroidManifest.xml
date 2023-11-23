@@ -130,6 +130,19 @@
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
 
+        <activity android:name="com.android.car.settings.notifications.NotificationAccessConfirmationActivity"
+            android:taskAffinity="com.android.car.settings.notifications.NotificationAccessConfirmationActivity"
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.Alert" />
+
+        <activity android:name="com.android.car.settings.notifications.NotificationAccessConfirmationActivityTest$TestActivity"
+            android:taskAffinity="com.android.car.settings.notifications.NotificationAccessConfirmationActivity"
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.Alert" />
+
+        <activity
+            android:name="com.android.car.settings.enterprise.ActionDisabledByAdminActivity"
+            android:theme="@style/ActionDialogTheme">
+        </activity>
+
         <activity
             android:name="com.android.car.settings.system.RegulatoryInfoDisplayActivity"
             android:theme="@style/CarSettingTheme"

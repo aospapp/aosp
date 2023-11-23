@@ -22,6 +22,7 @@ import static android.app.admin.DevicePolicyManager.SKIP_SETUP_WIZARD;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.KeyguardManager;
 import android.app.PendingIntent;
 import android.app.admin.DevicePolicyManager;
@@ -186,6 +187,7 @@ public class CommandReceiverActivity extends Activity {
     private ComponentName mAdmin;
     private DevicePolicyManager mDpm;
     private UserManager mUm;
+    private ActivityManager mAm;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -196,23 +198,22 @@ public class CommandReceiverActivity extends Activity {
             // user mode it runs in a different user.
             // Most DPM operations must be set on device owner user, but a few - like adding user
             // restrictions - must be set in the current user.
+            boolean forDeviceOwner = !intent.getBooleanExtra(EXTRA_USE_CURRENT_USER_DPM, false);
+            mDpm = TestAppSystemServiceFactory.getDevicePolicyManager(this,
+                            DeviceAdminTestReceiver.class, forDeviceOwner);
 
-            boolean useCurrentUserDpm = intent.getBooleanExtra(EXTRA_USE_CURRENT_USER_DPM, false);
-            mDpm = useCurrentUserDpm
-                    ? getSystemService(DevicePolicyManager.class)
-                    : TestAppSystemServiceFactory.getDevicePolicyManager(this,
-                            DeviceAdminTestReceiver.class);
-
-            mUm = (UserManager) getSystemService(Context.USER_SERVICE);
+            mUm = getSystemService(UserManager.class);
+            mAm = getSystemService(ActivityManager.class);
             mAdmin = DeviceAdminTestReceiver.getReceiverComponentName();
-            final String command = getIntent().getStringExtra(EXTRA_COMMAND);
-            Log.i(TAG, "Command: " + command);
+            final String command = intent.getStringExtra(EXTRA_COMMAND);
+            Log.i(TAG, "Command: " + command + " forDeviceOwner: " + forDeviceOwner);
             switch (command) {
                 case COMMAND_SET_USER_RESTRICTION: {
                     String restrictionKey = intent.getStringExtra(EXTRA_USER_RESTRICTION);
                     boolean enforced = intent.getBooleanExtra(EXTRA_ENFORCED, false);
-                    Log.i(TAG, "Setting '" + restrictionKey + "'=" + enforced + " using " + mDpm
-                            + " on user " + UserHandle.myUserId());
+                    Log.i(TAG, "Setting '" + restrictionKey + "'=" + enforced
+                            + " using " + mDpm + " for user "
+                            + (forDeviceOwner ? UserHandle.SYSTEM : UserHandle.myUserId()));
                     if (enforced) {
                         mDpm.addUserRestriction(mAdmin, restrictionKey);
                     } else {
@@ -251,6 +252,9 @@ public class CommandReceiverActivity extends Activity {
                 } break;
                 case COMMAND_SET_STATUSBAR_DISABLED: {
                     boolean enforced = intent.getBooleanExtra(EXTRA_ENFORCED, false);
+                    Log.d(TAG, "calling setStatusBarDisabled("
+                            + ComponentName.flattenToShortString(mAdmin) + ", " + enforced
+                            + ") using " + mDpm + " on user " + UserHandle.myUserId());
                     mDpm.setStatusBarDisabled(mAdmin, enforced);
                 } break;
                 case COMMAND_SET_LOCK_TASK_FEATURES: {
@@ -278,6 +282,8 @@ public class CommandReceiverActivity extends Activity {
                 case COMMAND_SET_GLOBAL_SETTING: {
                     final String setting = intent.getStringExtra(EXTRA_SETTING);
                     final String value = intent.getStringExtra(EXTRA_VALUE);
+                    Log.d(TAG, "Setting global property '" + setting + "' to '" + value
+                            + "' using " + mDpm);
                     mDpm.setGlobalSetting(mAdmin, setting, value);
                 } break;
                 case COMMAND_REMOVE_DEVICE_OWNER: {
@@ -287,11 +293,12 @@ public class CommandReceiverActivity extends Activity {
                         return;
                     }
                     clearAllPoliciesAndRestrictions();
+                    Log.i(TAG, "Clearing device owner app " + getPackageName());
                     mDpm.clearDeviceOwnerApp(getPackageName());
 
-                    // TODO(b/179100903): temporarily removing PO, should be done automatically
                     if (UserManager.isHeadlessSystemUserMode()) {
-                        Log.i(TAG, "Disabling PO on user " + UserHandle.myUserId());
+                        Log.i(TAG, "Clearing profile owner app (" + mAdmin.flattenToString()
+                                + " on user " + UserHandle.myUserId());
                         DevicePolicyManager localDpm = getSystemService(DevicePolicyManager.class);
                         localDpm.clearProfileOwner(mAdmin);
                     }
@@ -375,6 +382,7 @@ public class CommandReceiverActivity extends Activity {
                     uninstallHelperPackage();
                 } break;
                 case COMMAND_SET_PERMISSION_GRANT_STATE: {
+                    Log.d(TAG, "Granting permission using " + mDpm);
                     mDpm.setPermissionGrantState(mAdmin, getPackageName(),
                             intent.getStringExtra(EXTRA_PERMISSION),
                             intent.getIntExtra(EXTRA_GRANT_STATE,
@@ -466,28 +474,27 @@ public class CommandReceiverActivity extends Activity {
                     mDpm.uninstallCaCert(mAdmin, TEST_CA.getBytes());
                 } break;
                 case COMMAND_SET_MAXIMUM_PASSWORD_ATTEMPTS: {
-                    if (!mDpm.isDeviceOwnerApp(getPackageName())) {
-                        return;
-                    }
-                    mDpm.setMaximumFailedPasswordsForWipe(mAdmin, 100);
+                    if (!isDeviceOwner()) return;
+                    int max = 100;
+                    Log.d(TAG, "Setting maximum password attempts to " + max + " using" + mDpm);
+                    mDpm.setMaximumFailedPasswordsForWipe(mAdmin, max);
                 } break;
                 case COMMAND_CLEAR_MAXIMUM_PASSWORD_ATTEMPTS: {
-                    if (!mDpm.isDeviceOwnerApp(getPackageName())) {
-                        return;
-                    }
+                    if (!isDeviceOwner()) return;
+                    Log.d(TAG, "Clearing maximum password attempts using" + mDpm);
                     mDpm.setMaximumFailedPasswordsForWipe(mAdmin, 0);
                 } break;
                 case COMMAND_SET_DEFAULT_IME: {
-                    if (!mDpm.isDeviceOwnerApp(getPackageName())) {
-                        return;
-                    }
+                    if (!isDeviceOwner()) return;
+                    Log.d(TAG, "Setting " + Settings.Secure.DEFAULT_INPUT_METHOD + " using "
+                            + mDpm);
                     mDpm.setSecureSetting(mAdmin, Settings.Secure.DEFAULT_INPUT_METHOD,
                             getPackageName());
                 } break;
                 case COMMAND_CLEAR_DEFAULT_IME: {
-                    if (!mDpm.isDeviceOwnerApp(getPackageName())) {
-                        return;
-                    }
+                    if (!isDeviceOwner()) return;
+                    Log.d(TAG, "Clearing " + Settings.Secure.DEFAULT_INPUT_METHOD + " using "
+                            + mDpm);
                     mDpm.setSecureSetting(mAdmin, Settings.Secure.DEFAULT_INPUT_METHOD, null);
                 } break;
                 case COMMAND_CREATE_MANAGED_USER:{
@@ -499,8 +506,15 @@ public class CommandReceiverActivity extends Activity {
                     UserHandle userHandle = mDpm.createAndManageUser(mAdmin, "managed user", mAdmin,
                             extras,
                             SKIP_SETUP_WIZARD | MAKE_USER_EPHEMERAL);
+                    Log.i(TAG, "Created user " + userHandle + "; setting affiliation ids to "
+                            + DeviceAdminTestReceiver.AFFILIATION_ID);
                     mDpm.setAffiliationIds(mAdmin,
                             Collections.singleton(DeviceAdminTestReceiver.AFFILIATION_ID));
+                    // TODO(b/204483021): move to helper class / restore after user is logged out
+                    if (UserManager.isHeadlessSystemUserMode()) {
+                        mAm.setStopUserOnSwitch(ActivityManager.STOP_USER_ON_SWITCH_FALSE);
+                    }
+                    Log.d(TAG, "Starting user " + userHandle);
                     mDpm.startUserInBackground(mAdmin, userHandle);
                 } break;
                 case COMMAND_CREATE_MANAGED_USER_WITHOUT_SETUP:{
@@ -556,7 +570,28 @@ public class CommandReceiverActivity extends Activity {
         }
     }
 
+    /**
+     * Checks if {@code CtsVerifier} is the device owner.
+     */
+    private boolean isDeviceOwner() {
+        // Cannot use mDpm as it would be the DPM of the current user on headless system user mode,
+        // which would return false
+        DevicePolicyManager dpm = TestAppSystemServiceFactory.getDevicePolicyManager(this,
+                DeviceAdminTestReceiver.class, /* forDeviceOwner= */ true);
+        boolean isIt = dpm.isDeviceOwnerApp(getPackageName());
+        Log.v(TAG, "is " + getPackageName() + " DO, using " + dpm + "? " + isIt);
+        return isIt;
+    }
+
     private void installHelperPackage() throws Exception {
+        if (UserManager.isHeadlessSystemUserMode()) {
+            // App was already installed on user 0 (as instructed), so we just install it for the
+            // current user - installing directly to current user would be harder as it would
+            // require a custom ContentProvider to push the APK into a secondary user using adb
+            Log.i(TAG, "installing existing helper app (" + HELPER_APP_PKG + ") using " + mDpm);
+            mDpm.installExistingPackage(mAdmin, HELPER_APP_PKG);
+            return;
+        }
         LogAndSelfUnregisterBroadcastReceiver.register(this, ACTION_INSTALL_COMPLETE);
         final PackageInstaller packageInstaller = getPackageManager().getPackageInstaller();
         final PackageInstaller.Session session = packageInstaller.openSession(
@@ -594,6 +629,7 @@ public class CommandReceiverActivity extends Activity {
     }
 
     private void clearAllPoliciesAndRestrictions() throws Exception {
+        Log.d(TAG, "clearAllPoliciesAndRestrictions() started");
         clearProfileOwnerRelatedPolicies();
         clearPolicyTransparencyUserRestriction(
                 PolicyTransparencyTestListActivity.MODE_DEVICE_OWNER);
@@ -632,6 +668,7 @@ public class CommandReceiverActivity extends Activity {
 
         // Must wait until package is uninstalled to reset affiliation ids, otherwise the package
         // cannot be removed on headless system user mode (as caller must be an affiliated PO)
+        Log.d(TAG, "resetting affiliation ids");
         mDpm.setAffiliationIds(mAdmin, Collections.emptySet());
 
         removeManagedProfile();
@@ -639,6 +676,7 @@ public class CommandReceiverActivity extends Activity {
                 EnterprisePrivacyTestDefaultAppActivity.COMPONENT_NAME,
                 PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
                 PackageManager.DONT_KILL_APP);
+        Log.d(TAG, "clearAllPoliciesAndRestrictions() finished");
     }
 
     private void clearProfileOwnerRelatedPoliciesAndRestrictions(int mode) {
@@ -647,11 +685,13 @@ public class CommandReceiverActivity extends Activity {
     }
 
     private void clearProfileOwnerRelatedPolicies() {
+        Log.d(TAG, "clearProfileOwnerRelatedPolicies() started");
         mDpm.setKeyguardDisabledFeatures(mAdmin, 0);
         mDpm.setPasswordQuality(mAdmin, 0);
         mDpm.setMaximumTimeToLock(mAdmin, 0);
         mDpm.setPermittedAccessibilityServices(mAdmin, null);
         mDpm.setPermittedInputMethods(mAdmin, null);
+        Log.d(TAG, "clearProfileOwnerRelatedPolicies() finished");
     }
 
     private void clearPolicyTransparencyUserRestriction(int mode) {
@@ -662,7 +702,8 @@ public class CommandReceiverActivity extends Activity {
     }
 
     private void removeManagedProfile() {
-        for (final UserHandle userHandle : mUm.getUserProfiles()) {
+        for (UserHandle userHandle : mUm.getUserProfiles()) {
+            Log.d(TAG, "removing managed profile for " + userHandle);
             mDpm.removeUser(mAdmin, userHandle);
         }
     }
@@ -685,6 +726,8 @@ public class CommandReceiverActivity extends Activity {
 
     private static Intent createSetUserRestrictionIntent(String restriction, boolean enforced,
             boolean forceCurrentUserDpm) {
+        Log.d(TAG, "createSetUserRestrictionIntent(): restriction=" + restriction
+                + ", enforced=" + enforced + ", forceCurrentUserDpm=" + forceCurrentUserDpm);
         Intent intent = new Intent(ACTION_EXECUTE_COMMAND);
         if (forceCurrentUserDpm) {
             intent.putExtra(EXTRA_USE_CURRENT_USER_DPM, true);
@@ -726,6 +769,11 @@ public class CommandReceiverActivity extends Activity {
         UserHandle userHandle = mDpm.createAndManageUser(mAdmin, "managed user", mAdmin,
                 extras,
                 SKIP_SETUP_WIZARD | MAKE_USER_EPHEMERAL);
+        // TODO(b/204483021): move to helper class / restore after user is logged out
+        if (UserManager.isHeadlessSystemUserMode()) {
+            mAm.setStopUserOnSwitch(ActivityManager.STOP_USER_ON_SWITCH_FALSE);
+        }
+        Log.d(TAG, "Switching to user " + userHandle);
         mDpm.switchUser(mAdmin, userHandle);
     }
 
@@ -738,5 +786,13 @@ public class CommandReceiverActivity extends Activity {
         }
 
         return resolveInfo.activityInfo.packageName;
+    }
+
+    static Intent createIntentForDisablingKeyguardOrStatusBar(Context context, String command,
+            boolean disabled) {
+        return new Intent(context, CommandReceiverActivity.class)
+                .putExtra(CommandReceiverActivity.EXTRA_USE_CURRENT_USER_DPM, true)
+                .putExtra(CommandReceiverActivity.EXTRA_COMMAND, command)
+                .putExtra(CommandReceiverActivity.EXTRA_ENFORCED, disabled);
     }
 }

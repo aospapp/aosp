@@ -23,6 +23,8 @@ import android.os.UserHandle;
 import android.os.storage.StorageManager;
 import android.util.SparseArray;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.ProgressBarPreference;
@@ -41,9 +43,16 @@ public class StorageFileCategoryPreferenceController extends StorageUsageBasePre
     public StorageFileCategoryPreferenceController(Context context,
             String preferenceKey, FragmentController fragmentController,
             CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                new StorageManagerVolumeProvider(context.getSystemService(StorageManager.class)));
+    }
+
+    @VisibleForTesting
+    StorageFileCategoryPreferenceController(Context context,
+            String preferenceKey, FragmentController fragmentController,
+            CarUxRestrictions uxRestrictions, StorageVolumeProvider storageVolumeProvider) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        StorageManager sm = context.getSystemService(StorageManager.class);
-        mStorageVolumeProvider = new StorageManagerVolumeProvider(sm);
+        mStorageVolumeProvider = storageVolumeProvider;
     }
 
     @Override

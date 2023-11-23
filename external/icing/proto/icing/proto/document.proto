@@ -209,7 +209,7 @@ message DeleteBySchemaTypeResultProto {
 }
 
 // Result of a call to IcingSearchEngine.DeleteByQuery
-// Next tag: 3
+// Next tag: 4
 message DeleteByQueryResultProto {
   // Status code can be one of:
   //   OK
@@ -224,5 +224,7 @@ message DeleteByQueryResultProto {
   optional StatusProto status = 1;
 
   // Stats for delete execution performance.
-  optional DeleteStatsProto delete_stats = 2;
+  optional DeleteByQueryStatsProto delete_by_query_stats = 3;
+
+  reserved 2;
 }

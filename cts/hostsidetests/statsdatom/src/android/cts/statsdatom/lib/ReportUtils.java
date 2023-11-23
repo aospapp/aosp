@@ -19,7 +19,10 @@ package android.cts.statsdatom.lib;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.android.os.StatsLog;
+
 import com.android.os.AtomsProto.Atom;
+import com.android.os.StatsLog;
 import com.android.os.StatsLog.ConfigMetricsReport;
 import com.android.os.StatsLog.ConfigMetricsReportList;
 import com.android.os.StatsLog.EventMetricData;
@@ -28,12 +31,15 @@ import com.android.os.StatsLog.GaugeMetricData;
 import com.android.os.StatsLog.StatsLogReport;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.util.Pair;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public final class ReportUtils {
     private static final String DUMP_REPORT_CMD = "cmd stats dump-report";
@@ -51,7 +57,7 @@ public final class ReportUtils {
 
     /**
      * Extracts and sorts the EventMetricData from the given ConfigMetricsReportList (which must
-     * contain a single report).
+     * contain a single report) and sorts the atoms by timestamp within the report.
      */
     public static List<EventMetricData> getEventMetricDataList(ConfigMetricsReportList reportList)
             throws Exception {
@@ -60,13 +66,37 @@ public final class ReportUtils {
 
         List<EventMetricData> data = new ArrayList<>();
         for (StatsLogReport metric : report.getMetricsList()) {
-            data.addAll(metric.getEventMetrics().getDataList());
+            for (EventMetricData metricData :
+                    metric.getEventMetrics().getDataList()) {
+                if (metricData.hasAtom()) {
+                    data.add(metricData);
+                } else {
+                    data.addAll(backfillAggregatedAtomsInEventMetric(metricData));
+                }
+            }
         }
         data.sort(Comparator.comparing(EventMetricData::getElapsedTimestampNanos));
 
         CLog.d("Get EventMetricDataList as following:\n");
         for (EventMetricData d : data) {
             CLog.d("Atom at " + d.getElapsedTimestampNanos() + ":\n" + d.getAtom().toString());
+        }
+        return data;
+    }
+
+
+    private static List<EventMetricData> backfillAggregatedAtomsInEventMetric(
+            EventMetricData metricData) {
+        if (!metricData.hasAggregatedAtomInfo()) {
+            return Collections.emptyList();
+        }
+        List<EventMetricData> data = new ArrayList<>();
+        StatsLog.AggregatedAtomInfo atomInfo = metricData.getAggregatedAtomInfo();
+        for (long timestamp : atomInfo.getElapsedTimestampNanosList()) {
+            data.add(EventMetricData.newBuilder()
+                    .setAtom(atomInfo.getAtom())
+                    .setElapsedTimestampNanos(timestamp)
+                    .build());
         }
         return data;
     }
@@ -88,14 +118,18 @@ public final class ReportUtils {
         assertThat(reportList.getReportsCount()).isEqualTo(1);
         ConfigMetricsReport report = reportList.getReports(0);
         assertThat(report.getMetricsCount()).isEqualTo(1);
-
+        CLog.d("Got the following report: " + report.getMetrics(0).getGaugeMetrics().toString());
         List<Atom> atoms = new ArrayList<>();
         for (GaugeMetricData d : report.getMetrics(0).getGaugeMetrics().getDataList()) {
             assertThat(d.getBucketInfoCount()).isEqualTo(1);
             GaugeBucketInfo bucketInfo = d.getBucketInfo(0);
-            atoms.addAll(bucketInfo.getAtomList());
+            if (bucketInfo.getAtomCount() != 0) {
+                atoms.addAll(bucketInfo.getAtomList());
+            } else {
+                atoms.addAll(backFillGaugeBucketAtoms(bucketInfo.getAggregatedAtomInfoList()));
+            }
             if (checkTimestampTruncated) {
-                for (long timestampNs: bucketInfo.getElapsedTimestampNanosList()) {
+                for (long timestampNs : bucketInfo.getElapsedTimestampNanosList()) {
                     assertTimestampIsTruncated(timestampNs);
                 }
             }
@@ -106,6 +140,18 @@ public final class ReportUtils {
             CLog.d("Atom:\n" + atom.toString());
         }
         return atoms;
+    }
+
+    private static List<Atom> backFillGaugeBucketAtoms(
+            List<StatsLog.AggregatedAtomInfo> atomInfoList) {
+        List<Pair<Atom, Long>> atomTimestamp = new ArrayList<>();
+        for (StatsLog.AggregatedAtomInfo atomInfo : atomInfoList) {
+            for (long timestampNs : atomInfo.getElapsedTimestampNanosList()) {
+                atomTimestamp.add(Pair.create(atomInfo.getAtom(), timestampNs));
+            }
+        }
+        atomTimestamp.sort(Comparator.comparing(o -> o.second));
+        return atomTimestamp.stream().map(p -> p.first).collect(Collectors.toList());
     }
 
     /**

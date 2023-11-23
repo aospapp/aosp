@@ -17,6 +17,7 @@
 package android.automotive.watchdog.internal;
 
 import android.automotive.watchdog.IoOveruseStats;
+import android.automotive.watchdog.PerStateBytes;
 
 /**
  * Structure that describes the I/O overuse stats for a package.
@@ -32,8 +33,13 @@ parcelable PackageIoOveruseStats {
    */
   boolean shouldNotify;
 
-   /**
-    * I/O overuse stats for the package.
-    */
+  /**
+   * Written bytes that are forgiven as they are accounted towards overuse.
+   */
+  PerStateBytes forgivenWriteBytes;
+
+  /**
+   * I/O overuse stats for the package.
+   */
   IoOveruseStats ioOveruseStats;
 }

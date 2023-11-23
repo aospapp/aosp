@@ -15,6 +15,8 @@
  */
 package android.app.cts;
 
+import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -32,6 +34,7 @@ import android.os.FileUtils;
 
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -93,6 +96,28 @@ public class DownloadManagerApi28Test extends DownloadManagerTestBase {
             assertSuccessfulDownload(id, path);
 
             assertRemoveDownload(id, 0);
+        } finally {
+            mContext.unregisterReceiver(receiver);
+        }
+    }
+
+    @Test
+    public void testSetDestinationUri_privateAppDir() throws Exception {
+        // Make sure the private app directory exists
+        runShellCommand("mkdir -p /sdcard/Android/data/com.android.shell -m 2770");
+        final File path = new File("/sdcard/Android/data/com.android.shell/"
+                + TAG + System.currentTimeMillis());
+
+        final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
+        try {
+            IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+            mContext.registerReceiver(receiver, intentFilter);
+
+            DownloadManager.Request requestPublic = new DownloadManager.Request(getGoodUrl());
+            requestPublic.setDestinationUri(Uri.fromFile(path));
+            mDownloadManager.enqueue(requestPublic);
+            Assert.fail("Cannot download files into other app's private directories");
+        } catch (SecurityException expected) {
         } finally {
             mContext.unregisterReceiver(receiver);
         }

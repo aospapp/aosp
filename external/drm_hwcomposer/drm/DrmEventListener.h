@@ -17,7 +17,7 @@
 #ifndef ANDROID_DRM_EVENT_LISTENER_H_
 #define ANDROID_DRM_EVENT_LISTENER_H_
 
-#include "autofd.h"
+#include "utils/UniqueFd.h"
 #include "utils/Worker.h"
 
 namespace android {
@@ -53,7 +53,7 @@ class DrmEventListener : public Worker {
  private:
   void UEventHandler();
 
-  fd_set fds_;
+  fd_set fds_{};
   UniqueFd uevent_fd_;
   int max_fd_ = -1;
 

@@ -18,10 +18,10 @@
 
 #include "BufferInfoImagination.h"
 
-#include <log/log.h>
 #include <xf86drm.h>
 
 #include "img_gralloc1_public.h"
+#include "utils/log.h"
 
 namespace android {
 
@@ -29,7 +29,7 @@ LEGACY_BUFFER_INFO_GETTER(BufferInfoImagination);
 
 int BufferInfoImagination::ConvertBoInfo(buffer_handle_t handle,
                                          hwc_drm_bo_t *bo) {
-  IMG_native_handle_t *hnd = (IMG_native_handle_t *)handle;
+  auto *hnd = (IMG_native_handle_t *)handle;
   if (!hnd)
     return -EINVAL;
 

@@ -16,8 +16,7 @@
 
 package com.android.cts.devicepolicy;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -28,32 +27,33 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-public class PermissionBroadcastReceiver extends BroadcastReceiver {
+public final class PermissionBroadcastReceiver extends BroadcastReceiver {
+
     private static final String TAG = "PermissionBroadcastReceiver";
 
     private static final String EXTRA_GRANT_STATE
             = "com.android.cts.permission.extra.GRANT_STATE";
     private static final int PERMISSION_ERROR = -2;
 
-    private BlockingQueue<Integer> mResultsQueue;
+    private static final long TIMEOUT_SEC = 30;
 
-    public PermissionBroadcastReceiver() {
-        mResultsQueue = new ArrayBlockingQueue<>(1);
-    }
+    private final BlockingQueue<Integer> mResultsQueue = new ArrayBlockingQueue<>(1);
 
     @Override
     public void onReceive(Context context, Intent intent) {
         Integer result = intent.getIntExtra(EXTRA_GRANT_STATE, PERMISSION_ERROR);
-        Log.d(TAG, "Grant state received " + result);
-        assertTrue(mResultsQueue.add(result));
+        Log.d(TAG, "Grant state received " + result + " ("
+                + PermissionUtils.permissionToString(result) + ")");
+        assertWithMessage("added %s to queue", result).that(mResultsQueue.add(result)).isTrue();
     }
 
     public int waitForBroadcast() throws Exception {
-        Integer result = mResultsQueue.poll(30, TimeUnit.SECONDS);
+        Integer result = mResultsQueue.poll(TIMEOUT_SEC, TimeUnit.SECONDS);
         mResultsQueue.clear();
-        assertNotNull("Expected broadcast to be received within 30 seconds but did not get it",
-                result);
-        Log.d(TAG, "Grant state retrieved " + result);
+        assertWithMessage("Expected broadcast to be received within %s seconds but did not get it",
+                TIMEOUT_SEC).that(result).isNotNull();
+        Log.d(TAG, "Grant state retrieved " + result + " ("
+                + PermissionUtils.permissionToString(result) + ")");
         return result;
     }
 }

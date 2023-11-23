@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"Aplica"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Toca per editar"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Mantén el fons de pantalla actual"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"Aplica"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Previsualització de l\'estil"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Previsualització de quadrícula"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"Previsualització de la lletra"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, aplicat actualment"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, aplicada i previsualitzada actualment"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, previsualitzada actualment"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, canvi seleccionat i previsualitzat"</string>
     <string name="theme_description" msgid="3697012391785254635">"Tipus de lletra: <xliff:g id="ID_1">%1$s</xliff:g>; icones: <xliff:g id="ID_2">%2$s</xliff:g>; forma: <xliff:g id="ID_3">%3$s</xliff:g>; color: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"Predeterminat"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"Tipus de lletra"</string>
@@ -72,7 +72,7 @@
     <string name="clock_preview_content_description" msgid="5460561185905717460">"Previsualització de rellotge <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Vaja! S\'ha produït un error."</string>
     <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Color/Icones"</string>
-    <string name="style_info_description" msgid="2612473574431003251">"Previsualització de tipus de lletra, icones, forma d\'aplicacions i color"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Previsualització de font, icones, forma d\'aplicacions i color"</string>
     <string name="accessibility_custom_font_title" msgid="966867359157303705">"Tipus de lletra personalitzat"</string>
     <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Icona personalitzada"</string>
     <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Color personalitzat"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Nom d\'estil personalitzat"</string>
     <string name="mode_title" msgid="2394873501427436055">"Tema fosc"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"Desactivat temporalment per Estalvi de bateria"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"S\'ha canviat el tema"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"Icones temàtiques"</string>
     <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Canvia la quadrícula d\'aplicacions"</string>

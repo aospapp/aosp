@@ -1,0 +1,2 @@
+# b/177389198
+dontaudit gmscore_app adbd_prop:file *;

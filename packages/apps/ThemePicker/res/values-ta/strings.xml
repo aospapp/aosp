@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"பயன்படுத்து"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"\'தீமைத்\' திருத்த தட்டவும்"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"தற்போதைய வால்பேப்பரே இருக்கட்டும்"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"பயன்படுத்து"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"ஸ்டைல் மாதிரிக்காட்சி"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"கட்ட மாதிரிக்காட்சி"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"எழுத்துரு மாதிரிக்காட்சி"</string>
@@ -34,7 +33,8 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g> தற்போது பயன்படுத்தப்பட்டது"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, தற்போது பயன்படுத்தப்பட்டு மாதிரிக்காட்சி காண்பிக்கப்படுகிறது"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, மாதிரிக்காட்சி தற்போது காண்பிக்கப்படுகிறது"</string>
-    <string name="theme_description" msgid="3697012391785254635">"எழுத்துரு: <xliff:g id="ID_1">%1$s</xliff:g>, ஐகான்கள்: <xliff:g id="ID_2">%2$s</xliff:g>, வடிவம்: <xliff:g id="ID_3">%3$s</xliff:g>, நிறம்: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, தேர்ந்தெடுக்கப்பட்ட &amp; மாதிரிக்காட்சியில் காட்டப்பட்டதை மாற்றும்"</string>
+    <string name="theme_description" msgid="3697012391785254635">"எழுத்து வடிவம்: <xliff:g id="ID_1">%1$s</xliff:g>, ஐகான்கள்: <xliff:g id="ID_2">%2$s</xliff:g>, வடிவம்: <xliff:g id="ID_3">%3$s</xliff:g>, நிறம்: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"இயல்புநிலை"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"எழுத்துரு"</string>
     <string name="preview_name_icon" msgid="6818927315316316440">"ஐகான்"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"பிரத்தியேகத் தோற்றத்தின் பெயர்"</string>
     <string name="mode_title" msgid="2394873501427436055">"டார்க் தீம்"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"பேட்டரிச் சேமிப்பான் காரணமாகத் தற்காலிகமாக முடக்கப்பட்டுள்ளது"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"தீம் மாற்றப்பட்டது"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"தீம் செய்யப்பட்ட ஐகான்கள்"</string>
     <string name="beta_title" msgid="8703819523760746458">"பீட்டா"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ஆப்ஸ் கட்டக் காட்சியை மாற்றும்"</string>

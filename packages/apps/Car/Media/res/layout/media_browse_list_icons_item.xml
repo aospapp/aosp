@@ -30,6 +30,7 @@
         android:scaleType="centerCrop"
         android:layout_marginBottom="@dimen/media_browse_list_item_thumbnail_margin_bottom"
         android:layout_marginStart="@dimen/media_browse_list_icons_item_art_margin_start"
+        style="@style/MediaIconContainerStyle"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"

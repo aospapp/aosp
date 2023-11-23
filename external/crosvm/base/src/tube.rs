@@ -104,13 +104,6 @@ impl Tube {
         .map_err(Error::Json)
     }
 
-    /// Returns true if there is a packet ready to `recv` without blocking.
-    ///
-    /// If there is an error trying to determine if there is a packet ready, this returns false.
-    pub fn is_packet_ready(&self) -> bool {
-        self.socket.get_readable_bytes().unwrap_or(0) > 0
-    }
-
     pub fn set_send_timeout(&self, timeout: Option<Duration>) -> Result<()> {
         self.socket
             .set_write_timeout(timeout)
@@ -157,9 +150,9 @@ impl Deref for AsyncTube {
     }
 }
 
-impl Into<Tube> for AsyncTube {
-    fn into(self) -> Tube {
-        self.inner.into_source()
+impl From<AsyncTube> for Tube {
+    fn from(at: AsyncTube) -> Tube {
+        at.inner.into_source()
     }
 }
 

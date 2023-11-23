@@ -43,4 +43,20 @@
                    android:value="com.android.settings.category.ia.security"/>
         </intent>
     </com.android.car.settings.common.LogicalPreferenceGroup>
+    <Preference
+        android:icon="@drawable/ic_corp_icon"
+        android:key="@string/pk_enterprise_privacy_settings"
+        android:title="@string/enterprise_privacy_settings"
+        android:summary="@string/empty_placeholder"
+        android:fragment="com.android.car.settings.enterprise.EnterprisePrivacySettingsFragment"
+        settings:controller=
+            "com.android.car.settings.enterprise.EnterprisePrivacySettingsPreferenceController" />
+    <Preference
+        android:icon="@drawable/ic_storage_apps"
+        android:key="@string/pk_manage_device_admin_settings"
+        android:title="@string/manage_device_admin"
+        android:summary="@string/empty_placeholder"
+        android:fragment="com.android.car.settings.enterprise.DeviceAdminAppsFragment"
+        settings:controller=
+            "com.android.car.settings.enterprise.ManageDeviceAdminPreferenceController" />
 </PreferenceScreen>

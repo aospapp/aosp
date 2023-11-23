@@ -26,6 +26,8 @@ import static org.junit.Assert.assertTrue;
 
 import android.hardware.devicestate.DeviceStateManager;
 import android.hardware.devicestate.DeviceStateRequest;
+import android.server.wm.ActivityManagerTestBase;
+
 import androidx.annotation.CallSuper;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -47,7 +49,7 @@ import javax.annotation.concurrent.GuardedBy;
  * Abstract base class for {@link DeviceStateManager} CTS tests.
  */
 @RunWith(AndroidJUnit4.class)
-public abstract class DeviceStateManagerTestBase {
+public abstract class DeviceStateManagerTestBase extends ActivityManagerTestBase {
     static final int CALLBACK_TIMEOUT_MS = 1000;
 
     private DeviceStateManager mDeviceStateManager;

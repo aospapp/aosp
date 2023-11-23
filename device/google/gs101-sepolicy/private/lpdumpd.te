@@ -1,0 +1,7 @@
+# b/177176997
+dontaudit lpdumpd block_device:blk_file getattr ;
+dontaudit lpdumpd block_device:blk_file getattr ;
+dontaudit lpdumpd block_device:blk_file read ;
+dontaudit lpdumpd block_device:blk_file getattr ;
+dontaudit lpdumpd block_device:blk_file read ;
+dontaudit lpdumpd block_device:blk_file read ;

@@ -1,20 +1,20 @@
 {
   "auto-end-to-end-presubmit": [
     {
-      "name": "AndroidAutoUiTests",
+      "name": "AndroidAutomotiveHomeTests",
       "options" : [
         {
-          "include-filter": "android.test.functional.auto.apps.HomeHelperTest"
+          "include-filter": "android.platform.tests.HomeTest"
         }
       ]
     }
   ],
   "auto-end-to-end-postsubmit": [
     {
-      "name": "AndroidAutoUiTests",
+      "name": "AndroidAutomotiveNotificationsTests",
       "options" : [
         {
-          "include-filter": "android.test.functional.auto.apps.NotificationHelperTest"
+          "include-filter": "android.platform.tests.NotificationTest"
         }
       ]
     }

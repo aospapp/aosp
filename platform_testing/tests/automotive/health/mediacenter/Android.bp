@@ -22,7 +22,7 @@ java_library_static {
     srcs: [ "src/**/*.java" ],
     libs: [
         "androidx.test.runner",
-        "automotive-settings-app-helper",
+        "automotive-media-center-app-helper",
         "app-helpers-auto-interfaces",
         "common-platform-scenarios",
         "platform-test-options",

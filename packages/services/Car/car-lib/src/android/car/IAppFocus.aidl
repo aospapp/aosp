@@ -30,4 +30,5 @@ interface IAppFocus {
     int requestAppFocus(IAppFocusOwnershipCallback callback, int appType) = 4;
     /** callback used as a token */
     void abandonAppFocus(IAppFocusOwnershipCallback callback, int appType) = 5;
+    List<String> getAppTypeOwner(int appType) = 6;
 }

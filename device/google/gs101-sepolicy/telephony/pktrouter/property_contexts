@@ -1,0 +1,3 @@
+# for ims service
+vendor.pktrouter              u:object_r:vendor_ims_prop:s0
+

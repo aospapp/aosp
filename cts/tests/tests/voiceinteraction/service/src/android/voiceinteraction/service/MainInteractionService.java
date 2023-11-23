@@ -24,7 +24,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.service.voice.AlwaysOnHotwordDetector;
 import android.service.voice.VoiceInteractionService;
-import android.service.voice.VoiceInteractionSession;
 import android.util.Log;
 import android.voiceinteraction.common.Utils;
 
@@ -68,7 +67,7 @@ public class MainInteractionService extends VoiceInteractionService {
     private void maybeStart() {
         Bundle args = mIntent.getExtras();
         final String className = (args != null)
-                ? args.getString(Utils.DIRECT_ACTIONS_KEY_CLASS) : null;
+                ? args.getString(Utils.VOICE_INTERACTION_KEY_CLASS) : null;
         if (className == null) {
             Log.i(TAG, "Yay! about to start session with TestApp");
             if (isActiveService(this, new ComponentName(this, getClass()))) {

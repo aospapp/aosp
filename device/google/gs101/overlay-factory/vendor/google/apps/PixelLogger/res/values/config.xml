@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_logger_default_value" translatable="false">shannondm</string>
+    <string name="config_cfg_default_value" translatable="false">Built-in Mask #1</string>
+
+    <!-- default config file for cnss_diag logger -->
+    <string name="config_cfg_default_value_cnss_diag" translatable="false">cnss_diag.conf</string>
+    <!-- config file to enable brcm gps logger -->
+    <bool name="config_brcm_gps_enabled" translatable="false">true</bool>
+</resources>

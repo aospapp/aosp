@@ -7,4 +7,5 @@
     <int name="maxImageWidth" value="2592"/>
     <int name="maxMessageSize" value="614400"/>
     <string name="default_vm_number_string">+491793000333</string>
+    <boolean name="use_only_dialed_sim_ecc_list_bool" value="true"/>
 </carrier_config>

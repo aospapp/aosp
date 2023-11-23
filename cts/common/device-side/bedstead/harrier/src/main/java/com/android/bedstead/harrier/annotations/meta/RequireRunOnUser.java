@@ -16,6 +16,10 @@
 
 package com.android.bedstead.harrier.annotations.meta;
 
+import static com.android.bedstead.harrier.OptionalBoolean.TRUE;
+
+import com.android.bedstead.harrier.OptionalBoolean;
+
 import java.lang.annotation.Target;
 
 /**
@@ -24,4 +28,8 @@ import java.lang.annotation.Target;
  */
 @Target({})
 public @interface RequireRunOnUser {
+    /**
+     * Should we ensure that we are switched to the given user
+     */
+    OptionalBoolean switchedToUser() default TRUE;
 }

@@ -15,7 +15,10 @@
 
 set -eu
 
-GITHUB_URL="https://github.com/google/styleguide/raw/gh-pages"
+# The outdated Google version that only supports Python 2.
+GITHUB_URL="https://github.com/google/styleguide/raw/gh-pages/cpplint"
+# The forked version with Python 3 support.
+GITHUB_URL="https://github.com/cpplint/cpplint/raw/develop"
 SCRIPT_DIR="$(dirname "$(readlink -f -- "$0")")"
 
 usage() {
@@ -46,8 +49,11 @@ main() {
 
   # Download cpplint.py from upstream.
   local cpplint_py="${SCRIPT_DIR}/cpplint.py"
-  wget "${GITHUB_URL}/cpplint/cpplint.py" -O "${cpplint_py}"
-  sed -i '2i# pylint: skip-file' "${cpplint_py}"
+  wget "${GITHUB_URL}/cpplint.py" -O "${cpplint_py}"
+  sed -i \
+    -e '1s|python$|python3|' \
+    -e '2i# pylint: skip-file' \
+    "${cpplint_py}"
   chmod +x "${cpplint_py}"
 }
 

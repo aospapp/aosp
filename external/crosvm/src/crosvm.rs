@@ -6,6 +6,7 @@
 //! configs.
 
 pub mod argument;
+pub mod error;
 #[cfg(all(target_arch = "x86_64", feature = "gdb"))]
 pub mod gdb;
 #[path = "linux.rs"]
@@ -54,6 +55,7 @@ pub struct DiskOption {
     pub path: PathBuf,
     pub read_only: bool,
     pub sparse: bool,
+    pub o_direct: bool,
     pub block_size: u32,
     pub id: Option<[u8; DISK_ID_LEN]>,
 }
@@ -65,6 +67,11 @@ pub struct VhostUserOption {
 pub struct VhostUserFsOption {
     pub socket: PathBuf,
     pub tag: String,
+}
+
+pub struct VhostUserWlOption {
+    pub socket: PathBuf,
+    pub vm_tube: PathBuf,
 }
 
 /// A bind mount for directories in the plugin process.
@@ -199,8 +206,12 @@ pub struct Config {
     pub vcpu_count: Option<usize>,
     pub rt_cpus: Vec<usize>,
     pub vcpu_affinity: Option<VcpuAffinity>,
+    pub cpu_clusters: Vec<Vec<usize>>,
+    pub cpu_capacity: BTreeMap<usize, u32>, // CPU index -> capacity
+    pub delay_rt: bool,
     pub no_smt: bool,
     pub memory: Option<u64>,
+    pub swiotlb: Option<u64>,
     pub hugepages: bool,
     pub memory_file: Option<PathBuf>,
     pub executable_path: Option<Executable>,
@@ -222,7 +233,6 @@ pub struct Config {
     pub tap_fd: Vec<RawFd>,
     pub cid: Option<u64>,
     pub wayland_socket_paths: BTreeMap<String, PathBuf>,
-    pub wayland_dmabuf: bool,
     pub x_display: Option<String>,
     pub shared_dirs: Vec<SharedDir>,
     pub sandbox: bool,
@@ -235,17 +245,19 @@ pub struct Config {
     pub display_window_mouse: bool,
     #[cfg(feature = "audio")]
     pub ac97_parameters: Vec<Ac97Parameters>,
+    #[cfg(feature = "audio")]
+    pub sound: Option<PathBuf>,
     pub serial_parameters: BTreeMap<(SerialHardware, u8), SerialParameters>,
     pub syslog_tag: Option<String>,
-    pub virtio_single_touch: Option<TouchDeviceOption>,
-    pub virtio_multi_touch: Option<TouchDeviceOption>,
-    pub virtio_trackpad: Option<TouchDeviceOption>,
-    pub virtio_mouse: Option<PathBuf>,
-    pub virtio_keyboard: Option<PathBuf>,
-    pub virtio_switches: Option<PathBuf>,
+    pub virtio_single_touch: Vec<TouchDeviceOption>,
+    pub virtio_multi_touch: Vec<TouchDeviceOption>,
+    pub virtio_trackpad: Vec<TouchDeviceOption>,
+    pub virtio_mice: Vec<PathBuf>,
+    pub virtio_keyboard: Vec<PathBuf>,
+    pub virtio_switches: Vec<PathBuf>,
     pub virtio_input_evdevs: Vec<PathBuf>,
     pub split_irqchip: bool,
-    pub vfio: Vec<PathBuf>,
+    pub vfio: BTreeMap<PathBuf, bool>,
     pub video_dec: bool,
     pub video_enc: bool,
     pub acpi_tables: Vec<PathBuf>,
@@ -255,8 +267,11 @@ pub struct Config {
     pub gdb: Option<u32>,
     pub balloon_bias: i64,
     pub vhost_user_blk: Vec<VhostUserOption>,
+    pub vhost_user_console: Vec<VhostUserOption>,
     pub vhost_user_fs: Vec<VhostUserFsOption>,
+    pub vhost_user_mac80211_hwsim: Option<VhostUserOption>,
     pub vhost_user_net: Vec<VhostUserOption>,
+    pub vhost_user_wl: Vec<VhostUserWlOption>,
     #[cfg(feature = "direct")]
     pub direct_pmio: Option<DirectIoOption>,
     #[cfg(feature = "direct")]
@@ -264,6 +279,7 @@ pub struct Config {
     #[cfg(feature = "direct")]
     pub direct_edge_irq: Vec<u32>,
     pub dmi_path: Option<PathBuf>,
+    pub no_legacy: bool,
 }
 
 impl Default for Config {
@@ -275,8 +291,12 @@ impl Default for Config {
             vcpu_count: None,
             rt_cpus: Vec::new(),
             vcpu_affinity: None,
+            cpu_clusters: Vec::new(),
+            cpu_capacity: BTreeMap::new(),
+            delay_rt: false,
             no_smt: false,
             memory: None,
+            swiotlb: None,
             hugepages: false,
             memory_file: None,
             executable_path: None,
@@ -301,7 +321,6 @@ impl Default for Config {
             gpu_parameters: None,
             software_tpm: false,
             wayland_socket_paths: BTreeMap::new(),
-            wayland_dmabuf: false,
             x_display: None,
             display_window_keyboard: false,
             display_window_mouse: false,
@@ -311,17 +330,19 @@ impl Default for Config {
             seccomp_log_failures: false,
             #[cfg(feature = "audio")]
             ac97_parameters: Vec::new(),
+            #[cfg(feature = "audio")]
+            sound: None,
             serial_parameters: BTreeMap::new(),
             syslog_tag: None,
-            virtio_single_touch: None,
-            virtio_multi_touch: None,
-            virtio_trackpad: None,
-            virtio_mouse: None,
-            virtio_keyboard: None,
-            virtio_switches: None,
+            virtio_single_touch: Vec::new(),
+            virtio_multi_touch: Vec::new(),
+            virtio_trackpad: Vec::new(),
+            virtio_mice: Vec::new(),
+            virtio_keyboard: Vec::new(),
+            virtio_switches: Vec::new(),
             virtio_input_evdevs: Vec::new(),
             split_irqchip: false,
-            vfio: Vec::new(),
+            vfio: BTreeMap::new(),
             video_dec: false,
             video_enc: false,
             acpi_tables: Vec::new(),
@@ -331,8 +352,11 @@ impl Default for Config {
             gdb: None,
             balloon_bias: 0,
             vhost_user_blk: Vec::new(),
+            vhost_user_console: Vec::new(),
             vhost_user_fs: Vec::new(),
+            vhost_user_mac80211_hwsim: None,
             vhost_user_net: Vec::new(),
+            vhost_user_wl: Vec::new(),
             #[cfg(feature = "direct")]
             direct_pmio: None,
             #[cfg(feature = "direct")]
@@ -340,6 +364,7 @@ impl Default for Config {
             #[cfg(feature = "direct")]
             direct_edge_irq: Vec::new(),
             dmi_path: None,
+            no_legacy: false,
         }
     }
 }

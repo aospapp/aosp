@@ -26,6 +26,8 @@ import android.telephony.AvailableNetworkInfo;
 import android.telephony.CarrierConfigManager;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoLte;
+import android.telephony.CellInfoNr;
+import android.telephony.CellSignalStrengthNr;
 import android.telephony.NetworkScan;
 import android.telephony.NetworkScanRequest;
 import android.telephony.RadioAccessSpecifier;
@@ -37,6 +39,8 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.telephony.Rlog;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -59,6 +63,23 @@ public class ONSNetworkScanCtlr {
     private static final int MSG_SCAN_COMPLETE = 2;
     private static final int MSG_SCAN_ERROR = 3;
 
+    private Boolean mIs4gScanEnabled = null;
+
+    @VisibleForTesting
+    static final RadioAccessSpecifier DEFAULT_5G_RAS = new RadioAccessSpecifier(
+            AccessNetworkConstants.AccessNetworkType.NGRAN,
+            new int[] {
+                AccessNetworkConstants.NgranBands.BAND_48,
+                AccessNetworkConstants.NgranBands.BAND_71},
+            null);
+    @VisibleForTesting
+    static final RadioAccessSpecifier DEFAULT_4G_RAS = new RadioAccessSpecifier(
+        AccessNetworkConstants.AccessNetworkType.NGRAN,
+        new int[] {
+                AccessNetworkConstants.EutranBand.BAND_48,
+                AccessNetworkConstants.EutranBand.BAND_71},
+        null);
+
     /* scan object to keep track of current scan request */
     private NetworkScan mCurrentScan;
     private boolean mIsScanActive;
@@ -67,6 +88,7 @@ public class ONSNetworkScanCtlr {
     private TelephonyManager mTelephonyManager;
     private CarrierConfigManager configManager;
     private int mRsrpEntryThreshold;
+    private int mSsRsrpEntryThreshold;
     @VisibleForTesting
     protected NetworkAvailableCallBack mNetworkAvailableCallBack;
     HandlerThread mThread;
@@ -119,17 +141,31 @@ public class ONSNetworkScanCtlr {
         void onError(int error);
     }
 
-    private int getIntCarrierConfig(String key) {
-        PersistableBundle b = null;
+    private PersistableBundle getConfigBundle() {
         if (configManager != null) {
             // If an invalid subId is used, this bundle will contain default values.
-            b = configManager.getConfig();
+            return configManager.getConfig();
         }
+        return null;
+    }
+
+    private int getIntCarrierConfig(String key) {
+        PersistableBundle b = getConfigBundle();
         if (b != null) {
             return b.getInt(key);
         } else {
             // Return static default defined in CarrierConfigManager.
             return CarrierConfigManager.getDefaultConfig().getInt(key);
+        }
+    }
+
+    private boolean getBooleanCarrierConfig(String key) {
+        PersistableBundle b = getConfigBundle();
+        if (b != null) {
+            return b.getBoolean(key);
+        } else {
+            // Return static default defined in CarrierConfigManager.
+            return CarrierConfigManager.getDefaultConfig().getBoolean(key);
         }
     }
 
@@ -143,10 +179,20 @@ public class ONSNetworkScanCtlr {
           return;
         }
         List<CellInfo> filteredResults = new ArrayList<CellInfo>();
+        mIs4gScanEnabled = getIs4gScanEnabled();
         synchronized (mLock) {
             for (CellInfo cellInfo : results) {
                 if (mMccMncs.contains(getMccMnc(cellInfo))) {
-                    if (cellInfo instanceof CellInfoLte) {
+                    if (cellInfo instanceof CellInfoNr) {
+                        CellInfoNr nrCellInfo = (CellInfoNr) cellInfo;
+                        int ssRsrp = ((CellSignalStrengthNr) nrCellInfo.getCellSignalStrength())
+                                .getSsRsrp();
+                        logDebug("cell info ssRsrp: " + ssRsrp);
+                        if (ssRsrp >= mSsRsrpEntryThreshold) {
+                            filteredResults.add(cellInfo);
+                        }
+                    }
+                    if (mIs4gScanEnabled && cellInfo instanceof CellInfoLte) {
                         int rsrp = ((CellInfoLte) cellInfo).getCellSignalStrength().getRsrp();
                         logDebug("cell info rsrp: " + rsrp);
                         if (rsrp >= mRsrpEntryThreshold) {
@@ -229,27 +275,87 @@ public class ONSNetworkScanCtlr {
         return null;
     }
 
-    private NetworkScanRequest createNetworkScanRequest(ArrayList<AvailableNetworkInfo> availableNetworks,
-            int periodicity) {
-        RadioAccessSpecifier[] ras = new RadioAccessSpecifier[1];
-        ArrayList<String> mccMncs = new ArrayList<String>();
-        Set<Integer> bandSet = new ArraySet<>();
+    private boolean getIs4gScanEnabled() {
+        // TODO: make this a null check
+        if (mIs4gScanEnabled != null) {
+            return mIs4gScanEnabled;
+        }
+        return getBooleanCarrierConfig(
+                CarrierConfigManager.KEY_ENABLE_4G_OPPORTUNISTIC_NETWORK_SCAN_BOOL);
+    }
 
-        /* by default add band 48 */
-        bandSet.add(AccessNetworkConstants.EutranBand.BAND_48);
+    @VisibleForTesting
+    void setIs4gScanEnabled(boolean enabled) {
+        mIs4gScanEnabled = enabled;
+    }
+
+    @VisibleForTesting
+    NetworkScanRequest createNetworkScanRequest(ArrayList<AvailableNetworkInfo> availableNetworks,
+        int periodicity) {
+        RadioAccessSpecifier[] ras;
+        ArrayList<String> mccMncs = new ArrayList<String>();
+        Set<Integer> bandSet5G = new ArraySet<>();
+        Set<Integer> bandSet4G = new ArraySet<>();
+
+        mIs4gScanEnabled = getIs4gScanEnabled();
+
         /* retrieve mcc mncs and bands for available networks */
         for (AvailableNetworkInfo availableNetwork : availableNetworks) {
             mccMncs.addAll(availableNetwork.getMccMncs());
-            bandSet.addAll(availableNetwork.getBands());
+            List<RadioAccessSpecifier> radioAccessSpecifiers =
+                    availableNetwork.getRadioAccessSpecifiers();
+            if (radioAccessSpecifiers.isEmpty()) {
+                if (mIs4gScanEnabled) {
+                    bandSet4G.addAll(availableNetwork.getBands());
+                }
+                bandSet5G.addAll(availableNetwork.getBands());
+            } else {
+                for (RadioAccessSpecifier radioAccessSpecifier : radioAccessSpecifiers) {
+                    int radioAccessNetworkType = radioAccessSpecifier.getRadioAccessNetwork();
+                    if (mIs4gScanEnabled &&
+                            radioAccessNetworkType ==
+                                    AccessNetworkConstants.AccessNetworkType.EUTRAN) {
+                        bandSet4G.addAll(Arrays.stream(radioAccessSpecifier.getBands())
+                                .boxed().collect(Collectors.toList()));
+                    } else if (radioAccessNetworkType ==
+                            AccessNetworkConstants.AccessNetworkType.NGRAN) {
+                        bandSet5G.addAll(Arrays.stream(radioAccessSpecifier.getBands())
+                                .boxed().collect(Collectors.toList()));
+                    }
+                }
+            }
         }
 
-        int[] bands = bandSet.stream().mapToInt(band->band).toArray();
-        /* create network scan request */
-        ras[0] = new RadioAccessSpecifier(AccessNetworkConstants.AccessNetworkType.EUTRAN, bands,
-                null);
+        int rasSize = 1;
+        if (mIs4gScanEnabled && bandSet4G.isEmpty() == bandSet5G.isEmpty()) {
+            rasSize = 2;
+        }
+        ras = new RadioAccessSpecifier[rasSize];
+
+        if (bandSet4G.isEmpty() && bandSet5G.isEmpty()) {
+            // Set the default RadioAccessSpecifiers if none were set and no bands were set.
+            ras[0] = DEFAULT_5G_RAS;
+            if (mIs4gScanEnabled) {
+                ras[1] = DEFAULT_4G_RAS;
+            }
+        } else {
+            if (mIs4gScanEnabled && !bandSet4G.isEmpty()) {
+                ras[0] = new RadioAccessSpecifier(AccessNetworkConstants.AccessNetworkType.EUTRAN,
+                        bandSet4G.stream().mapToInt(band->band).toArray(), null);
+            }
+            if (!bandSet5G.isEmpty()) {
+                ras[rasSize - 1] = new RadioAccessSpecifier(
+                        AccessNetworkConstants.AccessNetworkType.NGRAN,
+                        bandSet5G.stream().mapToInt(band->band).toArray(), null);
+            } else if (!mIs4gScanEnabled) {
+                // Reached if only 4G was specified but 4G scan is disabled.
+                ras[0] = DEFAULT_5G_RAS;
+            }
+        }
+
         NetworkScanRequest networkScanRequest = new NetworkScanRequest(
-                NetworkScanRequest.SCAN_TYPE_PERIODIC, ras, periodicity, MAX_SEARCH_TIME, false,
-                NetworkScanRequest.MAX_INCREMENTAL_PERIODICITY_SEC, mccMncs);
+            NetworkScanRequest.SCAN_TYPE_PERIODIC, ras, periodicity, MAX_SEARCH_TIME, false,
+            NetworkScanRequest.MAX_INCREMENTAL_PERIODICITY_SEC, mccMncs);
         synchronized (mLock) {
             mMccMncs = mccMncs;
         }
@@ -283,6 +389,9 @@ public class ONSNetworkScanCtlr {
             mRsrpEntryThreshold =
                 getIntCarrierConfig(
                     CarrierConfigManager.KEY_OPPORTUNISTIC_NETWORK_EXIT_THRESHOLD_RSRP_INT);
+
+            mSsRsrpEntryThreshold = getIntCarrierConfig(
+                    CarrierConfigManager.KEY_OPPORTUNISTIC_NETWORK_EXIT_THRESHOLD_SS_RSRP_INT);
 
             /* start new scan */
             networkScan = mTelephonyManager.requestNetworkScan(networkScanRequest,

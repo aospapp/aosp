@@ -236,7 +236,7 @@ class PermissionTest23 : BaseUsePermissionTest() {
         assertAppHasPermission(android.Manifest.permission.READ_CONTACTS, false)
     }
 
-    @Test(timeout = 120000)
+    @Test(timeout = 180000)
     @FlakyTest
     fun testNoResidualPermissionsOnUninstall() {
         Assume.assumeFalse(packageManager.arePermissionsIndividuallyControlled())

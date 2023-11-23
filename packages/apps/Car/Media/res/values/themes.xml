@@ -15,7 +15,7 @@ limitations under the License.
 -->
 <resources>
     <!-- The theme for the Media Center application. -->
-    <style name="Theme.Media" parent="android:Theme.DeviceDefault.NoActionBar" >
+    <style name="Theme.Media" parent="Theme.CarUi" >
         <item name="textAppearanceGridItem">@android:style/TextAppearance.DeviceDefault.Medium</item>
         <item name="textAppearanceGridItemSecondary">@android:style/TextAppearance.DeviceDefault.Small</item>
         <item name="android:splitMotionEvents">false</item>

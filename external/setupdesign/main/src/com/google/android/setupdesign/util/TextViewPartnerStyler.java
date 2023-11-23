@@ -26,6 +26,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import com.google.android.setupcompat.partnerconfig.PartnerConfig;
 import com.google.android.setupcompat.partnerconfig.PartnerConfigHelper;
+import com.google.android.setupdesign.view.RichTextView;
 
 /** Helper class to apply partner configurations to a textView. */
 final class TextViewPartnerStyler {
@@ -85,8 +86,44 @@ final class TextViewPartnerStyler {
       }
     }
 
+    if (textView instanceof RichTextView && textPartnerConfigs.getLinkTextFontFamilyConfig() != null
+        && PartnerConfigHelper.get(context)
+        .isPartnerConfigAvailable(textPartnerConfigs.getLinkTextFontFamilyConfig())) {
+      String linkFontFamilyName =
+          PartnerConfigHelper.get(context)
+              .getString(context, textPartnerConfigs.getLinkTextFontFamilyConfig());
+      Typeface linkFont = Typeface.create(linkFontFamilyName, Typeface.NORMAL);
+      if (linkFont != null) {
+        ((RichTextView) textView).setSpanTypeface(linkFont);
+      }
+    }
+
+    applyPartnerCustomizationVerticalMargins(textView, textPartnerConfigs);
+    textView.setGravity(textPartnerConfigs.getTextGravity());
+  }
+
+  /**
+   * Applies given partner configurations {@code textPartnerConfigs} to the {@code textView}.
+   *
+   * @param textView A text view would apply the gravity
+   * @param textPartnerConfigs A partner conflagrations contains text gravity would be set
+   */
+  public static void applyPartnerCustomizationLightStyle(
+      @NonNull TextView textView, @NonNull TextPartnerConfigs textPartnerConfigs) {
+
+    if (textView == null || textPartnerConfigs == null) {
+      return;
+    }
+
+    applyPartnerCustomizationVerticalMargins(textView, textPartnerConfigs);
+    textView.setGravity(textPartnerConfigs.getTextGravity());
+  }
+
+  private static void applyPartnerCustomizationVerticalMargins(
+      @NonNull TextView textView, @NonNull TextPartnerConfigs textPartnerConfigs) {
     if (textPartnerConfigs.getTextMarginTop() != null
         || textPartnerConfigs.getTextMarginBottom() != null) {
+      Context context = textView.getContext();
       int topMargin;
       int bottomMargin;
       final ViewGroup.LayoutParams lp = textView.getLayoutParams();
@@ -117,23 +154,6 @@ final class TextViewPartnerStyler {
         textView.setLayoutParams(lp);
       }
     }
-    textView.setGravity(textPartnerConfigs.getTextGravity());
-  }
-
-  /**
-   * Applies given partner configurations {@code textPartnerConfigs} to the {@code textView}.
-   *
-   * @param textView A text view would apply the gravity
-   * @param textPartnerConfigs A partner conflagrations contains text gravity would be set
-   */
-  public static void applyPartnerCustomizationLightStyle(
-      @NonNull TextView textView, @NonNull TextPartnerConfigs textPartnerConfigs) {
-
-    if (textView == null || textPartnerConfigs == null) {
-      return;
-    }
-
-    textView.setGravity(textPartnerConfigs.getTextGravity());
   }
 
   /** Keeps the partner conflagrations for a textView. */
@@ -142,6 +162,7 @@ final class TextViewPartnerStyler {
     private final PartnerConfig textLinkedColorConfig;
     private final PartnerConfig textSizeConfig;
     private final PartnerConfig textFontFamilyConfig;
+    private final PartnerConfig textLinkFontFamilyConfig;
     private final PartnerConfig textMarginTopConfig;
     private final PartnerConfig textMarginBottomConfig;
     private final int textGravity;
@@ -151,6 +172,7 @@ final class TextViewPartnerStyler {
         @Nullable PartnerConfig textLinkedColorConfig,
         @Nullable PartnerConfig textSizeConfig,
         @Nullable PartnerConfig textFontFamilyConfig,
+        @Nullable PartnerConfig textLinkFontFamilyConfig,
         @Nullable PartnerConfig textMarginTopConfig,
         @Nullable PartnerConfig textMarginBottomConfig,
         int textGravity) {
@@ -158,6 +180,7 @@ final class TextViewPartnerStyler {
       this.textLinkedColorConfig = textLinkedColorConfig;
       this.textSizeConfig = textSizeConfig;
       this.textFontFamilyConfig = textFontFamilyConfig;
+      this.textLinkFontFamilyConfig = textLinkFontFamilyConfig;
       this.textMarginTopConfig = textMarginTopConfig;
       this.textMarginBottomConfig = textMarginBottomConfig;
       this.textGravity = textGravity;
@@ -177,6 +200,10 @@ final class TextViewPartnerStyler {
 
     public PartnerConfig getTextFontFamilyConfig() {
       return textFontFamilyConfig;
+    }
+
+    public PartnerConfig getLinkTextFontFamilyConfig() {
+      return textLinkFontFamilyConfig;
     }
 
     public PartnerConfig getTextMarginTop() {

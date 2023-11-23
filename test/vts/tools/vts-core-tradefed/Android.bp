@@ -34,7 +34,7 @@ tradefed_binary_host {
     wrapper: "etc/vts-tradefed",
     short_name: "VTS",
     full_name: "Vendor Test Suite",
-    version: "12_r1",
+    version: "12.1_r1",
     static_libs: [
         "cts-tradefed-harness",
         "vts-core-tradefed-harness",

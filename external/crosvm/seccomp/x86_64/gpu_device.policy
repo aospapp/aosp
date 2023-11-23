@@ -39,12 +39,14 @@ rt_sigaction: 1
 rt_sigprocmask: 1
 rt_sigreturn: 1
 sched_getaffinity: 1
+sched_yield: 1
 sendmsg: 1
 sendto: 1
 set_robust_list: 1
 sigaltstack: 1
 write: 1
 writev: 1
+uname: 1
 
 # Rules specific to gpu
 connect: 1
@@ -75,6 +77,7 @@ socket: arg0 == 1 && arg1 == 0x80001 && arg2 == 0
 stat: 1
 statx: 1
 sysinfo: 1
+fstatfs: 1
 
 # Required for perfetto tracing
 # fcntl: arg1 == F_SETFD || arg1 == F_GETFL || arg1 == F_SETFL (merged above)
@@ -90,15 +93,12 @@ setpriority: 1
 unlink: 1
 
 # Rules specific to AMD gpus.
-uname: 1
 sched_setscheduler: 1
 sched_setaffinity: 1
 kcmp: 1
 
-# Rules for Vulkan loader
+# Rules for Vulkan loader / layers
 access: 1
 getgid: 1
 getegid: 1
-
-# Rules for virglrenderer
-sched_yield: 1
+getcwd: 1

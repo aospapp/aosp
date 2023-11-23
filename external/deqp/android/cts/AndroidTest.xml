@@ -27,6 +27,7 @@
 	<option key="parameter" name="config-descriptor:metadata" value="not_instant_app"/>
 	<option key="parameter" name="config-descriptor:metadata" value="multi_abi"/>
 	<option key="parameter" name="config-descriptor:metadata" value="secondary_user"/>
+	<option key="parameter" name="config-descriptor:metadata" value="no_foldable_states"/>
 	<object class="com.android.tradefed.testtype.suite.module.TestFailureModuleController" type="module_controller">
 		<option name="screenshot-on-failure" value="false"/>
 	</object>

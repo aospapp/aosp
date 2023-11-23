@@ -22,6 +22,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.telephony.SubscriptionManager;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.internal.telephony.TelephonyIntents;
 
 /** Listens to changes in availability of telephony subscriptions. */
@@ -33,14 +35,16 @@ public class SubscriptionsChangeListener {
         void onSubscriptionsChanged();
     }
 
-    private static final IntentFilter RADIO_TECH_CHANGED_FILTER = new IntentFilter(
+    @VisibleForTesting
+    static final IntentFilter RADIO_TECH_CHANGED_FILTER = new IntentFilter(
             TelephonyIntents.ACTION_RADIO_TECHNOLOGY_CHANGED);
 
     private final Context mContext;
     private final SubscriptionManager mSubscriptionManager;
     private final SubscriptionsChangeAction mSubscriptionsChangeAction;
 
-    private final SubscriptionManager.OnSubscriptionsChangedListener mSubscriptionsChangedListener =
+    @VisibleForTesting
+    final SubscriptionManager.OnSubscriptionsChangedListener mSubscriptionsChangedListener =
             new SubscriptionManager.OnSubscriptionsChangedListener() {
                 @Override
                 public void onSubscriptionsChanged() {
@@ -48,7 +52,8 @@ public class SubscriptionsChangeListener {
                 }
             };
 
-    private final BroadcastReceiver mRadioTechChangeReceiver = new BroadcastReceiver() {
+    @VisibleForTesting
+    final BroadcastReceiver mRadioTechChangeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (!isInitialStickyBroadcast()) {

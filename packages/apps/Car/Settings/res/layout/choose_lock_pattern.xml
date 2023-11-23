@@ -36,7 +36,7 @@
             android:layout_gravity="center_vertical"
             android:layout_weight="@integer/content_weight">
 
-            <com.android.internal.widget.LockPatternView
+            <com.android.car.settings.security.CarLockPatternView
                 android:id="@+id/lockPattern"
                 style="@style/LockPattern"
                 android:layout_width="wrap_content"

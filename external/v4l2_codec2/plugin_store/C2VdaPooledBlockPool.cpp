@@ -14,19 +14,6 @@
 #include <log/log.h>
 
 namespace android {
-namespace {
-// The wait time for another try to fetch a buffer from bufferpool.
-const int64_t kFetchRetryDelayUs = 10 * 1000;
-
-int64_t GetNowUs() {
-    struct timespec t;
-    t.tv_sec = 0;
-    t.tv_nsec = 0;
-    clock_gettime(CLOCK_MONOTONIC, &t);
-    int64_t nsecs = static_cast<int64_t>(t.tv_sec) * 1000000000LL + t.tv_nsec;
-    return nsecs / 1000ll;
-}
-}  // namespace
 
 using android::hardware::media::bufferpool::BufferPoolData;
 
@@ -57,14 +44,6 @@ c2_status_t C2VdaPooledBlockPool::fetchGraphicBlock(uint32_t width, uint32_t hei
     ALOG_ASSERT(block != nullptr);
     std::lock_guard<std::mutex> lock(mMutex);
 
-    if (mNextFetchTimeUs != 0) {
-        int delayUs = GetNowUs() - mNextFetchTimeUs;
-        if (delayUs > 0) {
-            ::usleep(delayUs);
-        }
-        mNextFetchTimeUs = 0;
-    }
-
     std::shared_ptr<C2GraphicBlock> fetchBlock;
     c2_status_t err =
             C2PooledBlockPool::fetchGraphicBlock(width, height, format, usage, &fetchBlock);
@@ -89,7 +68,6 @@ c2_status_t C2VdaPooledBlockPool::fetchGraphicBlock(uint32_t width, uint32_t hei
         return C2_OK;
     }
     ALOGV("No buffer could be recycled now, wait for another try...");
-    mNextFetchTimeUs = GetNowUs() + kFetchRetryDelayUs;
     return C2_TIMED_OUT;
 }
 

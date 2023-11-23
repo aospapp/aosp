@@ -60,7 +60,7 @@
       <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> accessoris</item>
       <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> accessori</item>
     </plurals>
-    <string name="display_and_sound_category_title" msgid="9203309625380755860">"Imatge i so"</string>
+    <string name="display_and_sound_category_title" msgid="9203309625380755860">"Pantalla i so"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Ajuda i suggeriments"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"Privadesa"</string>
     <string name="privacy_device_settings_category" msgid="5018334603278648524">"Configuració del dispositiu"</string>
@@ -160,7 +160,7 @@
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Si l\'aplicació ho sol·licita, el dispositiu mostrarà el contingut que estàs mirant amb els fotogrames per segon del vídeo original. Això pot provocar que la pantalla es quedi en blanc un segon en entrar a la reproducció d\'un vídeo o sortir-ne."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Mai"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Encara que l\'aplicació ho sol·liciti, el dispositiu mai no provarà de mostrar el contingut que estàs mirant amb els fotogrames per segon del vídeo original."</string>
-    <string name="font_scale_settings_title" msgid="4114019544800225980">"Ajusta la mida del text"</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"Ajust del text"</string>
     <string name="font_scale_item_detail" msgid="1558315053348778805">"Ajusta al <xliff:g id="SCALE">%1$d</xliff:g>%%"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"Text de mostra"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"El meravellós mag d\'Oz"</string>
@@ -274,7 +274,7 @@
     <string name="enterprise_privacy_exposure_category" msgid="1555735251238636669">"Tipus d\'informació que la teva organització pot veure"</string>
     <string name="enterprise_privacy_exposure_changes_category" msgid="7750498604032318318">"Canvis fets per l\'administrador de la teva organització"</string>
     <string name="enterprise_privacy_device_access_category" msgid="7397106369136259850">"El teu accés a aquest dispositiu"</string>
-    <string name="enterprise_privacy_enterprise_data" msgid="8135491104894522008">"Dades associades al teu compte de la feina, com ara el correu electrònic i el calendari"</string>
+    <string name="enterprise_privacy_enterprise_data" msgid="8135491104894522008">"Dades associades al teu compte de treball, com ara el correu electrònic i el calendari"</string>
     <string name="enterprise_privacy_installed_packages" msgid="5012554762299490994">"Llista de les aplicacions que hi ha al dispositiu"</string>
     <string name="enterprise_privacy_usage_stats" msgid="7062422823174345793">"Temps dedicat i dades utilitzades en cada aplicació"</string>
     <string name="enterprise_privacy_network_logs" msgid="305782312671493780">"Registre del trànsit de xarxa més recent"</string>
@@ -673,7 +673,7 @@
     <string name="captions_textsize" msgid="7161136610669343510">"Mida del text"</string>
     <string name="captions_captionstyle" msgid="6650139717545516071">"Estil dels subtítols"</string>
     <string name="captions_customoptions" msgid="7691004663572161126">"Opcions personalitzades"</string>
-    <string name="captions_fontfamily" msgid="1026632786438880997">"Família de tipus de lletra"</string>
+    <string name="captions_fontfamily" msgid="1026632786438880997">"Família de fonts"</string>
     <string name="captions_textcolor" msgid="1566679779609140317">"Color del text"</string>
     <string name="captions_edgetype" msgid="4875636291904824401">"Tipus de contorn"</string>
     <string name="captions_edgecolor" msgid="2779925179084237336">"Color del contorn"</string>

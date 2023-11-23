@@ -16,7 +16,6 @@
 
 package com.android.cts.verifier;
 
-import com.android.cts.verifier.TestListAdapter.TestListItem;
 import android.app.ListActivity;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -26,6 +25,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.widget.ListView;
+
+import com.android.cts.verifier.TestListAdapter.TestListItem;
 
 /** {@link ListActivity} that displays a list of manual tests. */
 public abstract class AbstractTestListActivity extends ListActivity {
@@ -54,6 +55,8 @@ public abstract class AbstractTestListActivity extends ListActivity {
 
     private Intent getIntent(int position) {
         TestListItem item = mAdapter.getItem(position);
+        Intent intent = item.intent;
+        intent.putExtra(TestResult.TEST_START_TIME, mStartTime);
         return item.intent;
     }
 
@@ -86,6 +89,11 @@ public abstract class AbstractTestListActivity extends ListActivity {
     }
 
     protected void handleLaunchTestResult(int resultCode, Intent data) {
+        // The mStartTime can be the initial 0 if this Activity has been recreated.
+        if (mStartTime == 0 && data.hasExtra(TestResult.TEST_START_TIME)) {
+            mStartTime = data.getLongExtra(TestResult.TEST_START_TIME, 0);
+        }
+
         if (resultCode == RESULT_OK) {
             // If subtest didn't set end time, set current time
             if (mEndTime == 0) {

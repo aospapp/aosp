@@ -50,20 +50,31 @@ const set<string> kPassthroughHals = {
     "android.hidl.memory",
 };
 
+const uint64_t kCurrentApiLevel = 10000;
+
+uint64_t ReadApiLevelProps(vector<string> api_level_props) {
+  uint64_t api_level = kCurrentApiLevel;
+  for (const auto &api_level_prop : api_level_props) {
+    api_level = GetUintProperty<uint64_t>(api_level_prop, kCurrentApiLevel);
+    if (api_level != kCurrentApiLevel) {
+      break;
+    }
+  }
+  return api_level;
+}
+
 uint64_t GetBoardApiLevel() {
-  uint64_t api_level = GetUintProperty<uint64_t>("ro.board.api_level", 0);
-  if (api_level != 0) {
-    return api_level;
+  uint64_t device_api_level =
+      ReadApiLevelProps({"ro.product.first_api_level", "ro.build.version.sdk"});
+  uint64_t board_api_level =
+      ReadApiLevelProps({"ro.board.api_level", "ro.board.first_api_level",
+                         "ro.vendor.build.version.sdk"});
+  uint64_t api_level =
+      board_api_level < device_api_level ? board_api_level : device_api_level;
+  if (api_level == kCurrentApiLevel) {
+    return 0;
   }
-  api_level = GetUintProperty<uint64_t>("ro.board.first_api_level", 0);
-  if (api_level != 0) {
-    return api_level;
-  }
-  api_level = GetUintProperty<uint64_t>("ro.product.first_api_level", 0);
-  if (api_level != 0) {
-    return api_level;
-  }
-  return GetUintProperty<uint64_t>("ro.build.version.sdk", 0);
+  return api_level;
 }
 
 // For a given interface returns package root if known. Returns empty string

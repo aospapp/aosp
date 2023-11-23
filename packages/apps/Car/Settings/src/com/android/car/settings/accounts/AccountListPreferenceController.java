@@ -16,6 +16,10 @@
 
 package com.android.car.settings.accounts;
 
+import static android.os.UserManager.DISALLOW_MODIFY_ACCOUNTS;
+
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.car.drivingstate.CarUxRestrictions;
@@ -93,10 +97,27 @@ public class AccountListPreferenceController extends
     }
 
     @Override
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> getProfileHelper()
+                .runClickableWhileDisabled(getContext(), getFragmentController()));
+    }
+
+    @Override
     protected int getAvailabilityStatus() {
-        boolean canModifyAccounts = ProfileHelper.getInstance(getContext())
-                .canCurrentProcessModifyAccounts();
-        return canModifyAccounts ? AVAILABLE : DISABLED_FOR_PROFILE;
+        ProfileHelper profileHelper = getProfileHelper();
+        boolean canModifyAccounts = profileHelper.canCurrentProcessModifyAccounts();
+
+        if (canModifyAccounts) {
+            return AVAILABLE;
+        }
+
+        if (profileHelper.isDemoOrGuest()
+                || hasUserRestrictionByUm(getContext(), DISALLOW_MODIFY_ACCOUNTS)) {
+            return DISABLED_FOR_PROFILE;
+        }
+
+        return AVAILABLE_FOR_VIEWING;
     }
 
     /**
@@ -271,6 +292,11 @@ public class AccountListPreferenceController extends
             }
         }
         return false;
+    }
+
+    @VisibleForTesting
+    ProfileHelper getProfileHelper() {
+        return ProfileHelper.getInstance(getContext());
     }
 
     private static class AccountPreference extends CarUiPreference {

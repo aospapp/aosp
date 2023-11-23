@@ -50,6 +50,7 @@ struct SurfaceState final : private angle::NonCopyable
 
     bool isRobustResourceInitEnabled() const;
     bool hasProtectedContent() const;
+    EGLint getPreferredSwapInterval() const;
 
     EGLLabelKHR label;
     const egl::Config *config;
@@ -133,7 +134,7 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
     EGLint getHorizontalResolution() const;
     EGLint getVerticalResolution() const;
     EGLenum getMultisampleResolve() const;
-    bool hasProtectedContent() const;
+    bool hasProtectedContent() const override;
 
     gl::Texture *getBoundTexture() const { return mTexture; }
 

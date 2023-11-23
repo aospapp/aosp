@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"കാറിന്റെ പവർ പോളിസി നിയന്ത്രിക്കുക."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"ടെം‍പ്ലേറ്റുകൾ റെൻഡർ ചെയ്യുക"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"ടെം‍പ്ലേറ്റുകൾ റെൻഡർ ചെയ്യുക."</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"ലോഞ്ച് ചെയ്യുന്ന ആപ്പുകൾ നിയന്ത്രിക്കാം"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"ലോഞ്ച് ചെയ്യുന്ന ആപ്പുകൾ നിയന്ത്രിക്കാം."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"എന്റെ ഉപകരണം"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"അതിഥി"</string>
     <string name="importance_default" msgid="8587741629268312938">"ഡിഫോൾട്ട് പ്രാധാന്യം"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"പിന്നീട് റീസെറ്റ് ചെയ്യൂ"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"അടുത്ത തവണ കാർ സ്റ്റാർട്ട് ചെയ്യുമ്പോൾ ഈ ഇൻഫോറ്റേയിൻമെന്റ് സിസ്റ്റം റീസെറ്റ് ചെയ്യും."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"റീസെറ്റ് ആരംഭിക്കാൻ കാർ പാർക്ക് ചെയ്‌തിരിക്കണം."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"നിങ്ങളുടെ സിസ്റ്റത്തിന്റെ പ്രകടനത്തെ <xliff:g id="ID_1">^1</xliff:g> ബാധിക്കുന്നു"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"സിസ്‌റ്റത്തിന്റെ പ്രകടനം മെച്ചപ്പെടുത്താൻ ആപ്പ് പ്രവർത്തനരഹിതമാക്കുക. ക്രമീകരണത്തിൽ ആപ്പ് നിങ്ങൾക്ക് വീണ്ടും പ്രവർത്തനക്ഷമമാക്കാം."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"ആപ്പ് ഉപയോഗിക്കുന്നത് തുടരാൻ അതിന് മുൻഗണന നൽകുക."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"സിസ്‌റ്റത്തിന്റെ പ്രകടനം മെച്ചപ്പെടുത്താൻ ആപ്പ് അണ്‍ഇൻസ്റ്റാള്‍ ചെയ്യുക."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"ആപ്പ് പ്രവർത്തനരഹിതമാക്കുക"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"ആപ്പിന് മുൻഗണന നൽകുക"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"ആപ്പ് അൺഇൻസ്‌റ്റാൾ ചെയ്യുക"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> പ്രവർത്തനരഹിതമാക്കി. ക്രമീകരണത്തിൽ ഇത് നിങ്ങൾക്ക് വീണ്ടും പ്രവർത്തനക്ഷമമാക്കാം."</string>
 </resources>

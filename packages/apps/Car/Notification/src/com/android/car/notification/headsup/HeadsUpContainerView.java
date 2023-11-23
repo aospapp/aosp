@@ -41,35 +41,35 @@ import com.android.car.ui.FocusArea;
  * one of the existing HUNs already has focus.
  */
 public class HeadsUpContainerView extends FrameLayout {
-
+    private final boolean mFocusHUNWhenShown;
+    private final int mEnterAnimationDuration;
+    private final int mExitAnimationDuration;
     private Handler mHandler;
-    private int mAnimationDuration;
 
     public HeadsUpContainerView(@NonNull Context context) {
         super(context);
-        init();
     }
 
     public HeadsUpContainerView(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
-        init();
     }
 
     public HeadsUpContainerView(@NonNull Context context, @Nullable AttributeSet attrs,
             int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        init();
     }
 
     public HeadsUpContainerView(@NonNull Context context, @Nullable AttributeSet attrs,
             int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-        init();
     }
 
-    private void init() {
+    {
         mHandler = new Handler(Looper.getMainLooper());
-        mAnimationDuration = getResources().getInteger(R.integer.headsup_total_enter_duration_ms);
+        mEnterAnimationDuration = getResources()
+                .getInteger(R.integer.headsup_total_enter_duration_ms);
+        mExitAnimationDuration = getResources().getInteger(R.integer.headsup_exit_duration_ms);
+        mFocusHUNWhenShown = getResources().getBoolean(R.bool.config_focusHUNWhenShown);
 
         // This tag is required to make this container receive the focus request in order to
         // delegate focus to its children, even though the container itself isn't focusable.
@@ -89,11 +89,36 @@ public class HeadsUpContainerView extends FrameLayout {
     public void addView(View child) {
         super.addView(child);
 
-        if (!isInTouchMode() && getFocusedChild() != null) {
-            // Request focus for the topmost child if one of the children is already focused.
-            // Wait for the duration of the heads-up animation for a smoother UI experience.
-            mHandler.postDelayed(() -> focusTopmostChild(), mAnimationDuration);
+        if (!isInTouchMode() && (getFocusedChild() != null || mFocusHUNWhenShown)
+                && !topmostChildHasFocus()) {
+            // Wait for the duration of the heads-up enter animation for a smoother UI experience.
+            mHandler.postDelayed(() -> focusTopmostChild(), mEnterAnimationDuration);
         }
+    }
+
+    @Override
+    public void removeViewAt(int index) {
+        super.removeViewAt(index);
+
+        if (!isInTouchMode() && mFocusHUNWhenShown && index == getChildCount()
+                && getChildCount() > 0 && !topmostChildHasFocus()) {
+            // Wait for the duration of the heads-up exit animation for a smoother UI experience.
+            mHandler.postDelayed(() -> focusTopmostChild(), mExitAnimationDuration);
+        }
+    }
+
+    private boolean topmostChildHasFocus() {
+        int childCount = getChildCount();
+        if (childCount <= 0) {
+            return false;
+        }
+
+        View topmostChild = getChildAt(childCount - 1);
+        if (!(topmostChild instanceof FocusArea)) {
+            return false;
+        }
+
+        return topmostChild.hasFocus();
     }
 
     private boolean focusTopmostChild() {

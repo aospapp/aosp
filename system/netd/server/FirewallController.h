@@ -57,46 +57,46 @@ enum ChildChain {
  */
 class FirewallController {
 public:
-    FirewallController();
+  FirewallController();
 
-    int setupIptablesHooks(void);
+  int setupIptablesHooks(void);
 
-    int setFirewallType(FirewallType);
-    int resetFirewall(void);
-    int isFirewallEnabled(void);
+  int setFirewallType(FirewallType);
+  int resetFirewall(void);
+  int isFirewallEnabled(void);
 
-    /* Match traffic going in/out over the given iface. */
-    int setInterfaceRule(const char*, FirewallRule);
-    /* Match traffic owned by given UID. This is specific to a particular chain. */
-    int setUidRule(ChildChain, int, FirewallRule);
+  /* Match traffic going in/out over the given iface. */
+  int setInterfaceRule(const char*, FirewallRule);
+  /* Match traffic owned by given UID. This is specific to a particular chain. */
+  int setUidRule(ChildChain, int, FirewallRule);
 
-    int enableChildChains(ChildChain, bool);
+  int enableChildChains(ChildChain, bool);
 
-    int replaceUidChain(const std::string&, bool, const std::vector<int32_t>&);
+  int replaceUidChain(const std::string&, bool, const std::vector<int32_t>&);
 
-    static std::string makeCriticalCommands(IptablesTarget target, const char* chainName);
-    static uid_t discoverMaximumValidUid(const std::string& fileName);
+  static std::string makeCriticalCommands(IptablesTarget target, const char* chainName);
+  static uid_t discoverMaximumValidUid(const std::string& fileName);
 
-    static const char* TABLE;
+  static const char* TABLE;
 
-    static const char* LOCAL_INPUT;
-    static const char* LOCAL_OUTPUT;
-    static const char* LOCAL_FORWARD;
+  static const char* LOCAL_INPUT;
+  static const char* LOCAL_OUTPUT;
+  static const char* LOCAL_FORWARD;
 
-    static const char* LOCAL_DOZABLE;
-    static const char* LOCAL_STANDBY;
-    static const char* LOCAL_POWERSAVE;
-    static const char* LOCAL_RESTRICTED;
+  static const char* LOCAL_DOZABLE;
+  static const char* LOCAL_STANDBY;
+  static const char* LOCAL_POWERSAVE;
+  static const char* LOCAL_RESTRICTED;
 
-    static const char* ICMPV6_TYPES[];
+  static const char* ICMPV6_TYPES[];
 
-    std::mutex lock;
+  std::mutex lock;
 
 protected:
-    friend class FirewallControllerTest;
-    std::string makeUidRules(IptablesTarget target, const char* name, bool isAllowlist,
-                             const std::vector<int32_t>& uids);
-    static int (*execIptablesRestore)(IptablesTarget target, const std::string& commands);
+  friend class FirewallControllerTest;
+  std::string makeUidRules(IptablesTarget target, const char* name, bool isAllowlist,
+                           const std::vector<int32_t>& uids);
+  static int (*execIptablesRestore)(IptablesTarget target, const std::string& commands);
 
 private:
   // Netd supports two cases, in both of which mMaxUid that derives from the uid mapping is const:
@@ -108,6 +108,7 @@ private:
   FirewallType mFirewallType;
   bool mUseBpfOwnerMatch;
   std::set<std::string> mIfaceRules;
+  int flushRules(void);
   int attachChain(const char*, const char*);
   int detachChain(const char*, const char*);
   int createChain(const char*, FirewallType);

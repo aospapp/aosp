@@ -32,6 +32,7 @@ import android.app.Service;
 import android.car.admin.CarDevicePolicyManager;
 import android.car.annotation.MandatoryFeature;
 import android.car.annotation.OptionalFeature;
+import android.car.app.CarActivityManager;
 import android.car.cluster.CarInstrumentClusterManager;
 import android.car.cluster.ClusterActivityState;
 import android.car.cluster.ClusterHomeManager;
@@ -373,6 +374,14 @@ public final class Car {
     @OptionalFeature
     public static final String CAR_TELEMETRY_SERVICE = "car_telemetry_service";
 
+    /**
+     * Service name for {@link android.car.app.CarActivityManager}
+     *
+     * @hide
+     */
+    @MandatoryFeature
+    public static final String CAR_ACTIVITY_SERVICE = "car_activity_service";
+
     /** Permission necessary to access car's mileage information.
      *  @hide
      */
@@ -481,6 +490,15 @@ public final class Car {
     @SystemApi
     public static final String PERMISSION_CAR_INSTRUMENT_CLUSTER_CONTROL =
             "android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL";
+
+    /**
+     * Permission necessary to listen for the instrument cluster's navigation state changes.
+     *
+     * @hide
+     */
+    public static final String PERMISSION_CAR_MONITOR_CLUSTER_NAVIGATION_STATE =
+            "android.car.permission.CAR_MONITOR_CLUSTER_NAVIGATION_STATE";
+
 
     /**
      * Application must have this permission in order to be launched in the instrument cluster
@@ -867,6 +885,14 @@ public final class Car {
     @SystemApi
     public static final String PERMISSION_COLLECT_CAR_WATCHDOG_METRICS =
             "android.car.permission.COLLECT_CAR_WATCHDOG_METRICS";
+
+    /**
+     * Permission necessary to control launching applications in Car.
+     *
+     * @hide
+     */
+    public static final String PERMISSION_CONTROL_CAR_APP_LAUNCH =
+            "android.car.permission.CONTROL_CAR_APP_LAUNCH";
 
     /** @hide */
     @IntDef({CONNECTION_TYPE_EMBEDDED})
@@ -1899,6 +1925,9 @@ public final class Car {
                 break;
             case CAR_TELEMETRY_SERVICE:
                 manager = new CarTelemetryManager(this, binder);
+                break;
+            case CAR_ACTIVITY_SERVICE:
+                manager = new CarActivityManager(this, binder);
                 break;
             default:
                 // Experimental or non-existing

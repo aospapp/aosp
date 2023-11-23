@@ -19,7 +19,7 @@
     <string name="notification_channel_name_connected" msgid="1795068343200033922">"Godkendelse til loginportal"</string>
     <string name="notification_channel_description_connected" msgid="7239184168268014518">"De notifikationer, der vises, når enheden er blevet godkendt til et netværk via en loginportal"</string>
     <string name="notification_channel_name_network_venue_info" msgid="6526543187249265733">"Oplysninger om netværksplacering"</string>
-    <string name="notification_channel_description_network_venue_info" msgid="5131499595382733605">"Notifikationer, der vises for at indikere, at netværket har en side med oplysninger om placeringen"</string>
+    <string name="notification_channel_description_network_venue_info" msgid="5131499595382733605">"Notifikationer, der vises for at indikere, at netværket har en side med oplysninger om lokationen"</string>
     <string name="connected" msgid="4563643884927480998">"Der er oprettet forbindelse"</string>
     <string name="tap_for_info" msgid="6849746325626883711">"Der er oprettet forbindelse/tryk for at se website"</string>
     <string name="application_label" msgid="1322847171305285454">"Netværksadministrator"</string>

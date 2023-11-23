@@ -16,7 +16,11 @@
 
 package com.android.bedstead.harrier.annotations;
 
+import static com.android.bedstead.harrier.OptionalBoolean.TRUE;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.EARLY;
+
 import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.harrier.OptionalBoolean;
 import com.android.bedstead.harrier.annotations.meta.RequireRunOnUserAnnotation;
 
 import java.lang.annotation.ElementType;
@@ -31,9 +35,29 @@ import java.lang.annotation.Target;
  *
  * <p>Optionally, you can guarantee that these methods do not run outside of the primary
  * user by using {@link DeviceState}.
+ *
+ * <p>Note that in practice this requires that the test runs on the system user, but excludes
+ * headless system users. To mark that a test should run on the system user, including headless
+ * system users, see {@link RequireRunOnSystemUser}.
  */
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @RequireRunOnUserAnnotation("android.os.usertype.full.SYSTEM")
 public @interface RequireRunOnPrimaryUser {
+    /**
+     * Should we ensure that we are switched to the given user
+     */
+    OptionalBoolean switchedToUser() default TRUE;
+
+    /**
+     * Weight sets the order that annotations will be resolved.
+     *
+     * <p>Annotations with a lower weight will be resolved before annotations with a higher weight.
+     *
+     * <p>If there is an order requirement between annotations, ensure that the weight of the
+     * annotation which must be resolved first is lower than the one which must be resolved later.
+     *
+     * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
+     */
+    int weight() default EARLY;
 }

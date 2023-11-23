@@ -110,7 +110,6 @@ public abstract class AbstractProfileConnector
               /* availabilityListener= */ this,
               scheduledExecutorService,
               availabilityRestrictions);
-      crossProfileSender.beginMonitoringAvailabilityChanges();
     }
     return crossProfileSender;
   }

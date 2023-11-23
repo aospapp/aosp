@@ -71,7 +71,7 @@ public class BooleanQueryHelperTest {
     @Test
     public void matches_equalsTrue_valueIsTrue_returnsTrue() {
         BooleanQueryHelper<Queryable> booleanQueryHelper = new BooleanQueryHelper<>(mQuery);
-        booleanQueryHelper.equals(true);
+        booleanQueryHelper.isEqualTo(true);
 
         assertThat(booleanQueryHelper.matches(true)).isTrue();
     }
@@ -79,7 +79,7 @@ public class BooleanQueryHelperTest {
     @Test
     public void matches_equalsTrue_valueIsFalse_returnsFalse() {
         BooleanQueryHelper<Queryable> booleanQueryHelper = new BooleanQueryHelper<>(mQuery);
-        booleanQueryHelper.equals(true);
+        booleanQueryHelper.isEqualTo(true);
 
         assertThat(booleanQueryHelper.matches(false)).isFalse();
     }
@@ -87,7 +87,7 @@ public class BooleanQueryHelperTest {
     @Test
     public void matches_equalsFalse_valueIsTrue_returnsFalse() {
         BooleanQueryHelper<Queryable> booleanQueryHelper = new BooleanQueryHelper<>(mQuery);
-        booleanQueryHelper.equals(false);
+        booleanQueryHelper.isEqualTo(false);
 
         assertThat(booleanQueryHelper.matches(true)).isFalse();
     }
@@ -95,7 +95,7 @@ public class BooleanQueryHelperTest {
     @Test
     public void matches_equalsFalse_valueIsFalse_returnsTrue() {
         BooleanQueryHelper<Queryable> booleanQueryHelper = new BooleanQueryHelper<>(mQuery);
-        booleanQueryHelper.equals(false);
+        booleanQueryHelper.isEqualTo(false);
 
         assertThat(booleanQueryHelper.matches(false)).isTrue();
     }

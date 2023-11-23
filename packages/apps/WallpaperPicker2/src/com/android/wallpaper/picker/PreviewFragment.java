@@ -19,10 +19,15 @@ import static com.android.wallpaper.widget.BottomActionBar.BottomAction.APPLY;
 import static com.android.wallpaper.widget.BottomActionBar.BottomAction.EDIT;
 
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources.NotFoundException;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.SurfaceView;
@@ -39,17 +44,21 @@ import androidx.annotation.IntDef;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.FragmentActivity;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.wallpaper.R;
 import com.android.wallpaper.model.LiveWallpaperInfo;
+import com.android.wallpaper.model.SetWallpaperViewModel;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.Injector;
 import com.android.wallpaper.module.InjectorProvider;
+import com.android.wallpaper.module.LargeScreenMultiPanesChecker;
 import com.android.wallpaper.module.UserEventLogger;
 import com.android.wallpaper.module.WallpaperPersister.Destination;
 import com.android.wallpaper.module.WallpaperPreferences;
 import com.android.wallpaper.module.WallpaperSetter;
 import com.android.wallpaper.util.FullScreenAnimation;
+import com.android.wallpaper.util.ResourceUtils;
 import com.android.wallpaper.widget.BottomActionBar;
 import com.android.wallpaper.widget.BottomActionBar.BottomSheetContent;
 import com.android.wallpaper.widget.WallpaperInfoView;
@@ -80,7 +89,6 @@ public abstract class PreviewFragment extends AppbarFragment implements
      * wallpaper with pan and crop position to the device.
      */
     static final int MODE_CROP_AND_SET_WALLPAPER = 1;
-    private Optional<Integer> mLastSelectedTabPositionOptional = Optional.empty();
 
     /**
      * Possible preview modes for the fragment.
@@ -94,6 +102,7 @@ public abstract class PreviewFragment extends AppbarFragment implements
     public static final String ARG_WALLPAPER = "wallpaper";
     public static final String ARG_PREVIEW_MODE = "preview_mode";
     public static final String ARG_VIEW_AS_HOME = "view_as_home";
+    public static final String ARG_FULL_SCREEN = "view_full_screen";
     public static final String ARG_TESTING_MODE_ENABLED = "testing_mode_enabled";
 
     /**
@@ -101,11 +110,12 @@ public abstract class PreviewFragment extends AppbarFragment implements
      * set as an argument.
      */
     public static PreviewFragment newInstance(WallpaperInfo wallpaperInfo, @PreviewMode int mode,
-            boolean viewAsHome, boolean testingModeEnabled) {
+            boolean viewAsHome, boolean viewFullScreen, boolean testingModeEnabled) {
         Bundle args = new Bundle();
         args.putParcelable(ARG_WALLPAPER, wallpaperInfo);
         args.putInt(ARG_PREVIEW_MODE, mode);
         args.putBoolean(ARG_VIEW_AS_HOME, viewAsHome);
+        args.putBoolean(ARG_FULL_SCREEN, viewFullScreen);
         args.putBoolean(ARG_TESTING_MODE_ENABLED, testingModeEnabled);
 
         PreviewFragment fragment = wallpaperInfo instanceof LiveWallpaperInfo
@@ -138,7 +148,12 @@ public abstract class PreviewFragment extends AppbarFragment implements
     protected FullScreenAnimation mFullScreenAnimation;
     @PreviewMode protected int mPreviewMode;
     protected boolean mViewAsHome;
+    // For full screen preview in a separate Activity.
+    protected boolean mShowInFullScreen;
 
+    protected SetWallpaperViewModel mSetWallpaperViewModel;
+    protected ViewModelProvider mViewModelProvider;
+    protected Optional<Integer> mLastSelectedTabPositionOptional = Optional.empty();
     private OnBackPressedCallback mOnBackPressedCallback;
 
     /**
@@ -162,15 +177,25 @@ public abstract class PreviewFragment extends AppbarFragment implements
         //noinspection ResourceType
         mPreviewMode = getArguments().getInt(ARG_PREVIEW_MODE);
         mViewAsHome = getArguments().getBoolean(ARG_VIEW_AS_HOME);
+        mShowInFullScreen = getArguments().getBoolean(ARG_FULL_SCREEN);
+
         mTestingModeEnabled = getArguments().getBoolean(ARG_TESTING_MODE_ENABLED);
         mWallpaperSetter = new WallpaperSetter(injector.getWallpaperPersister(appContext),
                 injector.getPreferences(appContext), mUserEventLogger, mTestingModeEnabled);
+
+        mViewModelProvider = new ViewModelProvider(requireActivity());
+        mSetWallpaperViewModel = mViewModelProvider.get(SetWallpaperViewModel.class);
 
         Activity activity = getActivity();
         List<String> attributions = getAttributions(activity);
         if (attributions.size() > 0 && attributions.get(0) != null) {
             activity.setTitle(attributions.get(0));
         }
+    }
+
+    @Override
+    protected int getToolbarColorId() {
+        return android.R.color.transparent;
     }
 
     @Override
@@ -193,6 +218,13 @@ public abstract class PreviewFragment extends AppbarFragment implements
 
                     mFullScreenAnimation.setWindowInsets(windowInsets);
                     mFullScreenAnimation.placeViews();
+
+                    // Update preview header's padding top to align status bar height.
+                    View previewHeader = v.findViewById(R.id.preview_header);
+                    previewHeader.setPadding(previewHeader.getPaddingLeft(),
+                            mFullScreenAnimation.getStatusBarHeight(),
+                            previewHeader.getPaddingRight(), previewHeader.getPaddingBottom());
+
                     return windowInsets.consumeSystemWindowInsets();
                 }
         );
@@ -204,17 +236,28 @@ public abstract class PreviewFragment extends AppbarFragment implements
     protected void onBottomActionBarReady(BottomActionBar bottomActionBar) {
         super.onBottomActionBarReady(bottomActionBar);
         mBottomActionBar = bottomActionBar;
-        mBottomActionBar.setActionClickListener(EDIT, (view) -> {
-            mFullScreenAnimation.startAnimation(/* toFullScreen= */ true);
-            mBottomActionBar.deselectAction(EDIT);
-        });
+        if (!mShowInFullScreen) {
+            mBottomActionBar.setActionClickListener(EDIT, (view) -> {
+                // Starts a full preview Activity when in multi-pane resolution
+                LargeScreenMultiPanesChecker multiPanesChecker = new LargeScreenMultiPanesChecker();
+                if (multiPanesChecker.isMultiPanesEnabled(getContext())) {
+                    showInFullScreenActivity(mWallpaper);
+                } else {
+                    mFullScreenAnimation.startAnimation(/* toFullScreen= */ true);
+                }
+                mBottomActionBar.deselectAction(EDIT);
+            });
+        } else {
+            bottomActionBar.post(
+                    () -> mFullScreenAnimation.startAnimation(/* toFullScreen= */ true));
+        }
         setFullScreenActions(mRootView.findViewById(R.id.fullscreen_buttons_container));
 
         if (mOnBackPressedCallback == null) {
             mOnBackPressedCallback = new OnBackPressedCallback(true) {
                 @Override
                 public void handleOnBackPressed() {
-                    if (mFullScreenAnimation.isFullScreen()) {
+                    if (mFullScreenAnimation.isFullScreen() && !mShowInFullScreen) {
                         mFullScreenAnimation.startAnimation(/* toFullScreen= */ false);
                         return;
                     }
@@ -229,24 +272,57 @@ public abstract class PreviewFragment extends AppbarFragment implements
         }
     }
 
+    private void showInFullScreenActivity(WallpaperInfo wallpaperInfo) {
+        if (wallpaperInfo == null) {
+            return;
+        }
+        startActivity(FullPreviewActivity.newIntent(getActivity(), wallpaperInfo,
+                /* viewAsHome= */ mLastSelectedTabPositionOptional.orElse(0) == 0),
+                ActivityOptions.makeSceneTransitionAnimation(getActivity()).toBundle());
+    }
+
     protected void setFullScreenActions(View container) {
-        // Update the button text for the current workspace visibility.
-        Button hideUiPreviewButton = container.findViewById(R.id.hide_ui_preview_button);
-        hideUiPreviewButton.setText(mFullScreenAnimation.getWorkspaceVisibility()
-                ? R.string.hide_ui_preview_text
-                : R.string.show_ui_preview_text);
-        hideUiPreviewButton.setOnClickListener(
-                (button) -> {
-                    boolean visible = mFullScreenAnimation.getWorkspaceVisibility();
-                    // Update the button text for the next workspace visibility.
-                    ((Button) button).setText(visible
-                            ? R.string.show_ui_preview_text
-                            : R.string.hide_ui_preview_text);
-                    mFullScreenAnimation.setWorkspaceVisibility(!visible);
-                }
-        );
-        container.findViewById(R.id.set_as_wallpaper_button).setOnClickListener(
-                this::onSetWallpaperClicked);
+        if (!mShowInFullScreen) {
+            // Update the button text for the current workspace visibility.
+            Button hideUiPreviewButton = container.findViewById(R.id.hide_ui_preview_button);
+            hideUiPreviewButton.setText(mFullScreenAnimation.getWorkspaceVisibility()
+                    ? R.string.hide_ui_preview_text
+                    : R.string.show_ui_preview_text);
+            hideUiPreviewButton.setOnClickListener(
+                    (button) -> {
+                        boolean visible = mFullScreenAnimation.getWorkspaceVisibility();
+                        // Update the button text for the next workspace visibility.
+                        ((Button) button).setText(visible
+                                ? R.string.show_ui_preview_text
+                                : R.string.hide_ui_preview_text);
+                        mFullScreenAnimation.setWorkspaceVisibility(!visible);
+                        button.announceForAccessibility(
+                                visible ? getString(R.string.hint_hide_ui_preview)
+                                        : getString(R.string.hint_show_ui_preview));
+                    }
+            );
+            container.findViewById(R.id.set_as_wallpaper_button).setOnClickListener(
+                    this::onSetWallpaperClicked);
+        } else {
+            container.findViewById(R.id.hide_ui_preview_button).setVisibility(View.GONE);
+            container.findViewById(R.id.set_as_wallpaper_button).setVisibility(View.GONE);
+            setUpToolbarMenu(R.menu.fullpreview_menu);
+            setUpToolbarMenuClickListener(R.id.action_hide_ui, view -> {
+                boolean visible = mFullScreenAnimation.getWorkspaceVisibility();
+                mFullScreenAnimation.setWorkspaceVisibility(!visible);
+                View hideUiView = view.findViewById(R.id.hide_ui_view);
+                RippleDrawable ripple = (RippleDrawable) hideUiView.getBackground();
+                LayerDrawable layerDrawable = (LayerDrawable) ripple.getDrawable(/* index= */ 0);
+                Drawable backgroundDrawable = layerDrawable.getDrawable(/* index= */ 0);
+                backgroundDrawable.setTint(!visible ? ResourceUtils.getColorAttr(getActivity(),
+                        com.android.internal.R.attr.colorAccentSecondary)
+                        : ResourceUtils.getColorAttr(getActivity(),
+                                com.android.internal.R.attr.colorAccentPrimary));
+            });
+            setUpToolbarMenuClickListener(R.id.action_set_wallpaper,
+                    view -> mWallpaperSetter.requestDestination(getActivity(), getFragmentManager(),
+                            this, mWallpaper instanceof LiveWallpaperInfo));
+        }
 
         mFullScreenAnimation.ensureBottomActionBarIsCorrectlyLocated();
     }
@@ -284,12 +360,28 @@ public abstract class PreviewFragment extends AppbarFragment implements
                     requireFragmentManager(), TAG_SET_WALLPAPER_ERROR_DIALOG_FRAGMENT);
             mStagedSetWallpaperErrorDialogFragment = null;
         }
+
+        mSetWallpaperViewModel.getStatus().observe(requireActivity(), setWallpaperStatus -> {
+            switch (setWallpaperStatus) {
+                case SUCCESS:
+                    // Give a few millis before finishing to allow for the dialog dismiss
+                    // and animations to finish
+                    Handler.getMain().postDelayed(() -> finishActivity(true), 300);
+                    break;
+                case ERROR:
+                    showSetWallpaperErrorDialog(mSetWallpaperViewModel.getDestination());
+                    break;
+                default:
+                    // Do nothing in this case, either status is pending, or unknown
+            }
+        });
     }
 
     protected abstract boolean isLoaded();
 
     @Override
     public void onSet(int destination) {
+        mSetWallpaperViewModel.setDestination(destination);
         setCurrentWallpaper(destination);
     }
 
@@ -300,6 +392,7 @@ public abstract class PreviewFragment extends AppbarFragment implements
 
     @Override
     public void onClickTryAgain(@Destination int wallpaperDestination) {
+        mSetWallpaperViewModel.setDestination(wallpaperDestination);
         setCurrentWallpaper(wallpaperDestination);
     }
 
@@ -375,8 +468,8 @@ public abstract class PreviewFragment extends AppbarFragment implements
             }
             activity.setResult(Activity.RESULT_OK);
         }
-        activity.overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
         activity.finish();
+        activity.overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
     }
 
     protected void showSetWallpaperErrorDialog(@Destination int wallpaperDestination) {

@@ -72,7 +72,7 @@
     <string name="empty_alert" msgid="3693655518612836718">"<xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> diwajibkan dan tidak boleh kosong."</string>
     <string name="not_a_valid_port" msgid="3664668836663491376">"Nomor port harus dalam rentang 1000 dan 65534."</string>
     <string name="no_internet_available" msgid="161720645084325479">"Untuk melakukan panggilan SIP, periksa koneksi internet terlebih dahulu."</string>
-    <string name="no_wifi_available" msgid="1179092018692306312">"Anda harus tersambung ke jaringan Wi-Fi untuk melakukan panggilan SIP (gunakan setelan Nirkabel &amp; Jaringan)."</string>
+    <string name="no_wifi_available" msgid="1179092018692306312">"Anda harus terhubung ke jaringan Wi-Fi untuk melakukan panggilan SIP (gunakan setelan Nirkabel &amp; Jaringan)."</string>
     <string name="no_voip" msgid="3366395789297981738">"Panggilan SIP tidak didukung"</string>
     <string name="sip_system_decide" msgid="197230378376326430">"Otomatis"</string>
     <string name="sip_always_send_keepalive" msgid="4986533673960084769">"Selalu kirim"</string>

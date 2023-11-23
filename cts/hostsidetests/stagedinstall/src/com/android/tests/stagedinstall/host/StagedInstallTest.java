@@ -356,7 +356,27 @@ public class StagedInstallTest extends BaseHostJUnit4Test {
     public void testInstallStagedApex_SameGrade() throws Exception {
         assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
         installV3Apex();
+        ApexInfo shim1 =
+                readApexInfoList().stream()
+                        .filter(a -> a.getModuleName().equals(SHIM_APEX_PACKAGE_NAME))
+                        .filter(ApexInfo::getIsActive)
+                        .findAny()
+                        .orElseThrow(() ->
+                                new AssertionError(
+                                        "No active version of " + SHIM_APEX_PACKAGE_NAME
+                                                + " found in /apex/apex-info-list.xml"));
+
         installV3Apex();
+        ApexInfo shim2 =
+                readApexInfoList().stream()
+                        .filter(a -> a.getModuleName().equals(SHIM_APEX_PACKAGE_NAME))
+                        .filter(ApexInfo::getIsActive)
+                        .findAny()
+                        .orElseThrow(() ->
+                                new AssertionError(
+                                        "No active version of " + SHIM_APEX_PACKAGE_NAME
+                                                + " found in /apex/apex-info-list.xml"));
+        assertThat(shim1.getLastUpdateMillis()).isNotEqualTo(shim2.getLastUpdateMillis());
     }
 
     @Test
@@ -732,12 +752,15 @@ public class StagedInstallTest extends BaseHostJUnit4Test {
             assertThat(apexInfo.getModulePath()).isEqualTo(apex.sourceDir);
             assertThat(apexInfo.getVersionCode()).isEqualTo(apex.versionCode);
             assertThat(apexInfo.getIsActive()).isTrue();
+            assertThat(apexInfo.getLastUpdateMillis()).isGreaterThan(0);
         }
     }
 
     @Test
     public void testApexInfoListAfterUpdate() throws Exception {
         assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        ApexInfo shimBeforeUpdate = getShimApexInfo();
 
         installV2Apex();
 
@@ -762,6 +785,8 @@ public class StagedInstallTest extends BaseHostJUnit4Test {
         assertThat(factoryShimApexInfo.getVersionCode()).isEqualTo(1);
         assertThat(factoryShimApexInfo.getModulePath())
                 .isEqualTo(factoryShimApexInfo.getPreinstalledModulePath());
+        assertThat(factoryShimApexInfo.getLastUpdateMillis())
+                .isEqualTo(shimBeforeUpdate.getLastUpdateMillis());
 
         ApexInfo activeShimApexInfo =
                 shimApexInfo.stream()
@@ -777,6 +802,108 @@ public class StagedInstallTest extends BaseHostJUnit4Test {
         assertThat(activeShimApexInfo.getVersionCode()).isEqualTo(2);
         assertThat(activeShimApexInfo.getPreinstalledModulePath())
                 .isEqualTo(factoryShimApexInfo.getModulePath());
+        assertThat(activeShimApexInfo.getLastUpdateMillis())
+                .isNotEqualTo(shimBeforeUpdate.getLastUpdateMillis());
+    }
+
+    @Test
+    @LargeTest
+    public void testRebootlessUpdate() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        runPhase("testRebootlessUpdate");
+        ApexInfo activeShimApexInfo = getActiveShimApexInfo();
+        assertThat(activeShimApexInfo.getModuleName()).isEqualTo(SHIM_APEX_PACKAGE_NAME);
+        assertThat(activeShimApexInfo.getIsActive()).isTrue();
+        assertThat(activeShimApexInfo.getIsFactory()).isFalse();
+        assertThat(activeShimApexInfo.getVersionCode()).isEqualTo(2);
+    }
+
+    @Test
+    public void testRebootlessUpdate_fromV2ToV3_sameBoot() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        runPhase("testRebootlessUpdate");
+        runPhase("testRebootlessUpdate_installV3");
+        ApexInfo activeShimApexInfo = getActiveShimApexInfo();
+        assertThat(activeShimApexInfo.getModuleName()).isEqualTo(SHIM_APEX_PACKAGE_NAME);
+        assertThat(activeShimApexInfo.getIsActive()).isTrue();
+        assertThat(activeShimApexInfo.getIsFactory()).isFalse();
+        assertThat(activeShimApexInfo.getVersionCode()).isEqualTo(3);
+    }
+
+    @Test
+    @LargeTest
+    public void testRebootlessUpdate_fromV2ToV3_rebootInBetween() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        runPhase("testRebootlessUpdate");
+        getDevice().reboot();
+        runPhase("testRebootlessUpdate_installV3");
+        ApexInfo activeShimApexInfo = getActiveShimApexInfo();
+        assertThat(activeShimApexInfo.getModuleName()).isEqualTo(SHIM_APEX_PACKAGE_NAME);
+        assertThat(activeShimApexInfo.getIsActive()).isTrue();
+        assertThat(activeShimApexInfo.getIsFactory()).isFalse();
+        assertThat(activeShimApexInfo.getVersionCode()).isEqualTo(3);
+    }
+
+    @Test
+    @LargeTest
+    public void testRebootlessUpdate_downgrage_fails() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        runPhase("testRebootlessUpdate_installV3");
+        runPhase("testRebootlessUpdate_downgradeToV2_fails");
+    }
+
+    @Test
+    public void testRebootlessUpdate_noPermission_fails() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        runPhase("testRebootlessUpdate_noPermission_fails");
+    }
+
+    @Test
+    public void testRebootlessUpdate_noPreInstalledApex_fails() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        runPhase("testRebootlessUpdate_noPreInstalledApex_fails");
+    }
+
+    @Test
+    public void testRebootlessUpdate_unsignedPayload_fails() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        runPhase("testRebootlessUpdate_unsignedPayload_fails");
+    }
+
+    @Test
+    public void testRebootlessUpdate_payloadSignedWithDifferentKey_fails() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        runPhase("testRebootlessUpdate_payloadSignedWithDifferentKey_fails");
+    }
+
+    @Test
+    public void testRebootlessUpdate_outerContainerSignedWithDifferentCert_fails()
+            throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        runPhase("testRebootlessUpdate_outerContainerSignedWithDifferentCert_fails");
+    }
+
+    @Test
+    public void testRebootlessUpdate_outerContainerUnsigned_fails() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        runPhase("testRebootlessUpdate_outerContainerUnsigned_fails");
+    }
+
+    @Test
+    public void testRebootlessUpdate_targetsOlderSdk_fails() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+
+        runPhase("testRebootlessUpdate_targetsOlderSdk_fails");
     }
 
     private List<ApexInfo> readApexInfoList() throws Exception {
@@ -784,6 +911,26 @@ public class StagedInstallTest extends BaseHostJUnit4Test {
         try (FileInputStream stream = new FileInputStream(file)) {
             return XmlParser.readApexInfoList(stream).getApexInfo();
         }
+    }
+
+    private ApexInfo getShimApexInfo() throws Exception {
+        List<ApexInfo> temp =
+                readApexInfoList().stream()
+                            .filter(a -> a.getModuleName().equals(SHIM_APEX_PACKAGE_NAME))
+                            .collect(Collectors.toList());
+        assertThat(temp).hasSize(1);
+        return temp.get(0);
+    }
+
+    private ApexInfo getActiveShimApexInfo() throws Exception {
+        return readApexInfoList().stream()
+                    .filter(a -> a.getModuleName().equals(SHIM_APEX_PACKAGE_NAME))
+                    .filter(ApexInfo::getIsActive)
+                    .findAny()
+                    .orElseThrow(() ->
+                            new AssertionError(
+                                    "No active version of " + SHIM_APEX_PACKAGE_NAME
+                                            + " found in /apex/apex-info-list.xml"));
     }
 
     /**

@@ -36,7 +36,7 @@
     <string name="header_category_general_settings" msgid="3897615781153506434">"പൊതു ക്രമീകരണം"</string>
     <string name="dismiss_suggestion" msgid="6200814545590126814">"നിർദ്ദേശം ഡിസ്മിസ്സ് ചെയ്യുക"</string>
     <string name="hotwording_title" msgid="2606899304616599026">"\"Ok Google\" തിരിച്ചറിയൽ"</string>
-    <string name="hotwording_summary" msgid="2170375928302175449">"ഏത് സമയത്തും Google അസിസ്‌റ്റന്റിനോട് സംസാരിക്കുക"</string>
+    <string name="hotwording_summary" msgid="2170375928302175449">"ഏത് സമയത്തും Google Assistant-നോട് സംസാരിക്കുക"</string>
     <string name="header_category_device" msgid="3023893663454705969">"ഉപകരണം"</string>
     <string name="header_category_preferences" msgid="3738388885555798797">"മുൻഗണനകൾ"</string>
     <string name="header_category_accessories" msgid="6479803330480847199">"റിമോട്ടും ആക്‌സസറികളും"</string>
@@ -324,7 +324,7 @@
       <item quantity="other">ക്യാമറാ ആപ്പുകൾ</item>
       <item quantity="one">ക്യാമറാ ആപ്പ്</item>
     </plurals>
-    <string name="default_calendar_app_title" msgid="1533912443930743532">"കലണ്ടർ ആപ്പ്"</string>
+    <string name="default_calendar_app_title" msgid="1533912443930743532">"Calendar ആപ്പ്"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"കോണ്‍‌ടാക്റ്റ് ആപ്പ്"</string>
     <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
       <item quantity="other">ഇമെയിൽ ക്ലയന്റ് ആപ്പുകൾ</item>
@@ -651,7 +651,7 @@
     <string name="location_reporting" msgid="3552501333650895634">"ലൊക്കേഷൻ റിപ്പോർട്ടുചെയ്യൽ"</string>
     <string name="location_history" msgid="4055660203090513120">"ലൊക്കേഷൻ ചരിത്രം"</string>
     <string name="location_reporting_desc" msgid="1580018652781674608">"Google Now, Google Maps പോലുള്ള ഉൽപ്പന്നങ്ങളിൽ Google ഈ ഫീച്ചർ ഉപയോഗിക്കുന്നു. ലൊക്കേഷൻ റിപ്പോർട്ടുചെയ്യൽ ഓണാക്കുന്നത്, ഈ ഫീച്ചർ ഉപയോഗിക്കുന്ന ഏത് Google ഉൽപ്പന്നത്തേയും നിങ്ങളുടെ Google അക്കൗണ്ടുമായി കണക്റ്റുചെയ്ത് ഉപകരണത്തിന്റെ ഏറ്റവുംപുതിയ ലൊക്കേഷൻ ഡാറ്റ സംഭരിക്കാനും ഉപയോഗിക്കാനും അനുവദിക്കുന്നു."</string>
-    <string name="location_history_desc" msgid="926674012916014270">"ഈ അക്കൗണ്ടിനായി ലൊക്കേഷൻ ചരിത്രം ഓണായിരിക്കുമ്പോൾ, നിങ്ങളുടെ അപ്ലിക്കേഷനുകൾക്ക് ഉപയോഗിക്കുന്നതിനായി Google-ന് നിങ്ങളുടെ ഉപകരണത്തിന്റെ ലൊക്കേഷൻ ഡാറ്റ സംഭരിക്കാനാകും.\n\nഉദാഹരണത്തിന്, Google മാപ്‌സിന് വഴികൾ നൽകാനും \'Google നൗ\' എന്നതിന് യാത്രാമാർഗത്തിലെ ട്രാഫിക്കിനെക്കുറിച്ച് അറിയിക്കാനുമാകും.\n\nഎപ്പോൾ വേണമെങ്കിലും നിങ്ങൾക്ക് ലൊക്കേഷൻ ചരിത്രം ഓഫാക്കാനാകുമെങ്കിലും അങ്ങനെ ചെയ്യുന്നത് അതിനെ ഇല്ലാതാക്കുന്നില്ല. നിങ്ങളുടെ ലൊക്കേഷൻ ചരിത്രം കാണാനും നിയന്ത്രിക്കാനും, maps.google.com/locationhistory സന്ദർശിക്കുക."</string>
+    <string name="location_history_desc" msgid="926674012916014270">"ഈ അക്കൗണ്ടിനായി ലൊക്കേഷൻ ചരിത്രം ഓണായിരിക്കുമ്പോൾ, നിങ്ങളുടെ ആപ്പുകൾക്ക് ഉപയോഗിക്കുന്നതിനായി Google-ന് നിങ്ങളുടെ ഉപകരണത്തിന്റെ ലൊക്കേഷൻ ഡാറ്റ സംഭരിക്കാനാകും.\n\nഉദാഹരണത്തിന്, Google Maps-ന് വഴികൾ നൽകാനും Google Now എന്നതിന് യാത്രാമാർഗത്തിലെ ട്രാഫിക്കിനെക്കുറിച്ച് അറിയിക്കാനുമാകും.\n\nഎപ്പോൾ വേണമെങ്കിലും നിങ്ങൾക്ക് ലൊക്കേഷൻ ചരിത്രം ഓഫാക്കാനാകുമെങ്കിലും അങ്ങനെ ചെയ്യുന്നത് അതിനെ ഇല്ലാതാക്കുന്നില്ല. നിങ്ങളുടെ ലൊക്കേഷൻ ചരിത്രം കാണാനും നിയന്ത്രിക്കാനും, maps.google.com/locationhistory സന്ദർശിക്കുക."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"ലൊക്കേഷൻ ചരിത്രം ഇല്ലാതാക്കുക"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"ഈ Google അക്കൗണ്ടിനായി ഈ ഉപകരണത്തിൽ സംഭരിച്ച എല്ലാ ലൊക്കേഷൻ ചരിത്രത്തെയും ഇത് ഇല്ലാതാക്കും. ഈ ഇല്ലാതാക്കൽ നിങ്ങൾക്ക് പഴയപടിയാക്കാനാവില്ല. \'Google നൗ\' ഉൾപ്പടെയുള്ള ചില അപ്ലിക്കേഷനുകൾ പ്രവർത്തനം നിർത്തും."</string>
     <string name="system_services" msgid="5754310941186053151">"സേവനങ്ങള്‍"</string>

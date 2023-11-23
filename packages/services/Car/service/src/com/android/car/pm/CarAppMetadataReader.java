@@ -15,19 +15,25 @@
  */
 package com.android.car.pm;
 
+import static android.car.content.pm.CarPackageManager.DRIVING_SAFETY_ACTIVITY_METADATA_REGIONS;
+
+import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.UserIdInt;
+import android.car.content.pm.CarPackageManager;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Bundle;
-import android.util.Log;
 import android.util.Slog;
 
 import com.android.car.CarLog;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -49,19 +55,13 @@ public class CarAppMetadataReader {
     /** Name of the meta-data attribute of the Activity that denotes distraction optimized */
     private static final String DO_METADATA_ATTRIBUTE = "distractionOptimized";
 
-    /**
-     * Parses the given package and returns Distraction Optimized information, if present.
-     *
-     * @return Array of DO activity names in the given package
-     */
-    @Nullable
-    public static String[] findDistractionOptimizedActivitiesAsUser(Context context,
-            String packageName, int userId) throws NameNotFoundException {
-        final PackageManager pm = context.getPackageManager();
+    private static final List<String> ALL_REGION_ONLY = Collections.singletonList(
+            CarPackageManager.DRIVING_SAFETY_REGION_ALL);
 
-        // Check if any of the activities in the package are DO by checking all the
-        // <activity> elements. MATCH_DISABLED_COMPONENTS is included so that we are immediately
-        // prepared to respond to any components that toggle from disabled to enabled.
+    @Nullable
+    private static ActivityInfo[] getAllActivitiesForPackageAsUser(Context context,
+            String packageName, @UserIdInt int userId)  throws NameNotFoundException {
+        final PackageManager pm = context.getPackageManager();
         PackageInfo pkgInfo =
                 pm.getPackageInfoAsUser(
                         packageName, PackageManager.GET_ACTIVITIES
@@ -74,18 +74,43 @@ public class CarAppMetadataReader {
             return null;
         }
 
-        ActivityInfo[] activities = pkgInfo.activities;
+        return pkgInfo.activities;
+    }
+
+    /**
+     * Parses the given package and returns Distraction Optimized information, if present.
+     *
+     * @return Array of DO activity names in the given package
+     */
+    @Nullable
+    public static String[] findDistractionOptimizedActivitiesAsUser(Context context,
+            String packageName, @UserIdInt int userId, @NonNull String drivingSafetyRegion)
+            throws NameNotFoundException {
+
+
+        // Check if any of the activities in the package are DO by checking all the
+        // <activity> elements. MATCH_DISABLED_COMPONENTS is included so that we are immediately
+        // prepared to respond to any components that toggle from disabled to enabled.
+        ActivityInfo[] activities = getAllActivitiesForPackageAsUser(context, packageName, userId);
         if (activities == null) {
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
+            if (CarPackageManagerService.DBG) {
                 Slog.d(TAG, "Null Activities for " + packageName);
             }
             return null;
         }
         List<String> optimizedActivityList = new ArrayList();
         for (ActivityInfo activity : activities) {
-            Bundle mData = activity.metaData;
-            if (mData != null && mData.getBoolean(DO_METADATA_ATTRIBUTE, false)) {
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Bundle metaData = activity.metaData;
+            if (metaData == null) {
+                continue;
+            }
+            String regionString = metaData.getString(DRIVING_SAFETY_ACTIVITY_METADATA_REGIONS,
+                    CarPackageManager.DRIVING_SAFETY_REGION_ALL);
+            if (!isRegionSupported(regionString, drivingSafetyRegion)) {
+                continue;
+            }
+            if (metaData.getBoolean(DO_METADATA_ATTRIBUTE, false)) {
+                if (CarPackageManagerService.DBG) {
                     Slog.d(TAG,
                             "DO Activity:" + activity.packageName + "/" + activity.name);
                 }
@@ -96,5 +121,67 @@ public class CarAppMetadataReader {
             return null;
         }
         return optimizedActivityList.toArray(new String[optimizedActivityList.size()]);
+    }
+
+    /**
+     * Check {@link CarPackageManager#getSupportedDrivingSafetyRegionsForActivityAsUser(
+     * String, String, int)}.
+     */
+    public static List<String> getSupportedDrivingSafetyRegionsForActivityAsUser(Context context,
+            String packageName, String activityClassName, @UserIdInt int userId)
+            throws NameNotFoundException {
+        ActivityInfo[] activities = getAllActivitiesForPackageAsUser(context, packageName, userId);
+        if (activities == null) {
+            throw new NameNotFoundException();
+        }
+        for (ActivityInfo info: activities) {
+            if (!info.name.equals(activityClassName)) {
+                continue;
+            }
+            // Found activity
+            Bundle metaData = info.metaData;
+            if (metaData == null) {
+                return Collections.EMPTY_LIST;
+            }
+            if (!metaData.getBoolean(DO_METADATA_ATTRIBUTE, false)) {
+                // no distractionOptimized, so region metadata does not matter.
+                return Collections.EMPTY_LIST;
+            }
+            String regionString = metaData.getString(DRIVING_SAFETY_ACTIVITY_METADATA_REGIONS,
+                    CarPackageManager.DRIVING_SAFETY_REGION_ALL);
+            String[] regions = regionString.split(",");
+            for (String region: regions) {
+                if (CarPackageManager.DRIVING_SAFETY_REGION_ALL.equals(region)) {
+                    return ALL_REGION_ONLY;
+                }
+            }
+            return Arrays.asList(regions);
+        }
+        throw new NameNotFoundException();
+    }
+
+    private static boolean isRegionSupported(String regionString, String currentRegion) {
+        if (regionString.isEmpty()) { // not specified means all regions.
+            return true;
+        }
+        if (currentRegion.equals(CarPackageManager.DRIVING_SAFETY_REGION_ALL)) {
+            return true;
+        }
+        String[] regions = regionString.split(",");
+        for (String region: regions) {
+            if (CarPackageManager.DRIVING_SAFETY_REGION_ALL.equals(region)) {
+                return true;
+            }
+            if (currentRegion.equals(region)) {
+                return true;
+            }
+        }
+        // valid regions but does not match currentRegion.
+        if (CarPackageManagerService.DBG) {
+            Slog.d(TAG,
+                    "isRegionSupported not supported, regionString:" + regionString
+                            + " region:" + currentRegion);
+        }
+        return false;
     }
 }

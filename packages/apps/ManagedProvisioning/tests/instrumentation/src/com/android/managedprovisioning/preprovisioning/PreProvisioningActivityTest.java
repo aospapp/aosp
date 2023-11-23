@@ -44,6 +44,7 @@ import com.android.managedprovisioning.common.ThemeHelper.DefaultNightModeChecke
 import com.android.managedprovisioning.common.ThemeHelper.DefaultSetupWizardBridge;
 import com.android.managedprovisioning.common.UriBitmap;
 import com.android.managedprovisioning.common.Utils;
+import com.android.managedprovisioning.parser.DisclaimersParserImpl;
 import com.android.managedprovisioning.parser.MessageParser;
 import com.android.managedprovisioning.preprovisioning.terms.TermsActivity;
 
@@ -88,7 +89,8 @@ public class PreProvisioningActivityTest {
                                 new PreProvisioningViewModel(
                                         new TimeLogger(activity, 0 /* category */),
                                         new MessageParser(activity),
-                                        TestUtils.createEncryptionController(activity))
+                                        TestUtils.createEncryptionController(activity)),
+                                DisclaimersParserImpl::new
                         ) {
                             @Override
                             protected boolean checkDevicePolicyPreconditions() {

@@ -37,12 +37,10 @@ public class DeviceStateClassAnnotationWithoutBedsteadJunit4Test {
     @Rule
     public static final DeviceState sDeviceState = new DeviceState();
 
-    private static final TestApis sTestApis = new TestApis();
-
     @Test
     public void ensureHasSecondaryUserAnnotationOnClass_secondaryUserExists() {
-        assertThat(sTestApis.users().findUserOfType(
-                sTestApis.users().supportedType(SECONDARY_USER_TYPE_NAME))
+        assertThat(TestApis.users().findUserOfType(
+                TestApis.users().supportedType(SECONDARY_USER_TYPE_NAME))
         ).isNotNull();
     }
 }

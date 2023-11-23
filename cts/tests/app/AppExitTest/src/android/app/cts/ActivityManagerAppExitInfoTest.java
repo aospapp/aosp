@@ -55,6 +55,7 @@ import android.util.Log;
 import android.util.Pair;
 
 import com.android.compatibility.common.util.AmMonitor;
+import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.ShellIdentityUtils;
 import com.android.compatibility.common.util.SystemUtil;
 import com.android.internal.util.ArrayUtils;
@@ -102,6 +103,8 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
     private static final int ACTION_KILL_PROVIDER = 7;
     private static final int EXIT_CODE = 123;
     private static final int CRASH_SIGNAL = OsConstants.SIGSEGV;
+
+    private static final int TOMBSTONE_FETCH_TIMEOUT_MS = 10_000;
 
     private static final int WAITFOR_MSEC = 10000;
     private static final int WAITFOR_SETTLE_DOWN = 2000;
@@ -840,17 +843,11 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         verify(list.get(0), mStubPackagePid, mStubPackageUid, STUB_PACKAGE_NAME,
                 ApplicationExitInfo.REASON_CRASH_NATIVE, null, null, now, now2);
 
-        InputStream trace = ShellIdentityUtils.invokeMethodWithShellPermissions(
-                list.get(0),
-                (i) -> {
-                    try {
-                        return i.getTraceInputStream();
-                    } catch (IOException ex) {
-                        return null;
-                    }
-                },
-                android.Manifest.permission.DUMP);
+        TombstoneFetcher tombstoneFetcher = new TombstoneFetcher(list.get(0));
+        PollingCheck.check("not able to get tombstone", TOMBSTONE_FETCH_TIMEOUT_MS,
+                () -> tombstoneFetcher.fetchTrace());
 
+        InputStream trace = tombstoneFetcher.getTrace();
         assertNotNull(trace);
         Tombstone tombstone = Tombstone.parseFrom(trace);
         assertEquals(tombstone.getPid(), mStubPackagePid);
@@ -1241,5 +1238,32 @@ public final class ActivityManagerAppExitInfoTest extends InstrumentationTestCas
         assertTrue(after >= info.getTimestamp());
         assertTrue(ArrayUtils.equals(info.getProcessStateSummary(), cookie,
                 cookie == null ? 0 : cookie.length));
+    }
+
+    private static class TombstoneFetcher {
+        private InputStream mTrace = null;
+        private final ApplicationExitInfo mExitInfo;
+
+        TombstoneFetcher(ApplicationExitInfo exitInfo) {
+            mExitInfo = exitInfo;
+        }
+
+        public InputStream getTrace() {
+            return mTrace;
+        }
+
+        public boolean fetchTrace() throws Exception {
+            mTrace = ShellIdentityUtils.invokeMethodWithShellPermissions(
+                    mExitInfo,
+                    (i) -> {
+                        try {
+                            return i.getTraceInputStream();
+                        } catch (IOException ex) {
+                            return null;
+                        }
+                    },
+                    android.Manifest.permission.DUMP);
+            return (mTrace != null);
+        }
     }
 }

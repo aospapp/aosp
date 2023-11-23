@@ -20,6 +20,7 @@ import static android.car.CarOccupantZoneManager.DisplayTypeEnum;
 import static android.hardware.automotive.vehicle.V2_0.CustomInputType.CUSTOM_EVENT_F1;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.spy;
@@ -74,9 +75,15 @@ public final class CarInputManagerTest extends MockedCarTestBase {
 
     private final class CaptureCallback implements CarInputManager.CarInputCaptureCallback {
 
-        private static final long EVENT_WAIT_TIME = 500;
+        private static final long EVENT_WAIT_TIME = 5_000;
 
         private final Object mLock = new Object();
+
+        private final String mName;
+
+        private CaptureCallback(String name) {
+            mName = name;
+        }
 
         // Stores passed events. Last one in front
         @GuardedBy("mLock")
@@ -149,19 +156,24 @@ public final class CarInputManagerTest extends MockedCarTestBase {
         }
 
         private void waitForStateChange() throws Exception {
-            mStateChangeWait.tryAcquire(EVENT_WAIT_TIME, TimeUnit.MILLISECONDS);
+            assertWithMessage("Failed to acquire semaphore in %s ms", EVENT_WAIT_TIME).that(
+                    mStateChangeWait.tryAcquire(EVENT_WAIT_TIME, TimeUnit.MILLISECONDS)).isTrue();
         }
 
         private void waitForKeyEvent() throws Exception {
-            mKeyEventWait.tryAcquire(EVENT_WAIT_TIME, TimeUnit.MILLISECONDS);
+            assertWithMessage("Failed to acquire semaphore in %s ms", EVENT_WAIT_TIME).that(
+                    mKeyEventWait.tryAcquire(EVENT_WAIT_TIME, TimeUnit.MILLISECONDS)).isTrue();
         }
 
         private void waitForRotaryEvent() throws Exception {
-            mRotaryEventWait.tryAcquire(EVENT_WAIT_TIME, TimeUnit.MILLISECONDS);
+            assertWithMessage("Failed to acquire semaphore in %s ms", EVENT_WAIT_TIME).that(
+                    mRotaryEventWait.tryAcquire(EVENT_WAIT_TIME, TimeUnit.MILLISECONDS)).isTrue();
         }
 
         private void waitForCustomInputEvent() throws Exception {
-            mCustomInputEventWait.tryAcquire(EVENT_WAIT_TIME, TimeUnit.MILLISECONDS);
+            assertWithMessage("Failed to acquire semaphore in %s ms", EVENT_WAIT_TIME).that(
+                    mCustomInputEventWait.tryAcquire(
+                            EVENT_WAIT_TIME, TimeUnit.MILLISECONDS)).isTrue();
         }
 
         private LinkedList<Pair<Integer, List<KeyEvent>>> getkeyEvents() {
@@ -196,11 +208,16 @@ public final class CarInputManagerTest extends MockedCarTestBase {
                 return r;
             }
         }
+
+        @Override
+        public String toString() {
+            return "CaptureCallback{mName='" + mName + "'}";
+        }
     }
 
-    private final CaptureCallback mCallback0 = new CaptureCallback();
-    private final CaptureCallback mCallback1 = new CaptureCallback();
-    private final CaptureCallback mCallback2 = new CaptureCallback();
+    private final CaptureCallback mCallback0 = new CaptureCallback("callback0");
+    private final CaptureCallback mCallback1 = new CaptureCallback("callback1");
+    private final CaptureCallback mCallback2 = new CaptureCallback("callback2");
 
     @Override
     protected synchronized void configureMockedHal() {
@@ -493,7 +510,7 @@ public final class CarInputManagerTest extends MockedCarTestBase {
                         CarInputManager.INPUT_TYPE_NAVIGATE_KEYS}, 0, mCallback1);
         assertThat(r).isEqualTo(CarInputManager.INPUT_CAPTURE_RESPONSE_SUCCEEDED);
 
-        mCallback1.waitForStateChange();
+        mCallback0.waitForStateChange();
         assertLastStateChange(CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
                 new int[]{CarInputManager.INPUT_TYPE_DPAD_KEYS},
                 mCallback0);
@@ -539,7 +556,6 @@ public final class CarInputManagerTest extends MockedCarTestBase {
         CarInputManager carInputManager1 = createAnotherCarInputManager();
 
         Log.i(TAG, "requestInputEventCapture callback 0");
-
         int r = carInputManager0.requestInputEventCapture(
                 CarOccupantZoneManager.DISPLAY_TYPE_MAIN,
                 new int[]{
@@ -675,7 +691,7 @@ public final class CarInputManagerTest extends MockedCarTestBase {
         injectKeyEvent(true, KeyEvent.KEYCODE_NAVIGATE_NEXT);
 
         // Assert: ensure KeyEvent was delivered
-        mCallback1.waitForKeyEvent();
+        mCallback0.waitForKeyEvent();
         assertLastKeyEvent(CarOccupantZoneManager.DISPLAY_TYPE_MAIN, true,
                 KeyEvent.KEYCODE_NAVIGATE_NEXT, mCallback0);
 
@@ -714,7 +730,7 @@ public final class CarInputManagerTest extends MockedCarTestBase {
      * Events dispatched to main, so this should guarantee that all event dispatched are completed.
      */
     private void waitForDispatchToMain() {
-        // Needs to twice as it is dispatched to main inside car service once and it is
+        // Needs to be invoked twice as it is dispatched to main inside car service once and it is
         // dispatched to main inside CarInputManager once.
         CarServiceUtils.runOnMainSync(() -> {});
         CarServiceUtils.runOnMainSync(() -> {});

@@ -246,6 +246,98 @@ static void BM_ComputeChecksum(benchmark::State& state) {
 }
 BENCHMARK(BM_ComputeChecksum)->Range(1024, 1 << 20);
 
+static void BM_ComputeChecksumWithCachedChecksum(benchmark::State& state) {
+  const Filesystem filesystem;
+  const std::string file_path = GetTestTempDir() + "/proto.log";
+  int max_proto_size = (1 << 24) - 1;  // 16 MiB
+  bool compress = true;
+
+  // Make sure it doesn't already exist.
+  filesystem.DeleteFile(file_path.c_str());
+
+  auto proto_log = PortableFileBackedProtoLog<DocumentProto>::Create(
+                       &filesystem, file_path,
+                       PortableFileBackedProtoLog<DocumentProto>::Options(
+                           compress, max_proto_size))
+                       .ValueOrDie()
+                       .proto_log;
+
+  DocumentProto document = DocumentBuilder().SetKey("namespace", "uri").Build();
+
+  // Make the document 1KiB
+  int string_length = 1024;
+  std::default_random_engine random;
+  const std::string rand_str =
+      RandomString(kAlNumAlphabet, string_length, &random);
+
+  auto document_properties = document.add_properties();
+  document_properties->set_name("string property");
+  document_properties->add_string_values(rand_str);
+
+  // Write some content and persist. This should update our cached checksum to
+  // include the document.
+  ICING_ASSERT_OK(proto_log->WriteProto(document));
+  ICING_ASSERT_OK(proto_log->PersistToDisk());
+
+  // This ComputeChecksum call shouldn't need to do any computation since we can
+  // reuse our cached checksum.
+  for (auto _ : state) {
+    testing::DoNotOptimize(proto_log->ComputeChecksum());
+  }
+
+  // Cleanup after ourselves
+  filesystem.DeleteFile(file_path.c_str());
+}
+BENCHMARK(BM_ComputeChecksumWithCachedChecksum);
+
+static void BM_ComputeChecksumOnlyForTail(benchmark::State& state) {
+  const Filesystem filesystem;
+  const std::string file_path = GetTestTempDir() + "/proto.log";
+  int max_proto_size = (1 << 24) - 1;  // 16 MiB
+  bool compress = true;
+
+  // Make sure it doesn't already exist.
+  filesystem.DeleteFile(file_path.c_str());
+
+  auto proto_log = PortableFileBackedProtoLog<DocumentProto>::Create(
+                       &filesystem, file_path,
+                       PortableFileBackedProtoLog<DocumentProto>::Options(
+                           compress, max_proto_size))
+                       .ValueOrDie()
+                       .proto_log;
+
+  DocumentProto document = DocumentBuilder().SetKey("namespace", "uri").Build();
+
+  // Make the document 1KiB
+  int string_length = 1024;
+  std::default_random_engine random;
+  const std::string rand_str =
+      RandomString(kAlNumAlphabet, string_length, &random);
+
+  auto document_properties = document.add_properties();
+  document_properties->set_name("string property");
+  document_properties->add_string_values(rand_str);
+
+  // Write some content and persist. This should update our cached checksum to
+  // include the document.
+  ICING_ASSERT_OK(proto_log->WriteProto(document));
+  ICING_ASSERT_OK(proto_log->PersistToDisk());
+
+  // Write another proto into the tail, but it's not included in our cached
+  // checksum since we didn't call persist.
+  ICING_ASSERT_OK(proto_log->WriteProto(document));
+
+  // ComputeChecksum should be calculating the checksum of the tail and adding
+  // it to the cached checksum we have.
+  for (auto _ : state) {
+    testing::DoNotOptimize(proto_log->ComputeChecksum());
+  }
+
+  // Cleanup after ourselves
+  filesystem.DeleteFile(file_path.c_str());
+}
+BENCHMARK(BM_ComputeChecksumOnlyForTail);
+
 }  // namespace
 }  // namespace lib
 }  // namespace icing

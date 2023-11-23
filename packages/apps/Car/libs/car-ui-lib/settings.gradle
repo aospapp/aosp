@@ -20,8 +20,8 @@ include ':PaintBooth'
 project(':PaintBooth').projectDir = new File('./paintbooth')
 include ':oem-apis'
 project(':oem-apis').projectDir = new File('./oem-apis')
-include ':shared-library'
-project(':shared-library').projectDir = new File('./referencedesign/sharedlibrary')
+include ':plugin'
+project(':plugin').projectDir = new File('./referencedesign/plugin')
 
 rootProject.name='Chassis'
 include ':car-rotary-lib'

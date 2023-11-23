@@ -1,4 +1,23 @@
+cc_library_shared {
+    name: "hwcomposer.filegroups_build_test",
+    defaults: ["hwcomposer.drm_defaults"],
+    whole_static_libs: ["drm_hwcomposer"],
 
+    srcs: [
+        ":drm_hwcomposer_platformhisi",
+        ":drm_hwcomposer_platformimagination",
+        ":drm_hwcomposer_platformmediatek",
+        ":drm_hwcomposer_platformmeson",
+    ],
+
+    local_include_dirs: [
+        "test_include",
+    ],
+
+    cppflags: [
+        "-DDISABLE_LEGACY_GETTERS",
+    ],
+}
 
 package {
     // See: http://go/android-license-faq
@@ -19,7 +38,7 @@ cc_test {
     static_libs: ["libdrmhwc_utils"],
     shared_libs: ["hwcomposer.drm"],
     include_dirs: [
-        "external/drm_hwcomposer/include",
         "external/drm_hwcomposer",
+        "external/drm_hwcomposer/include",
     ],
 }

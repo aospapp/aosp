@@ -17,17 +17,17 @@
 
 # We dynamically link the oem apis, and proguard can't see them
 # when running, so it errors out without -dontwarn
--dontwarn com.android.car.ui.sharedlibrary.oemapis.**
+-dontwarn com.android.car.ui.plugin.oemapis.**
 
 # Required because the static lib doesn't call most of the methods
-# on adapters, but instead passes it to the shared lib, where they
+# on adapters, but instead passes it to the plugin, where they
 # are called. Since proguard can't even see that those methods are
-# overriding oem api interfaces (since the oem apis are dynmically
+# overriding oem api interfaces (since the oem apis are dynamically
 # linked and marked with -dontwarn), it thinks they're unused.
 -keep class com.android.car.ui.**AdapterV* {*;}
 
 # required for accessing oem apis
--keep class com.android.car.ui.sharedlibrarysupport.OemApiUtil {*;}
+-keep class com.android.car.ui.pluginsupport.OemApiUtil {*;}
 
 # Required for AppCompat instantiating our layout inflater factory,
 # Otherwise it will be obfuscated and the reference to it in xml won't match
@@ -36,3 +36,12 @@
 # Required for reflection code in CarUiInstaller
 -keep class com.android.car.ui.baselayout.Insets {*;}
 -keep class com.android.car.ui.core.BaseLayoutController {*;}
+
+# Required for car-lib APIs
+# One of the GAS apps is failing during obfuscation by CrossReferenceValidator.
+# The root cause is unknown, and the suggestion from the team was to
+# suppress this warning.
+-dontwarn android.car.Car
+
+# This is needed so proguard would ignore the missing content provider.
+-dontwarn com.android.car.ui.plugin.PluginNameProvider

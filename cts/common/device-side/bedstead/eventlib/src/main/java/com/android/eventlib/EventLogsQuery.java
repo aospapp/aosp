@@ -20,8 +20,11 @@ import android.os.UserHandle;
 
 import com.android.bedstead.nene.users.UserReference;
 import com.android.queryable.Queryable;
+import com.android.queryable.queries.Query;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -30,25 +33,9 @@ import java.util.function.Function;
  */
 public abstract class EventLogsQuery<E extends Event, F extends EventLogsQuery>
         extends EventLogs<E> implements Queryable {
-
-    /**
-     * Default implementation of {@link EventLogsQuery} used when there are no additional query
-     * options to add.
-     */
-    public static class Default<E extends Event> extends EventLogsQuery<E, Default> {
-        public Default(Class<E> eventClass, String packageName) {
-            super(eventClass, packageName);
-        }
-
-        @Override
-        protected boolean filter(E event) {
-            return getPackageName().equals(event.packageName());
-        }
-    }
-
     private final Class<E> mEventClass;
     private final String mPackageName;
-    private final transient Set<Function<E, Boolean>> filters = new HashSet<>();
+    private final transient Set<Function<E, Boolean>> mFilters = new HashSet<>();
     private transient UserHandle mUserHandle = null; // null is default, meaning current user
 
     protected EventLogsQuery(Class<E> eventClass, String packageName) {
@@ -78,7 +65,7 @@ public abstract class EventLogsQuery<E extends Event, F extends EventLogsQuery>
 
     /** Apply a lambda filter to the results. */
     public F filter(Function<E, Boolean> filter) {
-        filters.add(filter);
+        mFilters.add(filter);
         return (F) this;
     }
 
@@ -86,9 +73,9 @@ public abstract class EventLogsQuery<E extends Event, F extends EventLogsQuery>
      * Returns true if {@code E} matches custom and default filters for this {@link Event} subclass.
      */
     protected final boolean filterAll(E event) {
-        if (filters != null) {
+        if (mFilters != null) {
             // Filters will be null when called remotely
-            for (Function<E, Boolean> filter : filters) {
+            for (Function<E, Boolean> filter : mFilters) {
                 if (!filter.apply(event)) {
                     return false;
                 }
@@ -116,5 +103,44 @@ public abstract class EventLogsQuery<E extends Event, F extends EventLogsQuery>
 
     UserHandle getUserHandle() {
         return mUserHandle;
+    }
+
+
+    public static class ToStringBuilder {
+
+        private final List<String> mFields = new ArrayList<>();
+        private final int mNumberOfCustomFilters;
+
+        private ToStringBuilder(String eventType, EventLogsQuery<?, ?> query) {
+            mFields.add("type=" + eventType);
+            mFields.add("packageName=" + query.mPackageName);
+            if (query.mUserHandle != null) {
+                mFields.add("user=" + query.mUserHandle);
+            }
+            mNumberOfCustomFilters = query.mFilters.size();
+        }
+
+        public ToStringBuilder field(String fieldName, Query<?> query) {
+            mFields.add(query.describeQuery(fieldName));
+            return this;
+        }
+
+        @Override
+        public String toString() {
+            if (mNumberOfCustomFilters > 0) {
+                mFields.add(mNumberOfCustomFilters + " custom filters");
+            }
+            return "{" + Queryable.joinQueryStrings(mFields) + "}";
+        }
+    }
+
+    public <N extends Event> ToStringBuilder toStringBuilder(
+            Class<N> eventClass, EventLogsQuery<N, ?> query) {
+        return new ToStringBuilder(eventClass.getSimpleName(), query);
+    }
+
+    @Override
+    public String toString() {
+        return describeQuery("Query");
     }
 }

@@ -66,8 +66,8 @@ ResultDispatcher::ResultDispatcher(
 ResultDispatcher::~ResultDispatcher() {
   ATRACE_CALL();
   {
-    std::unique_lock<std::mutex> lock(notify_callback_lock);
-    notify_callback_thread_exiting = true;
+    std::unique_lock<std::mutex> lock(notify_callback_lock_);
+    notify_callback_thread_exiting_ = true;
   }
 
   notify_callback_condition_.notify_one();
@@ -229,7 +229,7 @@ status_t ResultDispatcher::AddResult(std::unique_ptr<CaptureResult> result) {
     }
   }
   {
-    std::unique_lock<std::mutex> lock(notify_callback_lock);
+    std::unique_lock<std::mutex> lock(notify_callback_lock_);
     is_result_shutter_updated_ = true;
     notify_callback_condition_.notify_one();
   }
@@ -260,7 +260,7 @@ status_t ResultDispatcher::AddShutter(uint32_t frame_number,
   shutter_it->second.timestamp_ns = timestamp_ns;
   shutter_it->second.ready = true;
   {
-    std::unique_lock<std::mutex> lock(notify_callback_lock);
+    std::unique_lock<std::mutex> lock(notify_callback_lock_);
     is_result_shutter_updated_ = true;
     notify_callback_condition_.notify_one();
   }
@@ -273,16 +273,18 @@ status_t ResultDispatcher::AddError(const ErrorMessage& error) {
   uint32_t frame_number = error.frame_number;
   // No need to deliver the shutter message on an error
   if (error.error_code == ErrorCode::kErrorDevice ||
-      error.error_code == ErrorCode::kErrorResult) {
+      error.error_code == ErrorCode::kErrorResult ||
+      error.error_code == ErrorCode::kErrorRequest) {
     pending_shutters_.erase(frame_number);
   }
   // No need to deliver the result metadata on a result metadata error
-  if (error.error_code == ErrorCode::kErrorResult) {
+  if (error.error_code == ErrorCode::kErrorResult ||
+      error.error_code == ErrorCode::kErrorRequest) {
     pending_final_metadata_.erase(frame_number);
   }
 
   NotifyMessage message = {.type = MessageType::kError, .message.error = error};
-  ALOGD("%s: Notify error %u for frame %u stream %d", __FUNCTION__,
+  ALOGV("%s: Notify error %u for frame %u stream %d", __FUNCTION__,
         error.error_code, frame_number, error.error_stream_id);
   notify_(message);
 
@@ -389,13 +391,16 @@ status_t ResultDispatcher::AddBuffer(uint32_t frame_number,
 }
 
 void ResultDispatcher::NotifyCallbackThreadLoop() {
+  // max thread name len = 16
+  pthread_setname_np(pthread_self(), "ResDispatcher");
+
   while (1) {
     NotifyShutters();
     NotifyFinalResultMetadata();
     NotifyBuffers();
 
-    std::unique_lock<std::mutex> lock(notify_callback_lock);
-    if (notify_callback_thread_exiting) {
+    std::unique_lock<std::mutex> lock(notify_callback_lock_);
+    if (notify_callback_thread_exiting_) {
       ALOGV("%s: NotifyCallbackThreadLoop exits.", __FUNCTION__);
       return;
     }

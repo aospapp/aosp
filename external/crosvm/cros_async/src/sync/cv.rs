@@ -3,8 +3,9 @@
 // found in the LICENSE file.
 
 use std::cell::UnsafeCell;
+use std::hint;
 use std::mem;
-use std::sync::atomic::{spin_loop_hint, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use crate::sync::mu::{MutexGuard, MutexReadGuard, RawMutex};
@@ -27,7 +28,10 @@ const HAS_WAITERS: usize = 1 << 1;
 /// use std::thread;
 /// use std::sync::mpsc::channel;
 ///
-/// use cros_async::sync::{block_on, Condvar, Mutex};
+/// use cros_async::{
+///     block_on,
+///     sync::{Condvar, Mutex},
+/// };
 ///
 /// const N: usize = 13;
 ///
@@ -92,7 +96,10 @@ impl Condvar {
     /// # use std::sync::Arc;
     /// # use std::thread;
     ///
-    /// # use cros_async::sync::{block_on, Condvar, Mutex};
+    /// # use cros_async::{
+    /// #     block_on,
+    /// #     sync::{Condvar, Mutex},
+    /// # };
     ///
     /// # let mu = Arc::new(Mutex::new(false));
     /// # let cv = Arc::new(Condvar::new());
@@ -171,7 +178,7 @@ impl Condvar {
                 )
                 .is_err()
         {
-            spin_loop_hint();
+            hint::spin_loop();
             oldstate = self.state.load(Ordering::Relaxed);
         }
 
@@ -223,7 +230,7 @@ impl Condvar {
                 )
                 .is_err()
         {
-            spin_loop_hint();
+            hint::spin_loop();
             oldstate = self.state.load(Ordering::Relaxed);
         }
 
@@ -281,7 +288,7 @@ impl Condvar {
                 )
                 .is_err()
         {
-            spin_loop_hint();
+            hint::spin_loop();
             oldstate = self.state.load(Ordering::Relaxed);
         }
 
@@ -319,7 +326,7 @@ impl Condvar {
                 )
                 .is_err()
         {
-            spin_loop_hint();
+            hint::spin_loop();
             oldstate = self.state.load(Ordering::Relaxed);
         }
 
@@ -457,7 +464,7 @@ mod test {
     use futures_executor::{LocalPool, LocalSpawner, ThreadPool};
     use futures_util::task::LocalSpawnExt;
 
-    use crate::sync::{block_on, Mutex};
+    use crate::{block_on, sync::Mutex};
 
     // Dummy waker used when we want to manually drive futures.
     struct TestWaker;

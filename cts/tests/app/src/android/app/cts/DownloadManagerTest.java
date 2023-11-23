@@ -19,11 +19,14 @@ import static android.Manifest.permission.WRITE_MEDIA_STORAGE;
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
+import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 
 import android.app.DownloadManager;
 import android.app.DownloadManager.Query;
@@ -55,6 +58,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CddTest;
 
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -315,6 +319,28 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
 
             assertRemoveDownload(noExtId, allDownloads - 1);
             assertRemoveDownload(wrongExtId, allDownloads - 2);
+        } finally {
+            mContext.unregisterReceiver(receiver);
+        }
+    }
+
+    @Test
+    public void testSetDestinationUri_privateAppDir() throws Exception {
+        // Make sure the private app directory exists
+        runShellCommand("mkdir -p /sdcard/Android/data/com.android.shell -m 2770");
+        final File path = new File("/sdcard/Android/data/com.android.shell/"
+                + TAG + System.currentTimeMillis());
+
+        final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
+        try {
+            IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+            mContext.registerReceiver(receiver, intentFilter);
+
+            DownloadManager.Request requestPublic = new DownloadManager.Request(getGoodUrl());
+            requestPublic.setDestinationUri(Uri.fromFile(path));
+            mDownloadManager.enqueue(requestPublic);
+            Assert.fail("Cannot download files into other app's private directories");
+        } catch (SecurityException expected) {
         } finally {
             mContext.unregisterReceiver(receiver);
         }
@@ -697,6 +723,8 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
 
     @Test
     public void testDownload_onMediaStoreDownloadsDeleted() throws Exception {
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK));
+
         // prepare file
         File file = new File(Environment.getExternalStoragePublicDirectory(
                 Environment.DIRECTORY_DOWNLOADS), "cts" + System.nanoTime() + ".mp3");

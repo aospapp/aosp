@@ -30,7 +30,6 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
@@ -95,7 +94,6 @@ public class NotificationPanelViewController extends OverlayPanelViewController
     private float mBackgroundAlphaDiff;
 
     private CarNotificationView mNotificationView;
-    private View mHandleBar;
     private RecyclerView mNotificationList;
     private NotificationViewController mNotificationViewController;
 
@@ -303,7 +301,7 @@ public class NotificationPanelViewController extends OverlayPanelViewController
     private void onNotificationViewInflated() {
         // Find views.
         mNotificationView = getLayout().findViewById(R.id.notification_view);
-        setupHandleBar();
+        setUpHandleBar();
         setupNotificationPanel();
 
         mNotificationClickHandlerFactory.registerClickListener((launchResult, alertEntry) -> {
@@ -315,8 +313,12 @@ public class NotificationPanelViewController extends OverlayPanelViewController
 
         mNotificationDataManager.setOnUnseenCountUpdateListener(() -> {
             if (mUnseenCountUpdateListener != null) {
-                mUnseenCountUpdateListener.onUnseenCountUpdate(
-                        mNotificationDataManager.getUnseenNotificationCount());
+                // Don't show unseen markers for <= LOW importance notifications to be consistent
+                // with how these notifications are handled on phones
+                int unseenCount =
+                        mNotificationDataManager.getNonLowImportanceUnseenNotificationCount(
+                                mCarNotificationListener.getCurrentRanking());
+                mUnseenCountUpdateListener.onUnseenCountUpdate(unseenCount);
             }
             mCarNotificationListener.setNotificationsShown(
                     mNotificationDataManager.getSeenNotifications());
@@ -325,9 +327,7 @@ public class NotificationPanelViewController extends OverlayPanelViewController
             mNotificationVisibilityLogger.log(isPanelExpanded());
         });
 
-        mNotificationClickHandlerFactory.setNotificationDataManager(mNotificationDataManager);
         mNotificationView.setClickHandlerFactory(mNotificationClickHandlerFactory);
-        mNotificationView.setNotificationDataManager(mNotificationDataManager);
 
         mCarServiceProvider.addListener(car -> {
             CarUxRestrictionsManager carUxRestrictionsManager =
@@ -336,24 +336,16 @@ public class NotificationPanelViewController extends OverlayPanelViewController
             mCarUxRestrictionManagerWrapper.setCarUxRestrictionsManager(
                     carUxRestrictionsManager);
 
+            PreprocessingManager preprocessingManager = PreprocessingManager.getInstance(mContext);
+
+            preprocessingManager.setCarUxRestrictionManagerWrapper(mCarUxRestrictionManagerWrapper);
+
             mNotificationViewController = new NotificationViewController(
                     mNotificationView,
-                    PreprocessingManager.getInstance(mContext),
+                    preprocessingManager,
                     mCarNotificationListener,
-                    mCarUxRestrictionManagerWrapper,
-                    mNotificationDataManager);
+                    mCarUxRestrictionManagerWrapper);
             mNotificationViewController.enable();
-        });
-    }
-
-    private void setupHandleBar() {
-        mHandleBar = mNotificationView.findViewById(R.id.handle_bar);
-        GestureDetector handleBarCloseNotificationGestureDetector = new GestureDetector(mContext,
-                new HandleBarCloseGestureListener());
-        mHandleBar.setOnTouchListener((v, event) -> {
-            handleBarCloseNotificationGestureDetector.onTouchEvent(event);
-            maybeCompleteAnimation(event);
-            return true;
         });
     }
 
@@ -466,7 +458,7 @@ public class NotificationPanelViewController extends OverlayPanelViewController
 
     @Override
     protected void onAnimateCollapsePanel() {
-        // No op.
+        // no-op
     }
 
     @Override
@@ -480,14 +472,19 @@ public class NotificationPanelViewController extends OverlayPanelViewController
     }
 
     @Override
+    protected int getSettleClosePercentage() {
+        return mResources.getInteger(R.integer.notification_settle_close_percentage);
+    }
+
+    @Override
     protected void onCollapseAnimationEnd() {
         mNotificationViewController.onVisibilityChanged(false);
     }
 
     @Override
     protected void onExpandAnimationEnd() {
-        mNotificationViewController.onVisibilityChanged(true);
         mNotificationView.setVisibleNotificationsAsSeen();
+        mNotificationViewController.onVisibilityChanged(true);
     }
 
     @Override
@@ -547,17 +544,7 @@ public class NotificationPanelViewController extends OverlayPanelViewController
 
     @Override
     protected void onScroll(int y) {
-        if (mHandleBar != null) {
-            ViewGroup.MarginLayoutParams lp =
-                    (ViewGroup.MarginLayoutParams) mHandleBar.getLayoutParams();
-            // Adjust handlebar to new pointer position, and a little more depending on the
-            // animate direction so the bar can be seen fully.
-            if (mAnimateDirection > 0) {
-                mHandleBar.setTranslationY(y - mHandleBar.getHeight() - lp.bottomMargin);
-            } else {
-                mHandleBar.setTranslationY(y + mHandleBar.getHeight() + lp.topMargin);
-            }
-        }
+        super.onScroll(y);
 
         if (mNotificationView.getHeight() > 0) {
             Drawable background = mNotificationView.getBackground().mutate();
@@ -571,6 +558,11 @@ public class NotificationPanelViewController extends OverlayPanelViewController
         // Unless the notification list is at the end, the panel shouldn't be allowed to
         // collapse on scroll.
         return mNotificationListAtEndAtTimeOfTouch;
+    }
+
+    @Override
+    protected Integer getHandleBarViewId() {
+        return R.id.handle_bar;
     }
 
     /**
@@ -597,30 +589,5 @@ public class NotificationPanelViewController extends OverlayPanelViewController
          * notifications. This method can be extended by OEMs to customize the desired logic.
          */
         void onUnseenCountUpdate(int unseenNotificationCount);
-    }
-
-    /**
-     * To be installed on the handle bar.
-     */
-    private class HandleBarCloseGestureListener extends
-            GestureDetector.SimpleOnGestureListener {
-
-        @Override
-        public boolean onScroll(MotionEvent event1, MotionEvent event2, float distanceX,
-                float distanceY) {
-            calculatePercentageFromEndingEdge(event2.getRawY());
-            // To prevent the jump in the clip bounds while closing the notification panel using
-            // the handle bar we should calculate the height using the diff of event1 and event2.
-            // This will help the notification shade to clip smoothly as the event2 value changes
-            // as event1 value will be fixed.
-            float diff = mAnimateDirection * (event1.getRawY() - event2.getRawY());
-            float y = mAnimateDirection > 0
-                    ? getLayout().getHeight() - diff
-                    : diff;
-            // Ensure the position is within the overlay panel.
-            y = Math.max(0, Math.min(y, getLayout().getHeight()));
-            setViewClipBounds((int) y);
-            return true;
-        }
     }
 }

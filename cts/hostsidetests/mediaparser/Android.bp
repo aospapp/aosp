@@ -36,6 +36,7 @@ java_test_host {
     ],
     static_libs: [
         "cts-host-utils",
+        "cts-statsd-atom-host-test-utils",
     ],
     data: [
       ":CtsMediaParserTestCasesApp",

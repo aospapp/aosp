@@ -127,14 +127,6 @@ public class FakeCar {
         return mService.mCarUxRestrictionService;
     }
 
-    /**
-     * Returns a test controller that can modify and query the underlying service for the {@link
-     * android.car.telemetry.CarTelemetryManager}.
-     */
-    public CarTelemetryController getCarTelemetryController() {
-        return mService.mCarTelemetry;
-    }
-
     private static class FakeCarService extends ICar.Stub {
         @Mock ICarPackageManager.Stub mCarPackageManager;
         @Mock ICarDiagnostic.Stub mCarDiagnostic;
@@ -150,7 +142,6 @@ public class FakeCar {
         private final FakeCarProjectionService mCarProjection;
         private final FakeInstrumentClusterNavigation mInstrumentClusterNavigation;
         private final FakeCarUxRestrictionsService mCarUxRestrictionService;
-        private final FakeCarTelemetryService mCarTelemetry;
 
         FakeCarService(Context context) {
             MockitoAnnotations.initMocks(this);
@@ -160,7 +151,6 @@ public class FakeCar {
             mCarProjection = new FakeCarProjectionService(context);
             mInstrumentClusterNavigation = new FakeInstrumentClusterNavigation();
             mCarUxRestrictionService = new FakeCarUxRestrictionsService();
-            mCarTelemetry = new FakeCarTelemetryService();
         }
 
         @Override
@@ -203,8 +193,6 @@ public class FakeCar {
                     return mCarDrivingState;
                 case Car.CAR_UX_RESTRICTION_SERVICE:
                     return mCarUxRestrictionService;
-                case Car.CAR_TELEMETRY_SERVICE:
-                    return mCarTelemetry;
                 default:
                     Log.w(TAG, "getCarService for unknown service:" + serviceName);
                     return null;

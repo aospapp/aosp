@@ -1,10 +1,10 @@
 {
   "auto-end-to-end-postsubmit": [
     {
-      "name": "AndroidAutoUiTests",
+      "name": "AndroidAutomotiveSettingsTests",
       "options" : [
         {
-          "include-filter": "android.test.functional.auto.apps.SettingHelperTest"
+          "include-filter": "android.platform.tests.SettingTest"
         }
       ]
     }

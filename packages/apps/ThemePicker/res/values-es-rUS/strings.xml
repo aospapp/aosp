@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"Aplicar"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Presiona para editar"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Conservar fondo de pantalla actual"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"Aplicar"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Vista previa del estilo"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Vista previa de la cuadrícula"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"Vista previa de fuente"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g> (aplicado actualmente)"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g> (opción aplicada y vista previa en curso)"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g> (vista previa en curso)"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>; cambiar opción seleccionada y en vista previa"</string>
     <string name="theme_description" msgid="3697012391785254635">"Fuente: <xliff:g id="ID_1">%1$s</xliff:g>, íconos: <xliff:g id="ID_2">%2$s</xliff:g>, forma: <xliff:g id="ID_3">%3$s</xliff:g>, color: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"Predet."</string>
     <string name="preview_name_font" msgid="4465423899630037038">"Fuente"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Nombre de estilo personalizado"</string>
     <string name="mode_title" msgid="2394873501427436055">"Tema oscuro"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"Se inhabilitó temporalmente debido al Ahorro de batería"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"Se cambió el tema"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"Íconos temáticos"</string>
     <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Cambiar cuadrícula de apps"</string>

@@ -16,11 +16,11 @@ limitations under the License.
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_ui_toolbar_default_search_hint" msgid="8339474149462104372">"వెతకండి…"</string>
+    <string name="car_ui_toolbar_default_search_hint" msgid="8339474149462104372">"సెర్చ్ చేయండి…"</string>
     <string name="car_ui_scrollbar_page_down_button" msgid="746830252244551947">"కిందికి స్క్రోల్ చేయండి"</string>
     <string name="car_ui_scrollbar_page_up_button" msgid="965431866383176249">"పైకి స్క్రోల్ చేయండి"</string>
     <string name="car_ui_toolbar_nav_icon_content_description" msgid="6116610935599234725">"వెనుకకు"</string>
-    <string name="car_ui_toolbar_menu_item_search_title" msgid="2988075382498202155">"శోధన"</string>
+    <string name="car_ui_toolbar_menu_item_search_title" msgid="2988075382498202155">"సెర్చ్"</string>
     <string name="car_ui_toolbar_menu_item_settings_title" msgid="5206858558664840197">"సెట్టింగ్‌లు"</string>
     <string name="car_ui_toolbar_menu_item_overflow_title" msgid="9132512843297732890">"అతివ్యాప్తి అంశాలు"</string>
     <string name="car_ui_preference_switch_on" msgid="2091385466752081649">"ఆన్‌లో ఉంది"</string>

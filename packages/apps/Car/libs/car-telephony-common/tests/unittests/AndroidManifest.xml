@@ -26,6 +26,6 @@
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.car.telephony.common"
+                     android:targetPackage="com.android.car.telephony.common.unittests"
                      android:label="Car telephony common lib Unit Tests" />
 </manifest>

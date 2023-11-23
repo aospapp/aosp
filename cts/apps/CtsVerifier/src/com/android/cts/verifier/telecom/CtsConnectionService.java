@@ -137,6 +137,7 @@ public class CtsConnectionService extends ConnectionService {
         if (isSelfManaged) {
             connection.setConnectionProperties(Connection.PROPERTY_SELF_MANAGED);
         }
+        connection.setAudioModeIsVoip(true);
         connection.setConnectionCapabilities(Connection.CAPABILITY_SUPPORT_HOLD |
                 Connection.CAPABILITY_HOLD);
         connection.setAddress(request.getAddress(), TelecomManager.PRESENTATION_ALLOWED);

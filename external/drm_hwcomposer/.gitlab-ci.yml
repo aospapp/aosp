@@ -1,15 +1,37 @@
-image: ubuntu:16.04
+image: ubuntu:20.10
 
 before_script:
   - apt-get --quiet update --yes >/dev/null
-  - apt-get --quiet install --yes clang-format-5.0 git >/dev/null
+  - apt-get --quiet install --yes clang-11 clang-tidy-11 clang-format-11 git libdrm-dev blueprint-tools libgtest-dev >/dev/null
 
 stages:
+  - build
   - style
+
+build:
+  stage: build
+  script: "./.ci/.gitlab-ci-clang-build.sh"
+  artifacts:
+    when: on_failure
+    untracked: true
 
 checkstyle:
   stage: style
-  script: "./.gitlab-ci-checkcommit.sh"
+  script: "./.ci/.gitlab-ci-checkcommit.sh"
+  artifacts:
+    when: on_failure
+    untracked: true
+
+tidy-coarse:
+  stage: style
+  script: "./.ci/.gitlab-ci-clang-tidy-coarse.sh"
+  artifacts:
+    when: on_failure
+    untracked: true
+
+tidy-fine:
+  stage: style
+  script: "./.ci/.gitlab-ci-clang-tidy-fine.sh"
   artifacts:
     when: on_failure
     untracked: true

@@ -19,10 +19,8 @@ package android.platform.test.rule.flicker;
 import android.util.Log;
 
 import com.android.server.wm.flicker.traces.windowmanager.WindowManagerTraceSubject;
+import com.android.server.wm.traces.common.FlickerComponentName;
 import com.android.server.wm.traces.common.windowmanager.WindowManagerTrace;
-import com.android.server.wm.traces.parser.windowmanager.WindowManagerStateHelper;
-
-import java.util.LinkedList;
 
 /**
  * Rule used for validating the common window manager trace based flicker assertions applicable
@@ -31,19 +29,23 @@ import java.util.LinkedList;
 public class WindowManagerFlickerRuleCommon extends WindowManagerFlickerRuleBase {
 
     private static final String TAG = WindowManagerFlickerRuleCommon.class.getSimpleName();
+    private static final FlickerComponentName NAV_BAR_COMPONENT =
+            new FlickerComponentName("", "NavigationBar0");
+    private static final FlickerComponentName STATUS_BAR_COMPONENT =
+            new FlickerComponentName("", "StatusBar");
 
     protected void validateWMFlickerConditions(WindowManagerTrace wmTrace) {
         // Verify that there’s an non-app window with names NavigationBar, StatusBar above
         // the app window and is visible in all winscope log entries.
         WindowManagerTraceSubject.assertThat(wmTrace)
-                .showsAboveAppWindow(WindowManagerStateHelper.NAV_BAR_WINDOW_NAME)
-                .showsAboveAppWindow(WindowManagerStateHelper.STATUS_BAR_WINDOW_NAME)
+                .isAboveAppWindowVisible(NAV_BAR_COMPONENT)
+                .isAboveAppWindowVisible(STATUS_BAR_COMPONENT)
                 .forAllEntries();
 
         // Verify that all visible windows are visible for more than one consecutive entry
         // in the log entries.
         WindowManagerTraceSubject.assertThat(wmTrace)
-                .visibleWindowsShownMoreThanOneConsecutiveEntry(new LinkedList<String>())
+                .visibleWindowsShownMoreThanOneConsecutiveEntry()
                 .forAllEntries();
         Log.v(TAG, "Successfully verified the window manager flicker conditions.");
     }

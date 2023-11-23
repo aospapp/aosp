@@ -16,9 +16,12 @@
 
 package android.os.cts;
 
+import static android.Manifest.permission.INTERNAL_SYSTEM_WINDOW;
+import static android.Manifest.permission.SYSTEM_ALERT_WINDOW;
 import static android.content.Context.WINDOW_SERVICE;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+import static android.view.WindowManager.LayoutParams.TYPE_PHONE;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -28,6 +31,7 @@ import static org.junit.Assert.fail;
 
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.app.Service;
 import android.app.WallpaperManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -39,6 +43,7 @@ import android.content.res.Configuration;
 import android.hardware.display.DisplayManager;
 import android.net.TrafficStats;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.StrictMode;
@@ -65,11 +70,14 @@ import android.system.OsConstants;
 import android.util.Log;
 import android.view.Display;
 import android.view.GestureDetector;
+import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
+import android.window.WindowProviderService;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.rule.ServiceTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
@@ -77,6 +85,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -144,6 +153,63 @@ public class StrictModeTest {
                     assertThat(info.getViolationDetails()).isNull();
                     assertThat(info.getStackTrace()).contains("DiskReadViolation");
                 });
+    }
+
+    @Test
+    public void testThreadBuilder_detectUnbufferedIo() throws Exception {
+        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder()
+            .penaltyLog()
+            .detectUnbufferedIo()
+            .build();
+        StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder(policy).build());
+
+        final File test = File.createTempFile("foo", "bar");
+        inspectViolation(
+            () -> {
+                writeUnbuffered(test);
+            },
+            info -> {
+                assertThat(info.getViolationDetails()).isNull();
+                assertThat(info.getStackTrace()).contains("UnbufferedIoViolation");
+            });
+    }
+
+    @Test
+    public void testThreadBuilder_permitUnbufferedIo() throws Exception {
+        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder()
+            .penaltyLog()
+            .permitUnbufferedIo()
+            .build();
+        StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder(policy).build());
+
+        final File test = File.createTempFile("foo", "bar");
+        inspectViolation(
+            () -> {
+                writeUnbuffered(test);
+            },
+            info -> {
+                assertThat(info).isNull();
+            });
+    }
+
+    private void writeUnbuffered(File file) throws Exception {
+        if (file.exists()) {
+            file.delete();
+        }
+
+        try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(file))) {
+            for (int i = 0; i < 11; i++) {
+                out.write(1);
+                out.write(2);
+                out.write(3);
+                out.write(4);
+                out.flush();
+            }
+        } finally {
+            if (file.exists()) {
+                file.delete();
+            }
+        }
     }
 
     @Test
@@ -874,6 +940,9 @@ public class StrictModeTest {
         assertViolation("Tried to access visual service " + WM_CLASS_NAME,
                 () -> configContext.getSystemService(WindowManager.class));
 
+        // Make the ViewConfiguration to be cached so that we won't call WindowManager
+        ViewConfiguration.get(configContext);
+
         assertNoViolation(() -> ViewConfiguration.get(configContext));
 
         mInstrumentation.runOnMainSync(() -> {
@@ -927,6 +996,99 @@ public class StrictModeTest {
             assertViolation("Tried to access UI related API:", () ->
                     configDerivedDisplayContext.getSystemService(WallpaperManager.class)
                             .getDesiredMinimumWidth());
+        }
+    }
+
+    @Test
+    public void testIncorrectContextUse_Service_ThrowViolation() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectIncorrectContextUse()
+                        .penaltyLog()
+                        .build());
+
+        final Intent intent = new Intent(getContext(), TestService.class);
+        final ServiceTestRule serviceRule = new ServiceTestRule();
+        TestService service = ((TestService.TestToken) serviceRule.bindService(intent))
+                .getService();
+        try {
+            assertViolation("Tried to access visual service " + WM_CLASS_NAME,
+                    () -> service.getSystemService(WindowManager.class));
+
+            assertViolation(
+                    "The API:ViewConfiguration needs a proper configuration.",
+                    () -> ViewConfiguration.get(service));
+
+            mInstrumentation.runOnMainSync(() -> {
+                try {
+                    assertViolation("The API:GestureDetector#init needs a proper configuration.",
+                            () -> new GestureDetector(service,
+                                    mGestureListener));
+                } catch (Exception e) {
+                    fail("Failed because of " + e);
+                }
+            });
+
+            if (isWallpaperSupported()) {
+                assertViolation("Tried to access UI related API:", () ->
+                        service.getSystemService(WallpaperManager.class)
+                                .getDesiredMinimumWidth());
+            }
+        } finally {
+            serviceRule.unbindService();
+        }
+    }
+
+    @Test
+    public void testIncorrectContextUse_WindowProviderService_NoViolation() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectIncorrectContextUse()
+                        .penaltyLog()
+                        .build());
+
+        final Intent intent = new Intent(getContext(), TestWindowService.class);
+        final ServiceTestRule serviceRule = new ServiceTestRule();
+        TestWindowService service = ((TestWindowService.TestToken) serviceRule.bindService(intent))
+                .getService();
+        try {
+            assertNoViolation(() -> service.getSystemService(WindowManager.class));
+
+            final View view = new View(service);
+            final WindowManager.LayoutParams correctType =
+                    new WindowManager.LayoutParams(TYPE_APPLICATION_OVERLAY);
+            final WindowManager.LayoutParams wrongType =
+                    new WindowManager.LayoutParams(TYPE_PHONE);
+            WindowManager wm = service.getSystemService(WindowManager.class);
+
+            mInstrumentation.runOnMainSync(() -> {
+                try {
+                    // Hold INTERNAL_SYSTEM_WINDOW and SYSTEM_ALERT_WINDOW permission to
+                    // add TYPE_APPLICATION_OVERLAY and TYPE_PHONE window.
+                    mInstrumentation.getUiAutomation().adoptShellPermissionIdentity(
+                            INTERNAL_SYSTEM_WINDOW, SYSTEM_ALERT_WINDOW);
+
+                    assertNoViolation(() -> wm.addView(view, correctType));
+                    wm.removeViewImmediate(view);
+
+                    assertViolation("WindowContext's window type must match type in "
+                            + "WindowManager.LayoutParams", () -> wm.addView(view, wrongType));
+
+                    assertNoViolation(() -> new GestureDetector(service, mGestureListener));
+                } catch (Exception e) {
+                    fail("Failed because of " + e);
+                } finally {
+                    mInstrumentation.getUiAutomation().dropShellPermissionIdentity();
+                }
+            });
+            assertNoViolation(() -> ViewConfiguration.get(service));
+
+            if (isWallpaperSupported()) {
+                assertNoViolation(() -> service.getSystemService(WallpaperManager.class)
+                        .getDesiredMinimumWidth());
+            }
+        } finally {
+            serviceRule.unbindService();
         }
     }
 
@@ -1213,5 +1375,40 @@ public class StrictModeTest {
         return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
                 || pm.hasSystemFeature(PackageManager.FEATURE_WIFI)
                 || pm.hasSystemFeature(PackageManager.FEATURE_ETHERNET);
+    }
+
+    public static class TestService extends Service {
+        private final TestToken mToken = new TestToken();
+
+        @Override
+        public IBinder onBind(Intent intent) {
+            return mToken;
+        }
+
+        public class TestToken extends Binder {
+            TestService getService() {
+                return TestService.this;
+            }
+        }
+    }
+
+    public static class TestWindowService extends WindowProviderService {
+        private final TestToken mToken = new TestToken();
+
+        @Override
+        public IBinder onBind(Intent intent) {
+            return mToken;
+        }
+
+        @Override
+        public int getWindowType() {
+            return TYPE_APPLICATION_OVERLAY;
+        }
+
+        public class TestToken extends Binder {
+            TestWindowService getService() {
+                return TestWindowService.this;
+            }
+        }
     }
 }

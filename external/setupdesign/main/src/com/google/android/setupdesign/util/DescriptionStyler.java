@@ -41,6 +41,7 @@ public final class DescriptionStyler {
             PartnerConfig.CONFIG_DESCRIPTION_LINK_TEXT_COLOR,
             PartnerConfig.CONFIG_DESCRIPTION_TEXT_SIZE,
             PartnerConfig.CONFIG_DESCRIPTION_FONT_FAMILY,
+            PartnerConfig.CONFIG_DESCRIPTION_LINK_FONT_FAMILY,
             null,
             null,
             PartnerStyleHelper.getLayoutGravity(description.getContext())));
@@ -56,6 +57,7 @@ public final class DescriptionStyler {
     TextViewPartnerStyler.applyPartnerCustomizationLightStyle(
         description,
         new TextPartnerConfigs(
+            null,
             null,
             null,
             null,

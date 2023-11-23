@@ -26,10 +26,16 @@ import image_processing_utils
 import its_session_utils
 
 
-_BW_CH_ATOL = 6  # DN in [0,255]
-_RGB_PRIMARY_MIN = 200
-_RGB_SECONDARY_MAX = 60
-_CH_VARIANCE_ATOL = 30
+# YUV TOLs
+_BW_CH_ATOL_YUV = 6  # DN in [0,255]
+_RGB_PRIMARY_MIN_YUV = 200
+_RGB_SECONDARY_MAX_YUV = 60
+_CH_VARIANCE_ATOL_YUV = 30
+# RAW TOLs
+_BW_CH_ATOL_RAW = 1  # DN in [0,255]
+_RGB_PRIMARY_MIN_RAW = 250
+_RGB_SECONDARY_MAX_RAW = 30  # experiments show secondary after CCM applied
+_CH_VARIANCE_ATOL_RAW = 1
 _OFF = 0x00000000
 _SAT = 0xFFFFFFFF
 _NAME = os.path.basename(__file__).split('.')[0]
@@ -52,7 +58,8 @@ _BLUE = {'color': 'BLUE',
          'RGGB': (_OFF, _OFF, _OFF, _SAT),
          'RGB': (0, 0, 255)}
 
-_COLORS_CHECKED_RGB = (_BLACK, _WHITE, _RED, _GREEN, _BLUE)
+_COLORS_CHECKED_RAW = (_BLACK, _WHITE, _RED, _GREEN, _BLUE)
+_COLORS_CHECKED_YUV = (_BLACK,)
 _COLORS_CHECKED_MONO = (_BLACK, _WHITE)
 _COLORS_CHECKED_UPGRADE = (_BLACK,)
 _COLORS_CHECKED_BLACK = (_WHITE,)  # To make sure testPatternData is ignored
@@ -64,16 +71,29 @@ _PATTERN_NAMES = {_SOLID_COLOR_TEST_PATTERN: 'SOLID_COLOR',
                   _BLACK_TEST_PATTERN: 'BLACK'}
 
 
-def check_solid_color(img, exp_values, color):
+def check_solid_color(img, exp_values, color, fmt):
   """Checks solid color test pattern image matches expected values.
 
   Args:
     img: capture converted to RGB image
     exp_values: list of RGB [0:1] expected values
-    color: str; color to check.
+    color: str; color to check
+    fmt: str; capture format.
   Returns:
     True if any of the checks fail.
   """
+  # Assign tolerances
+  if fmt == 'raw':
+    bw_ch_atol = _BW_CH_ATOL_RAW
+    rgb_primary_min = _RGB_PRIMARY_MIN_RAW
+    rgb_secondary_max = _RGB_SECONDARY_MAX_RAW
+    ch_variance_atol = _CH_VARIANCE_ATOL_RAW
+  else:
+    bw_ch_atol = _BW_CH_ATOL_YUV
+    rgb_primary_min = _RGB_PRIMARY_MIN_YUV
+    rgb_secondary_max = _RGB_SECONDARY_MAX_YUV
+    ch_variance_atol = _CH_VARIANCE_ATOL_YUV
+
   test_fail = False
   logging.debug('Checking %s solid test pattern w/ RGB values %s',
                 color, str(exp_values))
@@ -83,32 +103,42 @@ def check_solid_color(img, exp_values, color):
               image_processing_utils.compute_image_variances(img)]
   logging.debug('Captured frame variances: %s', str(rgb_vars))
   if color in ['BLACK', 'WHITE']:
-    if not np.allclose(rgb_means, exp_values, atol=_BW_CH_ATOL):
+    if not np.allclose(rgb_means, exp_values, atol=bw_ch_atol):
       logging.error('Image not expected value for color %s. '
                     'RGB means: %s, expected: %s, ATOL: %d',
-                    color, str(rgb_means), str(exp_values), _BW_CH_ATOL)
+                    color, str(rgb_means), str(exp_values), bw_ch_atol)
+      test_fail = True
+    if not all(i < ch_variance_atol for i in rgb_vars):
+      logging.error('Image has too much variance for color %s. '
+                    'RGB variances: %s, ATOL: %d',
+                    color, str(rgb_vars), ch_variance_atol)
       test_fail = True
   else:
     exp_values_mask = np.array(exp_values)//255
     primary = max(rgb_means*exp_values_mask)
     secondary = max((1-exp_values_mask)*rgb_means)
-    if primary < _RGB_PRIMARY_MIN:
+    if primary < rgb_primary_min:
       logging.error('Primary color %s not bright enough.'
                     'RGB means: %s, expected: %s, MIN: %d',
-                    color, str(rgb_means), str(exp_values), _RGB_PRIMARY_MIN)
+                    color, str(rgb_means), str(exp_values), rgb_primary_min)
       test_fail = True
-    if secondary > _RGB_SECONDARY_MAX:
+    if secondary > rgb_secondary_max:
       logging.error('Secondary colors too bright in %s. '
                     'RGB means: %s, expected: %s, MAX: %d',
-                    color, str(rgb_means), str(exp_values), _RGB_SECONDARY_MAX)
+                    color, str(rgb_means), str(exp_values), rgb_secondary_max)
       test_fail = True
 
-  if not all(i < _CH_VARIANCE_ATOL for i in rgb_vars):
-    logging.error('Image has too much variance for color %s. '
-                  'RGB variances: %s, ATOL: %d',
-                  color, str(rgb_vars), _CH_VARIANCE_ATOL)
-    test_fail = True
-
+    primary_rgb_vars = max(rgb_vars*exp_values_mask)
+    secondary_rgb_vars = max((1-exp_values_mask)*rgb_vars)
+    if primary_rgb_vars > ch_variance_atol:
+      logging.error('Image primary color has too much variance for %s. '
+                    'RGB variances: %s, ATOL: %d',
+                    color, str(rgb_vars), ch_variance_atol)
+      test_fail = True
+    elif secondary_rgb_vars > ch_variance_atol:
+      logging.error('Image secondary color has too much variance for %s. '
+                    'RGB variances: %s, ATOL: %d',
+                    color, str(rgb_vars), ch_variance_atol)
   return test_fail
 
 
@@ -141,7 +171,10 @@ class SolidColorTestPattern(its_base_test.ItsBaseTest):
         if camera_properties_utils.mono_camera(props):
           colors_checked_solid = _COLORS_CHECKED_MONO
         else:
-          colors_checked_solid = _COLORS_CHECKED_RGB
+          if camera_properties_utils.raw16(props):
+            colors_checked_solid = _COLORS_CHECKED_RAW
+          else:
+            colors_checked_solid = _COLORS_CHECKED_YUV
       else:
         colors_checked_solid = _COLORS_CHECKED_UPGRADE
 
@@ -182,15 +215,23 @@ class SolidColorTestPattern(its_base_test.ItsBaseTest):
           req = capture_request_utils.auto_capture_request()
           req['android.sensor.testPatternMode'] = pattern
           req['android.sensor.testPatternData'] = color['RGGB']
-          fmt = {'format': 'yuv'}
+          if camera_properties_utils.raw16(props):
+            fmt = {'format': 'raw'}
+          else:
+            fmt = {'format': 'yuv'}
+          logging.debug('Using format: %s', fmt['format'])
           caps = cam.do_capture([req]*num_frames, fmt)
           cap = caps[-1]
           logging.debug('Capture metadata RGGB pattern: %s, '
                         'testPatternData: %s', captured_pattern,
                         str(cap['metadata']['android.sensor.testPatternData']))
           # Save test pattern image
-          img = image_processing_utils.convert_capture_to_rgb_image(
-              cap, props=props)
+          if fmt['format'] == 'yuv':
+            img = image_processing_utils.convert_capture_to_rgb_image(
+                cap, props=props)
+          else:
+            img = image_processing_utils.convert_capture_to_rgb_image(
+                cap, props=props, apply_ccm_raw_to_rgb=False)
           captured_color = color['color']
           image_processing_utils.write_image(
               img,
@@ -199,11 +240,11 @@ class SolidColorTestPattern(its_base_test.ItsBaseTest):
 
           # Check solid pattern for correctness
           if pattern == _SOLID_COLOR_TEST_PATTERN:
-            color_test_failed = check_solid_color(img, color['RGB'],
-                                                  captured_color)
+            color_test_failed = check_solid_color(
+                img, color['RGB'], color['color'], fmt['format'])
           else:
-            color_test_failed = check_solid_color(img, _BLACK['RGB'],
-                                                  _BLACK['color'])
+            color_test_failed = check_solid_color(
+                img, _BLACK['RGB'], _BLACK['color'], fmt['format'])
 
           if color_test_failed:
             colors_failed.append(f'{captured_pattern}/{captured_color}')

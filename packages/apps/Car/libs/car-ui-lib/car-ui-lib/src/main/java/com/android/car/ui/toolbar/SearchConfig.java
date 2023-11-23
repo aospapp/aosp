@@ -33,12 +33,24 @@ import java.util.List;
  */
 public final class SearchConfig {
 
+    /**
+     * Callback to be invoked when user clicks the back button on IME to close.
+     */
+    public interface OnBackClickedListener {
+        /**
+         * Called when user clicks the back button on widescreen IME.
+         */
+        void onClick();
+    }
+
     @Nullable
     private final View mSearchResultsView;
     @Nullable
     private final Drawable mSearchResultsInputViewIcon;
     @Nullable
     private final List<? extends CarUiImeSearchListItem> mSearchResultItems;
+    @Nullable
+    private OnBackClickedListener mOnBackClickedListener;
 
     /**
      * Returns the view set by {@link SearchConfigBuilder#setSearchResultsView(View)}
@@ -64,10 +76,20 @@ public final class SearchConfig {
         return mSearchResultItems;
     }
 
+    /**
+     * Returns the listeners set by
+     * {@link SearchConfigBuilder#setOnBackClickedListener(OnBackClickedListener)}
+     */
+    @Nullable
+    public OnBackClickedListener getOnBackClickedListener() {
+        return mOnBackClickedListener;
+    }
+
     private SearchConfig(SearchConfigBuilder builder) {
         mSearchResultItems = builder.mSearchResultItems;
         mSearchResultsInputViewIcon = builder.mSearchResultsInputViewIcon;
         mSearchResultsView = builder.mSearchResultsView;
+        mOnBackClickedListener = builder.mOnBackClickedListener;
     }
 
     /**
@@ -88,6 +110,8 @@ public final class SearchConfig {
         private Drawable mSearchResultsInputViewIcon;
         @Nullable
         private List<? extends CarUiImeSearchListItem> mSearchResultItems;
+        @Nullable
+        private OnBackClickedListener mOnBackClickedListener;
 
         private SearchConfigBuilder() {
 
@@ -102,10 +126,18 @@ public final class SearchConfig {
         }
 
         /**
+         * Set the {@link OnBackClickedListener}
+         */
+        public SearchConfigBuilder setOnBackClickedListener(OnBackClickedListener listener) {
+            mOnBackClickedListener = listener;
+            return this;
+        }
+
+        /**
          * Sets list of search item {@link CarUiListItem} to be displayed in the IMS
          * template. This method should be called when system is running in a wide screen mode. Apps
          * can check that by using
-         * {@link com.android.car.ui.toolbar.ToolbarController##canShowSearchResultItems()}
+         * {@link com.android.car.ui.toolbar.ToolbarController#canShowSearchResultItems()}
          * Else, this method will throw an {@link IllegalStateException}
          */
         public SearchConfigBuilder setSearchResultItems(

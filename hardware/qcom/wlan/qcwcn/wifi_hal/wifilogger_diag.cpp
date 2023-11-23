@@ -2338,7 +2338,8 @@ static wifi_error parse_stats_sw_event(hal_info *info,
                        node_pkt_t.qos_ctrl = *((u8*)(node_pkt_data + QOS_CTRL_OFFSET));
                        rb_pkt_stats->tid = node_pkt_t.qos_ctrl & 0xF;
                        rb_pkt_stats->MCS = get_tx_mcs_v1(node_pkt_data);
-                       rb_pkt_stats->last_transmit_rate = get_rate_v1(rb_pkt_stats->MCS);
+                       if ((rb_pkt_stats->MCS & INVALID_RATE_CODE) != INVALID_RATE_CODE)
+                           rb_pkt_stats->last_transmit_rate = get_rate_v1(rb_pkt_stats->MCS);
                        node_pkt_t.bmap_failed = *((u64*)(node_pkt_data + BMAP_FAILED_OFFSET));
                        node_pkt_t.bmap_enqueued = *((u64*)(node_pkt_data + BMAP_ENQUEUED_OFFSET));
 

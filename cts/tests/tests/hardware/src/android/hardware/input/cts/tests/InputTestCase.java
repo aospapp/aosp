@@ -54,11 +54,11 @@ public abstract class InputTestCase {
     private static final float TOLERANCE = 0.005f;
 
     private final BlockingQueue<InputEvent> mEvents;
+    protected final Instrumentation mInstrumentation = InstrumentationRegistry.getInstrumentation();
 
     private InputListener mInputListener;
     private View mDecorView;
 
-    protected Instrumentation mInstrumentation;
     protected InputJsonParser mParser;
     // Stores the name of the currently running test
     protected String mCurrentTestCase;
@@ -81,7 +81,6 @@ public abstract class InputTestCase {
 
     @Before
     public void setUp() throws Exception {
-        mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivityRule.getActivity().clearUnhandleKeyCode();
         mDecorView = mActivityRule.getActivity().getWindow().getDecorView();
         mParser = new InputJsonParser(mInstrumentation.getTargetContext());

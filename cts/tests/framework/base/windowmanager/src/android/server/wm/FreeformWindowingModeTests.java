@@ -29,7 +29,7 @@ import static org.junit.Assert.assertEquals;
 
 import android.graphics.Rect;
 import android.platform.test.annotations.Presubmit;
-import android.server.wm.WindowManagerState.ActivityTask;
+import android.server.wm.WindowManagerState.Task;
 import android.view.Display;
 
 import org.junit.Test;
@@ -88,9 +88,8 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
 
         mWmState.computeState(TEST_ACTIVITY);
 
-        final ActivityTask testActivityTask =
-                mWmState.getTaskByActivity(TEST_ACTIVITY);
-        Rect expectedBounds = testActivityTask.getBounds();
+        final Task testTask = mWmState.getTaskByActivity(TEST_ACTIVITY);
+        Rect expectedBounds = testTask.getBounds();
         mBroadcastActionTrigger.doAction(TEST_ACTIVITY_ACTION_FINISH_SELF);
         mWmState.waitFor((wmState) ->
                         !wmState.containsActivity(TEST_ACTIVITY),
@@ -100,10 +99,9 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
 
         mWmState.computeState(NON_RESIZEABLE_ACTIVITY);
 
-        final ActivityTask nonResizeableActivityTask =
-                mWmState.getTaskByActivity(NON_RESIZEABLE_ACTIVITY);
+        final Task nonResizeableTask = mWmState.getTaskByActivity(NON_RESIZEABLE_ACTIVITY);
 
-        if (nonResizeableActivityTask.isFullscreen()) {
+        if (nonResizeableTask.isFullscreen()) {
             // If the task is on the fullscreen stack, then we know that it will have bounds that
             // fill the entire display.
             return;
@@ -111,7 +109,7 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
 
         // If the task is not on the fullscreen stack, then compare the task bounds to the display
         // bounds.
-        assertEquals(expectedBounds, nonResizeableActivityTask.getBounds());
+        assertEquals(expectedBounds, nonResizeableTask.getBounds());
     }
 
     @Test
@@ -127,8 +125,8 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
             return;
         }
 
-        final int displayId = mWmState.getStandardStackByWindowingMode(
-                WINDOWING_MODE_FREEFORM).mDisplayId;
+        final int displayId = mWmState.getStandardRootTaskByWindowingMode(WINDOWING_MODE_FREEFORM)
+                .mDisplayId;
         final int densityDpi =
                 mWmState.getDisplay(displayId).getDpi();
         final int testTaskSize1 = dpToPx(TEST_TASK_SIZE_DP_1, densityDpi);

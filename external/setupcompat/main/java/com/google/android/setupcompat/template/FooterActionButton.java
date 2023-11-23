@@ -28,6 +28,7 @@ import androidx.annotation.Nullable;
 public class FooterActionButton extends Button {
 
   @Nullable private FooterButton footerButton;
+  private boolean isPrimaryButtonStyle = false;
 
   public FooterActionButton(Context context, AttributeSet attrs) {
     super(context, attrs);
@@ -53,5 +54,19 @@ public class FooterActionButton extends Button {
       }
     }
     return super.onTouchEvent(event);
+  }
+
+  /**
+   * Sets this footer button is primary button style.
+   *
+   * @param isPrimaryButtonStyle True if this button is primary button style.
+   */
+  void setPrimaryButtonStyle(boolean isPrimaryButtonStyle) {
+    this.isPrimaryButtonStyle = isPrimaryButtonStyle;
+  }
+
+  /** Returns true when the footer button is primary button style. */
+  public boolean isPrimaryButtonStyle() {
+    return isPrimaryButtonStyle;
   }
 }

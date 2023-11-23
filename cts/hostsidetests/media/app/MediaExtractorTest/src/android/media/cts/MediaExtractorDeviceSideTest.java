@@ -21,6 +21,8 @@ import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.media.MediaExtractor;
 import android.media.metrics.LogSessionId;
+import android.media.metrics.MediaMetricsManager;
+import android.media.metrics.PlaybackSession;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -69,7 +71,26 @@ public class MediaExtractorDeviceSideTest {
     }
 
     @Test
-    public void testLogSessionId() throws Exception {
+    public void testInvalidLogSessionId() throws Exception {
+        // An arbitrary 16 char Base64Url log session id.
+        // This will be set in the extractor, but will be blocked from statsd.
+        assertMediaExtractorAcceptsLogSessionId(new LogSessionId("FakeLogSessionId"));
+    }
+
+    @Test
+    public void testValidLogSessionId() throws Exception {
+        MediaMetricsManager mediaMetricsManager = InstrumentationRegistry
+                .getInstrumentation().getTargetContext()
+                .getSystemService(MediaMetricsManager.class);
+        PlaybackSession playbackSession = mediaMetricsManager.createPlaybackSession();
+        // Send a valid log session id from MediaMetricsManager service to statsd.
+        assertMediaExtractorAcceptsLogSessionId(playbackSession.getSessionId());
+    }
+
+    // Test whether MediaExtractor properly sets and gets the log session id.
+    // See MediaExtractorHostSideTest.java, which verifies if it is sent to statsd.
+    private void assertMediaExtractorAcceptsLogSessionId(
+            LogSessionId logSessionId) throws Exception {
         MediaExtractor mediaExtractor = new MediaExtractor();
         AssetManager assetManager =
                 InstrumentationRegistry.getInstrumentation().getContext().getAssets();
@@ -77,9 +98,8 @@ public class MediaExtractorDeviceSideTest {
             mediaExtractor.setDataSource(fileDescriptor);
             assertThat(mediaExtractor.getLogSessionId())
                     .isEqualTo(LogSessionId.LOG_SESSION_ID_NONE);
-            mediaExtractor.setLogSessionId(new LogSessionId("FakeLogSessionId"));
-            assertThat(mediaExtractor.getLogSessionId().getStringId())
-                    .isEqualTo("FakeLogSessionId");
+            mediaExtractor.setLogSessionId(logSessionId);
+            assertThat(mediaExtractor.getLogSessionId()).isEqualTo(logSessionId);
         } finally {
             mediaExtractor.release();
         }

@@ -25,7 +25,7 @@
         apk. Path and resource name should be same as the target apk in order to override.
         Look at car-ui-lib/res to see a list of resources available for customization.
     Step 3: Update Android.mk variables as needed (see details at generate-rros.mk):
-        CAR_UI_RRO_SET_NAME: general name of this overlay, e.g: base.
+        CAR_UI_RRO_SET_NAME: general name of this overlay, e.g.: base.
         CAR_UI_RESOURCE_DIR: location of the resources folder, e.g.: $(LOCAL_PATH)/res
         CAR_UI_RRO_TARGETS: list of package names to overlay
     Step 4: Build and generate the apk package for this project. Resulting RROs will be located at

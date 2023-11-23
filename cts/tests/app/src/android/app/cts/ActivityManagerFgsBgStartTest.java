@@ -1605,6 +1605,7 @@ public class ActivityManagerFgsBgStartTest {
                 PACKAGE_NAME_APP1, 0);
         WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
                 WAITFOR_MSEC);
+        final int defaultBehavior = getPushMessagingOverQuotaBehavior();
         try {
             // Enable the FGS background startForeground() restriction.
             enableFgsRestriction(true, true, null);
@@ -1666,8 +1667,7 @@ public class ActivityManagerFgsBgStartTest {
         } finally {
             uid1Watcher.finish();
             // Change back to default behavior.
-            setPushMessagingOverQuotaBehavior(
-                    TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_NOT_ALLOWED);
+            setPushMessagingOverQuotaBehavior(defaultBehavior);
             // allow temp allowlist to expire.
             SystemClock.sleep(TEMP_ALLOWLIST_DURATION_MS);
         }
@@ -1701,7 +1701,10 @@ public class ActivityManagerFgsBgStartTest {
                 WAITFOR_MSEC);
         WatchUidRunner uid2Watcher = new WatchUidRunner(mInstrumentation, app2Info.uid,
                 WAITFOR_MSEC);
+        final int defaultBehavior = getPushMessagingOverQuotaBehavior();
         try {
+            setPushMessagingOverQuotaBehavior(
+                    TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_NOT_ALLOWED);
             // Enable the FGS background startForeground() restriction.
             enableFgsRestriction(true, true, null);
             // Now it can start FGS.
@@ -1741,6 +1744,7 @@ public class ActivityManagerFgsBgStartTest {
         } finally {
             uid1Watcher.finish();
             uid2Watcher.finish();
+            setPushMessagingOverQuotaBehavior(defaultBehavior);
             // Sleep to let the temp allowlist expire so it won't affect next test case.
             SystemClock.sleep(TEMP_ALLOWLIST_DURATION_MS);
         }
@@ -1798,6 +1802,71 @@ public class ActivityManagerFgsBgStartTest {
             CtsAppTestUtils.executeShellCmd(mInstrumentation,
                     "settings put --user current secure default_input_method "
                             + defaultInputMethod);
+        }
+    }
+
+    /**
+     * When PowerExemptionManager.addToTemporaryAllowList() is called more than one time, the second
+     * call can extend the duration of the first call if the first call has not expired yet.
+     * @throws Exception
+     */
+    @Test
+    public void testOverlappedTempAllowList() throws Exception {
+        ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP1, 0);
+        WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
+                WAITFOR_MSEC);
+        try {
+            // Enable the FGS background startForeground() restriction.
+            enableFgsRestriction(true, true, null);
+            // Start FGS in BG state.
+            WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
+            waiter.prepare(ACTION_START_FGS_RESULT);
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            // APP1 does not enter FGS state
+            try {
+                waiter.doWait(WAITFOR_MSEC);
+                fail("Service should not enter foreground service state");
+            } catch (Exception e) {
+            }
+
+            waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
+            waiter.prepare(ACTION_START_FGS_RESULT);
+            runWithShellPermissionIdentity(() -> {
+                mContext.getSystemService(PowerExemptionManager.class).addToTemporaryAllowList(
+                        PACKAGE_NAME_APP1, PowerExemptionManager.REASON_PUSH_MESSAGING,
+                        "", 10000);
+            });
+
+            SystemClock.sleep(5000);
+            runWithShellPermissionIdentity(() -> {
+                mContext.getSystemService(PowerExemptionManager.class).addToTemporaryAllowList(
+                        PACKAGE_NAME_APP1, PowerExemptionManager.REASON_PUSH_MESSAGING,
+                        "", 10000);
+            });
+            SystemClock.sleep(5000);
+
+            // The first addToTemporaryAllowList()'s 10000ms duration has expired.
+            // Now FGS start is allowed by second addToTemporaryAllowList()'s 10000ms duration.
+            waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
+            waiter.prepare(ACTION_START_FGS_RESULT);
+            // Now it can start FGS.
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE);
+            waiter.doWait(WAITFOR_MSEC);
+            // Stop the FGS.
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_STOP_FOREGROUND_SERVICE,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
+        } finally {
+            uid1Watcher.finish();
+            // allow temp allowlist to expire.
+            SystemClock.sleep(5000);
         }
     }
 
@@ -1878,5 +1947,21 @@ public class ActivityManagerFgsBgStartTest {
                             Integer.toString(type), false);
                 }
         );
+        // Sleep 2 seconds to allow the device config change to be applied.
+        SystemClock.sleep(2000);
+    }
+
+    private int getPushMessagingOverQuotaBehavior() throws Exception {
+        final String defaultBehaviorStr = CtsAppTestUtils.executeShellCmd(mInstrumentation,
+                "device_config get activity_manager "
+                        + KEY_PUSH_MESSAGING_OVER_QUOTA_BEHAVIOR).trim();
+        int defaultBehavior = TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_NOT_ALLOWED;
+        if (!defaultBehaviorStr.equals("null")) {
+            try {
+                defaultBehavior = Integer.parseInt(defaultBehaviorStr);
+            } catch (NumberFormatException e) {
+            }
+        }
+        return defaultBehavior;
     }
 }

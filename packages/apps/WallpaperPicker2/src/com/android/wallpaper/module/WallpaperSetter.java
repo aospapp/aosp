@@ -1,7 +1,10 @@
 package com.android.wallpaper.module;
 
+import static android.app.WallpaperManager.FLAG_LOCK;
+
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.app.WallpaperColors;
 import android.app.WallpaperManager;
 import android.content.pm.ActivityInfo;
 import android.graphics.Point;
@@ -96,7 +99,7 @@ public class WallpaperSetter {
                     dimensions, visibleRawWallpaperRect, wallpaperScale);
 
             setCurrentWallpaper(containerActivity, wallpaper, wallpaperAsset, destination,
-                    wallpaperScale, cropRect, callback);
+                    wallpaperScale, cropRect, null, callback);
         });
     }
 
@@ -116,10 +119,10 @@ public class WallpaperSetter {
     public void setCurrentWallpaper(Activity containerActivity, WallpaperInfo wallpaper,
             @Nullable Asset wallpaperAsset, @Destination final int destination,
             float wallpaperScale, @Nullable Rect cropRect,
-            @Nullable SetWallpaperCallback callback) {
+            @Nullable WallpaperColors wallpaperColors, @Nullable SetWallpaperCallback callback) {
         if (wallpaper instanceof LiveWallpaperInfo) {
             setCurrentLiveWallpaper(containerActivity, (LiveWallpaperInfo) wallpaper, destination,
-                    callback);
+                    wallpaperColors, callback);
             return;
         }
         mPreferences.setPendingWallpaperSetStatus(
@@ -153,6 +156,7 @@ public class WallpaperSetter {
                                 if (event == Event.ON_DESTROY) {
                                     if (mProgressDialog != null) {
                                         mProgressDialog.dismiss();
+                                        mProgressDialog = null;
                                     }
                                 }
                             }
@@ -183,7 +187,8 @@ public class WallpaperSetter {
     }
 
     public void setCurrentLiveWallpaper(Activity activity, LiveWallpaperInfo wallpaper,
-            @Destination final int destination, @Nullable SetWallpaperCallback callback) {
+            @Destination final int destination, @Nullable WallpaperColors colors,
+            @Nullable SetWallpaperCallback callback) {
         try {
             // Save current screen rotation so we can temporarily disable rotation while setting the
             // wallpaper and restore after setting the wallpaper finishes.
@@ -201,8 +206,12 @@ public class WallpaperSetter {
                     activity.getWindow().getDecorView().getRootView().getWindowToken(),
                     0.5f /* xOffset */, 0.0f /* yOffset */);
             if (destination == WallpaperPersister.DEST_BOTH) {
-                wallpaperManager.clear(WallpaperManager.FLAG_LOCK);
+                wallpaperManager.clear(FLAG_LOCK);
             }
+            mPreferences.storeLatestHomeWallpaper(wallpaper.getWallpaperId(), wallpaper,
+                    colors != null ? colors :
+                            WallpaperColors.fromBitmap(wallpaper.getThumbAsset(activity)
+                                    .getLowResBitmap(activity)));
             onWallpaperApplied(wallpaper, activity);
             if (callback != null) {
                 callback.onSuccess(wallpaper);
@@ -224,7 +233,6 @@ public class WallpaperSetter {
                 WallpaperPreferences.WALLPAPER_SET_NOT_PENDING);
         mUserEventLogger.logWallpaperSetResult(
                 UserEventLogger.WALLPAPER_SET_RESULT_SUCCESS);
-
         cleanUp();
         restoreScreenOrientationIfNeeded(containerActivity);
     }
@@ -277,8 +285,6 @@ public class WallpaperSetter {
      */
     public void requestDestination(Activity activity, FragmentManager fragmentManager,
             @StringRes int titleResId, Listener listener, boolean isLiveWallpaper) {
-        CurrentWallpaperInfoFactory factory = InjectorProvider.getInjector()
-                .getCurrentWallpaperFactory(activity);
         saveAndLockScreenOrientationIfNeeded(activity);
         Listener listenerWrapper = new Listener() {
             @Override
@@ -298,26 +304,34 @@ public class WallpaperSetter {
                 }
             }
         };
-        factory.createCurrentWallpaperInfos((homeWallpaper, lockWallpaper, presentationMode) -> {
-            SetWallpaperDialogFragment setWallpaperDialog = new SetWallpaperDialogFragment();
-            setWallpaperDialog.setTitleResId(titleResId);
-            setWallpaperDialog.setListener(listenerWrapper);
-            if (homeWallpaper instanceof LiveWallpaperInfo && lockWallpaper == null) {
-                if (isLiveWallpaper) {
-                    // If lock wallpaper is live and we're setting a live wallpaper, we can only
-                    // set it to both, so bypass the dialog.
-                    listener.onSet(WallpaperPersister.DEST_BOTH);
-                    restoreScreenOrientationIfNeeded(activity);
-                    return;
-                }
-                // if the lock wallpaper is a live wallpaper, we cannot set a home-only static one
-                setWallpaperDialog.setHomeOptionAvailable(false);
-            }
+
+        WallpaperStatusChecker wallpaperStatusChecker =
+                InjectorProvider.getInjector().getWallpaperStatusChecker();
+        boolean isLiveWallpaperSet =
+                WallpaperManager.getInstance(activity).getWallpaperInfo() != null;
+        // Alternative of ag/15567276
+        boolean isBuiltIn = !isLiveWallpaperSet
+                && !wallpaperStatusChecker.isHomeStaticWallpaperSet(activity);
+
+        SetWallpaperDialogFragment setWallpaperDialog = new SetWallpaperDialogFragment();
+        setWallpaperDialog.setTitleResId(titleResId);
+        setWallpaperDialog.setListener(listenerWrapper);
+        if ((isLiveWallpaperSet || isBuiltIn)
+                && !wallpaperStatusChecker.isLockWallpaperSet(activity)) {
             if (isLiveWallpaper) {
-                setWallpaperDialog.setLockOptionAvailable(false);
+                // If lock wallpaper is live and we're setting a live wallpaper, we can only
+                // set it to both, so bypass the dialog.
+                listener.onSet(WallpaperPersister.DEST_BOTH);
+                restoreScreenOrientationIfNeeded(activity);
+                return;
             }
-            setWallpaperDialog.show(fragmentManager, TAG_SET_WALLPAPER_DIALOG_FRAGMENT);
-        }, true); // Force refresh as the wallpaper may have been set while this fragment was paused
+            // if the lock wallpaper is a live wallpaper, we cannot set a home-only static one
+            setWallpaperDialog.setHomeOptionAvailable(false);
+        }
+        if (isLiveWallpaper) {
+            setWallpaperDialog.setLockOptionAvailable(false);
+        }
+        setWallpaperDialog.show(fragmentManager, TAG_SET_WALLPAPER_DIALOG_FRAGMENT);
     }
 
     private void saveAndLockScreenOrientationIfNeeded(Activity activity) {

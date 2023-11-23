@@ -142,9 +142,8 @@ union                 { yylval->token = new AidlToken("union", comments);
 {identifier}          { yylval->token = new AidlToken(yytext, comments);
                         return yy::parser::token::IDENTIFIER;
                       }
-'.'                   { yylval->character = yytext[1];
-                        return yy::parser::token::CHARVALUE;
-                      }
+'.'                   { yylval->token = new AidlToken(yytext, comments);
+                        return yy::parser::token::CHARVALUE; }
 {intvalue}            { yylval->token = new AidlToken(yytext, comments);
                         return yy::parser::token::INTVALUE; }
 {floatvalue}          { yylval->token = new AidlToken(yytext, comments);

@@ -61,7 +61,8 @@ public class AspectRatioSdk28Tests extends AspectRatioTestsBase {
         assumeTrue(getInstrumentation().getContext().getPackageManager()
                 .hasSystemFeature(FEATURE_WATCH));
 
-        runAspectRatioTest(mSdk28MinAspectRatioActivity, (actual, displayId, size) ->
+        runAspectRatioTest(mSdk28MinAspectRatioActivity,
+                (actual, displayId, activitySize, displaySize) ->
                 assertEquals(actual, MIN_WATCH_DEVICE_ASPECT_RATIO, 0.0f));
     }
 }

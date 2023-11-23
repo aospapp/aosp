@@ -698,7 +698,7 @@
     <string name="color_cyan" msgid="3172130225116530998">"Cyan"</string>
     <string name="color_yellow" msgid="3519470952904560404">"Gul"</string>
     <string name="color_magenta" msgid="2377854703399624607">"Magenta"</string>
-    <string name="system_accessibility_status" msgid="8504842254080682515">"Slå på"</string>
+    <string name="system_accessibility_status" msgid="8504842254080682515">"Aktivér"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"Konfigurasjon"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"Vil du bruke <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1291445700158602622">"<xliff:g id="SERVICE">%1$s</xliff:g> kan samle inn all teksten du skriver, bortsett fra passord. Dette omfatter også personlige data som kredittkortnumre."</string>
@@ -897,7 +897,7 @@
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="4508586498292236706">"Alle oppdateringer i denne Android-systemappen blir avinstallert."</string>
     <string name="device_apps_app_management_disable" msgid="819003297535493633">"Deaktiver"</string>
     <string name="device_apps_app_management_disable_desc" msgid="9143166267511427607">"Vil du deaktivere denne appen?"</string>
-    <string name="device_apps_app_management_enable" msgid="9173340340253029114">"Slå på"</string>
+    <string name="device_apps_app_management_enable" msgid="9173340340253029114">"Aktivér"</string>
     <string name="device_apps_app_management_enable_desc" msgid="8686291003061136476">"Vil du aktivere denne appen?"</string>
     <string name="device_apps_app_management_storage_used" msgid="6725789557993296433">"Lagringsplass som brukes"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="8928632612101487179">"<xliff:g id="SIZE">%1$s</xliff:g> brukes på <xliff:g id="VOLUME">%2$s</xliff:g>"</string>

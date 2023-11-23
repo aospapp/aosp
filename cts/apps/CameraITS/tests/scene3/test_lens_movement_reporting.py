@@ -71,7 +71,7 @@ def take_caps_and_determine_sharpness(
   caps = cam.do_capture(reqs, fmt)
   caps = caps[START_FRAME:]
   for i, cap in enumerate(caps):
-    data = {'fd': fds[i]}
+    data = {'fd': fds[i+START_FRAME]}
     data['loc'] = cap['metadata']['android.lens.focusDistance']
     data['lens_moving'] = (cap['metadata']['android.lens.state']
                            == 1)

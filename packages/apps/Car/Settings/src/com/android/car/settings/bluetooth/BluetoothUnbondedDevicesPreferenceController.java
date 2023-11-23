@@ -30,6 +30,8 @@ import com.android.settingslib.bluetooth.BluetoothDeviceFilter;
 import com.android.settingslib.bluetooth.BluetoothDeviceFilter.Filter;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 
+import java.util.Set;
+
 /**
  * Displays a list of unbonded (unpaired) Bluetooth devices. This controller also sets the
  * Bluetooth adapter to discovery mode and begins scanning for discoverable devices for as long as
@@ -66,7 +68,7 @@ public class BluetoothUnbondedDevicesPreferenceController extends
         } else {
             BluetoothUtils.showError(getContext(), cachedDevice.getName(),
                     R.string.bluetooth_pairing_error_message);
-            refreshUi();
+            reenableScanning();
         }
     }
 
@@ -82,11 +84,14 @@ public class BluetoothUnbondedDevicesPreferenceController extends
 
     /** Filter that matches only unbonded devices with specific device types. */
     private class UnbondedDeviceTypeFilter implements Filter {
+        @Override
         public boolean matches(BluetoothDevice device) {
             int[] unbondedMajorClassFilter = getContext()
                     .getResources()
                     .getIntArray(R.array.config_unbonded_device_filter_allowlist);
-            boolean matches = device.getBondState() != BluetoothDevice.BOND_BONDED;
+            //TODO(b/198339129): change to use device bond status
+            Set<BluetoothDevice> bondedDevices = mBluetoothAdapter.getBondedDevices();
+            boolean matches = bondedDevices == null || !bondedDevices.contains(device);
             if (matches && unbondedMajorClassFilter.length > 0) {
                 matches = device.getBluetoothClass() != null
                         && ArrayUtils.contains(

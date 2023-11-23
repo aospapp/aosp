@@ -11,6 +11,11 @@
 
 #include <errno.h>
 #include <fcntl.h>
+// Android edit:
+// #include <linux/input-event-codes.h>
+#ifndef BTN_LEFT
+#define BTN_LEFT 0x110
+#endif
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -23,13 +28,42 @@
 #include "aura-shell.h"
 #include "linux-dmabuf-unstable-v1.h"
 #include "viewporter.h"
-#include "xdg-shell-unstable-v6.h"
+#ifdef ANDROID
+#include "xdg-shell-client-protocol.h"
+#else
+#include "xdg-shell.h"
+#endif
+#include "virtio-gpu-metadata-v1.h"
 #include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
 
 #define DEFAULT_SCALE 2
 #define MAX_BUFFER_COUNT 64
+#define EVENT_BUF_SIZE 256
+
+const int32_t DWL_KEYBOARD_KEY_STATE_RELEASED = WL_KEYBOARD_KEY_STATE_RELEASED;
+const int32_t DWL_KEYBOARD_KEY_STATE_PRESSED  = WL_KEYBOARD_KEY_STATE_PRESSED;
+
+const uint32_t DWL_EVENT_TYPE_KEYBOARD_ENTER = 0x00;
+const uint32_t DWL_EVENT_TYPE_KEYBOARD_LEAVE = 0x01;
+const uint32_t DWL_EVENT_TYPE_KEYBOARD_KEY   = 0x02;
+const uint32_t DWL_EVENT_TYPE_POINTER_ENTER  = 0x10;
+const uint32_t DWL_EVENT_TYPE_POINTER_LEAVE  = 0x11;
+const uint32_t DWL_EVENT_TYPE_POINTER_MOVE   = 0x12;
+const uint32_t DWL_EVENT_TYPE_POINTER_BUTTON = 0x13;
+const uint32_t DWL_EVENT_TYPE_TOUCH_DOWN     = 0x20;
+const uint32_t DWL_EVENT_TYPE_TOUCH_UP       = 0x21;
+const uint32_t DWL_EVENT_TYPE_TOUCH_MOTION   = 0x22;
+
+const uint32_t DWL_SURFACE_FLAG_RECEIVE_INPUT = 1 << 0;
+const uint32_t DWL_SURFACE_FLAG_HAS_ALPHA     = 1 << 1;
+
+struct dwl_event {
+	const void *surface_descriptor;
+	uint32_t event_type;
+	int32_t params[3];
+};
 
 struct dwl_context;
 
@@ -38,12 +72,12 @@ struct interfaces {
 	struct wl_compositor *compositor;
 	struct wl_subcompositor *subcompositor;
 	struct wl_shm *shm;
-	struct wl_shell *shell;
 	struct wl_seat *seat;
 	struct zaura_shell *aura; // optional
 	struct zwp_linux_dmabuf_v1 *linux_dmabuf;
-	struct zxdg_shell_v6 *xdg_shell;
+	struct xdg_wm_base *xdg_wm_base;
 	struct wp_viewporter *viewporter; // optional
+	struct wp_virtio_gpu_metadata_v1 *virtio_gpu_metadata; // optional
 };
 
 struct output {
@@ -56,11 +90,28 @@ struct output {
 	bool internal;
 };
 
+struct input {
+	struct wl_keyboard *wl_keyboard;
+	struct wl_pointer *wl_pointer;
+	struct wl_surface *keyboard_input_surface;
+	struct wl_surface *pointer_input_surface;
+	int32_t pointer_x;
+	int32_t pointer_y;
+	bool pointer_lbutton_state;
+};
+
 struct dwl_context {
 	struct wl_display *display;
+	struct dwl_surface *surfaces[MAX_BUFFER_COUNT];
+	struct dwl_dmabuf *dmabufs[MAX_BUFFER_COUNT];
 	struct interfaces ifaces;
+	struct input input;
 	bool output_added;
 	struct output outputs[8];
+
+	struct dwl_event event_cbuf[EVENT_BUF_SIZE];
+	size_t event_read_pos;
+	size_t event_write_pos;
 };
 
 #define outputs_for_each(context, pos, output)                                 \
@@ -71,20 +122,24 @@ struct dwl_context {
 struct dwl_dmabuf {
 	uint32_t width;
 	uint32_t height;
+	uint32_t import_id;
 	bool in_use;
 	struct wl_buffer *buffer;
+	struct dwl_context *context;
 };
 
 struct dwl_surface {
 	struct dwl_context *context;
-	struct wl_surface *surface;
+	struct wl_surface *wl_surface;
 	struct zaura_surface *aura;
-	struct zxdg_surface_v6 *xdg;
-	struct zxdg_toplevel_v6 *toplevel;
+	struct xdg_surface *xdg_surface;
+	struct xdg_toplevel *xdg_toplevel;
 	struct wp_viewport *viewport;
+	struct wp_virtio_gpu_surface_metadata_v1 *virtio_gpu_surface_metadata;
 	struct wl_subsurface *subsurface;
 	uint32_t width;
 	uint32_t height;
+	uint32_t surface_id;
 	double scale;
 	bool close_requested;
 	size_t buffer_count;
@@ -183,6 +238,290 @@ static const struct zaura_output_listener aura_output_listener = {
     .connection = aura_output_connection,
     .device_scale_factor = aura_output_device_scale_factor};
 
+static void xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base,
+			     uint32_t serial)
+{
+	(void)data;
+	xdg_wm_base_pong(xdg_wm_base, serial);
+}
+
+static const struct xdg_wm_base_listener xdg_wm_base_listener = {
+	.ping = xdg_wm_base_ping,
+};
+
+
+static void wl_keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
+			       uint32_t format, int32_t fd, uint32_t size)
+{
+	(void)data;
+	(void)wl_keyboard;
+	(void)fd;
+	(void)size;
+	if (format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
+		syslog(LOG_ERR, "wl_keyboard: invalid keymap format");
+	}
+}
+
+static void dwl_context_push_event(struct dwl_context *self,
+				   struct dwl_event *event)
+{
+	if (!self)
+		return;
+
+	memcpy(self->event_cbuf + self->event_write_pos, event,
+	       sizeof(struct dwl_event));
+
+	if (++self->event_write_pos == EVENT_BUF_SIZE)
+		self->event_write_pos = 0;
+}
+
+static void wl_keyboard_enter(void *data, struct wl_keyboard *wl_keyboard,
+			      uint32_t serial, struct wl_surface *surface,
+			      struct wl_array *keys)
+{
+	(void)wl_keyboard;
+	(void)serial;
+	(void)surface;
+	struct dwl_context *context = (struct dwl_context*)data;
+	struct input *input = &context->input;
+	uint32_t *key;
+	struct dwl_event event = {0};
+	input->keyboard_input_surface = surface;
+	wl_array_for_each(key, keys) {
+		event.surface_descriptor = input->keyboard_input_surface;
+		event.event_type = DWL_EVENT_TYPE_KEYBOARD_KEY;
+		event.params[0] = (int32_t)*key;
+		event.params[1] = DWL_KEYBOARD_KEY_STATE_PRESSED;
+		dwl_context_push_event(context, &event);
+	}
+}
+
+static void wl_keyboard_key(void *data, struct wl_keyboard *wl_keyboard,
+			    uint32_t serial, uint32_t time, uint32_t key,
+			    uint32_t state)
+{
+	struct dwl_context *context = (struct dwl_context*)data;
+	struct input *input = &context->input;
+	(void)wl_keyboard;
+	(void)serial;
+	(void)time;
+	struct dwl_event event = {0};
+	event.surface_descriptor = input->keyboard_input_surface;
+	event.event_type = DWL_EVENT_TYPE_KEYBOARD_KEY;
+	event.params[0] = (int32_t)key;
+	event.params[1] = state;
+	dwl_context_push_event(context, &event);
+}
+
+static void wl_keyboard_leave(void *data, struct wl_keyboard *wl_keyboard,
+			      uint32_t serial, struct wl_surface *surface)
+{
+	struct dwl_context *context = (struct dwl_context*)data;
+	struct input *input = &context->input;
+	struct dwl_event event = {0};
+	(void)wl_keyboard;
+	(void)serial;
+	(void)surface;
+
+	event.surface_descriptor = input->keyboard_input_surface;
+	event.event_type = DWL_EVENT_TYPE_KEYBOARD_LEAVE;
+	dwl_context_push_event(context, &event);
+
+	input->keyboard_input_surface = NULL;
+}
+
+static void wl_keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard,
+				  uint32_t serial, uint32_t mods_depressed,
+				  uint32_t mods_latched, uint32_t mods_locked,
+				  uint32_t group)
+{
+	(void)data;
+	(void)wl_keyboard;
+	(void)serial;
+	(void)mods_depressed;
+	(void)mods_latched;
+	(void)mods_locked;
+	(void)group;
+}
+
+static void wl_keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard,
+				    int32_t rate, int32_t delay)
+{
+	(void)data;
+	(void)wl_keyboard;
+	(void)rate;
+	(void)delay;
+}
+
+static const struct wl_keyboard_listener wl_keyboard_listener = {
+	.keymap = wl_keyboard_keymap,
+	.enter = wl_keyboard_enter,
+	.leave = wl_keyboard_leave,
+	.key = wl_keyboard_key,
+	.modifiers = wl_keyboard_modifiers,
+	.repeat_info = wl_keyboard_repeat_info,
+};
+
+static void pointer_enter_handler(void *data, struct wl_pointer *wl_pointer,
+				  uint32_t serial, struct wl_surface *surface,
+				  wl_fixed_t x, wl_fixed_t y)
+{
+	struct dwl_context *context = (struct dwl_context*)data;
+	struct input *input = &context->input;
+	(void)wl_pointer;
+	(void)serial;
+
+	input->pointer_input_surface = surface;
+	input->pointer_x = wl_fixed_to_int(x);
+	input->pointer_y = wl_fixed_to_int(y);
+}
+
+static void pointer_leave_handler(void *data, struct wl_pointer *wl_pointer,
+				  uint32_t serial, struct wl_surface *surface)
+{
+	struct dwl_context *context = (struct dwl_context*)data;
+	struct input *input = &context->input;
+	(void)wl_pointer;
+	(void)serial;
+	(void)surface;
+
+	input->pointer_input_surface = NULL;
+}
+
+static void pointer_motion_handler(void *data, struct wl_pointer *wl_pointer,
+				   uint32_t time, wl_fixed_t x, wl_fixed_t y)
+{
+	struct dwl_context *context = (struct dwl_context*)data;
+	struct input *input = &context->input;
+	struct dwl_event event = {0};
+	(void)wl_pointer;
+	(void)time;
+
+	input->pointer_x = wl_fixed_to_int(x);
+	input->pointer_y = wl_fixed_to_int(y);
+	if (input->pointer_lbutton_state) {
+		event.surface_descriptor = input->pointer_input_surface;
+		event.event_type = DWL_EVENT_TYPE_TOUCH_MOTION;
+		event.params[0] = input->pointer_x;
+		event.params[1] = input->pointer_y;
+		dwl_context_push_event(context, &event);
+	}
+}
+
+static void pointer_button_handler(void *data, struct wl_pointer *wl_pointer,
+				   uint32_t serial, uint32_t time, uint32_t button,
+				   uint32_t state)
+{
+	struct dwl_context *context = (struct dwl_context*)data;
+	struct input *input = &context->input;
+	(void)wl_pointer;
+	(void)time;
+	(void)serial;
+
+	// we track only the left mouse button since we emulate a single touch device
+	if (button == BTN_LEFT) {
+		input->pointer_lbutton_state = state != 0;
+		struct dwl_event event = {0};
+		event.surface_descriptor = input->pointer_input_surface;
+		event.event_type = (state != 0)?
+			DWL_EVENT_TYPE_TOUCH_DOWN:DWL_EVENT_TYPE_TOUCH_UP;
+		event.params[0] = input->pointer_x;
+		event.params[1] = input->pointer_y;
+		dwl_context_push_event(context, &event);
+	}
+}
+
+static void wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
+{
+	(void)data;
+	(void)wl_pointer;
+}
+
+static void pointer_axis_handler(void *data, struct wl_pointer *wl_pointer,
+				 uint32_t time, uint32_t axis, wl_fixed_t value)
+{
+	(void)data;
+	(void)wl_pointer;
+	(void)time;
+	(void)axis;
+	(void)value;
+}
+
+static void wl_pointer_axis_source(void *data, struct wl_pointer *wl_pointer,
+				   uint32_t axis_source)
+{
+	(void)data;
+	(void)wl_pointer;
+	(void)axis_source;
+}
+
+static void wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
+					uint32_t time, uint32_t axis)
+{
+	(void)data;
+	(void)wl_pointer;
+	(void)time;
+	(void)axis;
+}
+
+static void wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
+				     uint32_t axis, int32_t discrete)
+{
+	(void)data;
+	(void)wl_pointer;
+	(void)axis;
+	(void)discrete;
+}
+
+const struct wl_pointer_listener wl_pointer_listener = {
+	.enter = pointer_enter_handler,
+	.leave = pointer_leave_handler,
+	.motion = pointer_motion_handler,
+	.button = pointer_button_handler,
+	.axis = pointer_axis_handler,
+	.frame = wl_pointer_frame,
+	.axis_source = wl_pointer_axis_source,
+	.axis_stop = wl_pointer_axis_stop,
+	.axis_discrete = wl_pointer_axis_discrete,
+};
+
+static void wl_seat_capabilities(void *data, struct wl_seat *wl_seat,
+				 uint32_t capabilities)
+{
+	struct dwl_context *context = (struct dwl_context*)data;
+	struct input *input = &context->input;
+	bool have_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
+	bool have_pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
+
+	if (have_keyboard && input->wl_keyboard == NULL) {
+		input->wl_keyboard = wl_seat_get_keyboard(wl_seat);
+		wl_keyboard_add_listener(input->wl_keyboard, &wl_keyboard_listener, context);
+	} else if (!have_keyboard && input->wl_keyboard != NULL) {
+		wl_keyboard_release(input->wl_keyboard);
+		input->wl_keyboard = NULL;
+	}
+
+	if (have_pointer && input->wl_pointer == NULL) {
+		input->wl_pointer = wl_seat_get_pointer(wl_seat);
+		wl_pointer_add_listener(input->wl_pointer, &wl_pointer_listener, context);
+	} else if (!have_pointer && input->wl_pointer != NULL) {
+		wl_pointer_release(input->wl_pointer);
+		input->wl_pointer = NULL;
+	}
+}
+
+static void wl_seat_name(void *data, struct wl_seat *wl_seat, const char *name)
+{
+	(void)data;
+	(void)wl_seat;
+	(void)name;
+}
+
+static const struct wl_seat_listener wl_seat_listener = {
+	.capabilities = wl_seat_capabilities,
+	.name = wl_seat_name,
+};
+
 static void dwl_context_output_add(struct dwl_context *context,
 				   struct wl_output *wl_output, uint32_t id)
 {
@@ -249,20 +588,21 @@ static void registry_global(void *data, struct wl_registry *registry,
 {
 	(void)version;
 	struct interfaces *ifaces = (struct interfaces *)data;
-	if (strcmp(interface, "wl_compositor") == 0) {
+	if (strcmp(interface, wl_compositor_interface.name) == 0) {
 		ifaces->compositor = (struct wl_compositor *)wl_registry_bind(
 		    registry, id, &wl_compositor_interface, 3);
-	} else if (strcmp(interface, "wl_subcompositor") == 0) {
+	} else if (strcmp(interface, wl_subcompositor_interface.name) == 0) {
 		ifaces->subcompositor =
 		    (struct wl_subcompositor *)wl_registry_bind(
 			registry, id, &wl_subcompositor_interface, 1);
-	} else if (strcmp(interface, "wl_shm") == 0) {
+	} else if (strcmp(interface, wl_shm_interface.name) == 0) {
 		ifaces->shm = (struct wl_shm *)wl_registry_bind(
 		    registry, id, &wl_shm_interface, 1);
-	} else if (strcmp(interface, "wl_seat") == 0) {
+	} else if (strcmp(interface, wl_seat_interface.name) == 0) {
 		ifaces->seat = (struct wl_seat *)wl_registry_bind(
 		    registry, id, &wl_seat_interface, 5);
-	} else if (strcmp(interface, "wl_output") == 0) {
+		wl_seat_add_listener(ifaces->seat, &wl_seat_listener, ifaces->context);
+	} else if (strcmp(interface, wl_output_interface.name) == 0) {
 		struct wl_output *output = (struct wl_output *)wl_registry_bind(
 		    registry, id, &wl_output_interface, 2);
 		dwl_context_output_add(ifaces->context, output, id);
@@ -273,12 +613,18 @@ static void registry_global(void *data, struct wl_registry *registry,
 		ifaces->linux_dmabuf =
 		    (struct zwp_linux_dmabuf_v1 *)wl_registry_bind(
 			registry, id, &zwp_linux_dmabuf_v1_interface, 1);
-	} else if (strcmp(interface, "zxdg_shell_v6") == 0) {
-		ifaces->xdg_shell = (struct zxdg_shell_v6 *)wl_registry_bind(
-		    registry, id, &zxdg_shell_v6_interface, 1);
+	} else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+		ifaces->xdg_wm_base = (struct xdg_wm_base *)wl_registry_bind(
+		    registry, id, &xdg_wm_base_interface, 1);
+		xdg_wm_base_add_listener(ifaces->xdg_wm_base, &xdg_wm_base_listener,
+			NULL);
 	} else if (strcmp(interface, "wp_viewporter") == 0) {
 		ifaces->viewporter = (struct wp_viewporter *)wl_registry_bind(
 		    registry, id, &wp_viewporter_interface, 1);
+	} else if (strcmp(interface, "wp_virtio_gpu_metadata_v1") == 0) {
+		ifaces->virtio_gpu_metadata =
+			(struct wp_virtio_gpu_metadata_v1 *)wl_registry_bind(
+			registry, id, &wp_virtio_gpu_metadata_v1_interface, 1);
 	}
 }
 
@@ -305,37 +651,37 @@ static const struct wl_registry_listener registry_listener = {
     .global = registry_global, .global_remove = global_remove};
 
 static void toplevel_configure(void *data,
-			       struct zxdg_toplevel_v6 *zxdg_toplevel_v6,
+			       struct xdg_toplevel *xdg_toplevel,
 			       int32_t width, int32_t height,
 			       struct wl_array *states)
 {
 	(void)data;
-	(void)zxdg_toplevel_v6;
+	(void)xdg_toplevel;
 	(void)width;
 	(void)height;
 	(void)states;
 }
 
 static void toplevel_close(void *data,
-			   struct zxdg_toplevel_v6 *zxdg_toplevel_v6)
+			   struct xdg_toplevel *xdg_toplevel)
 {
-	(void)zxdg_toplevel_v6;
+	(void)xdg_toplevel;
 	struct dwl_surface *surface = (struct dwl_surface *)data;
 	surface->close_requested = true;
 }
 
-static const struct zxdg_toplevel_v6_listener toplevel_listener = {
+static const struct xdg_toplevel_listener toplevel_listener = {
     .configure = toplevel_configure, .close = toplevel_close};
 
 static void xdg_surface_configure_handler(void *data,
-					  struct zxdg_surface_v6 *xdg_surface,
+					  struct xdg_surface *xdg_surface,
 					  uint32_t serial)
 {
 	(void)data;
-	zxdg_surface_v6_ack_configure(xdg_surface, serial);
+	xdg_surface_ack_configure(xdg_surface, serial);
 }
 
-static const struct zxdg_surface_v6_listener xdg_surface_listener = {
+static const struct xdg_surface_listener xdg_surface_listener = {
 	.configure = xdg_surface_configure_handler
 };
 
@@ -428,8 +774,8 @@ bool dwl_context_setup(struct dwl_context *self, const char *socket_path)
 		syslog(LOG_ERR, "missing interface linux_dmabuf");
 		goto fail;
 	}
-	if (!ifaces->xdg_shell) {
-		syslog(LOG_ERR, "missing interface xdg_shell");
+	if (!ifaces->xdg_wm_base) {
+		syslog(LOG_ERR, "missing interface xdg_wm_base");
 		goto fail;
 	}
 
@@ -486,10 +832,52 @@ static void dmabuf_buffer_release(void *data, struct wl_buffer *buffer)
 static const struct wl_buffer_listener dmabuf_buffer_listener = {
     .release = dmabuf_buffer_release};
 
-struct dwl_dmabuf *dwl_context_dmabuf_new(struct dwl_context *self, int fd,
-					  uint32_t offset, uint32_t stride,
-					  uint64_t modifiers, uint32_t width,
-					  uint32_t height, uint32_t fourcc)
+static bool dwl_context_add_dmabuf(struct dwl_context *self,
+				   struct dwl_dmabuf *dmabuf)
+{
+	size_t i;
+	for (i = 0; i < MAX_BUFFER_COUNT; i++) {
+		if (!self->dmabufs[i]) {
+			self->dmabufs[i] = dmabuf;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static void dwl_context_remove_dmabuf(struct dwl_context *self,
+				      uint32_t import_id)
+{
+	size_t i;
+	for (i = 0; i < MAX_BUFFER_COUNT; i++) {
+		if (self->dmabufs[i] &&
+		    self->dmabufs[i]->import_id == import_id) {
+			self->dmabufs[i] = NULL;
+		}
+	}
+}
+
+static struct dwl_dmabuf *dwl_context_get_dmabuf(struct dwl_context *self,
+					         uint32_t import_id)
+{
+	size_t i;
+	for (i = 0; i < MAX_BUFFER_COUNT; i++) {
+		if (self->dmabufs[i] &&
+		    self->dmabufs[i]->import_id == import_id) {
+			return self->dmabufs[i];
+		}
+	}
+
+	return NULL;
+}
+
+struct dwl_dmabuf *dwl_context_dmabuf_new(struct dwl_context *self,
+					  uint32_t import_id,
+					  int fd, uint32_t offset,
+					  uint32_t stride, uint64_t modifier,
+					  uint32_t width, uint32_t height,
+					  uint32_t fourcc)
 {
 	struct dwl_dmabuf *dmabuf = calloc(1, sizeof(struct dwl_dmabuf));
 	if (!dmabuf) {
@@ -511,8 +899,8 @@ struct dwl_dmabuf *dwl_context_dmabuf_new(struct dwl_context *self, int fd,
 	zwp_linux_buffer_params_v1_add_listener(params, &linux_buffer_listener,
 						dmabuf);
 	zwp_linux_buffer_params_v1_add(params, fd, 0 /* plane_idx */, offset,
-				       stride, modifiers >> 32,
-				       (uint32_t)modifiers);
+				       stride, modifier >> 32,
+				       (uint32_t)modifier);
 	zwp_linux_buffer_params_v1_create(params, width, height, fourcc, 0);
 	wl_display_roundtrip(self->display);
 	zwp_linux_buffer_params_v1_destroy(params);
@@ -525,11 +913,20 @@ struct dwl_dmabuf *dwl_context_dmabuf_new(struct dwl_context *self, int fd,
 
 	wl_buffer_add_listener(dmabuf->buffer, &dmabuf_buffer_listener, dmabuf);
 
+	dmabuf->import_id = import_id;
+	dmabuf->context = self;
+	if (!dwl_context_add_dmabuf(self, dmabuf)) {
+		syslog(LOG_ERR, "failed to add dmabuf to context");
+		free(dmabuf);
+		return NULL;
+	}
+
 	return dmabuf;
 }
 
 void dwl_dmabuf_destroy(struct dwl_dmabuf **self)
 {
+	dwl_context_remove_dmabuf((*self)->context, (*self)->import_id);
 	wl_buffer_destroy((*self)->buffer);
 	free(*self);
 	*self = NULL;
@@ -552,14 +949,57 @@ static void surface_buffer_release(void *data, struct wl_buffer *buffer)
 static const struct wl_buffer_listener surface_buffer_listener = {
     .release = surface_buffer_release};
 
+static struct dwl_surface *dwl_context_get_surface(struct dwl_context *self,
+					           uint32_t surface_id)
+{
+	size_t i;
+	for (i = 0; i < MAX_BUFFER_COUNT; i++) {
+		if (self->surfaces[i] &&
+		    self->surfaces[i]->surface_id == surface_id) {
+			return self->surfaces[i];
+		}
+	}
+
+	return NULL;
+}
+
+static bool dwl_context_add_surface(struct dwl_context *self,
+				    struct dwl_surface *surface)
+{
+	size_t i;
+	for (i = 0; i < MAX_BUFFER_COUNT; i++) {
+		if (!self->surfaces[i]) {
+			self->surfaces[i] = surface;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static void dwl_context_remove_surface(struct dwl_context *self,
+				       uint32_t surface_id)
+{
+	size_t i;
+	for (i = 0; i < MAX_BUFFER_COUNT; i++) {
+		if (self->surfaces[i] &&
+		    self->surfaces[i]->surface_id == surface_id) {
+			self->surfaces[i] = NULL;
+		}
+	}
+}
+
 struct dwl_surface *dwl_context_surface_new(struct dwl_context *self,
-					    struct dwl_surface *parent,
+					    uint32_t parent_id,
+					    uint32_t  surface_id,
 					    int shm_fd, size_t shm_size,
 					    size_t buffer_size, uint32_t width,
-					    uint32_t height, uint32_t stride)
+					    uint32_t height, uint32_t stride,
+					    uint32_t flags)
 {
 	if (buffer_size == 0)
 		return NULL;
+
 	size_t buffer_count = shm_size / buffer_size;
 	if (buffer_count == 0)
 		return NULL;
@@ -571,13 +1011,13 @@ struct dwl_surface *dwl_context_surface_new(struct dwl_context *self,
 			  sizeof(struct wl_buffer *) * buffer_count);
 	if (!disp_surface)
 		return NULL;
+
 	disp_surface->context = self;
 	disp_surface->width = width;
 	disp_surface->height = height;
 	disp_surface->scale = DEFAULT_SCALE;
 	disp_surface->buffer_count = buffer_count;
 
-	struct wl_region *region = NULL;
 	struct wl_shm_pool *shm_pool =
 	    wl_shm_create_pool(self->ifaces.shm, shm_fd, shm_size);
 	if (!shm_pool) {
@@ -586,10 +1026,12 @@ struct dwl_surface *dwl_context_surface_new(struct dwl_context *self,
 	}
 
 	size_t i;
+	uint32_t format = (flags & DWL_SURFACE_FLAG_HAS_ALPHA)?
+		WL_SHM_FORMAT_ARGB8888:WL_SHM_FORMAT_XRGB8888;
+
 	for (i = 0; i < buffer_count; i++) {
 		struct wl_buffer *buffer = wl_shm_pool_create_buffer(
-		    shm_pool, buffer_size * i, width, height, stride,
-		    WL_SHM_FORMAT_ARGB8888);
+		    shm_pool, buffer_size * i, width, height, stride, format);
 		if (!buffer) {
 			syslog(LOG_ERR, "failed to create buffer");
 			goto fail;
@@ -601,49 +1043,58 @@ struct dwl_surface *dwl_context_surface_new(struct dwl_context *self,
 		wl_buffer_add_listener(disp_surface->buffers[i],
 				       &surface_buffer_listener, disp_surface);
 
-	disp_surface->surface =
+	disp_surface->wl_surface =
 	    wl_compositor_create_surface(self->ifaces.compositor);
-	if (!disp_surface->surface) {
+	if (!disp_surface->wl_surface) {
 		syslog(LOG_ERR, "failed to make surface");
 		goto fail;
 	}
 
-	wl_surface_add_listener(disp_surface->surface, &surface_listener,
+	wl_surface_add_listener(disp_surface->wl_surface, &surface_listener,
 				disp_surface);
 
-	region = wl_compositor_create_region(self->ifaces.compositor);
+	struct wl_region *region = wl_compositor_create_region(self->ifaces.compositor);
 	if (!region) {
 		syslog(LOG_ERR, "failed to make region");
 		goto fail;
 	}
-	wl_region_add(region, 0, 0, width, height);
-	wl_surface_set_opaque_region(disp_surface->surface, region);
 
-	if (!parent) {
-		disp_surface->xdg = zxdg_shell_v6_get_xdg_surface(
-		    self->ifaces.xdg_shell, disp_surface->surface);
-		if (!disp_surface->xdg) {
+	bool receive_input = (flags & DWL_SURFACE_FLAG_RECEIVE_INPUT);
+	if (receive_input) {
+		wl_region_add(region, 0, 0, width, height);
+	} else {
+		// We have to add an empty region because NULL doesn't work
+		wl_region_add(region, 0, 0, 0, 0);
+	}
+	wl_surface_set_input_region(disp_surface->wl_surface, region);
+	wl_surface_set_opaque_region(disp_surface->wl_surface, region);
+	wl_region_destroy(region);
+
+	if (!parent_id) {
+		disp_surface->xdg_surface = xdg_wm_base_get_xdg_surface(
+		    self->ifaces.xdg_wm_base, disp_surface->wl_surface);
+		if (!disp_surface->xdg_surface) {
 			syslog(LOG_ERR, "failed to make xdg shell surface");
 			goto fail;
 		}
 
-		disp_surface->toplevel =
-		    zxdg_surface_v6_get_toplevel(disp_surface->xdg);
-		if (!disp_surface->toplevel) {
+		disp_surface->xdg_toplevel =
+		    xdg_surface_get_toplevel(disp_surface->xdg_surface);
+		if (!disp_surface->xdg_toplevel) {
 			syslog(LOG_ERR,
 			       "failed to make toplevel xdg shell surface");
 			goto fail;
 		}
-		zxdg_toplevel_v6_set_title(disp_surface->toplevel, "crosvm");
-		zxdg_toplevel_v6_add_listener(disp_surface->toplevel,
+		xdg_toplevel_set_title(disp_surface->xdg_toplevel, "crosvm");
+		xdg_toplevel_add_listener(disp_surface->xdg_toplevel,
 					      &toplevel_listener, disp_surface);
 
-		zxdg_surface_v6_add_listener(disp_surface->xdg,
+		xdg_surface_add_listener(disp_surface->xdg_surface,
 					     &xdg_surface_listener,
 					     NULL);
 		if (self->ifaces.aura) {
 			disp_surface->aura = zaura_shell_get_aura_surface(
-			    self->ifaces.aura, disp_surface->surface);
+			    self->ifaces.aura, disp_surface->wl_surface);
 			if (!disp_surface->aura) {
 				syslog(LOG_ERR, "failed to make aura surface");
 				goto fail;
@@ -654,14 +1105,22 @@ struct dwl_surface *dwl_context_surface_new(struct dwl_context *self,
 		}
 
 		// signal that the surface is ready to be configured
-		wl_surface_commit(disp_surface->surface);
+		wl_surface_commit(disp_surface->wl_surface);
 
 		// wait for the surface to be configured
 		wl_display_roundtrip(self->display);
 	} else {
+		struct dwl_surface *parent_surface =
+			dwl_context_get_surface(self, parent_id);
+
+		if (!parent_surface) {
+			syslog(LOG_ERR, "failed to find parent_surface");
+			goto fail;
+		}
+
 		disp_surface->subsurface = wl_subcompositor_get_subsurface(
-		    self->ifaces.subcompositor, disp_surface->surface,
-		    parent->surface);
+		    self->ifaces.subcompositor, disp_surface->wl_surface,
+		    parent_surface->wl_surface);
 		if (!disp_surface->subsurface) {
 			syslog(LOG_ERR, "failed to make subsurface");
 			goto fail;
@@ -671,17 +1130,26 @@ struct dwl_surface *dwl_context_surface_new(struct dwl_context *self,
 
 	if (self->ifaces.viewporter) {
 		disp_surface->viewport = wp_viewporter_get_viewport(
-		    self->ifaces.viewporter, disp_surface->surface);
+		    self->ifaces.viewporter, disp_surface->wl_surface);
 		if (!disp_surface->viewport) {
 			syslog(LOG_ERR, "failed to make surface viewport");
 			goto fail;
 		}
 	}
 
-	wl_surface_attach(disp_surface->surface, disp_surface->buffers[0], 0,
+	if (self->ifaces.virtio_gpu_metadata) {
+		disp_surface->virtio_gpu_surface_metadata =
+			wp_virtio_gpu_metadata_v1_get_surface_metadata(
+				self->ifaces.virtio_gpu_metadata, disp_surface->wl_surface);
+		if (!disp_surface->virtio_gpu_surface_metadata) {
+			syslog(LOG_ERR, "failed to make surface virtio surface metadata");
+			goto fail;
+		}
+	}
+
+	wl_surface_attach(disp_surface->wl_surface, disp_surface->buffers[0], 0,
 			  0);
-	wl_surface_damage(disp_surface->surface, 0, 0, width, height);
-	wl_region_destroy(region);
+	wl_surface_damage(disp_surface->wl_surface, 0, 0, width, height);
 	wl_shm_pool_destroy(shm_pool);
 
 	// Needed to get outputs before iterating them.
@@ -695,30 +1163,37 @@ struct dwl_surface *dwl_context_surface_new(struct dwl_context *self,
 	outputs_for_each(self, i, output)
 	{
 		if (output->internal) {
-			surface_enter(disp_surface, disp_surface->surface,
+			surface_enter(disp_surface, disp_surface->wl_surface,
 				      output->output);
 		}
 	}
 
-	wl_surface_commit(disp_surface->surface);
+	wl_surface_commit(disp_surface->wl_surface);
 	wl_display_flush(self->display);
+
+	disp_surface->surface_id = surface_id;
+	if (!dwl_context_add_surface(self, disp_surface)) {
+		syslog(LOG_ERR, "failed to add surface to context");
+		goto fail;
+	}
 
 	return disp_surface;
 fail:
+	if (disp_surface->virtio_gpu_surface_metadata)
+		wp_virtio_gpu_surface_metadata_v1_destroy(
+			disp_surface->virtio_gpu_surface_metadata);
 	if (disp_surface->viewport)
 		wp_viewport_destroy(disp_surface->viewport);
 	if (disp_surface->subsurface)
 		wl_subsurface_destroy(disp_surface->subsurface);
-	if (disp_surface->toplevel)
-		zxdg_toplevel_v6_destroy(disp_surface->toplevel);
-	if (disp_surface->xdg)
-		zxdg_surface_v6_destroy(disp_surface->xdg);
+	if (disp_surface->xdg_toplevel)
+		xdg_toplevel_destroy(disp_surface->xdg_toplevel);
+	if (disp_surface->xdg_surface)
+		xdg_surface_destroy(disp_surface->xdg_surface);
 	if (disp_surface->aura)
 		zaura_surface_destroy(disp_surface->aura);
-	if (region)
-		wl_region_destroy(region);
-	if (disp_surface->surface)
-		wl_surface_destroy(disp_surface->surface);
+	if (disp_surface->wl_surface)
+		wl_surface_destroy(disp_surface->wl_surface);
 	for (i = 0; i < buffer_count; i++)
 		if (disp_surface->buffers[i])
 			wl_buffer_destroy(disp_surface->buffers[i]);
@@ -731,18 +1206,23 @@ fail:
 void dwl_surface_destroy(struct dwl_surface **self)
 {
 	size_t i;
+
+	dwl_context_remove_surface((*self)->context, (*self)->surface_id);
+	if ((*self)->virtio_gpu_surface_metadata)
+		wp_virtio_gpu_surface_metadata_v1_destroy(
+			(*self)->virtio_gpu_surface_metadata);
 	if ((*self)->viewport)
 		wp_viewport_destroy((*self)->viewport);
 	if ((*self)->subsurface)
 		wl_subsurface_destroy((*self)->subsurface);
-	if ((*self)->toplevel)
-		zxdg_toplevel_v6_destroy((*self)->toplevel);
-	if ((*self)->xdg)
-		zxdg_surface_v6_destroy((*self)->xdg);
+	if ((*self)->xdg_toplevel)
+		xdg_toplevel_destroy((*self)->xdg_toplevel);
+	if ((*self)->xdg_surface)
+		xdg_surface_destroy((*self)->xdg_surface);
 	if ((*self)->aura)
 		zaura_surface_destroy((*self)->aura);
-	if ((*self)->surface)
-		wl_surface_destroy((*self)->surface);
+	if ((*self)->wl_surface)
+		wl_surface_destroy((*self)->wl_surface);
 	for (i = 0; i < (*self)->buffer_count; i++)
 		wl_buffer_destroy((*self)->buffers[i]);
 	wl_display_flush((*self)->context->display);
@@ -758,7 +1238,7 @@ void dwl_surface_commit(struct dwl_surface *self)
 	// apply back pressure to the guest gpu driver right now. The intention
 	// of this module is to help bootstrap gpu support, so it does not have
 	// to have artifact free rendering.
-	wl_surface_commit(self->surface);
+	wl_surface_commit(self->wl_surface);
 	wl_display_flush(self->context->display);
 }
 
@@ -771,18 +1251,24 @@ void dwl_surface_flip(struct dwl_surface *self, size_t buffer_index)
 {
 	if (buffer_index >= self->buffer_count)
 		return;
-	wl_surface_attach(self->surface, self->buffers[buffer_index], 0, 0);
-	wl_surface_damage(self->surface, 0, 0, self->width, self->height);
+	wl_surface_attach(self->wl_surface, self->buffers[buffer_index], 0, 0);
+	wl_surface_damage(self->wl_surface, 0, 0, self->width, self->height);
 	dwl_surface_commit(self);
 	self->buffer_use_bit_mask |= 1 << buffer_index;
 }
 
-void dwl_surface_flip_to(struct dwl_surface *self, struct dwl_dmabuf *dmabuf)
+void dwl_surface_flip_to(struct dwl_surface *self, uint32_t import_id)
 {
+	// Surface and dmabuf have to exist in same context.
+	struct dwl_dmabuf *dmabuf = dwl_context_get_dmabuf(self->context,
+							   import_id);
+	if (!dmabuf)
+		return;
+
 	if (self->width != dmabuf->width || self->height != dmabuf->height)
 		return;
-	wl_surface_attach(self->surface, dmabuf->buffer, 0, 0);
-	wl_surface_damage(self->surface, 0, 0, self->width, self->height);
+	wl_surface_attach(self->wl_surface, dmabuf->buffer, 0, 0);
+	wl_surface_damage(self->wl_surface, 0, 0, self->width, self->height);
 	dwl_surface_commit(self);
 	dmabuf->in_use = true;
 }
@@ -797,7 +1283,37 @@ void dwl_surface_set_position(struct dwl_surface *self, uint32_t x, uint32_t y)
 	if (self->subsurface) {
 		wl_subsurface_set_position(self->subsurface, x / self->scale,
 					   y / self->scale);
-		wl_surface_commit(self->surface);
+		wl_surface_commit(self->wl_surface);
 		wl_display_flush(self->context->display);
+	}
+}
+
+const void* dwl_surface_descriptor(const struct dwl_surface *self)
+{
+	return self->wl_surface;
+}
+
+bool dwl_context_pending_events(const struct dwl_context *self)
+{
+	if (self->event_write_pos == self->event_read_pos)
+		return false;
+
+	return true;
+}
+
+void dwl_context_next_event(struct dwl_context *self, struct dwl_event *event)
+{
+	memcpy(event, self->event_cbuf + self->event_read_pos,
+	       sizeof(struct dwl_event));
+
+	if (++self->event_read_pos == EVENT_BUF_SIZE)
+		self->event_read_pos = 0;
+}
+
+void dwl_surface_set_scanout_id(struct dwl_surface *self, uint32_t scanout_id)
+{
+	if (self->virtio_gpu_surface_metadata) {
+		wp_virtio_gpu_surface_metadata_v1_set_scanout_id(
+			self->virtio_gpu_surface_metadata, scanout_id);
 	}
 }

@@ -52,9 +52,9 @@ public final class ColorUtils {
         b = b > 0.0031308 ? 1.055 * Math.pow(b, 1 / 2.4) - 0.055 : 12.92 * b;
 
         return Color.rgb(
-                constrain((int) Math.round(r * 255), 0, 255),
-                constrain((int) Math.round(g * 255), 0, 255),
-                constrain((int) Math.round(b * 255), 0, 255));
+                (int) constrain((int) Math.round(r * 255), 0, 255),
+                (int) constrain((int) Math.round(g * 255), 0, 255),
+                (int) constrain((int) Math.round(b * 255), 0, 255));
     }
 
     private static float constrain(float amount, float low, float high) {

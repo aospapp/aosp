@@ -187,6 +187,8 @@ public:
 
     virtual void swapBuffers(Surface* srfc) = 0;
 
+    virtual EGLBoolean releaseThread() { return EGL_TRUE; }
+
     DISALLOW_COPY_AND_ASSIGN(Display);
 };
 

@@ -102,6 +102,9 @@ java_sdk_library {
         "service-permission-shared",
     ],
     jarjar_rules: ":permission-jarjar-rules",
+    lint: {
+        strict_updatability_linting: true,
+    },
     min_sdk_version: "30",
     sdk_version: "system_server_current",
     apex_available: [

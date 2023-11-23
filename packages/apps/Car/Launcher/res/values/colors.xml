@@ -16,6 +16,7 @@
 <resources>
     <color name="date_divider_bar_color">@*android:color/car_grey_500</color>
     <color name="icon_tint">@*android:color/car_tint</color>
+    <color name="media_button_tint">@*android:color/car_tint</color>
     <color name="recent_apps_line_divider_color">@*android:color/car_list_divider</color>
     <color name="card_background_scrim">#000000</color>
     <color name="tap_for_more_text_color">#DADCE0</color>

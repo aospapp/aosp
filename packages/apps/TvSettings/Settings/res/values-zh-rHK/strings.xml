@@ -160,8 +160,8 @@
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"如果應用程式要求，您的裝置會根據您正觀看內容的原來影格速率輸出內容。這可能會令螢幕在退出或開始影片播放時暫時空白一秒。"</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"永不"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"即使應用程式要求，您的裝置也永不會嘗試根據您正觀看內容的原來影格速率輸出內容。"</string>
-    <string name="font_scale_settings_title" msgid="4114019544800225980">"文字比例"</string>
-    <string name="font_scale_item_detail" msgid="1558315053348778805">"縮放比例至 <xliff:g id="SCALE">%1$d</xliff:g>%%"</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"文字縮放比例"</string>
+    <string name="font_scale_item_detail" msgid="1558315053348778805">"縮放至 <xliff:g id="SCALE">%1$d</xliff:g>%%"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"範例文字"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"《綠野仙蹤》"</string>
     <string name="font_scale_preview_text_subtitle" msgid="677394182922188048">"第 11 章：奧茲國的奇妙翡翠城"</string>

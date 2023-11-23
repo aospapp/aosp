@@ -94,6 +94,12 @@ public class CarUnitsManager {
             return null;
         }
 
+        // Checks if the property is read-write property
+        if (configs.get(0).getAccess()
+                != CarPropertyConfig.VEHICLE_PROPERTY_ACCESS_READ_WRITE) {
+            return null;
+        }
+
         availableUnitsId = configs.get(0).getConfigArray();
 
         Unit[] result = new Unit[availableUnitsId.size()];

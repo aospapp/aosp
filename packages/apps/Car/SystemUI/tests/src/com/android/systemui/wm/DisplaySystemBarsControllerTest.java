@@ -35,6 +35,7 @@ import androidx.test.filters.SmallTest;
 import com.android.systemui.SysuiTestCase;
 import com.android.wm.shell.common.DisplayController;
 import com.android.wm.shell.common.DisplayImeController;
+import com.android.wm.shell.common.DisplayInsetsController;
 import com.android.wm.shell.common.TransactionPool;
 
 import org.junit.Before;
@@ -57,6 +58,8 @@ public class DisplaySystemBarsControllerTest extends SysuiTestCase {
     @Mock
     private DisplayController mDisplayController;
     @Mock
+    private DisplayInsetsController mDisplayInsetsController;
+    @Mock
     private Handler mHandler;
     @Mock
     private TransactionPool mTransactionPool;
@@ -69,19 +72,10 @@ public class DisplaySystemBarsControllerTest extends SysuiTestCase {
                 mContext,
                 mIWindowManager,
                 mDisplayController,
+                mDisplayInsetsController,
                 mHandler,
                 mTransactionPool
         );
-    }
-
-    @Test
-    public void onDisplayAdded_setsDisplayWindowInsetsControllerOnWMService()
-            throws RemoteException {
-        mController.onDisplayAdded(DISPLAY_ID);
-
-        verify(mIWindowManager).setDisplayWindowInsetsController(
-                eq(DISPLAY_ID), any(DisplayImeController.PerDisplay.
-                        DisplayWindowInsetsControllerImpl.class));
     }
 
     @Test
@@ -96,16 +90,5 @@ public class DisplaySystemBarsControllerTest extends SysuiTestCase {
         mController.onDisplayAdded(DISPLAY_ID);
 
         assertThat(BarControlPolicy.sSettingValue).isEqualTo(text);
-    }
-
-    @Test
-    public void onDisplayRemoved_unsetsDisplayWindowInsetsControllerInWMService()
-            throws RemoteException {
-        mController.onDisplayAdded(DISPLAY_ID);
-
-        mController.onDisplayRemoved(DISPLAY_ID);
-
-        verify(mIWindowManager).setDisplayWindowInsetsController(
-                DISPLAY_ID, /* displayWindowInsetsController= */ null);
     }
 }

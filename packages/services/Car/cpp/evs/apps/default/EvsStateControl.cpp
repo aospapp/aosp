@@ -119,8 +119,11 @@ bool EvsStateControl::startUpdateLoop() {
 
 
 void EvsStateControl::terminateUpdateLoop() {
-    // Join a rendering thread
-    if (mRenderThread.joinable()) {
+    if (mRenderThread.get_id() == std::this_thread::get_id()) {
+        // We should not join by ourselves
+        mRenderThread.detach();
+    } else if (mRenderThread.joinable()) {
+        // Join a rendering thread
         mRenderThread.join();
     }
 }
@@ -148,6 +151,7 @@ void EvsStateControl::updateLoop() {
     bool run = true;
     while (run) {
         // Process incoming commands
+        sp<IEvsDisplay> displayHandle;
         {
             std::lock_guard <std::mutex> lock(mLock);
             while (!mCommandQueue.empty()) {
@@ -165,6 +169,13 @@ void EvsStateControl::updateLoop() {
                 }
                 mCommandQueue.pop();
             }
+
+            displayHandle = mDisplay.promote();
+        }
+
+        if (!displayHandle) {
+            LOG(ERROR) << "We've lost the display";
+            break;
         }
 
         // Review vehicle state and choose an appropriate renderer
@@ -177,7 +188,7 @@ void EvsStateControl::updateLoop() {
         if (mCurrentRenderer) {
             // Get the output buffer we'll use to display the imagery
             BufferDesc_1_0 tgtBuffer = {};
-            mDisplay->getTargetBuffer([&tgtBuffer](const BufferDesc_1_0& buff) {
+            displayHandle->getTargetBuffer([&tgtBuffer](const BufferDesc_1_0& buff) {
                                           tgtBuffer = buff;
                                       }
             );
@@ -193,7 +204,7 @@ void EvsStateControl::updateLoop() {
                 }
 
                 // Send the finished image back for display
-                mDisplay->returnTargetBufferForDisplay(tgtBuffer);
+                displayHandle->returnTargetBufferForDisplay(tgtBuffer);
 
                 if (!mFirstFrameIsDisplayed) {
                     mFirstFrameIsDisplayed = true;
@@ -361,9 +372,14 @@ bool EvsStateControl::configureEvsPipeline(State desiredState) {
     }
 
     // Now set the display state based on whether we have a video feed to show
+    sp<IEvsDisplay> displayHandle = mDisplay.promote();
+    if (!displayHandle) {
+        return false;
+    }
+
     if (mDesiredRenderer == nullptr) {
         LOG(DEBUG) << "Turning off the display";
-        mDisplay->setDisplayState(EvsDisplayState::NOT_VISIBLE);
+        displayHandle->setDisplayState(EvsDisplayState::NOT_VISIBLE);
     } else {
         mCurrentRenderer = std::move(mDesiredRenderer);
 
@@ -378,7 +394,8 @@ bool EvsStateControl::configureEvsPipeline(State desiredState) {
         // Activate the display
         LOG(DEBUG) << "EvsActivateDisplayTiming start time: "
                    << android::elapsedRealtime() << " ms.";
-        Return<EvsResult> result = mDisplay->setDisplayState(EvsDisplayState::VISIBLE_ON_NEXT_FRAME);
+        Return<EvsResult> result = displayHandle->setDisplayState(
+                EvsDisplayState::VISIBLE_ON_NEXT_FRAME);
         if (result != EvsResult::OK) {
             LOG(ERROR) << "setDisplayState returned an error "
                        << result.description();

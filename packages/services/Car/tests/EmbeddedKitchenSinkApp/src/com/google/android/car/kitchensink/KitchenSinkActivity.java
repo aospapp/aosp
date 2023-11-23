@@ -23,6 +23,7 @@ import android.car.hardware.CarSensorManager;
 import android.car.hardware.hvac.CarHvacManager;
 import android.car.hardware.power.CarPowerManager;
 import android.car.hardware.property.CarPropertyManager;
+import android.car.telemetry.CarTelemetryManager;
 import android.car.watchdog.CarWatchdogManager;
 import android.content.Context;
 import android.content.Intent;
@@ -66,12 +67,14 @@ import com.google.android.car.kitchensink.packageinfo.PackageInfoFragment;
 import com.google.android.car.kitchensink.power.PowerTestFragment;
 import com.google.android.car.kitchensink.projection.ProjectionFragment;
 import com.google.android.car.kitchensink.property.PropertyTestFragment;
+import com.google.android.car.kitchensink.qc.QCViewerFragment;
 import com.google.android.car.kitchensink.rotary.RotaryFragment;
 import com.google.android.car.kitchensink.sensor.SensorsTestFragment;
 import com.google.android.car.kitchensink.storagelifetime.StorageLifetimeFragment;
 import com.google.android.car.kitchensink.storagevolumes.StorageVolumesFragment;
 import com.google.android.car.kitchensink.systembars.SystemBarsFragment;
 import com.google.android.car.kitchensink.systemfeatures.SystemFeaturesFragment;
+import com.google.android.car.kitchensink.telemetry.CarTelemetryTestFragment;
 import com.google.android.car.kitchensink.touch.TouchTestFragment;
 import com.google.android.car.kitchensink.users.ProfileUserFragment;
 import com.google.android.car.kitchensink.users.UserFragment;
@@ -199,12 +202,14 @@ public class KitchenSinkActivity extends FragmentActivity {
             new FragmentMenuEntry("profile_user", ProfileUserFragment.class),
             new FragmentMenuEntry("projection", ProjectionFragment.class),
             new FragmentMenuEntry("property test", PropertyTestFragment.class),
+            new FragmentMenuEntry("qc viewer", QCViewerFragment.class),
             new FragmentMenuEntry("rotary", RotaryFragment.class),
             new FragmentMenuEntry("sensors", SensorsTestFragment.class),
             new FragmentMenuEntry("storage lifetime", StorageLifetimeFragment.class),
             new FragmentMenuEntry("storage volumes", StorageVolumesFragment.class),
             new FragmentMenuEntry("system bars", SystemBarsFragment.class),
             new FragmentMenuEntry("system features", SystemFeaturesFragment.class),
+            new FragmentMenuEntry("telemetry", CarTelemetryTestFragment.class),
             new FragmentMenuEntry("touch test", TouchTestFragment.class),
             new FragmentMenuEntry("users", UserFragment.class),
             new FragmentMenuEntry("user restrictions", UserRestrictionsFragment.class),
@@ -223,6 +228,7 @@ public class KitchenSinkActivity extends FragmentActivity {
     private CarSensorManager mSensorManager;
     private CarAppFocusManager mCarAppFocusManager;
     private CarProjectionManager mCarProjectionManager;
+    private CarTelemetryManager mCarTelemetryManager;
     private CarWatchdogManager mCarWatchdogManager;
     private Object mPropertyManagerReady = new Object();
 
@@ -248,6 +254,10 @@ public class KitchenSinkActivity extends FragmentActivity {
 
     public CarProjectionManager getProjectionManager() {
         return mCarProjectionManager;
+    }
+
+    public CarTelemetryManager getCarTelemetryManager() {
+        return mCarTelemetryManager;
     }
 
     public CarWatchdogManager getCarWatchdogManager() {
@@ -411,6 +421,8 @@ public class KitchenSinkActivity extends FragmentActivity {
                     (CarAppFocusManager) car.getCarManager(Car.APP_FOCUS_SERVICE);
             mCarProjectionManager =
                     (CarProjectionManager) car.getCarManager(Car.PROJECTION_SERVICE);
+            mCarTelemetryManager =
+                    (CarTelemetryManager) car.getCarManager(Car.CAR_TELEMETRY_SERVICE);
             mCarWatchdogManager =
                     (CarWatchdogManager) car.getCarManager(Car.CAR_WATCHDOG_SERVICE);
             mPropertyManagerReady.notifyAll();

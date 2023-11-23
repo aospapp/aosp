@@ -61,5 +61,6 @@ abstract class TransitionMonitor(
 
     companion object {
         private val TRACE_DIR = Paths.get("/data/misc/wmtrace/")
+        internal const val WINSCOPE_EXT = ".winscope"
     }
 }

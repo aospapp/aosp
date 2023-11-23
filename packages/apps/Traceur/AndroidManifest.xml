@@ -111,6 +111,11 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
                 <action android:name="com.android.internal.intent.action.BUGREPORT_STARTED"/>
             </intent-filter>
+          </receiver>
+
+        <receiver android:name=".InternalReceiver"
+            androidprv:systemUserOnly="true"
+            android:exported="false">
         </receiver>
 
         <service android:name=".StopTraceService"

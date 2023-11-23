@@ -69,12 +69,10 @@ DocumentLogCreator::Create(const Filesystem* filesystem,
                            const std::string& base_dir) {
   bool v0_exists =
       filesystem->FileExists(MakeDocumentLogFilenameV0(base_dir).c_str());
-  bool regen_derived_files = false;
-
-#ifdef ENABLE_V1_MIGRATION
   bool v1_exists =
       filesystem->FileExists(MakeDocumentLogFilenameV1(base_dir).c_str());
 
+  bool regen_derived_files = false;
   if (v0_exists && !v1_exists) {
     ICING_RETURN_IF_ERROR(MigrateFromV0ToV1(filesystem, base_dir));
 
@@ -88,14 +86,6 @@ DocumentLogCreator::Create(const Filesystem* filesystem,
     // existing derived files.
     regen_derived_files = true;
   }
-#else  // !ENABLE_V1_MIGRATION
-  if (v0_exists) {
-    // If migration from v0 to v1 is not enabled, then simply delete the v0 file
-    // and treat this as if it's our first time initializing a v1 log.
-    regen_derived_files = true;
-    filesystem->DeleteFile(MakeDocumentLogFilenameV0(base_dir).c_str());
-  }
-#endif  // ENABLED_V1_MIGRATION
 
   ICING_ASSIGN_OR_RETURN(
       PortableFileBackedProtoLog<DocumentWrapper>::CreateResult

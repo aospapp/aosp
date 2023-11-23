@@ -89,7 +89,8 @@ public class TtsPlaybackPreferenceController extends
     /** True if initialized with no errors. */
     private boolean mTtsInitialized = false;
 
-    private final TextToSpeech.OnInitListener mOnInitListener = status -> {
+    @VisibleForTesting
+    final TextToSpeech.OnInitListener mOnInitListener = status -> {
         if (status == TextToSpeech.SUCCESS) {
             mTtsInitialized = true;
             mTtsPlaybackManager = new TtsPlaybackSettingsManager(getContext(), mTts,
@@ -108,8 +109,15 @@ public class TtsPlaybackPreferenceController extends
 
     public TtsPlaybackPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions, new TtsEngines(context));
+    }
+
+    @VisibleForTesting
+    TtsPlaybackPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            TtsEngines enginesHelper) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mEnginesHelper = new TtsEngines(context);
+        mEnginesHelper = enginesHelper;
     }
 
     @Override
@@ -129,7 +137,7 @@ public class TtsPlaybackPreferenceController extends
         mBackgroundHandlerThread.start();
         mBackgroundHandler = new Handler(mBackgroundHandlerThread.getLooper());
 
-        mTts = new TextToSpeech(getContext(), mOnInitListener);
+        mTts = createTts();
     }
 
     @Override
@@ -336,6 +344,11 @@ public class TtsPlaybackPreferenceController extends
         if (mSampleText == null) {
             startGetSampleText();
         }
+    }
+
+    @VisibleForTesting
+    TextToSpeech createTts() {
+        return new TextToSpeech(getContext(), mOnInitListener);
     }
 
     @VisibleForTesting

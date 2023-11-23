@@ -16,17 +16,18 @@
 
 package android.sensorprivacy.cts
 
-import android.app.KeyguardManager
 import android.app.AppOpsManager
+import android.app.KeyguardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.SensorPrivacyManager
 import android.hardware.SensorPrivacyManager.OnSensorPrivacyChangedListener
-import android.os.PowerManager
-import android.platform.test.annotations.AppModeFull
 import android.hardware.SensorPrivacyManager.Sensors.CAMERA
 import android.hardware.SensorPrivacyManager.Sensors.MICROPHONE
 import android.hardware.SensorPrivacyManager.Sources.OTHER
+import android.os.PowerManager
+import android.platform.test.annotations.AppModeFull
+import android.platform.test.annotations.AsbSecurityTest
 import android.support.test.uiautomator.By
 import android.view.KeyEvent
 import androidx.test.platform.app.InstrumentationRegistry
@@ -57,6 +58,8 @@ abstract class SensorPrivacyBaseTest(
     companion object {
         const val MIC_CAM_ACTIVITY_ACTION =
                 "android.sensorprivacy.cts.usemiccamera.action.USE_MIC_CAM"
+        const val MIC_CAM_OVERLAY_ACTIVITY_ACTION =
+                "android.sensorprivacy.cts.usemiccamera.overlay.action.USE_MIC_CAM"
         const val FINISH_MIC_CAM_ACTIVITY_ACTION =
                 "android.sensorprivacy.cts.usemiccamera.action.FINISH_USE_MIC_CAM"
         const val USE_MIC_EXTRA =
@@ -67,6 +70,8 @@ abstract class SensorPrivacyBaseTest(
                 "android.sensorprivacy.cts.usemiccamera.extra.DELAYED_ACTIVITY"
         const val DELAYED_ACTIVITY_NEW_TASK_EXTRA =
                 "android.sensorprivacy.cts.usemiccamera.extra.DELAYED_ACTIVITY_NEW_TASK"
+        const val RETRY_CAM_EXTRA =
+                "android.sensorprivacy.cts.usemiccamera.extra.RETRY_CAM_EXTRA"
         const val PKG_NAME = "android.sensorprivacy.cts.usemiccamera"
         const val RECORDING_FILE_NAME = "${PKG_NAME}_record.mp4"
         const val ACTIVITY_TITLE_SNIP = "CtsUseMic"
@@ -84,7 +89,7 @@ abstract class SensorPrivacyBaseTest(
     var oldState: Boolean = false
 
     @Before
-    fun init() {
+    open fun init() {
         oldState = isSensorPrivacyEnabled()
         setSensor(false)
         Assume.assumeTrue(spm.supportsSensorToggle(sensor))
@@ -187,6 +192,9 @@ abstract class SensorPrivacyBaseTest(
     @Test
     @AppModeFull(reason = "Instant apps can't manage keyguard")
     fun testCantChangeWhenLocked() {
+        Assume.assumeTrue(packageManager
+                .hasSystemFeature(PackageManager.FEATURE_SECURE_LOCK_SCREEN))
+
         setSensor(false)
         assertFalse(isSensorPrivacyEnabled())
         runWhileLocked {
@@ -205,8 +213,12 @@ abstract class SensorPrivacyBaseTest(
     }
 
     fun unblockSensorWithDialogAndAssert() {
-        UiAutomatorUtils.waitFindObject(By.text(
-                Pattern.compile("Unblock", Pattern.CASE_INSENSITIVE))).click()
+        val buttonResId = if (packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+            "com.android.systemui:id/bottom_sheet_positive_button"
+        } else {
+            "android:id/button1"
+        }
+        UiAutomatorUtils.waitFindObject(By.res(buttonResId)).click()
         eventually {
             assertFalse(isSensorPrivacyEnabled())
         }
@@ -234,7 +246,9 @@ abstract class SensorPrivacyBaseTest(
     @AppModeFull(reason = "Uses secondary app, instant apps have no visibility")
     fun testOpStartsRunningAfterStartedWithSensoryPrivacyEnabled() {
         setSensor(true)
-        startTestApp()
+        // Retry camera connection because external cameras are disconnected
+        // if sensor privacy is enabled (b/182204067)
+        startTestApp(true)
         UiAutomatorUtils.waitFindObject(By.text(
                 Pattern.compile("Cancel", Pattern.CASE_INSENSITIVE))).click()
         assertOpRunning(false)
@@ -248,7 +262,9 @@ abstract class SensorPrivacyBaseTest(
     @AppModeFull(reason = "Uses secondary app, instant apps have no visibility")
     fun testOpGetsRecordedAfterStartedWithSensorPrivacyEnabled() {
         setSensor(true)
-        startTestApp()
+        // Retry camera connection because external cameras are disconnected
+        // if sensor privacy is enabled (b/182204067)
+        startTestApp(true)
         UiAutomatorUtils.waitFindObject(By.text(
                 Pattern.compile("Cancel", Pattern.CASE_INSENSITIVE))).click()
         val before = System.currentTimeMillis()
@@ -314,13 +330,40 @@ abstract class SensorPrivacyBaseTest(
         assertOpRunning(false)
     }
 
+    @Test
+    @AsbSecurityTest(cveBugId = [199550934])
+    fun testTapjacking() {
+        setSensor(true)
+        startTestOverlayApp(false)
+        val view = UiAutomatorUtils.waitFindObjectOrNull(By.text("This Should Be Hidden"), 10_000)
+        assertNull("Overlay should not have shown.", view)
+    }
+
     private fun startTestApp() {
+        startTestApp(false)
+    }
+
+    private fun startTestApp(retryCameraOnError: Boolean) {
         val intent = Intent(MIC_CAM_ACTIVITY_ACTION)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .addFlags(Intent.FLAG_ACTIVITY_MATCH_EXTERNAL)
         for (extra in extras) {
             intent.putExtra(extra, true)
         }
+        intent.putExtra(RETRY_CAM_EXTRA, retryCameraOnError)
+        context.startActivity(intent)
+        // Wait for app to open
+        UiAutomatorUtils.waitFindObject(By.textContains(ACTIVITY_TITLE_SNIP))
+    }
+
+    private fun startTestOverlayApp(retryCameraOnError: Boolean) {
+        val intent = Intent(MIC_CAM_OVERLAY_ACTIVITY_ACTION)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .addFlags(Intent.FLAG_ACTIVITY_MATCH_EXTERNAL)
+        for (extra in extras) {
+            intent.putExtra(extra, true)
+        }
+        intent.putExtra(RETRY_CAM_EXTRA, retryCameraOnError)
         context.startActivity(intent)
         // Wait for app to open
         UiAutomatorUtils.waitFindObject(By.textContains(ACTIVITY_TITLE_SNIP))

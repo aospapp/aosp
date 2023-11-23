@@ -66,6 +66,7 @@
 #define WIFI_HAL_CMD_SOCK_PORT       644
 #define WIFI_HAL_EVENT_SOCK_PORT     645
 #define MAX_VIRTUAL_IFACES           5
+#define WIFI_HAL_EVENT_BUFFER_NOT_AVAILABLE 105
 
 /*
  * Defines for wifi_wait_for_driver_ready()
@@ -747,6 +748,10 @@ void wifi_event_loop(wifi_handle handle)
             ssize_t result2 = TEMP_FAILURE_RETRY(read(pfd[0].fd, buf, sizeof(buf)));
             ALOGE("Read after POLL returned %zd, error no = %d (%s)", result2,
                   errno, strerror(errno));
+            if (errno == WIFI_HAL_EVENT_BUFFER_NOT_AVAILABLE) {
+                ALOGE("Exit, No buffer space");
+                break;
+            }
         } else if (pfd[0].revents & POLLHUP) {
             ALOGE("Remote side hung up");
             break;
@@ -1038,7 +1043,36 @@ public:
         : WifiCommand("SetRSSIMonitorCommand", handle, id), mMax_rssi(max_rssi), mMin_rssi
         (min_rssi), mHandler(eh)
         {
+            ALOGI("SetRSSIMonitorCommand %p created", this);
         }
+
+   virtual ~SetRSSIMonitorCommand() {
+        /*
+         * Mostly, this call will be no effect. However, this could be valid
+         * when object destroy without calling unregisterVendorHandler().
+         * This is added to protect hal crash due to use-after-free.
+         */
+        ALOGI("Try to remove event handler if exist, vendor 0x%0x, subcmd 0x%x",
+            GOOGLE_OUI, GOOGLE_RSSI_MONITOR_EVENT);
+        unregisterVendorHandlerWithoutLock(GOOGLE_OUI, GOOGLE_RSSI_MONITOR_EVENT);
+        ALOGI("SetRSSIMonitorCommand %p destroyed", this);
+   }
+
+   virtual void addRef() {
+        int refs = __sync_add_and_fetch(&mRefs, 1);
+        ALOGI("addRef: WifiCommand %p has %d references", this, refs);
+   }
+
+   virtual void releaseRef() {
+        int refs = __sync_sub_and_fetch(&mRefs, 1);
+        if (refs == 0) {
+            ALOGI("releaseRef: WifiCommand %p has deleted", this);
+            delete this;
+        } else {
+            ALOGI("releaseRef: WifiCommand %p has %d references", this, refs);
+        }
+   }
+
    int createRequest(WifiRequest& request, int enable) {
         int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_SET_RSSI_MONITOR);
         if (result < 0) {
@@ -1754,11 +1788,13 @@ static wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_
     NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
     wifi_error result = wifi_register_cmd(handle, id, cmd);
     if (result != WIFI_SUCCESS) {
+        ALOGI("wifi_register_cmd() is failed %d", id);
         cmd->releaseRef();
         return result;
     }
     result = (wifi_error)cmd->start();
     if (result != WIFI_SUCCESS) {
+        ALOGI("start() is failed %d", id);
         wifi_unregister_cmd(handle, id);
         cmd->releaseRef();
         return result;

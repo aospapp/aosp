@@ -765,6 +765,7 @@ int decode_map(codebook *s, oggpack_buffer *b, ogg_int32_t *v, int point);
 static int decode_map(codebook *s, oggpack_buffer *b, ogg_int32_t *v, int point){
   ogg_uint32_t entry = decode_packed_entry_number(s,b);
   int i;
+  if(entry==UINT_MAX)return -1;
   if(oggpack_eop(b))return(-1);
 
   /* 1 used by test file 0 */
@@ -848,6 +849,7 @@ static int decode_map(codebook *s, oggpack_buffer *b, ogg_int32_t *v, int point)
 #endif
 
 /* returns 0 on OK or -1 on eof *************************************/
+/* decode vector / dim granularity gaurding is done in the upper layer */
 long vorbis_book_decodevs_add(codebook *book,ogg_int32_t *a,
                               oggpack_buffer *b,int n,int point){
   if(book->used_entries>0){
@@ -865,6 +867,7 @@ long vorbis_book_decodevs_add(codebook *book,ogg_int32_t *a,
   return 0;
 }
 
+/* decode vector / dim granularity gaurding is done in the upper layer */
 long vorbis_book_decodev_add(codebook *book,ogg_int32_t *a,
                              oggpack_buffer *b,int n,int point){
   if(book->used_entries>0){
@@ -884,6 +887,9 @@ long vorbis_book_decodev_add(codebook *book,ogg_int32_t *a,
   return 0;
 }
 
+/* unlike the others, we guard against n not being an integer number
+   of <dim> internally rather than in the upper layer (called only by
+   floor0) */
 long vorbis_book_decodev_set(codebook *book,ogg_int32_t *a,
                              oggpack_buffer *b,int n,int point){
   if(book->used_entries>0){

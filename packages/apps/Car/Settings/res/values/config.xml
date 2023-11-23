@@ -134,4 +134,10 @@
     <string name="config_settingsintelligence_package_name" translatable="false">
         com.android.settings.intelligence
     </string>
+
+    <!--
+        Maximum number of devices to show for paired bluetooth device quick control.
+        Set to -1 for unlimited.
+     -->
+    <integer name="config_qc_bluetooth_device_limit">3</integer>
 </resources>

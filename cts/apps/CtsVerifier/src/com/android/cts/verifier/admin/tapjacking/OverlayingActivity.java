@@ -21,8 +21,9 @@ import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
 
+import static com.android.cts.verifier.features.FeatureUtil.isWatchOrAutomotive;
+
 import android.app.Activity;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.view.WindowManager;
 
@@ -31,7 +32,7 @@ import com.android.cts.verifier.R;
 
 public class OverlayingActivity extends Activity {
 
-    private static final long ACTIVITY_TIMEOUT_ON_WATCH = 10_000;
+    private static final long ACTIVITY_TIMEOUT = 10_000;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,9 +41,11 @@ public class OverlayingActivity extends Activity {
         WindowManager.LayoutParams params = getWindow().getAttributes();
         params.flags = FLAG_LAYOUT_NO_LIMITS | FLAG_NOT_TOUCH_MODAL | FLAG_NOT_TOUCHABLE
                 | FLAG_KEEP_SCREEN_ON;
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+
+        if (isWatchOrAutomotive(this)) {
+            // Automatically finish the overlaying activity after a timeout.
             getWindow().getDecorView().postDelayed(() -> OverlayingActivity.this.finish(),
-                    ACTIVITY_TIMEOUT_ON_WATCH);
+                    ACTIVITY_TIMEOUT);
         }
     }
 }

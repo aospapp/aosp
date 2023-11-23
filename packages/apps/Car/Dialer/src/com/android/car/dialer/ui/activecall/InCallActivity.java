@@ -28,12 +28,14 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModelProvider;
 
-import com.android.car.arch.common.LiveDataFunctions;
+import com.android.car.apps.common.util.LiveDataFunctions;
 import com.android.car.dialer.Constants;
 import com.android.car.dialer.R;
 import com.android.car.dialer.log.L;
 import com.android.car.dialer.notification.InCallNotificationController;
 import com.android.car.telephony.common.CallDetail;
+import com.android.car.ui.core.CarUi;
+import com.android.car.ui.toolbar.ToolbarController;
 
 import javax.inject.Inject;
 
@@ -44,7 +46,8 @@ import dagger.hilt.android.AndroidEntryPoint;
 public class InCallActivity extends Hilt_InCallActivity {
     private static final String TAG = "CD.InCallActivity";
 
-    @Inject InCallNotificationController mInCallNotificationController;
+    @Inject
+    InCallNotificationController mInCallNotificationController;
     private Fragment mOngoingCallFragment;
     private Fragment mOngoingConfCallFragment;
     private Fragment mIncomingCallFragment;
@@ -59,6 +62,13 @@ public class InCallActivity extends Hilt_InCallActivity {
         L.d(TAG, "onCreate");
 
         setContentView(R.layout.in_call_activity);
+
+        // Depending on the InCallActivity theme it can choose to show the toolbar.
+        ToolbarController toolbar = CarUi.getToolbar(this);
+        if (toolbar != null) {
+            toolbar.setTitle(getString(R.string.phone_app_name));
+            toolbar.setLogo(getDrawable(R.drawable.ic_app_icon));
+        }
 
         mOngoingCallFragment = getSupportFragmentManager().findFragmentById(
                 R.id.ongoing_call_fragment);
@@ -135,8 +145,10 @@ public class InCallActivity extends Hilt_InCallActivity {
         if (intent != null) {
             mShowIncomingCall.setValue(
                     getIntent().getBooleanExtra(Constants.Intents.EXTRA_SHOW_INCOMING_CALL, false));
-            mInCallViewModel.getDialpadOpenState().setValue(
-                    getIntent().getBooleanExtra(Constants.Intents.EXTRA_SHOW_DIALPAD, false));
+            boolean alwaysShowDialpad = getResources().getBoolean(
+                    R.bool.config_always_show_incall_dialpad);
+            mInCallViewModel.getDialpadOpenState().setValue(alwaysShowDialpad ? true
+                    : getIntent().getBooleanExtra(Constants.Intents.EXTRA_SHOW_DIALPAD, false));
         } else {
             mShowIncomingCall.setValue(false);
         }

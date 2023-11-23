@@ -10,6 +10,9 @@
     <!-- This is the label for a toggle button. When the toggle is enabled, we will begin recording a "Trace" of activity on the user's phone. This is also used as a Quick Settings tile label. -->
     <string name="record_trace">Record trace</string>
 
+    <!-- This is the label for the button to start a new trace from a notification. -->
+    <string name="start_new_trace">Start new trace</string>
+
     <!-- This is the label for a toggle that will let the user choose whether to trace debuggable applications in the trace they are collecting. -->
     <string name="trace_debuggable_applications">Trace debuggable applications</string>
 

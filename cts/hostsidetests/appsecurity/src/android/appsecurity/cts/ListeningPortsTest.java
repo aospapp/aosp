@@ -232,7 +232,8 @@ public class ListeningPortsTest extends DeviceTestCase implements IBuildReceiver
      */
     private String parse(String procFilePath) throws IOException, DeviceNotAvailableException {
         File procFile = File.createTempFile("ListeningPortsTest", "tmp");
-        getDevice().pullFile(procFilePath, procFile);
+        boolean result = getDevice().pullFile(procFilePath, procFile);
+        assertTrue("failed to pull " + procFilePath, result);
         procFile.deleteOnExit();
 
         Scanner scanner = null;

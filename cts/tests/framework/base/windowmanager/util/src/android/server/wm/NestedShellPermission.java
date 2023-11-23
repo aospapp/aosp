@@ -18,7 +18,10 @@ package android.server.wm;
 
 import android.app.UiAutomation;
 
+import androidx.annotation.Nullable;
 import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.SystemUtil;
 
 /**
  * Helper to run code that might end up with nested permission requirements (eg. TaskOrganizer).
@@ -38,16 +41,21 @@ public class NestedShellPermission {
     }
 
     /**
-     * Similar to SystemUtil.runWithShellPermissionIdentity except it supports nesting. Use this
-     * with anything that interacts with TestTaskOrganizer since async operations are common.
+     * Similar to {@link SystemUtil#runWithShellPermissionIdentity} except it supports nesting. Use
+     * this with anything that interacts with TestTaskOrganizer since async operations are common.
      */
     public static void run(Runnable action) {
+        run(action, null /* permissions */);
+    }
+
+    /** Similar to {@link #run(Runnable)}, but allow to specify {@code permissions} to hold. */
+    public static void run(Runnable action, @Nullable String... permissions) {
         final NestedShellPermission self = getInstance();
         final UiAutomation automan =
                 InstrumentationRegistry.getInstrumentation().getUiAutomation();
         synchronized (self) {
             if (0 == self.mPermissionDepth++) {
-                automan.adoptShellPermissionIdentity();
+                automan.adoptShellPermissionIdentity(permissions);
             }
         }
         try {

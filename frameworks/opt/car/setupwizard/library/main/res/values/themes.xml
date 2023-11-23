@@ -23,7 +23,13 @@
         <item name="android:colorControlNormal">?android:attr/colorAccent</item>
         <item name="android:colorControlActivated">?android:attr/colorAccent</item>
         <item name="android:buttonStyle">@style/Widget.Car.SetupWizard.Button</item>
-        <item name="android:borderlessButtonStyle">@style/Widget.Car.SetupWizard.Button.Borderless.Colored</item>
+        <item name="buttonStyle">@style/Widget.Car.SetupWizard.Button</item>
+        <item name="materialButtonStyle">@style/Widget.Car.SetupWizard.Button</item>
+        <item name="android:borderlessButtonStyle">
+            @style/Widget.Car.SetupWizard.Button.Borderless.Colored
+        </item>
+        <item name="borderlessButtonStyle">@style/Widget.Car.SetupWizard.Button.Borderless.Colored
+        </item>
     </style>
 
     <style name="Theme.Car.SetupWizard.NoActionBar.Accent" parent="Theme.Car.SetupWizard.NoActionBar">

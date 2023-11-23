@@ -18,6 +18,7 @@ package com.android.car.settings.common.rotary;
 
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.NumberPicker;
 
 /** A rotation handler for {@link NumberPicker} instances. */
@@ -28,7 +29,15 @@ public class NumberPickerRotationHandler implements View.OnGenericMotionListener
         if (focusedView instanceof NumberPicker) {
             NumberPicker numberPicker = (NumberPicker) focusedView;
             float scroll = event.getAxisValue(MotionEvent.AXIS_SCROLL);
-            numberPicker.setValue(numberPicker.getValue() + Math.round(scroll));
+            // NumberPicker#setValue(int) doesn't notify change listener, so perform an
+            // accessibility action instead.
+            int scrollValue = Math.round(scroll);
+            int scrollDirection = scrollValue > 0 ? AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                    : AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD;
+            for (int i = 0; i < Math.abs(scrollValue); i++) {
+                numberPicker.getAccessibilityNodeProvider().performAction(View.NO_ID,
+                        scrollDirection, /* arguments= */ null);
+            }
             return true;
         }
         return false;

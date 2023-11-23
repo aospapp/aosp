@@ -16,16 +16,17 @@
 
 package com.android.car.ui.toolbar;
 
+import static com.android.car.ui.core.CarUi.TARGET_API_R;
 import static com.android.car.ui.utils.CarUiUtils.charSequenceToString;
 import static com.android.car.ui.utils.CarUiUtils.convertList;
 
 import static java.util.stream.Collectors.toList;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.View;
 
 import androidx.annotation.DrawableRes;
@@ -34,9 +35,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
+import com.android.car.ui.CarUiText;
 import com.android.car.ui.imewidescreen.CarUiImeSearchListItem;
-import com.android.car.ui.sharedlibrary.oemapis.toolbar.ImeSearchInterfaceOEMV1;
-import com.android.car.ui.sharedlibrary.oemapis.toolbar.ToolbarControllerOEMV1;
+import com.android.car.ui.plugin.oemapis.toolbar.ImeSearchInterfaceOEMV1;
+import com.android.car.ui.plugin.oemapis.toolbar.MenuItemOEMV1;
+import com.android.car.ui.plugin.oemapis.toolbar.ToolbarControllerOEMV1;
 import com.android.car.ui.toolbar.Toolbar.OnBackListener;
 import com.android.car.ui.toolbar.Toolbar.OnSearchCompletedListener;
 import com.android.car.ui.toolbar.Toolbar.OnSearchListener;
@@ -52,16 +55,15 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
- * Adapts a {@link com.android.car.ui.sharedlibrary.oemapis.toolbar.ToolbarControllerOEMV1}
- * into a {@link ToolbarController}
+ * Adapts a {@link com.android.car.ui.plugin.oemapis.toolbar.ToolbarControllerOEMV1} into a
+ * {@link ToolbarController}
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(TARGET_API_R)
 public final class ToolbarControllerAdapterV1 implements ToolbarController {
-
-    private static final String TAG = ToolbarControllerAdapterV1.class.getName();
-
     private final ToolbarControllerOEMV1 mOemToolbar;
     private final Context mContext;
 
@@ -81,6 +83,7 @@ public final class ToolbarControllerAdapterV1 implements ToolbarController {
     private final List<DeprecatedTabWrapper> mDeprecatedTabs = new ArrayList<>();
     private final SearchWidescreenController mSearchWidescreenController;
     private final boolean mSupportsImeSearch;
+    private boolean mBackgroundShown = true;
 
     public ToolbarControllerAdapterV1(
             @NonNull Context context,
@@ -142,6 +145,11 @@ public final class ToolbarControllerAdapterV1 implements ToolbarController {
     }
 
     @Override
+    public void setTitle(CarUiText title) {
+        update(mAdapterState.copy().setTitle(charSequenceToString(title.toString())).build());
+    }
+
+    @Override
     public CharSequence getTitle() {
         return mAdapterState.getTitle();
     }
@@ -154,6 +162,12 @@ public final class ToolbarControllerAdapterV1 implements ToolbarController {
     @Override
     public void setSubtitle(CharSequence subtitle) {
         update(mAdapterState.copy().setSubtitle(charSequenceToString(subtitle)).build());
+    }
+
+    @Override
+    public void setSubtitle(CarUiText subtitle) {
+        update(mAdapterState.copy().setSubtitle(
+                charSequenceToString(subtitle.getPreferredText())).build());
     }
 
     @Override
@@ -170,7 +184,7 @@ public final class ToolbarControllerAdapterV1 implements ToolbarController {
     public void setTabs(@Nullable List<Tab> tabs, int selectedTab) {
         mDeprecatedTabs.clear();
         if (tabs == null || tabs.isEmpty()) {
-            selectedTab = 0;
+            selectedTab = -1;
         } else if (selectedTab < 0 || selectedTab >= tabs.size()) {
             throw new IllegalArgumentException("Tab position is invalid: " + selectedTab);
         }
@@ -304,6 +318,11 @@ public final class ToolbarControllerAdapterV1 implements ToolbarController {
     }
 
     @Override
+    public SearchMode getSearchMode() {
+        return mAdapterState.getSearchMode();
+    }
+
+    @Override
     public void setNavButtonMode(Toolbar.NavButtonMode style) {
         switch (style) {
             case BACK:
@@ -328,36 +347,26 @@ public final class ToolbarControllerAdapterV1 implements ToolbarController {
     }
 
     @Override
-    public Toolbar.NavButtonMode getNavButtonMode() {
-        NavButtonMode mode = mAdapterState.getNavButtonMode();
-        switch (mode) {
-            case BACK:
-                return Toolbar.NavButtonMode.BACK;
-            case DOWN:
-                return Toolbar.NavButtonMode.DOWN;
-            case CLOSE:
-                return Toolbar.NavButtonMode.CLOSE;
-            case DISABLED:
-            default:
-                return Toolbar.NavButtonMode.DISABLED;
-        }
+    public NavButtonMode getNavButtonMode() {
+        return mAdapterState.getNavButtonMode();
     }
 
     @Override
     public void setBackgroundShown(boolean shown) {
-        Log.w(TAG, "Unsupported operation setBackgroundShown() called, ignoring");
+        mBackgroundShown = shown;
+        mOemToolbar.setBackgroundShown(shown);
     }
 
     @Override
     public boolean getBackgroundShown() {
-        return true;
+        return mBackgroundShown;
     }
 
     @Override
     public void setMenuItems(@Nullable List<MenuItem> items) {
         mClientMenuItems = items;
         update(mAdapterState.copy()
-                .setMenuItems(convertList(items, MenuItemAdapterV1::new))
+                .setMenuItems(convertList(items, item -> new MenuItemAdapterV1(this, item)))
                 .build());
     }
 
@@ -419,13 +428,13 @@ public final class ToolbarControllerAdapterV1 implements ToolbarController {
 
     /**
      * This method takes a new {@link ToolbarAdapterState} and compares it to the current
-     * {@link #mAdapterState}. It then sends any differences it detects to the shared library
-     * toolbar.
-     *
-     * This is also the core of the logic that adapts from the client's toolbar interface to
-     * the OEM apis toolbar interface. For example, when you are in the HOME state and add tabs,
-     * it will call setTitle(null) on the shared library toolbar. This is because the client
-     * interface
+     * {@link ToolbarAdapterState}. It then sends any differences it detects to the plugin toolbar.
+     * <p>
+     * This is also the core of the logic that adapts from the client's toolbar interface to the OEM
+     * apis toolbar interface. For example, when you are in the HOME state and add tabs, it will
+     * call setTitle(null) on the plugin toolbar. This is because the plugin interface doesn't have
+     * a setState(), and the title is expected to not be present when there are tabs and a HOME
+     * state.
      */
     private void update(ToolbarAdapterState newAdapterState) {
         ToolbarAdapterState oldAdapterState = mAdapterState;
@@ -476,16 +485,16 @@ public final class ToolbarControllerAdapterV1 implements ToolbarController {
         boolean losingTabs = !newAdapterState.hasTabs() && oldAdapterState.hasTabs();
         if (gainingTabs) {
             mOemToolbar.setTabs(newAdapterState.getTabs()
-                    .stream()
-                    .map(TabAdapterV1::getSharedLibraryTab)
-                    .collect(toList()),
+                            .stream()
+                            .map(TabAdapterV1::getPluginTab)
+                            .collect(toList()),
                     newAdapterState.getSelectedTab());
         } else if (losingTabs) {
             mOemToolbar.setTabs(Collections.emptyList(), -1);
         } else if (newAdapterState.hasTabs() && newAdapterState.getTabsDirty()) {
             mOemToolbar.setTabs(newAdapterState.getTabs()
                             .stream()
-                            .map(TabAdapterV1::getSharedLibraryTab)
+                            .map(TabAdapterV1::getPluginTab)
                             .collect(toList()),
                     newAdapterState.getSelectedTab());
         } else if (newAdapterState.hasTabs()
@@ -497,6 +506,13 @@ public final class ToolbarControllerAdapterV1 implements ToolbarController {
                 newAdapterState.getShownMenuItems(), oldAdapterState.getShownMenuItems())) {
             mOemToolbar.setMenuItems(newAdapterState.getShownMenuItems());
         }
+    }
+
+    /**
+     * Called by {@link MenuItemAdapterV1} whenever a MenuItem changes.
+     */
+    public void updateMenuItems() {
+        mOemToolbar.setMenuItems(mAdapterState.getShownMenuItems());
     }
 
     @Override
@@ -768,17 +784,24 @@ public final class ToolbarControllerAdapterV1 implements ToolbarController {
                     && !getTabs().isEmpty();
         }
 
-        private List<MenuItemAdapterV1> getShownMenuItems() {
+        private List<MenuItemOEMV1> getShownMenuItems() {
             SearchMode searchMode = getSearchMode();
-            if (searchMode == SearchMode.EDIT) {
-                return mShowMenuItemsWhileSearching ? mMenuItems : Collections.emptyList();
+            Stream<MenuItemAdapterV1> stream = mMenuItems.stream();
+            if (searchMode == SearchMode.EDIT && !mShowMenuItemsWhileSearching) {
+                stream = Stream.empty();
             } else if (searchMode == SearchMode.SEARCH) {
-                return mShowMenuItemsWhileSearching
-                        ? mMenuItems.stream().filter(i -> !i.isSearch()).collect(toList())
-                        : Collections.emptyList();
-            } else {
-                return mMenuItems;
+                if (mShowMenuItemsWhileSearching) {
+                    stream = mMenuItems.stream()
+                            .filter(item -> !item.getClientMenuItem().isSearch());
+                } else {
+                    stream = Stream.empty();
+                }
             }
+
+            return Collections.unmodifiableList(stream
+                    .filter(MenuItemAdapterV1::isVisible)
+                    .map(MenuItemAdapterV1::getPluginMenuItem)
+                    .collect(toList()));
         }
 
         private SearchMode getSearchMode() {

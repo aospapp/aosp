@@ -20,7 +20,6 @@ java_test_host {
     name: "CtsAngleIntegrationHostTestCases",
     defaults: ["cts_defaults"],
     srcs: ["src/**/*.java"],
-    java_resource_dirs: ["assets/"],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",

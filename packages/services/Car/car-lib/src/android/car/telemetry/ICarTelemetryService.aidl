@@ -1,7 +1,7 @@
 package android.car.telemetry;
 
 import android.car.telemetry.ICarTelemetryServiceListener;
-import android.car.telemetry.ManifestKey;
+import android.car.telemetry.MetricsConfigKey;
 
 /**
  * Internal binder interface for {@code CarTelemetryService}, used by {@code CarTelemetryManager}.
@@ -21,33 +21,29 @@ interface ICarTelemetryService {
     void clearListener();
 
     /**
-     * Sends telemetry manifests to CarTelemetryService.
+     * Sends telemetry MetricsConfigs to CarTelemetryService.
      */
-    int addManifest(in ManifestKey key, in byte[] manifest);
+    void addMetricsConfig(in MetricsConfigKey key, in byte[] metricsConfig);
 
     /**
-     * Removes a manifest based on the key.
+     * Removes a MetricsConfig based on the key. This will also remove outputs produced by the
+     * MetricsConfig.
      */
-    boolean removeManifest(in ManifestKey key);
+    void removeMetricsConfig(in MetricsConfigKey key);
 
     /**
-     * Removes all manifests.
+     * Removes all MetricsConfigs. This will also remove all MetricsConfig outputs.
      */
-    void removeAllManifests();
+    void removeAllMetricsConfigs();
 
     /**
-     * Sends script results associated with the given key using the
+     * Sends script results or errors associated with the given key using the
      * {@code ICarTelemetryServiceListener}.
      */
-    void sendFinishedReports(in ManifestKey key);
+    void sendFinishedReports(in MetricsConfigKey key);
 
     /**
-     * Sends all script results associated using the {@code ICarTelemetryServiceListener}.
+     * Sends all script results or errors using the {@code ICarTelemetryServiceListener}.
      */
     void sendAllFinishedReports();
-
-    /**
-     * Sends all errors using the {@code ICarTelemetryServiceListener}.
-     */
-    void sendScriptExecutionErrors();
 }

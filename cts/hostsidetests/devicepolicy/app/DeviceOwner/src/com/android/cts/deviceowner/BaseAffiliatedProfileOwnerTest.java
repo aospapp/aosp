@@ -42,7 +42,7 @@ public abstract class BaseAffiliatedProfileOwnerTest extends AndroidTestCase {
         // In headless system user mode, affiliated PO is set on seceondary when DO is setup on
         // user 0. Therefore, this test will run on user 0.
         mDevicePolicyManager = TestAppSystemServiceFactory.getDevicePolicyManager(mContext,
-                BasicAdminReceiver.class);
+                BasicAdminReceiver.class, /* forDeviceOwner= */ true);
         assertDeviceOrAffiliatedProfileOwner();
     }
 

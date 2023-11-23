@@ -93,6 +93,9 @@
     <!-- Whether heads-up notifications should be shown when panel is open. -->
     <bool name="config_enableHeadsUpNotificationWhenNotificationPanelOpen">true</bool>
 
+    <!-- Whether or not the profile panel should be disabled while driving. -->
+    <bool name="config_profile_panel_disabled_while_driving">true</bool>
+
     <!--
         Initial alpha percent value for the background when the notification
         panel is open. Should be a number between, and inclusive, 0 and 100.
@@ -112,9 +115,24 @@
          Whenever a new class is added, make sure to also add that class to OverlayWindowModule. -->
     <string-array name="config_carSystemUIOverlayViewsMediators" translatable="false">
         <item>@string/config_notificationPanelViewMediator</item>
+        <item>com.android.systemui.car.hvac.HvacPanelOverlayViewMediator</item>
         <item>com.android.systemui.car.keyguard.CarKeyguardViewMediator</item>
         <item>com.android.systemui.car.userswitcher.FullscreenUserSwitcherViewMediator</item>
         <item>com.android.systemui.car.userswitcher.UserSwitchTransitionViewMediator</item>
+    </string-array>
+
+    <!-- List of StatusIconControllers associated with icons to display for QC entry points.
+         The icons will be added to the view in the order their controllers appear on this list. -->
+    <string-array name="config_quickControlsEntryPointIconControllers" translatable="false">
+        <item>com.android.systemui.car.statusicon.ui.BluetoothStatusIconController</item>
+        <item>com.android.systemui.car.statusicon.ui.SignalStatusIconController</item>
+        <item>com.android.systemui.car.statusicon.ui.DisplayStatusIconController</item>
+    </string-array>
+
+    <!-- List of StatusIconControllers associated with read-only status icons.
+         The icons will be added to the view in the order their controllers appear on this list.-->
+    <string-array name="config_readOnlyIconControllers" translatable="false">
+        <item>com.android.systemui.car.statusicon.ui.LocationStatusIconController</item>
     </string-array>
 
     <!-- List of package names that are allowed sources of app installation. -->
@@ -169,4 +187,23 @@
 
     <!-- Specifies the component name of the app grid activity -->
     <string name="config_appGridComponentName" translatable="false">com.android.car.carlauncher/.AppGridActivity</string>
+
+    <!--Percentage of the screen height, from the top, where the border between HVAC panel closing
+        or opening, depending on where its handle bar is released after being dragged, would be
+        drawn.
+
+        The idea is that if the HVAC panel handle bar is dragged and then released too close to the
+        panel's origin, then the intent to close the panel is seen to have been canceled, and the
+        panel is expanded back to its original height. On the other hand, if the handle bar is
+        released far enough from the panel's origin, then the panel is collapsed and dismissed.
+
+        If the HVAC panel expands from below, then the HVAC panel handle bar being released below
+        this border would result in the panel being dismissed and collapsed, while it being released
+        above the border results in the panel being expanded back to the original height.
+
+        If the HVAC panel expands from the top, then the HVAC panel handle bar being released above
+        this border would result in the panel being dismissed and collapsed, while it being released
+        below the border results in the panel being expanded back to the original height.
+    -->
+    <integer name="hvac_panel_settle_close_percentage">50</integer>
 </resources>

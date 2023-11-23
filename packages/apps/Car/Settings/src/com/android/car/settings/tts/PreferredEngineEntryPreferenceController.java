@@ -22,6 +22,8 @@ import android.content.Intent;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.TtsEngines;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
@@ -36,8 +38,15 @@ public class PreferredEngineEntryPreferenceController extends
 
     public PreferredEngineEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions, new TtsEngines(context));
+    }
+
+    @VisibleForTesting
+    public PreferredEngineEntryPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            TtsEngines enginesHelper) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mEnginesHelper = new TtsEngines(context);
+        mEnginesHelper = enginesHelper;
     }
 
     @Override

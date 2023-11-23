@@ -25,10 +25,13 @@ import static org.mockito.Mockito.verify;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.platform.test.microbenchmark.Microbenchmark.TerminateEarlyException;
+import android.platform.test.rule.TestWatcher;
 import android.platform.test.rule.TracePointRule;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -51,6 +54,15 @@ import java.util.List;
  */
 @RunWith(JUnit4.class)
 public final class MicrobenchmarkTest {
+    // Static logs are needed to validate dynamic rules, which are instantiated reflectively and
+    // cannot access non-static variables.
+    private static List<String> sLogs = new ArrayList<>();
+
+    @Before
+    public void setUp() {
+        sLogs.clear();
+    }
+
     /**
      * Tests that iterations are respected for microbenchmark tests.
      */
@@ -407,6 +419,106 @@ public final class MicrobenchmarkTest {
                 .inOrder();
     }
 
+    /** Test dynamic test rule injection. */
+    @Test
+    public void testDynamicTestRuleInjection() throws InitializationError {
+        Bundle args = new Bundle();
+        args.putString("iterations", "2");
+        args.putString("rename-iterations", "false");
+        args.putString("terminate-on-test-fail", "false");
+        args.putString(
+                Microbenchmark.DYNAMIC_INNER_TEST_RULES_OPTION, LoggingRule1.class.getName());
+        args.putString(
+                Microbenchmark.DYNAMIC_OUTER_TEST_RULES_OPTION, LoggingRule2.class.getName());
+        LoggingMicrobenchmark loggingRunner =
+                new LoggingMicrobenchmark(LoggingTestWithRules.class, args);
+        loggingRunner.setOperationLog(sLogs);
+        new JUnitCore().run(loggingRunner);
+        assertThat(sLogs)
+                .containsExactly(
+                        "hardcoded class rule starting",
+                        "logging rule 2 starting",
+                        "hardcoded test rule starting",
+                        "logging rule 1 starting",
+                        "before",
+                        "tight before",
+                        "begin: testMethod("
+                                + "android.platform.test.microbenchmark.MicrobenchmarkTest"
+                                + "$LoggingTestWithRules)",
+                        "test",
+                        "end",
+                        "tight after",
+                        "after",
+                        "logging rule 1 finished",
+                        "hardcoded test rule finished",
+                        "logging rule 2 finished",
+                        "logging rule 2 starting",
+                        "hardcoded test rule starting",
+                        "logging rule 1 starting",
+                        "before",
+                        "tight before",
+                        "begin: testMethod("
+                                + "android.platform.test.microbenchmark.MicrobenchmarkTest"
+                                + "$LoggingTestWithRules)",
+                        "test",
+                        "end",
+                        "tight after",
+                        "after",
+                        "logging rule 1 finished",
+                        "hardcoded test rule finished",
+                        "logging rule 2 finished",
+                        "hardcoded class rule finished")
+                .inOrder();
+    }
+
+    /** Test dynamic class rule injection. */
+    @Test
+    public void testDynamicClassRuleInjection() throws InitializationError {
+        Bundle args = new Bundle();
+        args.putString("iterations", "2");
+        args.putString("rename-iterations", "false");
+        args.putString("terminate-on-test-fail", "false");
+        args.putString(
+                Microbenchmark.DYNAMIC_INNER_CLASS_RULES_OPTION, LoggingRule1.class.getName());
+        args.putString(
+                Microbenchmark.DYNAMIC_OUTER_CLASS_RULES_OPTION, LoggingRule2.class.getName());
+        LoggingMicrobenchmark loggingRunner =
+                new LoggingMicrobenchmark(LoggingTestWithRules.class, args);
+        loggingRunner.setOperationLog(sLogs);
+        new JUnitCore().run(loggingRunner);
+        assertThat(sLogs)
+                .containsExactly(
+                        "logging rule 2 starting",
+                        "hardcoded class rule starting",
+                        "logging rule 1 starting",
+                        "hardcoded test rule starting",
+                        "before",
+                        "tight before",
+                        "begin: testMethod("
+                                + "android.platform.test.microbenchmark.MicrobenchmarkTest"
+                                + "$LoggingTestWithRules)",
+                        "test",
+                        "end",
+                        "tight after",
+                        "after",
+                        "hardcoded test rule finished",
+                        "hardcoded test rule starting",
+                        "before",
+                        "tight before",
+                        "begin: testMethod("
+                                + "android.platform.test.microbenchmark.MicrobenchmarkTest"
+                                + "$LoggingTestWithRules)",
+                        "test",
+                        "end",
+                        "tight after",
+                        "after",
+                        "hardcoded test rule finished",
+                        "logging rule 1 finished",
+                        "hardcoded class rule finished",
+                        "logging rule 2 finished")
+                .inOrder();
+    }
+
     /**
      * An extensions of the {@link Microbenchmark} runner that logs the start and end of collecting
      * traces. It also passes the operation log to the provided test {@code Class}, if it is a
@@ -503,10 +615,64 @@ public final class MicrobenchmarkTest {
         }
     }
 
+    public static class LoggingTestWithRules extends LoggingTest {
+        @ClassRule
+        public static TestRule hardCodedClassRule =
+                new TestWatcher() {
+                    @Override
+                    public void starting(Description description) {
+                        sLogs.add("hardcoded class rule starting");
+                    }
+
+                    @Override
+                    public void finished(Description description) {
+                        sLogs.add("hardcoded class rule finished");
+                    }
+                };
+
+        @Rule
+        public TestRule hardCodedRule =
+                new TestWatcher() {
+                    @Override
+                    public void starting(Description description) {
+                        sLogs.add("hardcoded test rule starting");
+                    }
+
+                    @Override
+                    public void finished(Description description) {
+                        sLogs.add("hardcoded test rule finished");
+                    }
+                };
+    }
+
     public static class LoggingFailedTest extends LoggingTest {
         @Test
         public void testMethod() {
             throw new RuntimeException("I failed.");
+        }
+    }
+
+    public static class LoggingRule1 extends TestWatcher {
+        @Override
+        public void starting(Description description) {
+            sLogs.add("logging rule 1 starting");
+        }
+
+        @Override
+        public void finished(Description description) {
+            sLogs.add("logging rule 1 finished");
+        }
+    }
+
+    public static class LoggingRule2 extends TestWatcher {
+        @Override
+        public void starting(Description description) {
+            sLogs.add("logging rule 2 starting");
+        }
+
+        @Override
+        public void finished(Description description) {
+            sLogs.add("logging rule 2 finished");
         }
     }
 }

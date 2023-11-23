@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2021 The Android Open Source Project
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+<resources>
+    <!-- This file is used to keep track of removed resources that used to be in overlayable.xml -->
+    <!-- These resources are considered deprecated, and shouldn't be overlaid in any RROs. -->
+    <item type="id" name="nested_recycler_view_layout"/>
+    <item type="layout" name="car_ui_recycler_view_item"/>
+    <item type="attr" name="carUiRecyclerViewStyle"/>
+    <item type="style" name="Widget.CarUi.CarUiRecyclerView"/>
+
+    <!-- Some resources that exists on rvc but not on sc -->
+    <!-- Rotary resources that are now part of car-rotary-lib can't be added here. Because they're
+      now part of rotary-lib overlayable group and 1 resource can't exists in 2 overlaybale group
+      at the same time. -->
+    <item type="dimen" name="car_ui_list_item_check_box_end_inset"/>
+    <item type="dimen" name="car_ui_list_item_check_box_height"/>
+    <item type="dimen" name="car_ui_list_item_check_box_icon_container_width"/>
+    <item type="dimen" name="car_ui_list_item_check_box_start_inset"/>
+    <item type="dimen" name="car_ui_list_item_radio_button_end_inset"/>
+    <item type="dimen" name="car_ui_list_item_radio_button_height"/>
+    <item type="dimen" name="car_ui_list_item_radio_button_icon_container_width"/>
+    <item type="dimen" name="car_ui_list_item_radio_button_start_inset"/>
+    <item type="id" name="car_ui_list_item_text_container"/>
+    <item type="id" name="car_ui_preference_fragment_container"/>
+    <item type="id" name="car_ui_toolbar"/>
+    <item type="id" name="toolbar"/>
+    <item type="layout" name="car_ui_base_layout_toolbar_legacy"/>
+    <item type="layout" name="car_ui_list_preference_with_toolbar"/>
+    <item type="layout" name="car_ui_preference_fragment_with_toolbar"/>
+    <item type="style" name="CarUiPreferenceTheme.WithToolbar"/>
+    <item type="style" name="PreferenceFragment.CarUi.WithToolbar"/>
+
+</resources>

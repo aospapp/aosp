@@ -267,7 +267,10 @@ public class DisplayHashManagerTest {
         generateDisplayHash(null);
 
         mInstrumentation.runOnMainSync(() -> {
-            windowParams.x = -mTestViewSize.x;
+            int[] mainViewLocationOnScreen = new int[2];
+            mMainView.getLocationOnScreen(mainViewLocationOnScreen);
+
+            windowParams.x = -mTestViewSize.x - mainViewLocationOnScreen[0];
             wm.updateViewLayout(mMainView, windowParams);
         });
         mInstrumentation.waitForIdleSync();

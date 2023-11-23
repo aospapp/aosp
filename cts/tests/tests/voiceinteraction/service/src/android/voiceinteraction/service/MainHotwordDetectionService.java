@@ -88,6 +88,7 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
     public void onCreate() {
         super.onCreate();
         mHandler = Handler.createAsync(Looper.getMainLooper());
+        Log.d(TAG, "onCreate");
     }
 
     @Override
@@ -209,6 +210,7 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
     @Override
     public void onStopDetection() {
         super.onStopDetection();
+        Log.d(TAG, "onStopDetection");
         synchronized (mLock) {
             mHandler.removeCallbacks(mDetectionJob);
             mDetectionJob = null;
@@ -224,6 +226,18 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
             @Nullable IntConsumer statusCallback) {
         super.onUpdateState(options, sharedMemory, callbackTimeoutMillis, statusCallback);
         Log.d(TAG, "onUpdateState");
+
+        // Reset mDetectionJob and mStopDetectionCalled when service is initializing.
+        synchronized (mLock) {
+            if (statusCallback != null) {
+                if (mDetectionJob != null) {
+                    Log.d(TAG, "onUpdateState mDetectionJob is not null");
+                    mHandler.removeCallbacks(mDetectionJob);
+                    mDetectionJob = null;
+                }
+                mStopDetectionCalled = false;
+            }
+        }
 
         if (options != null) {
             if (options.getInt(Utils.KEY_TEST_SCENARIO, -1)
@@ -310,12 +324,18 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
                 }
                 numBytes += bytesRead;
             }
+            // The audio data will be zero on virtual device, so it would be better to skip to
+            // check the audio data.
+            if (Utils.isVirtualDevice()) {
+                return true;
+            }
             for (byte b : buffer) {
                 // TODO: Maybe check that some portion of the bytes are non-zero.
                 if (b != 0) {
                     return true;
                 }
             }
+            Log.d(TAG, "All data are zero");
             return false;
         } finally {
             record.release();

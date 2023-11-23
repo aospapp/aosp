@@ -22,19 +22,6 @@ import java.time.Instant;
 
 /** Interface for interacting with a local or remote {@link Event} store. */
 interface EventQuerier<E extends Event> {
-
-    /**
-     * Gets the first {@link Event} which wasn't logged before {@code earliestLogTime},
-     * or returns null.
-     */
-    E get(Instant earliestLogTime);
-
-    /**
-     * Gets the next unseen {@link Event} which wasn't logged before {@code earliestLogTime},
-     * or returns null.
-     */
-    E next(Instant earliestLogTime);
-
     /**
      * Gets the next unseen {@link Event} which wasn't logged before {@code earliestLogTime},
      * or blocks until one is logged.

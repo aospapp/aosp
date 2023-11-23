@@ -246,7 +246,7 @@
     <string name="system_keyboard_autofill" msgid="8530944165814838255">"कीबोर्ड और अपने आप जानकारी भरने की सुविधा"</string>
     <string name="system_autofill" msgid="6983989261108020046">"अपने आप जानकारी भरने की सुविधा"</string>
     <string name="system_home" msgid="2149349845791104094">"होम स्क्रीन"</string>
-    <string name="system_search" msgid="3170169128257586925">"Search"</string>
+    <string name="system_search" msgid="3170169128257586925">"खोज"</string>
     <string name="system_google" msgid="945985164023885276">"Google"</string>
     <string name="system_security" msgid="1012999639810957132">"सुरक्षा और पाबंदियां"</string>
     <string name="system_speech" msgid="8779582280374089518">"बोली"</string>
@@ -282,7 +282,7 @@
     <string name="enterprise_privacy_security_logs" msgid="2573545327989145361">"हाल ही का सुरक्षा लॉग"</string>
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"कोई नहीं"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"इंस्टॉल किए गए ऐप्लिकेशन"</string>
-    <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"ऐप्लिकेशन की संख्या अनुमानित है. हो सकता है कि इसमें \'Play स्टोर\' के बाहर से इंस्टॉल किए गए ऐप्लिकेशन शामिल न हों."</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"ऐप्लिकेशन की संख्या अनुमानित है. हो सकता है कि इसमें Play Store के बाहर से इंस्टॉल किए गए ऐप्लिकेशन शामिल न हों."</string>
     <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
       <item quantity="one">कम से कम <xliff:g id="COUNT_1">%d</xliff:g> ऐप्लिकेशन</item>
       <item quantity="other">कम से कम <xliff:g id="COUNT_1">%d</xliff:g> ऐप्लिकेशन</item>
@@ -651,14 +651,14 @@
     <string name="location_reporting" msgid="3552501333650895634">"स्थान रिपोर्टिंग"</string>
     <string name="location_history" msgid="4055660203090513120">"जगह की जानकारी का इतिहास"</string>
     <string name="location_reporting_desc" msgid="1580018652781674608">"Google इस सुविधा का इस्तेमाल ‘Google नाओ’ और Google Maps जैसे प्रॉडक्टों में करता है. स्थान रिपोर्टिंग की सुविधा चालू हो, तो Google के वे प्रॉडक्ट जो इस सुविधा का इस्तेमाल करते हैं, आपके डिवाइस की सबसे हाल की जगह की जानकारी का डेटा स्टोर और इस्तेमाल कर सकते हैं. ऐसा वे आपके Google खाते के ज़रिए करते हैं."</string>
-    <string name="location_history_desc" msgid="926674012916014270">"इस खाते के लिए स्थान इतिहास चालू होने पर, Google आपके डिवाइस के स्थान डेटा को आपके ऐप्स द्वारा उपयोग किए जाने के लिए संग्रहित कर सकता है.\n\nउदाहरण के लिए, Google मैप आपको दिशा-निर्देश दे सकता है और Google नाओ आपको यात्रा ट्रैफ़िक के बारे में सूचित कर सकती है.\n\nआप स्थान इतिहास को कभी भी बंद कर सकते हैं, लेकिन ऐसा करने से वह हटता नहीं है. अपने स्थान इतिहास को देखने और उसे प्रबंधित करने के लिए, maps.google.com/locationhistory पर जाएं."</string>
+    <string name="location_history_desc" msgid="926674012916014270">"इस खाते के लिए स्थान इतिहास चालू होने पर, Google आपके डिवाइस के स्थान डेटा को आपके ऐप्स द्वारा उपयोग किए जाने के लिए संग्रहित कर सकता है.\n\nउदाहरण के लिए, Google Maps आपको दिशा-निर्देश दे सकता है और Google नाओ आपको यात्रा ट्रैफ़िक के बारे में सूचित कर सकती है.\n\nआप स्थान इतिहास को कभी भी बंद कर सकते हैं, लेकिन ऐसा करने से वह हटता नहीं है. अपने स्थान इतिहास को देखने और उसे प्रबंधित करने के लिए, maps.google.com/locationhistory पर जाएं."</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"स्थान इतिहास हटाएं"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"इससे इस डिवाइस पर इस Google खाते के लिए संगृहीत किया गया सभी स्थान इतिहास हट जाएगा. आप इस हटाए जाने को पूर्ववत नहीं कर सकते. Google नाओ सेवा सहित कुछ ऐप्लिकेशन काम करना बंद कर देंगे."</string>
     <string name="system_services" msgid="5754310941186053151">"सेवाएं"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"सेवा सेटिंग"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"उच्च कंट्रास्ट लेख"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"सुलभता सुविधा का शॉर्टकट"</string>
-    <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"ऐक्सेस-योग्यता शॉर्टकट सक्षम करें"</string>
+    <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"सुलभता सुविधा का शॉर्टकट चालू करें"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"शॉर्टकट सेवा"</string>
     <string name="accessibility_shortcut_description" msgid="2050424178481510046">"शॉर्टकट इस्तेमाल करने के दौरान, आप \'वापस जाएं\' और \'नीचे जाएं\' बटन को एक साथ 3 सेकंड तक दबा के, सुलभता सुविधा शुरू कर सकते हैं."</string>
     <string name="accessibility_captions" msgid="3411554568812306549">"कैप्शन"</string>
@@ -698,7 +698,7 @@
     <string name="color_cyan" msgid="3172130225116530998">"हरिताभ नीला"</string>
     <string name="color_yellow" msgid="3519470952904560404">"पीला"</string>
     <string name="color_magenta" msgid="2377854703399624607">"मैजेंटा"</string>
-    <string name="system_accessibility_status" msgid="8504842254080682515">"सक्षम करना"</string>
+    <string name="system_accessibility_status" msgid="8504842254080682515">"चालू करें"</string>
     <string name="system_accessibility_config" msgid="4820879735377962851">"कॉन्फ़िगरेशन"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="4547924421106540376">"<xliff:g id="SERVICE">%1$s</xliff:g> का उपयोग करें?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1291445700158602622">"पासवर्ड को छोड़कर, <xliff:g id="SERVICE">%1$s</xliff:g>   लिखा गया सभी लेख एकत्रित कर सकती है. इसमें व्‍यक्तिगत डेटा, जैसे क्रेडिट कार्ड नंबर शामिल हैं."</string>
@@ -765,7 +765,7 @@
     <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"जब ऐप्स  मुख्य थ्रेड पर लंबी कार्यवाही करते हैं, तो स्क्रीन फ़्लैश करें"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="1594070211030991">"adb shell dumpsys gfxinfo में रें‍डरिंग समय मापें"</string>
     <string name="security_unknown_sources_title" msgid="2012801664240314305">"अज्ञात स्रोत"</string>
-    <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Play स्टोर के अलावा अन्‍य स्रोतों से ऐप्स  इंस्टॉल करने दें"</string>
+    <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Play Store के अलावा अन्‍य स्रोतों से ऐप्स  इंस्टॉल करने दें"</string>
     <string name="security_unknown_sources_confirm_title" msgid="4600896691987804985">"अज्ञात स्रोतों को अनुमति दें"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7883820068140189584">"आपका डिवाइस और व्यक्तिगत डेटा अज्ञात स्रोतों से होने वाले ऐप्स के आक्रमण के प्रति ज़्यादा संवेदनशील हैं. आप इस बात से सहमत हैं कि इन ऐप्स के उपयोग के परिणामस्वरूप संभावित रूप से आपके डिवाइस को होने वाले नुकसान या डेटा की हानि के लिए पूरी तरह से आप उत्तरदायी हैं."</string>
     <string name="system_hdcp_checking_never" msgid="3251512398865365135">"कभी नहीं"</string>

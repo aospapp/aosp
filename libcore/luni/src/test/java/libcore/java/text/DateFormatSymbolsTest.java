@@ -156,19 +156,38 @@ public class DateFormatSymbolsTest extends junit.framework.TestCase {
     }
 
     // http://b/7955614
-    public void test_getZoneStrings_Apia() throws Exception {
+    public void test_getZoneStrings_Apia() {
         String[][] array = DateFormatSymbols.getInstance(Locale.US).getZoneStrings();
+
         for (int i = 0; i < array.length; ++i) {
             String[] row = array[i];
             // Pacific/Apia is somewhat arbitrary; we just want a zone we have to generate
             // "GMT" strings for the short names.
             if (row[0].equals("Pacific/Apia")) {
+                TimeZone apiaTz = TimeZone.getTimeZone("Pacific/Apia");
                 assertEquals("Apia Standard Time", row[1]);
-                assertEquals("GMT+13:00", row[2]);
+                assertEquals(formattedStandardTimeOffset(apiaTz), row[2]);
                 assertEquals("Apia Daylight Time", row[3]);
-                assertEquals("GMT+14:00", row[4]);
+                assertEquals(formattedDstOffset(apiaTz), row[4]);
             }
         }
+    }
+
+    private static String formattedStandardTimeOffset(TimeZone tz) {
+        return formattedOffset(tz.getRawOffset());
+    }
+
+    private static String formattedDstOffset(TimeZone tz) {
+        return formattedOffset(tz.getRawOffset() + tz.getDSTSavings());
+    }
+
+    private static String formattedOffset(int offset) {
+        String pattern = "GMT%+d:%02d";
+        int millisInHour = 60 * 60 * 1_000;
+        int hours = offset / millisInHour;
+        int minutes = (offset - hours * millisInHour) / 1_000 / 60;
+
+        return String.format(pattern, hours, minutes);
     }
 
     public void test_setZoneStrings_checks_dimensions() throws Exception {

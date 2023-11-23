@@ -153,7 +153,7 @@ NFCSTATUS phTmlNfc_Init(pphTmlNfc_Config_t pConfig) {
   /* Clean up all the TML resources if any error */
   if (NFCSTATUS_SUCCESS != wInitStatus) {
     /* Clear all handles and memory locations initialized during init */
-    phTmlNfc_CleanUp();
+    phTmlNfc_Shutdown_CleanUp();
   }
 
   return wInitStatus;

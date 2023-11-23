@@ -154,15 +154,15 @@ IoOveruseAlertThreshold toIoOveruseAlertThreshold(const int64_t durationInSecond
     return threshold;
 }
 
-Matcher<const ResourceOveruseConfiguration> ResourceOveruseConfigurationMatcher(
+Matcher<const ResourceOveruseConfiguration&> ResourceOveruseConfigurationMatcher(
         const ResourceOveruseConfiguration& config) {
-    std::vector<Matcher<const ResourceSpecificConfiguration>> resourceSpecificConfigMatchers;
+    std::vector<Matcher<const ResourceSpecificConfiguration&>> resourceSpecificConfigMatchers;
     for (const auto& resourceSpecificConfig : config.resourceSpecificConfigurations) {
         resourceSpecificConfigMatchers.push_back(
                 IsResourceSpecificConfiguration(resourceSpecificConfig));
     }
 
-    std::vector<Matcher<const PackageMetadata>> metadataMatchers;
+    std::vector<Matcher<const PackageMetadata&>> metadataMatchers;
     for (const auto& metadata : config.packageMetadata) {
         metadataMatchers.push_back(IsPackageMetadata(metadata));
     }

@@ -119,6 +119,7 @@ import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.UserHandle;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Email;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
@@ -1841,32 +1842,6 @@ public class NotificationManagerTest extends AndroidTestCase {
 
         NotificationChannel channel =
                 new NotificationChannel(mId, "name", IMPORTANCE_NONE);
-        mNotificationManager.createNotificationChannel(channel);
-
-        int id = 1;
-        final Notification notification =
-                new Notification.Builder(mContext, mId)
-                        .setSmallIcon(R.drawable.black)
-                        .setWhen(System.currentTimeMillis())
-                        .setContentTitle("notify#" + id)
-                        .setContentText("This is #" + id + "notification  ")
-                        .build();
-        mNotificationManager.notify(id, notification);
-
-        if (!checkNotificationExistence(id, /*shouldExist=*/ false)) {
-            fail("found unexpected notification id=" + id);
-        }
-    }
-
-    public void testNotify_blockedChannelGroup() throws Exception {
-        mNotificationManager.cancelAll();
-
-        NotificationChannelGroup group = new NotificationChannelGroup(mId, "group name");
-        group.setBlocked(true);
-        mNotificationManager.createNotificationChannelGroup(group);
-        NotificationChannel channel =
-                new NotificationChannel(mId, "name", IMPORTANCE_DEFAULT);
-        channel.setGroup(mId);
         mNotificationManager.createNotificationChannel(channel);
 
         int id = 1;
@@ -3842,6 +3817,7 @@ public class NotificationManagerTest extends AndroidTestCase {
                     true /* suppressBubble */);
 
             verifyNotificationBubbleState(notifId, true /* shouldBeBubble */);
+            mListener.resetData();
 
             // Prep to find bubbled activity
             Class clazz = BubbledActivity.class;
@@ -3862,6 +3838,7 @@ public class NotificationManagerTest extends AndroidTestCase {
 
             // notif gets posted with update, so wait
             verifyNotificationBubbleState(notifId, true /* shouldBeBubble */);
+            mListener.resetData();
 
             // Bubble should have suppressed flag
             StatusBarNotification sbn = findPostedNotification(notifId, true);
@@ -3897,6 +3874,7 @@ public class NotificationManagerTest extends AndroidTestCase {
                     false /* suppressBubble */);
 
             verifyNotificationBubbleState(BUBBLE_NOTIF_ID, true /* shouldBeBubble */);
+            mListener.resetData();
 
             // Prep to find bubbled activity
             Class clazz = BubbledActivity.class;
@@ -3915,8 +3893,12 @@ public class NotificationManagerTest extends AndroidTestCase {
             assertEquals(new LocusId(String.valueOf(BUBBLE_NOTIF_ID)),
                     activity.getLocusId());
 
-            // notif gets posted with update, so wait
-            verifyNotificationBubbleState(BUBBLE_NOTIF_ID, true /* shouldBeBubble */);
+            // Wait a little (if it wrongly updates it'd be a new post so wait for that))
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ex) {
+            }
+            assertTrue(mListener.mPosted.isEmpty());
 
             // Bubble should not be suppressed
             StatusBarNotification sbn = findPostedNotification(BUBBLE_NOTIF_ID, true);
@@ -3952,6 +3934,7 @@ public class NotificationManagerTest extends AndroidTestCase {
                     true /* suppressBubble */);
 
             verifyNotificationBubbleState(BUBBLE_NOTIF_ID, true /* shouldBeBubble */);
+            mListener.resetData();
 
             // Prep to find bubbled activity
             Class clazz = BubbledActivity.class;
@@ -3969,8 +3952,12 @@ public class NotificationManagerTest extends AndroidTestCase {
             // It shouldn't have the locusId
             assertNull(activity.getLocusId());
 
-            // notif gets posted with update, so wait
-            verifyNotificationBubbleState(BUBBLE_NOTIF_ID, true /* shouldBeBubble */);
+            // Wait a little (if it wrongly updates it'd be a new post so wait for that))
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ex) {
+            }
+            assertTrue(mListener.mPosted.isEmpty());
 
             // Bubble should not be suppressed
             StatusBarNotification sbn = findPostedNotification(BUBBLE_NOTIF_ID, true);
@@ -4008,6 +3995,7 @@ public class NotificationManagerTest extends AndroidTestCase {
                     false /* setLocusId */);
 
             verifyNotificationBubbleState(BUBBLE_NOTIF_ID, true /* shouldBeBubble */);
+            mListener.resetData();
 
             // Prep to find bubbled activity
             Class clazz = BubbledActivity.class;
@@ -4025,8 +4013,12 @@ public class NotificationManagerTest extends AndroidTestCase {
             // Activity has the locus
             assertNotNull(activity.getLocusId());
 
-            // notif gets posted with update, so wait
-            verifyNotificationBubbleState(BUBBLE_NOTIF_ID, true /* shouldBeBubble */);
+            // Wait a little (if it wrongly updates it'd be a new post so wait for that))
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ex) {
+            }
+            assertTrue(mListener.mPosted.isEmpty());
 
             // Bubble should not be suppressed & not have a locusId
             StatusBarNotification sbn = findPostedNotification(BUBBLE_NOTIF_ID, true);
@@ -4065,6 +4057,7 @@ public class NotificationManagerTest extends AndroidTestCase {
                     true /* suppressBubble */);
 
             verifyNotificationBubbleState(notifId, true);
+            mListener.resetData();
 
             StatusBarNotification sbn = findPostedNotification(notifId, true);
             assertTrue(sbn.getNotification().getBubbleMetadata().isBubbleSuppressable());
@@ -4089,6 +4082,7 @@ public class NotificationManagerTest extends AndroidTestCase {
 
             // notif gets posted with update, so wait
             verifyNotificationBubbleState(notifId, true /* shouldBeBubble */);
+            mListener.resetData();
 
             // Bubble should have suppressed flag
             sbn = findPostedNotification(notifId, true);
@@ -4099,6 +4093,7 @@ public class NotificationManagerTest extends AndroidTestCase {
 
             // notif gets posted with update, so wait
             verifyNotificationBubbleState(notifId, true /* shouldBeBubble */);
+            mListener.resetData();
 
             sbn = findPostedNotification(notifId, true);
             assertTrue(sbn.getNotification().getBubbleMetadata().isBubbleSuppressable());
@@ -4255,6 +4250,7 @@ public class NotificationManagerTest extends AndroidTestCase {
      * This method verifies that an app can't bypass background restrictions by retrieving their own
      * notification and triggering it.
      */
+    @AsbSecurityTest(cveBugId = 185388103)
     public void testActivityStartFromRetrievedNotification_isBlocked() throws Exception {
         deactivateGracePeriod();
         EventCallback callback = new EventCallback();

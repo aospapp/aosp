@@ -93,8 +93,9 @@ public class SeekBarPreference extends CarUiPreference {
     private final View.OnKeyListener mSeekBarKeyListener = new View.OnKeyListener() {
         @Override
         public boolean onKey(View v, int keyCode, KeyEvent event) {
-            // Don't allow events through if there is no SeekBar or we're in non-adjustable mode.
-            if (mSeekBar == null || !mAdjustable) {
+            // Don't allow events through if there is no SeekBar, the SeekBar is disabled,
+            // or we're in non-adjustable mode.
+            if (mSeekBar == null || !mSeekBar.isEnabled() || !mAdjustable) {
                 return false;
             }
 
@@ -204,6 +205,7 @@ public class SeekBarPreference extends CarUiPreference {
         view.itemView.setOnKeyListener(mSeekBarKeyListener);
         view.itemView.setOnFocusChangeListener(mSeekBarFocusChangeListener);
         view.itemView.setOnGenericMotionListener(mSeekBarScrollListener);
+
         mSeekBar = (SeekBar) view.findViewById(R.id.seekbar);
         mSeekBarValueTextView = (TextView) view.findViewById(R.id.seekbar_value);
         if (mShowSeekBarValue) {
@@ -233,7 +235,11 @@ public class SeekBarPreference extends CarUiPreference {
         if (mSeekBarValueTextView != null) {
             mSeekBarValueTextView.setText(String.valueOf(mSeekBarValue));
         }
-        mSeekBar.setEnabled(isEnabled());
+        boolean enabled = isEnabled() && !isUxRestricted();
+        mSeekBar.setEnabled(enabled);
+        if (!enabled && mInDirectManipulationMode) {
+            setInDirectManipulationMode(view.itemView, false);
+        }
     }
 
     @Override

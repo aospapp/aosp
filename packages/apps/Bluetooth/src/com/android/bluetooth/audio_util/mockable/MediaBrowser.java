@@ -20,6 +20,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.media.session.MediaSession;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -65,7 +66,12 @@ public class MediaBrowser {
      * Wrapper for MediaBrowser.SubscriptionCallback
      */
     public abstract static class SubscriptionCallback extends
-            android.media.browse.MediaBrowser.SubscriptionCallback {}
+            android.media.browse.MediaBrowser.SubscriptionCallback {
+        /**
+         * Wrapper for MediaBrowser.SubscriptionCallback.getTimeoutHandler()
+         */
+        public abstract Handler getTimeoutHandler();
+    }
 
     /**
      * Wrapper for MediaBrowser.connect()

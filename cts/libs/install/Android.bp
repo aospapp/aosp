@@ -20,27 +20,27 @@ package {
 android_test_helper_app {
     name: "TestAppAv1",
     manifest: "testapp/Av1.xml",
-    sdk_version: "current",
     srcs: ["testapp/src/**/*.java"],
     resource_dirs: ["testapp/res_v1"],
     apex_available: [ "com.android.apex.apkrollback.test_v1" ],
+    min_sdk_version: "28",
 }
 
 android_test_helper_app {
     name: "TestAppAv2",
     manifest: "testapp/Av2.xml",
-    sdk_version: "current",
     srcs: ["testapp/src/**/*.java"],
     resource_dirs: ["testapp/res_v2"],
     apex_available: [ "com.android.apex.apkrollback.test_v2" ],
+    min_sdk_version: "28",
 }
 
 android_test_helper_app {
     name: "TestAppAv3",
     manifest: "testapp/Av3.xml",
-    sdk_version: "current",
     srcs: ["testapp/src/**/*.java"],
     resource_dirs: ["testapp/res_v3"],
+    min_sdk_version: "28",
 }
 
 android_test_helper_app {
@@ -55,41 +55,41 @@ android_test_helper_app {
 android_test_helper_app {
     name: "TestAppBv1",
     manifest: "testapp/Bv1.xml",
-    sdk_version: "current",
     srcs: ["testapp/src/**/*.java"],
     resource_dirs: ["testapp/res_v1"],
+    min_sdk_version: "28",
 }
 
 android_test_helper_app {
     name: "TestAppBv2",
     manifest: "testapp/Bv2.xml",
-    sdk_version: "current",
     srcs: ["testapp/src/**/*.java"],
     resource_dirs: ["testapp/res_v2"],
+    min_sdk_version: "28",
 }
 
 android_test_helper_app {
     name: "TestAppBv3",
     manifest: "testapp/Bv3.xml",
-    sdk_version: "current",
     srcs: ["testapp/src/**/*.java"],
     resource_dirs: ["testapp/res_v3"],
+    min_sdk_version: "28",
 }
 
 android_test_helper_app {
     name: "TestAppCv1",
     manifest: "testapp/Cv1.xml",
-    sdk_version: "current",
     srcs: ["testapp/src/**/*.java"],
     resource_dirs: ["testapp/res_v1"],
+    min_sdk_version: "28",
 }
 
 android_test_helper_app {
     name: "TestAppCv2",
     manifest: "testapp/Cv2.xml",
-    sdk_version: "current",
     srcs: ["testapp/src/**/*.java"],
     resource_dirs: ["testapp/res_v2"],
+    min_sdk_version: "28",
 }
 
 android_test_helper_app {

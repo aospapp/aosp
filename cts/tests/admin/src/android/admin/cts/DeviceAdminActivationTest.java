@@ -61,7 +61,8 @@ public class DeviceAdminActivationTest
      */
     private static final int UI_EFFECT_TIMEOUT_MILLIS = 5000;
 
-    private boolean mDeviceAdmin;
+    private boolean mHasFeature;
+
     @Mock private OnActivityResultListener mMockOnActivityResultListener;
 
     public DeviceAdminActivationTest() {
@@ -73,7 +74,7 @@ public class DeviceAdminActivationTest
         super.setUp();
         MockitoAnnotations.initMocks(this);
         getActivity().setOnActivityResultListener(mMockOnActivityResultListener);
-        mDeviceAdmin = getInstrumentation().getContext().getPackageManager().hasSystemFeature(
+        mHasFeature = getInstrumentation().getContext().getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_DEVICE_ADMIN);
     }
 
@@ -87,7 +88,7 @@ public class DeviceAdminActivationTest
     }
 
     public void testActivateGoodReceiverDisplaysActivationUi() throws Exception {
-        if (!mDeviceAdmin) {
+        if (!mHasFeature) {
             Log.w(TAG, "Skipping testActivateGoodReceiverDisplaysActivationUi");
             return;
         }
@@ -102,7 +103,7 @@ public class DeviceAdminActivationTest
     }
 
     public void testActivateBrokenReceiverFails() throws Exception {
-        if (!mDeviceAdmin) {
+        if (!mHasFeature) {
             Log.w(TAG, "Skipping testActivateBrokenReceiverFails");
             return;
         }
@@ -113,7 +114,7 @@ public class DeviceAdminActivationTest
     }
 
     public void testActivateBrokenReceiver2Fails() throws Exception {
-        if (!mDeviceAdmin) {
+        if (!mHasFeature) {
             Log.w(TAG, "Skipping testActivateBrokenReceiver2Fails");
             return;
         }
@@ -124,7 +125,7 @@ public class DeviceAdminActivationTest
     }
 
     public void testActivateBrokenReceiver3Fails() throws Exception {
-        if (!mDeviceAdmin) {
+        if (!mHasFeature) {
             Log.w(TAG, "Skipping testActivateBrokenReceiver3Fails");
             return;
         }
@@ -135,7 +136,7 @@ public class DeviceAdminActivationTest
     }
 
     public void testActivateBrokenReceiver4Fails() throws Exception {
-        if (!mDeviceAdmin) {
+        if (!mHasFeature) {
             Log.w(TAG, "Skipping testActivateBrokenReceiver4Fails");
             return;
         }
@@ -146,7 +147,7 @@ public class DeviceAdminActivationTest
     }
 
     public void testActivateBrokenReceiver5Fails() throws Exception {
-        if (!mDeviceAdmin) {
+        if (!mHasFeature) {
             Log.w(TAG, "Skipping testActivateBrokenReceiver5Fails");
             return;
         }
@@ -157,18 +158,19 @@ public class DeviceAdminActivationTest
     }
 
     private void startAddDeviceAdminActivityForResult(Class<?> receiverClass) {
-        getActivity().startActivityForResult(
-                getAddDeviceAdminIntent(receiverClass),
-                REQUEST_CODE_ACTIVATE_ADMIN);
+        Activity activity = getActivity();
+        Intent intent = getAddDeviceAdminIntent(receiverClass);
+        Log.d(TAG, "starting activity " + intent + " from " + activity + " on user "
+                + activity.getUser());
+        activity.startActivityForResult(intent, REQUEST_CODE_ACTIVATE_ADMIN);
     }
 
     private Intent getAddDeviceAdminIntent(Class<?> receiverClass) {
+        ComponentName admin = new ComponentName(getInstrumentation().getTargetContext(),
+                receiverClass);
+        Log.v(TAG, "admin on " + DevicePolicyManager.EXTRA_DEVICE_ADMIN + " extra: " + admin);
         return new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
-            .putExtra(
-                    DevicePolicyManager.EXTRA_DEVICE_ADMIN,
-                    new ComponentName(
-                            getInstrumentation().getTargetContext(),
-                            receiverClass));
+            .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin);
     }
 
     private void assertWithTimeoutOnActivityResultNotInvoked() {
@@ -195,6 +197,7 @@ public class DeviceAdminActivationTest
     }
 
     private void assertDeviceAdminDeactivated(Class<?> receiverClass) {
+        Log.v(TAG, "assertDeviceAdminDeactivated(" + receiverClass + ")");
         DevicePolicyManager devicePolicyManager =
                 (DevicePolicyManager) getActivity().getSystemService(
                         Context.DEVICE_POLICY_SERVICE);

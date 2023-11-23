@@ -22,7 +22,7 @@ fi
 
 PROJECT_TOP=$ANDROID_BUILD_TOP/packages/apps/Car/SystemUI
 
-python $ANDROID_BUILD_TOP/packages/apps/Car/tests/tools/rro/generate-overlayable.py \
+python3 $ANDROID_BUILD_TOP/packages/apps/Car/tests/tools/rro/generate-overlayable.py \
     -n CarSystemUI \
     -r $PROJECT_TOP/res \
     -e $PROJECT_TOP/res/values/overlayable.xml \

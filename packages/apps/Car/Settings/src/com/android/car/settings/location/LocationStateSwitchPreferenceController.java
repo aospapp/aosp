@@ -17,6 +17,11 @@
 package com.android.car.settings.location;
 
 import static android.car.hardware.power.PowerComponent.LOCATION;
+import static android.os.UserManager.DISALLOW_CONFIG_LOCATION;
+import static android.os.UserManager.DISALLOW_SHARE_LOCATION;
+
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.BroadcastReceiver;
@@ -31,20 +36,26 @@ import android.widget.Toast;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.R;
-import com.android.car.settings.common.ClickableWhileDisabledSwitchPreference;
+import com.android.car.settings.common.ColoredSwitchPreference;
+import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PowerPolicyListener;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 import com.android.settingslib.Utils;
 
 /**
  * Enables/disables location state via SwitchPreference.
  */
 public class LocationStateSwitchPreferenceController extends
-        PreferenceController<ClickableWhileDisabledSwitchPreference> {
-
+        PreferenceController<ColoredSwitchPreference> {
+    private static final Logger LOG = new Logger(
+            LocationStateSwitchPreferenceController.class);
     private static final IntentFilter INTENT_FILTER_LOCATION_MODE_CHANGED =
             new IntentFilter(LocationManager.MODE_CHANGED_ACTION);
+
+    private boolean mIsPowerPolicyOn = true;
 
     private final Context mContext;
     private final LocationManager mLocationManager;
@@ -67,24 +78,44 @@ public class LocationStateSwitchPreferenceController extends
         mLocationManager = context.getSystemService(LocationManager.class);
         mPowerPolicyListener = new PowerPolicyListener(context, LOCATION,
                 isOn -> {
-                    enableSwitchPreference(getPreference(), isOn);
+                    LOG.d("setting mIsPowerPolicyOn to " + isOn);
+                    mIsPowerPolicyOn = isOn;
+                    // mIsPowerPolicyOn is used in deciding the availability status.
+                    // Call refreshUi() so that the UI can be updated as per
+                    // getAvailabilityStatus().
+                    refreshUi();
                 });
     }
 
     @Override
-    protected Class<ClickableWhileDisabledSwitchPreference> getPreferenceType() {
-        return ClickableWhileDisabledSwitchPreference.class;
+    protected int getAvailabilityStatus() {
+        if (hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_LOCATION)
+                || hasUserRestrictionByDpm(getContext(), DISALLOW_SHARE_LOCATION)
+                || !mIsPowerPolicyOn) {
+            return AVAILABLE_FOR_VIEWING;
+        }
+        return AVAILABLE;
     }
 
     @Override
-    protected void updateState(ClickableWhileDisabledSwitchPreference preference) {
+    protected Class<ColoredSwitchPreference> getPreferenceType() {
+        return ColoredSwitchPreference.class;
+    }
+
+    @Override
+    protected void updateState(ColoredSwitchPreference preference) {
         updateSwitchPreference(preference, mLocationManager.isLocationEnabled());
     }
 
     @Override
-    protected boolean handlePreferenceChanged(ClickableWhileDisabledSwitchPreference preference,
+    protected boolean handlePreferenceChanged(ColoredSwitchPreference preference,
             Object newValue) {
         boolean locationEnabled = (Boolean) newValue;
+        if (!locationEnabled) {
+            getFragmentController().showDialog(getConfirmationDialog(),
+                    ConfirmationDialogFragment.TAG);
+            return false;
+        }
         Utils.updateLocationEnabled(
                 mContext,
                 locationEnabled,
@@ -97,10 +128,23 @@ public class LocationStateSwitchPreferenceController extends
     protected void onCreateInternal() {
         getPreference().setContentDescription(
                 getContext().getString(R.string.location_state_switch_content_description));
-        getPreference().setDisabledClickListener(p ->
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> {
+            // All the cases here should coincide with the ones in getAvailabilityStatus()
+            if (!mIsPowerPolicyOn) {
                 Toast.makeText(getContext(),
                         getContext().getString(R.string.power_component_disabled),
-                        Toast.LENGTH_LONG).show());
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (hasUserRestrictionByDpm(getContext(), DISALLOW_SHARE_LOCATION)) {
+                showActionDisabledByAdminDialog(DISALLOW_SHARE_LOCATION);
+                return;
+            }
+            if (hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_LOCATION)) {
+                showActionDisabledByAdminDialog(DISALLOW_CONFIG_LOCATION);
+                return;
+            }
+        });
     }
 
     @Override
@@ -123,15 +167,29 @@ public class LocationStateSwitchPreferenceController extends
         mPowerPolicyListener.release();
     }
 
-    private void updateSwitchPreference(ClickableWhileDisabledSwitchPreference preference,
+    private void updateSwitchPreference(ColoredSwitchPreference preference,
             boolean enabled) {
-        preference.setTitle(enabled ? R.string.car_ui_preference_switch_on
-                : R.string.car_ui_preference_switch_off);
-        preference.setChecked(enabled);
+        preference.setChecked(enabled
+                && !hasUserRestrictionByDpm(getContext(), DISALLOW_SHARE_LOCATION));
     }
 
-    private void enableSwitchPreference(ClickableWhileDisabledSwitchPreference preference,
-            boolean enabled) {
-        preference.setEnabled(enabled);
+    private ConfirmationDialogFragment getConfirmationDialog() {
+        return new ConfirmationDialogFragment.Builder(getContext())
+                .setMessage(mContext.getString(R.string.location_toggle_off_warning))
+                .setPositiveButton(android.R.string.ok, arguments -> {
+                    Utils.updateLocationEnabled(
+                            mContext,
+                            false,
+                            UserHandle.myUserId(),
+                            Settings.Secure.LOCATION_CHANGER_SYSTEM_SETTINGS);
+                })
+                .build();
+    }
+
+    private void showActionDisabledByAdminDialog(String restrictionType) {
+        getFragmentController().showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(getContext(),
+                        restrictionType),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
     }
 }

@@ -54,14 +54,14 @@ use std::mem;
 use std::sync::Arc;
 
 use crate::bootparam::boot_params;
-use acpi_tables::aml::Aml;
 use acpi_tables::sdt::SDT;
+use acpi_tables::{aml, aml::Aml};
 use arch::{
-    get_serial_cmdline, GetSerialCmdlineError, RunnableLinuxVm, SerialHardware, SerialParameters,
-    VmComponents, VmImage,
+    get_serial_cmdline, GetSerialCmdlineError, LinuxArch, RunnableLinuxVm, SerialHardware,
+    SerialParameters, VmComponents, VmImage,
 };
 use base::Event;
-use devices::{IrqChip, IrqChipX86_64, PciConfigIo, PciDevice, ProtectionType};
+use devices::{BusResumeDevice, IrqChip, IrqChipX86_64, PciConfigIo, PciDevice, ProtectionType};
 use hypervisor::{HypervisorX86_64, VcpuX86_64, VmX86_64};
 use minijail::Minijail;
 use remain::sorted;
@@ -71,7 +71,7 @@ use vm_control::{BatControl, BatteryType};
 use vm_memory::{GuestAddress, GuestMemory, GuestMemoryError};
 #[cfg(all(target_arch = "x86_64", feature = "gdb"))]
 use {
-    gdbstub::arch::x86::reg::X86_64CoreRegs,
+    gdbstub_arch::x86::reg::{X86SegmentRegs, X86_64CoreRegs},
     hypervisor::x86_64::{Regs, Sregs},
 };
 
@@ -81,6 +81,7 @@ pub enum Error {
     AllocateIOResouce(resources::Error),
     AllocateIrq,
     CloneEvent(base::Error),
+    CloneIrqChip(base::Error),
     Cmdline(kernel_cmdline::Error),
     ConfigureSystem,
     CreateBatDevices(arch::DeviceRegistrationError),
@@ -88,7 +89,6 @@ pub enum Error {
     CreateEvent(base::Error),
     CreateFdt(arch::fdt::Error),
     CreateIoapicDevice(base::Error),
-    CreateIrqChip(Box<dyn StdError>),
     CreatePciRoot(arch::DeviceRegistrationError),
     CreatePit(base::Error),
     CreatePitDevice(devices::PitError),
@@ -141,6 +141,7 @@ impl Display for Error {
             AllocateIOResouce(e) => write!(f, "error allocating IO resource: {}", e),
             AllocateIrq => write!(f, "error allocating a single irq"),
             CloneEvent(e) => write!(f, "unable to clone an Event: {}", e),
+            CloneIrqChip(e) => write!(f, "failed to clone IRQ chip: {}", e),
             Cmdline(e) => write!(f, "the given kernel command line was invalid: {}", e),
             ConfigureSystem => write!(f, "error configuring the system"),
             CreateBatDevices(e) => write!(f, "unable to create battery devices: {}", e),
@@ -148,7 +149,6 @@ impl Display for Error {
             CreateEvent(e) => write!(f, "unable to make an Event: {}", e),
             CreateFdt(e) => write!(f, "failed to create fdt: {}", e),
             CreateIoapicDevice(e) => write!(f, "failed to create IOAPIC device: {}", e),
-            CreateIrqChip(e) => write!(f, "failed to create IRQ chip: {}", e),
             CreatePciRoot(e) => write!(f, "failed to create a PCI root hub: {}", e),
             CreatePit(e) => write!(f, "unable to create PIT: {}", e),
             CreatePitDevice(e) => write!(f, "unable to make PIT device: {}", e),
@@ -359,99 +359,115 @@ impl arch::LinuxArch for X8664arch {
         Ok(arch_memory_regions(components.memory_size, bios_size))
     }
 
-    fn build_vm<V, Vcpu, I, FD, FI, E1, E2>(
+    fn get_phys_max_addr() -> u64 {
+        (1u64 << cpuid::phy_max_address_bits()) - 1
+    }
+
+    fn create_system_allocator(guest_mem: &GuestMemory) -> SystemAllocator {
+        let high_mmio_start = Self::get_high_mmio_base(guest_mem);
+        SystemAllocator::builder()
+            .add_io_addresses(0xc000, 0x10000)
+            .add_low_mmio_addresses(END_ADDR_BEFORE_32BITS, MMIO_SIZE)
+            .add_high_mmio_addresses(high_mmio_start, u64::max_value() - high_mmio_start)
+            .create_allocator(X86_64_IRQ_BASE)
+            .unwrap()
+    }
+
+    fn build_vm<V, Vcpu>(
         mut components: VmComponents,
+        exit_evt: &Event,
+        system_allocator: &mut SystemAllocator,
         serial_parameters: &BTreeMap<(SerialHardware, u8), SerialParameters>,
         serial_jail: Option<Minijail>,
         battery: (&Option<BatteryType>, Option<Minijail>),
         mut vm: V,
-        create_devices: FD,
-        create_irq_chip: FI,
-    ) -> std::result::Result<RunnableLinuxVm<V, Vcpu, I>, Self::Error>
+        pci_devices: Vec<(Box<dyn PciDevice>, Option<Minijail>)>,
+        irq_chip: &mut dyn IrqChipX86_64,
+    ) -> std::result::Result<RunnableLinuxVm<V, Vcpu>, Self::Error>
     where
         V: VmX86_64,
         Vcpu: VcpuX86_64,
-        I: IrqChipX86_64,
-        FD: FnOnce(
-            &GuestMemory,
-            &mut V,
-            &mut SystemAllocator,
-            &Event,
-        ) -> std::result::Result<Vec<(Box<dyn PciDevice>, Option<Minijail>)>, E1>,
-        FI: FnOnce(&V, /* vcpu_count: */ usize) -> std::result::Result<I, E2>,
-        E1: StdError + 'static,
-        E2: StdError + 'static,
     {
         if components.protected_vm != ProtectionType::Unprotected {
             return Err(Error::UnsupportedProtectionType);
         }
 
         let mem = vm.get_memory().clone();
-        let mut resources = Self::get_resource_allocator(&mem);
 
         let vcpu_count = components.vcpu_count;
-        let mut irq_chip =
-            create_irq_chip(&vm, vcpu_count).map_err(|e| Error::CreateIrqChip(Box::new(e)))?;
 
         let tss_addr = GuestAddress(TSS_ADDR);
         vm.set_tss_addr(tss_addr).map_err(Error::SetTssAddr)?;
 
         let mut mmio_bus = devices::Bus::new();
+        let mut io_bus = devices::Bus::new();
 
-        let exit_evt = Event::new().map_err(Error::CreateEvent)?;
-
-        let pci_devices = create_devices(&mem, &mut vm, &mut resources, &exit_evt)
-            .map_err(|e| Error::CreateDevices(Box::new(e)))?;
         let (pci, pci_irqs, pid_debug_label_map) = arch::generate_pci_root(
             pci_devices,
-            &mut irq_chip,
+            irq_chip.as_irq_chip_mut(),
             &mut mmio_bus,
-            &mut resources,
+            &mut io_bus,
+            system_allocator,
             &mut vm,
             4, // Share the four pin interrupts (INTx#)
         )
         .map_err(Error::CreatePciRoot)?;
         let pci_bus = Arc::new(Mutex::new(PciConfigIo::new(pci)));
+        io_bus.insert(pci_bus, 0xcf8, 0x8).unwrap();
 
         // Event used to notify crosvm that guest OS is trying to suspend.
         let suspend_evt = Event::new().map_err(Error::CreateEvent)?;
 
-        let mut io_bus = Self::setup_io_bus(
-            irq_chip.pit_uses_speaker_port(),
-            exit_evt.try_clone().map_err(Error::CloneEvent)?,
-            Some(pci_bus),
-            components.memory_size,
-        )?;
-
+        if !components.no_legacy {
+            Self::setup_legacy_devices(
+                &mut io_bus,
+                irq_chip.pit_uses_speaker_port(),
+                exit_evt.try_clone().map_err(Error::CloneEvent)?,
+                components.memory_size,
+            )?;
+        }
         Self::setup_serial_devices(
             components.protected_vm,
-            &mut irq_chip,
+            irq_chip.as_irq_chip_mut(),
             &mut io_bus,
             serial_parameters,
             serial_jail,
         )?;
 
+        let mut resume_notify_devices = Vec::new();
+
         let (acpi_dev_resource, bat_control) = Self::setup_acpi_devices(
+            &mem,
             &mut io_bus,
-            &mut resources,
+            system_allocator,
             suspend_evt.try_clone().map_err(Error::CloneEvent)?,
             exit_evt.try_clone().map_err(Error::CloneEvent)?,
             components.acpi_sdts,
-            &mut irq_chip,
+            irq_chip.as_irq_chip_mut(),
             battery,
             &mut mmio_bus,
+            &mut resume_notify_devices,
         )?;
+
+        // Use IRQ info in ACPI if provided by the user.
+        let mut noirq = true;
+
+        for sdt in acpi_dev_resource.sdts.iter() {
+            if sdt.is_signature(b"DSDT") || sdt.is_signature(b"APIC") {
+                noirq = false;
+            }
+        }
 
         let ramoops_region = match components.pstore {
             Some(pstore) => Some(
-                arch::pstore::create_memory_region(&mut vm, &mut resources, &pstore)
+                arch::pstore::create_memory_region(&mut vm, system_allocator, &pstore)
                     .map_err(Error::Pstore)?,
             ),
             None => None,
         };
 
         irq_chip
-            .finalize_devices(&mut resources, &mut io_bus, &mut mmio_bus)
+            .finalize_devices(system_allocator, &mut io_bus, &mut mmio_bus)
             .map_err(Error::RegisterIrqfd)?;
 
         // All of these bios generated tables are set manually for the benefit of the kernel boot
@@ -473,6 +489,10 @@ impl arch::LinuxArch for X8664arch {
             VmImage::Bios(ref mut bios) => Self::load_bios(&mem, bios)?,
             VmImage::Kernel(ref mut kernel_image) => {
                 let mut cmdline = Self::get_base_linux_cmdline();
+
+                if noirq {
+                    cmdline.insert_str("acpi=noirq").unwrap();
+                }
 
                 get_serial_cmdline(&mut cmdline, serial_parameters, "io")
                     .map_err(Error::GetSerialCmdline)?;
@@ -517,19 +537,19 @@ impl arch::LinuxArch for X8664arch {
 
         Ok(RunnableLinuxVm {
             vm,
-            resources,
-            exit_evt,
             vcpu_count,
             vcpus: None,
             vcpu_affinity: components.vcpu_affinity,
             no_smt: components.no_smt,
-            irq_chip,
+            irq_chip: irq_chip.try_box_clone().map_err(Error::CloneIrqChip)?,
             has_bios: matches!(components.vm_image, VmImage::Bios(_)),
             io_bus,
             mmio_bus,
             pid_debug_label_map,
             suspend_evt,
+            resume_notify_devices,
             rt_cpus: components.rt_cpus,
+            delay_rt: components.delay_rt,
             bat_control,
             #[cfg(all(target_arch = "x86_64", feature = "gdb"))]
             gdb: components.gdb,
@@ -588,12 +608,14 @@ impl arch::LinuxArch for X8664arch {
 
         // Segment registers: CS, SS, DS, ES, FS, GS
         let sregs = vcpu.get_sregs().map_err(Error::ReadRegs)?;
-        let sgs = [sregs.cs, sregs.ss, sregs.ds, sregs.es, sregs.fs, sregs.gs];
-        let mut segments = [0u32; 6];
-        // GDB uses only the selectors.
-        for i in 0..sgs.len() {
-            segments[i] = sgs[i].selector as u32;
-        }
+        let segments = X86SegmentRegs {
+            cs: sregs.cs.selector as u32,
+            ss: sregs.ss.selector as u32,
+            ds: sregs.ds.selector as u32,
+            es: sregs.es.selector as u32,
+            fs: sregs.fs.selector as u32,
+            gs: sregs.gs.selector as u32,
+        };
 
         // TODO(keiichiw): Other registers such as FPU, xmm and mxcsr.
 
@@ -636,12 +658,12 @@ impl arch::LinuxArch for X8664arch {
         // Segment registers: CS, SS, DS, ES, FS, GS
         // Since GDB care only selectors, we call get_sregs() first.
         let mut sregs = vcpu.get_sregs().map_err(Error::ReadRegs)?;
-        sregs.cs.selector = regs.segments[0] as u16;
-        sregs.ss.selector = regs.segments[1] as u16;
-        sregs.ds.selector = regs.segments[2] as u16;
-        sregs.es.selector = regs.segments[3] as u16;
-        sregs.fs.selector = regs.segments[4] as u16;
-        sregs.gs.selector = regs.segments[5] as u16;
+        sregs.cs.selector = regs.segments.cs as u16;
+        sregs.ss.selector = regs.segments.ss as u16;
+        sregs.ds.selector = regs.segments.ds as u16;
+        sregs.es.selector = regs.segments.es as u16;
+        sregs.fs.selector = regs.segments.fs as u16;
+        sregs.gs.selector = regs.segments.gs as u16;
 
         vcpu.set_sregs(&sregs).map_err(Error::WriteRegs)?;
 
@@ -946,43 +968,31 @@ impl X8664arch {
     /// This returns a minimal kernel command for this architecture
     fn get_base_linux_cmdline() -> kernel_cmdline::Cmdline {
         let mut cmdline = kernel_cmdline::Cmdline::new(CMDLINE_MAX_SIZE as usize);
-        cmdline.insert_str("pci=noacpi reboot=k panic=-1").unwrap();
+        cmdline.insert_str("reboot=k panic=-1").unwrap();
 
         cmdline
     }
 
-    /// Returns a system resource allocator.
-    fn get_resource_allocator(mem: &GuestMemory) -> SystemAllocator {
-        let high_mmio_start = Self::get_high_mmio_base(mem);
-        SystemAllocator::builder()
-            .add_io_addresses(0xc000, 0x10000)
-            .add_low_mmio_addresses(END_ADDR_BEFORE_32BITS, MMIO_SIZE)
-            .add_high_mmio_addresses(high_mmio_start, u64::max_value() - high_mmio_start)
-            .create_allocator(X86_64_IRQ_BASE)
-            .unwrap()
-    }
-
-    /// Sets up the IO bus for this platform
+    /// Sets up the legacy x86 IO platform devices
     ///
     /// # Arguments
     ///
+    /// * - `io_bus` - the IO bus object
     /// * - `pit_uses_speaker_port` - does the PIT use port 0x61 for the PC speaker
     /// * - `exit_evt` - the event object which should receive exit events
     /// * - `mem_size` - the size in bytes of physical ram for the guest
-    fn setup_io_bus(
+    fn setup_legacy_devices(
+        io_bus: &mut devices::Bus,
         pit_uses_speaker_port: bool,
         exit_evt: Event,
-        pci: Option<Arc<Mutex<devices::PciConfigIo>>>,
         mem_size: u64,
-    ) -> Result<devices::Bus> {
+    ) -> Result<()> {
         struct NoDevice;
         impl devices::BusDevice for NoDevice {
             fn debug_label(&self) -> String {
                 "no device".to_owned()
             }
         }
-
-        let mut io_bus = devices::Bus::new();
 
         let mem_regions = arch_memory_regions(mem_size, None);
 
@@ -1018,16 +1028,9 @@ impl X8664arch {
         }
 
         io_bus.insert(nul_device.clone(), 0x0ed, 0x1).unwrap(); // most likely this one does nothing
-        io_bus.insert(nul_device.clone(), 0x0f0, 0x2).unwrap(); // ignore fpu
+        io_bus.insert(nul_device, 0x0f0, 0x2).unwrap(); // ignore fpu
 
-        if let Some(pci_root) = pci {
-            io_bus.insert(pci_root, 0xcf8, 0x8).unwrap();
-        } else {
-            // ignore pci.
-            io_bus.insert(nul_device, 0xcf8, 0x8).unwrap();
-        }
-
-        Ok(io_bus)
+        Ok(())
     }
 
     /// Sets up the acpi devices for this platform and
@@ -1044,14 +1047,16 @@ impl X8664arch {
     /// * - `battery` indicate whether to create the battery
     /// * - `mmio_bus` the MMIO bus to add the devices to
     fn setup_acpi_devices(
+        mem: &GuestMemory,
         io_bus: &mut devices::Bus,
         resources: &mut SystemAllocator,
         suspend_evt: Event,
         exit_evt: Event,
         sdts: Vec<SDT>,
-        irq_chip: &mut impl IrqChip,
+        irq_chip: &mut dyn IrqChip,
         battery: (&Option<BatteryType>, Option<Minijail>),
         mmio_bus: &mut devices::Bus,
+        resume_notify_devices: &mut Vec<Arc<Mutex<dyn BusResumeDevice>>>,
     ) -> Result<(acpi::ACPIDevResource, Option<BatControl>)> {
         // The AML data for the acpi devices
         let mut amls = Vec::new();
@@ -1071,6 +1076,43 @@ impl X8664arch {
 
         let pmresource = devices::ACPIPMResource::new(suspend_evt, exit_evt);
         Aml::to_aml_bytes(&pmresource, &mut amls);
+
+        let mut pci_dsdt_inner_data: Vec<&dyn aml::Aml> = Vec::new();
+        let hid = aml::Name::new("_HID".into(), &aml::EISAName::new("PNP0A08"));
+        pci_dsdt_inner_data.push(&hid);
+        let cid = aml::Name::new("_CID".into(), &aml::EISAName::new("PNP0A03"));
+        pci_dsdt_inner_data.push(&cid);
+        let adr = aml::Name::new("_ADR".into(), &aml::ZERO);
+        pci_dsdt_inner_data.push(&adr);
+        let seg = aml::Name::new("_SEG".into(), &aml::ZERO);
+        pci_dsdt_inner_data.push(&seg);
+        let uid = aml::Name::new("_UID".into(), &aml::ZERO);
+        pci_dsdt_inner_data.push(&uid);
+        let supp = aml::Name::new("SUPP".into(), &aml::ZERO);
+        pci_dsdt_inner_data.push(&supp);
+        let crs = aml::Name::new(
+            "_CRS".into(),
+            &aml::ResourceTemplate::new(vec![
+                &aml::AddressSpace::new_bus_number(0x0u16, 0xffu16),
+                &aml::IO::new(0xcf8, 0xcf8, 1, 0x8),
+                &aml::AddressSpace::new_memory(
+                    aml::AddressSpaceCachable::NotCacheable,
+                    true,
+                    END_ADDR_BEFORE_32BITS as u32,
+                    (END_ADDR_BEFORE_32BITS + MMIO_SIZE - 1) as u32,
+                ),
+                &aml::AddressSpace::new_memory(
+                    aml::AddressSpaceCachable::NotCacheable,
+                    true,
+                    Self::get_high_mmio_base(mem),
+                    X8664arch::get_phys_max_addr(),
+                ),
+            ]),
+        );
+        pci_dsdt_inner_data.push(&crs);
+
+        aml::Device::new("_SB_.PCI0".into(), pci_dsdt_inner_data).to_aml_bytes(&mut amls);
+
         let pm = Arc::new(Mutex::new(pmresource));
         io_bus
             .insert(
@@ -1079,7 +1121,7 @@ impl X8664arch {
                 devices::acpi::ACPIPM_RESOURCE_LEN as u64,
             )
             .unwrap();
-        io_bus.notify_on_resume(pm);
+        resume_notify_devices.push(pm);
 
         let bat_control = if let Some(battery_type) = battery.0 {
             match battery_type {
@@ -1123,7 +1165,7 @@ impl X8664arch {
     /// * - `serial_parmaters` - definitions for how the serial devices should be configured
     fn setup_serial_devices(
         protected_vm: ProtectionType,
-        irq_chip: &mut impl IrqChip,
+        irq_chip: &mut dyn IrqChip,
         io_bus: &mut devices::Bus,
         serial_parameters: &BTreeMap<(SerialHardware, u8), SerialParameters>,
         serial_jail: Option<Minijail>,

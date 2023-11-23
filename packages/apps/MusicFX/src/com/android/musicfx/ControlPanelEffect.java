@@ -18,6 +18,7 @@ package com.android.musicfx;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.audiofx.AudioEffect;
 import android.media.audiofx.BassBoost;
@@ -40,6 +41,12 @@ public class ControlPanelEffect {
      * Audio session priority
      */
     private static final int PRIORITY = 0;
+
+    /**
+     * Use AudioManager.AUDIO_SESSION_ID_GENERATE for the use case of unspecified audio sessions or
+     * audio sessions which can't be found.
+     */
+    public static final int AUDIO_SESSION_ID_UNSPECIFIED = AudioManager.AUDIO_SESSION_ID_GENERATE;
 
     /**
      * The control mode specifies if control panel updates effects and preferences or only
@@ -155,10 +162,22 @@ public class ControlPanelEffect {
      *            System wide unique audio session identifier.
      */
     public static void initEffectsPreferences(final Context context, final String packageName,
-            final int audioSession) {
+            int audioSession) {
         final SharedPreferences prefs = context.getSharedPreferences(packageName,
                 Context.MODE_PRIVATE);
         final SharedPreferences.Editor editor = prefs.edit();
+
+        if (audioSession == AUDIO_SESSION_ID_UNSPECIFIED) {
+            Log.i(TAG, "Audio session is not specified.");
+            if (mPackageSessions.containsKey(packageName)) {
+                audioSession = mPackageSessions.get(packageName);
+                Log.i(TAG, "Using the stored session " + audioSession);
+            } else {
+                Log.i(TAG, "Can't find the stored session by " + packageName +
+                        ", updates the preferences only.");
+            }
+        }
+
         final ControlMode controlMode = getControlMode(audioSession);
 
         // init preferences
@@ -337,7 +356,7 @@ public class ControlPanelEffect {
      * @return effect control mode
      */
     public static ControlMode getControlMode(final int audioSession) {
-        if (audioSession == AudioEffect.ERROR_BAD_VALUE) {
+        if (audioSession == AUDIO_SESSION_ID_UNSPECIFIED) {
             return ControlMode.CONTROL_PREFERENCES;
         }
         return ControlMode.CONTROL_EFFECTS;
@@ -348,17 +367,17 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
      * @param key
      * @param value
      */
     public static void setParameterBoolean(final Context context, final String packageName,
-            final int audioSession, final Key key, final boolean value) {
+            final Key key, final boolean value) {
         try {
             final SharedPreferences prefs = context.getSharedPreferences(packageName,
                     Context.MODE_PRIVATE);
-            final ControlMode controlMode = getControlMode(audioSession);
+            final int storedAudioSession = mPackageSessions.getOrDefault(packageName,
+                    AUDIO_SESSION_ID_UNSPECIFIED);
+            final ControlMode controlMode = getControlMode(storedAudioSession);
             boolean enabled = value;
 
             // Global on/off
@@ -367,42 +386,41 @@ public class ControlPanelEffect {
                 if (value == true) {
                     // enable all with respect to preferences
                     if (controlMode == ControlMode.CONTROL_EFFECTS) {
-                        final Virtualizer virtualizerEffect = getVirtualizerEffect(audioSession);
+                        final Virtualizer virtualizerEffect =
+                                getVirtualizerEffect(storedAudioSession);
                         if (virtualizerEffect != null) {
                             virtualizerEffect.setEnabled(prefs.getBoolean(
                                     Key.virt_enabled.toString(), VIRTUALIZER_ENABLED_DEFAULT));
                             int defaultstrength = virtualizerEffect.getRoundedStrength();
                             final int vIStrength = prefs.getInt(Key.virt_strength.toString(),
                                     defaultstrength);
-                            setParameterInt(context, packageName,
-                                    audioSession, Key.virt_strength, vIStrength);
+                            setParameterInt(context, packageName, Key.virt_strength, vIStrength);
                         }
-                        final BassBoost bassBoostEffect = getBassBoostEffect(audioSession);
+                        final BassBoost bassBoostEffect = getBassBoostEffect(storedAudioSession);
                         if (bassBoostEffect != null) {
                             bassBoostEffect.setEnabled(prefs.getBoolean(Key.bb_enabled.toString(),
                                     BASS_BOOST_ENABLED_DEFAULT));
                             final int bBStrength = prefs.getInt(Key.bb_strength.toString(),
                                     BASS_BOOST_STRENGTH_DEFAULT);
-                            setParameterInt(context, packageName,
-                                    audioSession, Key.bb_strength, bBStrength);
+                            setParameterInt(context, packageName, Key.bb_strength, bBStrength);
                         }
-                        final Equalizer equalizerEffect = getEqualizerEffect(audioSession);
+                        final Equalizer equalizerEffect = getEqualizerEffect(storedAudioSession);
                         if (equalizerEffect != null) {
                             equalizerEffect.setEnabled(prefs.getBoolean(Key.eq_enabled.toString(),
                                     EQUALIZER_ENABLED_DEFAULT));
-                            final int[] bandLevels = getParameterIntArray(context,
-                                    packageName, audioSession, Key.eq_band_level);
+                            final int[] bandLevels = getParameterIntArray(context, packageName,
+                                    Key.eq_band_level);
                             final int len = bandLevels.length;
                             for (short band = 0; band < len; band++) {
                                 final int level = bandLevels[band];
-                                setParameterInt(context, packageName,
-                                        audioSession, Key.eq_band_level, level, band);
+                                setParameterInt(context, packageName, Key.eq_band_level, level,
+                                        band);
                             }
                         }
                         // XXX: Preset Reverb not used for the moment, so commented out the effect
                         // creation to not use MIPS
                         // final PresetReverb presetReverbEffect =
-                        // getPresetReverbEffect(audioSession);
+                        // getPresetReverbEffect(storedAudioSession);
                         // if (presetReverbEffect != null) {
                         // presetReverbEffect.setEnabled(prefs.getBoolean(
                         // Key.pr_enabled.toString(), PRESET_REVERB_ENABLED_DEFAULT));
@@ -415,28 +433,31 @@ public class ControlPanelEffect {
                 } else {
                     // disable all
                     if (controlMode == ControlMode.CONTROL_EFFECTS) {
-                        final Virtualizer virtualizerEffect = getVirtualizerEffectNoCreate(audioSession);
+                        final Virtualizer virtualizerEffect =
+                                getVirtualizerEffectNoCreate(storedAudioSession);
                         if (virtualizerEffect != null) {
-                            mVirtualizerInstances.remove(audioSession, virtualizerEffect);
+                            mVirtualizerInstances.remove(storedAudioSession, virtualizerEffect);
                             virtualizerEffect.setEnabled(false);
                             virtualizerEffect.release();
                         }
-                        final BassBoost bassBoostEffect = getBassBoostEffectNoCreate(audioSession);
+                        final BassBoost bassBoostEffect =
+                                getBassBoostEffectNoCreate(storedAudioSession);
                         if (bassBoostEffect != null) {
-                            mBassBoostInstances.remove(audioSession, bassBoostEffect);
+                            mBassBoostInstances.remove(storedAudioSession, bassBoostEffect);
                             bassBoostEffect.setEnabled(false);
                             bassBoostEffect.release();
                         }
-                        final Equalizer equalizerEffect = getEqualizerEffectNoCreate(audioSession);
+                        final Equalizer equalizerEffect =
+                                getEqualizerEffectNoCreate(storedAudioSession);
                         if (equalizerEffect != null) {
-                            mEQInstances.remove(audioSession, equalizerEffect);
+                            mEQInstances.remove(storedAudioSession, equalizerEffect);
                             equalizerEffect.setEnabled(false);
                             equalizerEffect.release();
                         }
                         // XXX: Preset Reverb not used for the moment, so commented out the effect
                         // creation to not use MIPS
                         // final PresetReverb presetReverbEffect =
-                        // getPresetReverbEffect(audioSession);
+                        // getPresetReverbEffect(storedAudioSession);
                         // if (presetReverbEffect != null) {
                         // presetReverbEffect.setEnabled(false);
                         // }
@@ -459,7 +480,8 @@ public class ControlPanelEffect {
 
                     // Virtualizer
                     case virt_enabled:
-                        final Virtualizer virtualizerEffect = getVirtualizerEffect(audioSession);
+                        final Virtualizer virtualizerEffect =
+                                getVirtualizerEffect(storedAudioSession);
                         if (virtualizerEffect != null) {
                             virtualizerEffect.setEnabled(value);
                             enabled = virtualizerEffect.getEnabled();
@@ -468,7 +490,7 @@ public class ControlPanelEffect {
 
                     // BassBoost
                     case bb_enabled:
-                        final BassBoost bassBoostEffect = getBassBoostEffect(audioSession);
+                        final BassBoost bassBoostEffect = getBassBoostEffect(storedAudioSession);
                         if (bassBoostEffect != null) {
                             bassBoostEffect.setEnabled(value);
                             enabled = bassBoostEffect.getEnabled();
@@ -477,7 +499,7 @@ public class ControlPanelEffect {
 
                     // Equalizer
                     case eq_enabled:
-                        final Equalizer equalizerEffect = getEqualizerEffect(audioSession);
+                        final Equalizer equalizerEffect = getEqualizerEffect(storedAudioSession);
                         if (equalizerEffect != null) {
                             equalizerEffect.setEnabled(value);
                             enabled = equalizerEffect.getEnabled();
@@ -489,7 +511,7 @@ public class ControlPanelEffect {
                         // XXX: Preset Reverb not used for the moment, so commented out the effect
                         // creation to not use MIPS
                         // final PresetReverb presetReverbEffect =
-                        // getPresetReverbEffect(audioSession);
+                        // getPresetReverbEffect(storedAudioSession);
                         // if (presetReverbEffect != null) {
                         // presetReverbEffect.setEnabled(value);
                         // enabled = presetReverbEffect.getEnabled();
@@ -519,13 +541,11 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
      * @param key
      * @return parameter value
      */
     public static Boolean getParameterBoolean(final Context context, final String packageName,
-            final int audioSession, final Key key) {
+            final Key key) {
         final SharedPreferences prefs = context.getSharedPreferences(packageName,
                 Context.MODE_PRIVATE);
         boolean value = false;
@@ -545,14 +565,12 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
      * @param key
      * @param arg0
      * @param arg1
      */
     public static void setParameterInt(final Context context, final String packageName,
-            final int audioSession, final Key key, final int arg0, final int arg1) {
+            final Key key, final int arg0, final int arg1) {
         String strKey = key.toString();
         int value = arg0;
 
@@ -560,7 +578,9 @@ public class ControlPanelEffect {
             final SharedPreferences prefs = context.getSharedPreferences(packageName,
                     Context.MODE_PRIVATE);
             final SharedPreferences.Editor editor = prefs.edit();
-            final ControlMode controlMode = getControlMode(audioSession);
+            final int storedAudioSession = mPackageSessions.getOrDefault(packageName,
+                    AUDIO_SESSION_ID_UNSPECIFIED);
+            final ControlMode controlMode = getControlMode(storedAudioSession);
 
             // Set effect parameters
             if (controlMode == ControlMode.CONTROL_EFFECTS) {
@@ -569,7 +589,7 @@ public class ControlPanelEffect {
 
                 // Virtualizer
                 case virt_strength: {
-                    final Virtualizer virtualizerEffect = getVirtualizerEffect(audioSession);
+                    final Virtualizer virtualizerEffect = getVirtualizerEffect(storedAudioSession);
                     if (virtualizerEffect != null) {
                         virtualizerEffect.setStrength((short) value);
                         value = virtualizerEffect.getRoundedStrength();
@@ -578,7 +598,7 @@ public class ControlPanelEffect {
                 }
                     // BassBoost
                 case bb_strength: {
-                    final BassBoost bassBoostEffect = getBassBoostEffect(audioSession);
+                    final BassBoost bassBoostEffect = getBassBoostEffect(storedAudioSession);
                     if (bassBoostEffect != null) {
                         bassBoostEffect.setStrength((short) value);
                         value = bassBoostEffect.getRoundedStrength();
@@ -592,7 +612,7 @@ public class ControlPanelEffect {
                     }
                     final short band = (short) arg1;
                     strKey = strKey + band;
-                    final Equalizer equalizerEffect = getEqualizerEffect(audioSession);
+                    final Equalizer equalizerEffect = getEqualizerEffect(storedAudioSession);
                     if (equalizerEffect != null) {
                         equalizerEffect.setBandLevel(band, (short) value);
                         value = equalizerEffect.getBandLevel(band);
@@ -602,7 +622,7 @@ public class ControlPanelEffect {
                     break;
                 }
                 case eq_current_preset: {
-                    final Equalizer equalizerEffect = getEqualizerEffect(audioSession);
+                    final Equalizer equalizerEffect = getEqualizerEffect(storedAudioSession);
                     if (equalizerEffect != null) {
                         final short preset = (short) value;
                         final int numBands = prefs.getInt(Key.eq_num_bands.toString(),
@@ -660,7 +680,8 @@ public class ControlPanelEffect {
                 case pr_current_preset:
                     // XXX: Preset Reverb not used for the moment, so commented out the effect
                     // creation to not use MIPS
-                    // final PresetReverb presetReverbEffect = getPresetReverbEffect(audioSession);
+                    // final PresetReverb presetReverbEffect =
+                    //          getPresetReverbEffect(storedAudioSession);
                     // if (presetReverbEffect != null) {
                     // presetReverbEffect.setPreset((short) value);
                     // value = presetReverbEffect.getPreset();
@@ -767,14 +788,12 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
      * @param key
      * @param arg
      */
     public static void setParameterInt(final Context context, final String packageName,
-            final int audioSession, final Key key, final int arg) {
-        setParameterInt(context, packageName, audioSession, key, arg, UNUSED_ARGUMENT);
+            final Key key, final int arg) {
+        setParameterInt(context, packageName, key, arg, UNUSED_ARGUMENT);
     }
 
     /**
@@ -782,13 +801,11 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
      * @param key
      * @return parameter value
      */
     public static int getParameterInt(final Context context, final String packageName,
-            final int audioSession, final String key) {
+            final String key) {
         int value = 0;
 
         try {
@@ -807,14 +824,12 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
      * @param key
      * @return parameter value
      */
     public static int getParameterInt(final Context context, final String packageName,
-            final int audioSession, final Key key) {
-        return getParameterInt(context, packageName, audioSession, key.toString());
+            final Key key) {
+        return getParameterInt(context, packageName, key.toString());
     }
 
     /**
@@ -822,16 +837,13 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
-     * @param audioSession
      * @param key
      * @param arg
      * @return parameter value
      */
     public static int getParameterInt(final Context context, final String packageName,
-            final int audioSession, final Key key, final int arg) {
-        return getParameterInt(context, packageName, audioSession, key.toString() + arg);
+            final Key key, final int arg) {
+        return getParameterInt(context, packageName, key.toString() + arg);
     }
 
     /**
@@ -839,17 +851,14 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
-     * @param audioSession
      * @param key
      * @param arg0
      * @param arg1
      * @return parameter value
      */
     public static int getParameterInt(final Context context, final String packageName,
-            final int audioSession, final Key key, final int arg0, final int arg1) {
-        return getParameterInt(context, packageName, audioSession, key.toString() + arg0 + "_"
+            final Key key, final int arg0, final int arg1) {
+        return getParameterInt(context, packageName, key.toString() + arg0 + "_"
                 + arg1);
     }
 
@@ -858,13 +867,11 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
      * @param key
      * @return parameter value array
      */
     public static int[] getParameterIntArray(final Context context, final String packageName,
-            final int audioSession, final Key key) {
+            final Key key) {
         final SharedPreferences prefs = context.getSharedPreferences(packageName,
                 Context.MODE_PRIVATE);
 
@@ -910,13 +917,11 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
      * @param key
      * @return parameter value
      */
     public static String getParameterString(final Context context, final String packageName,
-            final int audioSession, final String key) {
+            final String key) {
         String value = "";
         try {
             final SharedPreferences prefs = context.getSharedPreferences(packageName,
@@ -937,14 +942,12 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
      * @param key
      * @return parameter value
      */
     public static String getParameterString(final Context context, final String packageName,
-            final int audioSession, final Key key) {
-        return getParameterString(context, packageName, audioSession, key.toString());
+            final Key key) {
+        return getParameterString(context, packageName, key.toString());
     }
 
     /**
@@ -952,14 +955,12 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
      * @param args
      * @return parameter value
      */
     public static String getParameterString(final Context context, final String packageName,
-            final int audioSession, final Key key, final int arg) {
-        return getParameterString(context, packageName, audioSession, key.toString() + arg);
+            final Key key, final int arg) {
+        return getParameterString(context, packageName, key.toString() + arg);
     }
 
     /**
@@ -981,38 +982,29 @@ public class ControlPanelEffect {
                 Context.MODE_PRIVATE);
         final SharedPreferences.Editor editor = prefs.edit();
 
+        // Manage audioSession information
+
+        // Retrieve AudioSession Id from map
+        final int storedAudioSession = mPackageSessions.getOrDefault(packageName,
+                AUDIO_SESSION_ID_UNSPECIFIED);
+        boolean isExistingAudioSession = storedAudioSession == audioSession;
+
+        if (isExistingAudioSession) {
+            // FIXME: Normally, we should exit the function here
+            // BUT: we have to take care of the virtualizer because of
+            // a bug in the Android Effects Framework
+            // editor.commit();
+            // return;
+        } else {
+            closeSession(context, packageName);
+            mPackageSessions.put(packageName, audioSession);
+        }
+
         final boolean isGlobalEnabled = prefs.getBoolean(Key.global_enabled.toString(),
                 GLOBAL_ENABLED_DEFAULT);
         editor.putBoolean(Key.global_enabled.toString(), isGlobalEnabled);
 
         if (!isGlobalEnabled) {
-            return;
-        }
-
-        // Manage audioSession information
-
-        // Retrieve AudioSession Id from map
-        boolean isExistingAudioSession = false;
-
-        try {
-            final Integer currentAudioSession = mPackageSessions.putIfAbsent(packageName,
-                    audioSession);
-            if (currentAudioSession != null) {
-                // Compare with passed argument
-                if (currentAudioSession == audioSession) {
-                    // FIXME: Normally, we should exit the function here
-                    // BUT: we have to take care of the virtualizer because of
-                    // a bug in the Android Effects Framework
-                    // editor.commit();
-                    // return;
-                    isExistingAudioSession = true;
-                } else {
-                    closeSession(context, packageName, currentAudioSession);
-                }
-            }
-        } catch (final NullPointerException e) {
-            Log.e(TAG, methodTag + e);
-            editor.commit();
             return;
         }
 
@@ -1263,30 +1255,30 @@ public class ControlPanelEffect {
      *
      * @param context
      * @param packageName
-     * @param audioSession
-     *            System wide unique audio session identifier.
      */
-    public static void closeSession(final Context context, final String packageName,
-            final int audioSession) {
-        Log.v(TAG, "closeSession(" + context + ", " + packageName + ", " + audioSession + ")");
+    public static void closeSession(final Context context, final String packageName) {
+        final int storedAudioSession = mPackageSessions.getOrDefault(packageName,
+                AUDIO_SESSION_ID_UNSPECIFIED);
+        Log.v(TAG, "closeSession(" + context + ", " + packageName + ", " + storedAudioSession +
+                ")");
 
         // PresetReverb
-        final PresetReverb presetReverb = mPresetReverbInstances.remove(audioSession);
+        final PresetReverb presetReverb = mPresetReverbInstances.remove(storedAudioSession);
         if (presetReverb != null) {
             presetReverb.release();
         }
         // Equalizer
-        final Equalizer equalizer = mEQInstances.remove(audioSession);
+        final Equalizer equalizer = mEQInstances.remove(storedAudioSession);
         if (equalizer != null) {
             equalizer.release();
         }
         // BassBoost
-        final BassBoost bassBoost = mBassBoostInstances.remove(audioSession);
+        final BassBoost bassBoost = mBassBoostInstances.remove(storedAudioSession);
         if (bassBoost != null) {
             bassBoost.release();
         }
         // Virtualizer
-        final Virtualizer virtualizer = mVirtualizerInstances.remove(audioSession);
+        final Virtualizer virtualizer = mVirtualizerInstances.remove(storedAudioSession);
         if (virtualizer != null) {
             virtualizer.release();
         }
@@ -1308,7 +1300,7 @@ public class ControlPanelEffect {
     public static void setEnabledAll(final Context context, final String packageName,
             final int audioSession, final boolean enabled) {
         initEffectsPreferences(context, packageName, audioSession);
-        setParameterBoolean(context, packageName, audioSession, Key.global_enabled, enabled);
+        setParameterBoolean(context, packageName, Key.global_enabled, enabled);
     }
 
     /**

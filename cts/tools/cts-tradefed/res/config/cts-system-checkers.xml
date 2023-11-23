@@ -27,4 +27,9 @@
     <system_checker class="com.android.tradefed.suite.checker.DeviceSettingChecker" />
     <system_checker class="com.android.tradefed.suite.checker.SystemServerStatusChecker" />
     <system_checker class="com.android.tradefed.suite.checker.SystemServerFileDescriptorChecker" />
+    <system_checker class="com.android.tradefed.suite.checker.DeviceBaselineChecker">
+        <option name="enable-device-baseline-settings" value="true" />
+        <option name="enable-experimental-device-baseline-setters" value="keep_screen_on" />
+        <option name="enable-experimental-device-baseline-setters" value="disable_os_auto_update" />
+    </system_checker>
 </configuration>

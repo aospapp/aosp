@@ -16,28 +16,15 @@
 
 package android.signature.cts.api.test;
 
-import android.os.Bundle;
-import android.signature.cts.DexApiDocumentParser;
-import android.signature.cts.DexField;
 import android.signature.cts.DexMember;
-import android.signature.cts.DexMemberChecker;
-import android.signature.cts.DexMethod;
-import android.signature.cts.FailureType;
-import android.signature.cts.VirtualPath;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.EnumSet;
+import android.signature.cts.api.dynamic.DynamicConfigHiddenApiTest;
 import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
-public class HiddenApiTest extends android.signature.cts.api.HiddenApiTest {
+public class HiddenApiTest extends DynamicConfigHiddenApiTest {
 
+    /**
+     * Override to match only those members that specify both test-api and blocked.
+     */
     @Override
     protected boolean shouldTestMember(DexMember member) {
         Set<String> flags = member.getHiddenapiFlags();

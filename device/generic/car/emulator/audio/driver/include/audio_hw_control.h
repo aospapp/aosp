@@ -39,10 +39,6 @@ void set_device_address_is_ducked(const char *device_address, bool is_ducked);
 // audio_policy_configuration.xml
 void set_device_address_is_muted(const char *device_address, bool is_muted);
 
-// Sets whether audio component is enabled or disabled.
-// Results in muting of all audio leaving the HAL if it is disabled
-void set_audio_enabled(bool is_enabled);
-
 #ifdef __cplusplus
 }
 #endif // __cplusplus

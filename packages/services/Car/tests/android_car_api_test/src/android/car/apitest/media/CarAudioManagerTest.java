@@ -16,14 +16,18 @@
 
 package android.car.apitest.media;
 
+import static android.car.Car.AUDIO_SERVICE;
+import static android.car.media.CarAudioManager.AUDIO_FEATURE_DYNAMIC_ROUTING;
+import static android.car.media.CarAudioManager.AUDIO_FEATURE_VOLUME_GROUP_MUTING;
+import static android.car.media.CarAudioManager.PRIMARY_AUDIO_ZONE;
+import static android.media.AudioAttributes.USAGE_MEDIA;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assume.assumeTrue;
 
-import android.car.Car;
 import android.car.apitest.CarApiTestBase;
 import android.car.media.CarAudioManager;
-import android.media.AudioAttributes;
 import android.media.AudioDeviceInfo;
 import android.os.Process;
 
@@ -38,11 +42,13 @@ import java.util.List;
 @RunWith(AndroidJUnit4.class)
 public class CarAudioManagerTest extends CarApiTestBase {
 
+    private static final int TEST_FLAGS = 0;
+
     private CarAudioManager mCarAudioManager;
 
     @Before
     public void setUp() throws Exception {
-        mCarAudioManager = (CarAudioManager) getCar().getCarManager(Car.AUDIO_SERVICE);
+        mCarAudioManager = (CarAudioManager) getCar().getCarManager(AUDIO_SERVICE);
         assertThat(mCarAudioManager).isNotNull();
     }
 
@@ -52,21 +58,21 @@ public class CarAudioManagerTest extends CarApiTestBase {
 
         List<Integer> zoneIds = mCarAudioManager.getAudioZoneIds();
         assertThat(zoneIds).isNotEmpty();
-        assertThat(zoneIds).contains(CarAudioManager.PRIMARY_AUDIO_ZONE);
+        assertThat(zoneIds).contains(PRIMARY_AUDIO_ZONE);
     }
 
     @Test
     public void test_isAudioFeatureEnabled() throws Exception {
         // nothing to assert. Just call the API.
-        mCarAudioManager.isAudioFeatureEnabled(CarAudioManager.AUDIO_FEATURE_DYNAMIC_ROUTING);
-        mCarAudioManager.isAudioFeatureEnabled(CarAudioManager.AUDIO_FEATURE_VOLUME_GROUP_MUTING);
+        mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_DYNAMIC_ROUTING);
+        mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING);
     }
 
     @Test
     public void test_getVolumeGroupCount() throws Exception {
         int primaryZoneCount = mCarAudioManager.getVolumeGroupCount();
         assertThat(
-                mCarAudioManager.getVolumeGroupCount(CarAudioManager.PRIMARY_AUDIO_ZONE)).isEqualTo(
+                mCarAudioManager.getVolumeGroupCount(PRIMARY_AUDIO_ZONE)).isEqualTo(
                 primaryZoneCount);
     }
 
@@ -74,14 +80,14 @@ public class CarAudioManagerTest extends CarApiTestBase {
     public void test_getGroupVolume() throws Exception {
         int groudId = 0;
         int volume = mCarAudioManager.getGroupVolume(groudId);
-        assertThat(mCarAudioManager.getGroupVolume(CarAudioManager.PRIMARY_AUDIO_ZONE,
-                groudId)).isEqualTo(volume);
+        assertThat(mCarAudioManager.getGroupVolume(PRIMARY_AUDIO_ZONE, groudId))
+                .isEqualTo(volume);
         int maxVolume = mCarAudioManager.getGroupMaxVolume(groudId);
-        assertThat(mCarAudioManager.getGroupMaxVolume(CarAudioManager.PRIMARY_AUDIO_ZONE,
-                groudId)).isEqualTo(maxVolume);
+        assertThat(mCarAudioManager.getGroupMaxVolume(PRIMARY_AUDIO_ZONE, groudId))
+                .isEqualTo(maxVolume);
         int minVolume = mCarAudioManager.getGroupMinVolume(groudId);
-        assertThat(mCarAudioManager.getGroupMinVolume(CarAudioManager.PRIMARY_AUDIO_ZONE,
-                groudId)).isEqualTo(minVolume);
+        assertThat(mCarAudioManager.getGroupMinVolume(PRIMARY_AUDIO_ZONE, groudId))
+                .isEqualTo(minVolume);
         assertThat(volume).isAtLeast(minVolume);
         assertThat(volume).isAtMost(maxVolume);
     }
@@ -90,8 +96,8 @@ public class CarAudioManagerTest extends CarApiTestBase {
     public void test_setGroupVolume() throws Exception {
         int groudId = 0;
         int volume = mCarAudioManager.getGroupVolume(groudId);
-        mCarAudioManager.setGroupVolume(groudId, volume, 0);
-        mCarAudioManager.setGroupVolume(CarAudioManager.PRIMARY_AUDIO_ZONE, groudId, volume, 0);
+        mCarAudioManager.setGroupVolume(groudId, volume, TEST_FLAGS);
+        mCarAudioManager.setGroupVolume(PRIMARY_AUDIO_ZONE, groudId, volume, TEST_FLAGS);
         assertThat(mCarAudioManager.getGroupVolume(groudId)).isEqualTo(volume);
     }
 
@@ -99,8 +105,7 @@ public class CarAudioManagerTest extends CarApiTestBase {
     public void test_getInputDevicesForZoneId() throws Exception {
         assumeDynamicRoutingIsEnabled();
 
-        List<AudioDeviceInfo> info = mCarAudioManager.getInputDevicesForZoneId(
-                CarAudioManager.PRIMARY_AUDIO_ZONE);
+        List<AudioDeviceInfo> info = mCarAudioManager.getInputDevicesForZoneId(PRIMARY_AUDIO_ZONE);
         assertThat(info).isNotEmpty();
     }
 
@@ -109,15 +114,15 @@ public class CarAudioManagerTest extends CarApiTestBase {
         assumeDynamicRoutingIsEnabled();
 
         AudioDeviceInfo device = mCarAudioManager.getOutputDeviceForUsage(
-                CarAudioManager.PRIMARY_AUDIO_ZONE, AudioAttributes.USAGE_MEDIA);
+                PRIMARY_AUDIO_ZONE, USAGE_MEDIA);
         assertThat(device).isNotNull();
     }
 
     @Test
     public void test_getVolumeGroupIdForUsage() throws Exception {
-        int groupId = mCarAudioManager.getVolumeGroupIdForUsage(AudioAttributes.USAGE_MEDIA);
-        assertThat(mCarAudioManager.getVolumeGroupIdForUsage(CarAudioManager.PRIMARY_AUDIO_ZONE,
-                AudioAttributes.USAGE_MEDIA)).isEqualTo(groupId);
+        int groupId = mCarAudioManager.getVolumeGroupIdForUsage(USAGE_MEDIA);
+        assertThat(mCarAudioManager.getVolumeGroupIdForUsage(PRIMARY_AUDIO_ZONE, USAGE_MEDIA))
+                .isEqualTo(groupId);
         int primaryZoneCount = mCarAudioManager.getVolumeGroupCount();
         assertThat(groupId).isLessThan(primaryZoneCount);
     }
@@ -126,8 +131,99 @@ public class CarAudioManagerTest extends CarApiTestBase {
     public void test_getZoneIdForUid() throws Exception {
         assumeDynamicRoutingIsEnabled();
 
-        assertThat(mCarAudioManager.getZoneIdForUid(Process.myUid())).isEqualTo(
-                CarAudioManager.PRIMARY_AUDIO_ZONE);
+        assertThat(mCarAudioManager.getZoneIdForUid(Process.myUid())).isEqualTo(PRIMARY_AUDIO_ZONE);
+    }
+
+    @Test
+    public void setVolumeGroupMute_toMute_mutesVolumeGroup() throws Exception {
+        assumeVolumeGroupMutingIsEnabled();
+        int groupId = 0;
+        boolean  muteState = mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, groupId);
+
+        try {
+            mCarAudioManager.setVolumeGroupMute(PRIMARY_AUDIO_ZONE, groupId, true, TEST_FLAGS);
+            assertThat(mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, groupId))
+                    .isEqualTo(true);
+        } finally {
+            mCarAudioManager.setVolumeGroupMute(PRIMARY_AUDIO_ZONE, groupId, muteState, TEST_FLAGS);
+        }
+    }
+
+    @Test
+    public void setVolumeGroupMute_toUnMute_unMutesVolumeGroup() throws Exception {
+        assumeVolumeGroupMutingIsEnabled();
+        int groupId = 0;
+        boolean  muteState = mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, groupId);
+
+        try {
+            mCarAudioManager.setVolumeGroupMute(PRIMARY_AUDIO_ZONE, groupId, false, TEST_FLAGS);
+            assertThat(mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, groupId))
+                    .isEqualTo(false);
+        } finally {
+            mCarAudioManager.setVolumeGroupMute(PRIMARY_AUDIO_ZONE, groupId, muteState, TEST_FLAGS);
+        }
+    }
+
+    @Test
+    public void setGroupVolume_whileMuted_unMutesVolumeGroup() throws Exception {
+        assumeVolumeGroupMutingIsEnabled();
+        int groupId = 0;
+        boolean  muteState = mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, groupId);
+        int volume = mCarAudioManager.getGroupVolume(PRIMARY_AUDIO_ZONE, groupId);
+        int minVolume = mCarAudioManager.getGroupMinVolume(PRIMARY_AUDIO_ZONE, groupId);
+
+        try {
+            mCarAudioManager.setVolumeGroupMute(PRIMARY_AUDIO_ZONE, groupId, true, TEST_FLAGS);
+
+            mCarAudioManager.setGroupVolume(PRIMARY_AUDIO_ZONE, groupId, minVolume, TEST_FLAGS);
+            assertThat(mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, groupId))
+                    .isEqualTo(false);
+        } finally {
+            mCarAudioManager.setVolumeGroupMute(PRIMARY_AUDIO_ZONE, groupId, muteState, TEST_FLAGS);
+            mCarAudioManager.setGroupVolume(PRIMARY_AUDIO_ZONE, groupId, volume, TEST_FLAGS);
+        }
+    }
+
+    @Test
+    public void getGroupVolume_whileMuted_returnsMinVolume() throws Exception {
+        assumeVolumeGroupMutingIsEnabled();
+        int groupId = 0;
+        boolean  muteState = mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, groupId);
+        int minVolume = mCarAudioManager.getGroupMinVolume(PRIMARY_AUDIO_ZONE, groupId);
+
+        try {
+            mCarAudioManager.setVolumeGroupMute(PRIMARY_AUDIO_ZONE, groupId, true, TEST_FLAGS);
+
+            assertThat(mCarAudioManager.getGroupVolume(PRIMARY_AUDIO_ZONE, groupId))
+                    .isEqualTo(minVolume);
+        } finally {
+            mCarAudioManager.setVolumeGroupMute(PRIMARY_AUDIO_ZONE, groupId, muteState, TEST_FLAGS);
+        }
+    }
+
+    @Test
+    public void getGroupVolume_whileUnMuted_returnLastSetValue() throws Exception {
+        assumeVolumeGroupMutingIsEnabled();
+        int groupId = 0;
+        boolean  muteState = mCarAudioManager.isVolumeGroupMuted(PRIMARY_AUDIO_ZONE, groupId);
+        int volume = mCarAudioManager.getGroupVolume(PRIMARY_AUDIO_ZONE, groupId);
+        int minVolume = mCarAudioManager.getGroupMinVolume(PRIMARY_AUDIO_ZONE, groupId);
+        int maxVolume = mCarAudioManager.getGroupMaxVolume(PRIMARY_AUDIO_ZONE, groupId);
+        int testVolume = (minVolume + maxVolume) / 2;
+
+        try {
+            mCarAudioManager.setGroupVolume(PRIMARY_AUDIO_ZONE, groupId, testVolume, TEST_FLAGS);
+
+            mCarAudioManager.setVolumeGroupMute(PRIMARY_AUDIO_ZONE, groupId, true, TEST_FLAGS);
+
+            mCarAudioManager.setVolumeGroupMute(PRIMARY_AUDIO_ZONE, groupId, false, TEST_FLAGS);
+
+            assertThat(mCarAudioManager.getGroupVolume(PRIMARY_AUDIO_ZONE, groupId))
+                    .isEqualTo(testVolume);
+        } finally {
+            mCarAudioManager.setVolumeGroupMute(PRIMARY_AUDIO_ZONE, groupId, muteState, TEST_FLAGS);
+            mCarAudioManager.setGroupVolume(PRIMARY_AUDIO_ZONE, groupId, volume, TEST_FLAGS);
+        }
     }
 
     @Test
@@ -136,12 +232,14 @@ public class CarAudioManagerTest extends CarApiTestBase {
 
         // TODO(b/191660867): Better to change this to play something and asert true.
         assertThat(
-                mCarAudioManager.isPlaybackOnVolumeGroupActive(CarAudioManager.PRIMARY_AUDIO_ZONE,
+                mCarAudioManager.isPlaybackOnVolumeGroupActive(PRIMARY_AUDIO_ZONE,
                         0)).isFalse();
     }
 
     private void assumeDynamicRoutingIsEnabled() {
-        assumeTrue(mCarAudioManager.isAudioFeatureEnabled(
-                CarAudioManager.AUDIO_FEATURE_DYNAMIC_ROUTING));
+        assumeTrue(mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_DYNAMIC_ROUTING));
+    }
+    private void assumeVolumeGroupMutingIsEnabled() {
+        assumeTrue(mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING));
     }
 }

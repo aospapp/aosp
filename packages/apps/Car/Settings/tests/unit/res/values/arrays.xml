@@ -27,4 +27,8 @@
         <item>beta</item>
         <item>charlie</item>
     </string-array>
+
+    <string-array name="settings_qc_provider_package_allowlist">
+        <item>com.android.car.settings.test.unit</item>
+    </string-array>
 </resources>

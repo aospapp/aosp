@@ -36,6 +36,7 @@ import android.os.CancellationSignal;
 import android.os.PersistableBundle;
 import android.os.Process;
 import android.permission.PermissionManager;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.uwb.RangingReport;
 import android.uwb.RangingSession;
@@ -59,6 +60,7 @@ import java.util.concurrent.TimeUnit;
  */
 @SmallTest
 @RunWith(AndroidJUnit4.class)
+@AppModeFull(reason = "Cannot get UwbManager in instant app mode")
 public class UwbManagerTest {
     private static final String TAG = "UwbManagerTest";
 

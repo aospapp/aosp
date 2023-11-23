@@ -203,7 +203,7 @@
     <string name="menu_eject_root" msgid="9215040039374893613">"Ejetar"</string>
     <string name="notification_copy_files_converted_title" msgid="6916768494891833365">"Alguns arquivos foram convertidos"</string>
     <string name="open_external_dialog_request" msgid="8173558471322861268">"Conceder ao <xliff:g id="APPNAME"><b>^1</b></xliff:g> acesso ao diretório <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> no <xliff:g id="STORAGE"><i>^3</i></xliff:g>?"</string>
-    <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"Conceder acesso ao diretório <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> para <xliff:g id="APPNAME"><b>^1</b></xliff:g>?"</string>
+    <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"Permitir acesso ao diretório <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> para <xliff:g id="APPNAME"><b>^1</b></xliff:g>?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"Conceder a <xliff:g id="APPNAME"><b>^1</b></xliff:g> acesso aos seus dados, incluindo fotos e vídeos, no/na <xliff:g id="STORAGE"><i>^2</i></xliff:g>?"</string>
     <string name="allow" msgid="1275746941353040309">"Permitir"</string>
     <string name="deny" msgid="5127201668078153379">"Negar"</string>

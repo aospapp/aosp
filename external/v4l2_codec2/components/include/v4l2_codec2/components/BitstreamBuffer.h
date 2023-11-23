@@ -7,18 +7,30 @@
 
 #include <stdint.h>
 
+#include <C2Buffer.h>
+
 namespace android {
 
-// The BitstreamBuffer class can be used to store encoded video data.
-// Note: The BitstreamBuffer does not take ownership of the data. The file descriptor is not
-//       duplicated and the caller is responsible for keeping the data alive.
-struct BitstreamBuffer {
-    BitstreamBuffer(const int32_t id, int dmabuf_fd, const size_t offset, const size_t size)
-          : id(id), dmabuf_fd(dmabuf_fd), offset(offset), size(size) {}
-    ~BitstreamBuffer() = default;
+// The ConstBitstreamBuffer class can be used to store non-modifiable encoded video data.
+struct ConstBitstreamBuffer {
+    ConstBitstreamBuffer(const int32_t id, C2ConstLinearBlock dmabuf, const size_t offset,
+                         const size_t size)
+          : id(id), dmabuf(std::move(dmabuf)), offset(offset), size(size) {}
+    ~ConstBitstreamBuffer() = default;
 
     const int32_t id;
-    int dmabuf_fd;
+    C2ConstLinearBlock dmabuf;
+    const size_t offset;
+    const size_t size;
+};
+
+// The BitstreamBuffer class can be used to store modifiable encoded video data.
+struct BitstreamBuffer {
+    BitstreamBuffer(std::shared_ptr<C2LinearBlock> dmabuf, const size_t offset, const size_t size)
+          : dmabuf(std::move(dmabuf)), offset(offset), size(size) {}
+    ~BitstreamBuffer() = default;
+
+    std::shared_ptr<C2LinearBlock> dmabuf;
     const size_t offset;
     const size_t size;
 };

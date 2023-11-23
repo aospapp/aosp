@@ -143,32 +143,38 @@ cc_library {
     srcs: ["DexFile.cpp"],
     cflags: ["-DDEXFILE_SUPPORT"],
     static_libs: ["libdexfile_support"],
+    runtime_libs: ["libdexfile"], // libdexfile_support dependency
 
     target: {
         vendor: {
             cflags: ["-UDEXFILE_SUPPORT"],
             exclude_srcs: ["DexFile.cpp"],
             exclude_static_libs: ["libdexfile_support"],
+            exclude_runtime_libs: ["libdexfile"],
         },
         product: {
             cflags: ["-UDEXFILE_SUPPORT"],
             exclude_srcs: ["DexFile.cpp"],
             exclude_static_libs: ["libdexfile_support"],
+            exclude_runtime_libs: ["libdexfile"],
         },
         recovery: {
             cflags: ["-UDEXFILE_SUPPORT"],
             exclude_srcs: ["DexFile.cpp"],
             exclude_static_libs: ["libdexfile_support"],
+            exclude_runtime_libs: ["libdexfile"],
         },
         vendor_ramdisk: {
             cflags: ["-UDEXFILE_SUPPORT"],
             exclude_srcs: ["DexFile.cpp"],
             exclude_static_libs: ["libdexfile_support"],
+            exclude_runtime_libs: ["libdexfile"],
         },
         native_bridge: {
             cflags: ["-UDEXFILE_SUPPORT"],
             exclude_srcs: ["DexFile.cpp"],
             exclude_static_libs: ["libdexfile_support"],
+            exclude_runtime_libs: ["libdexfile"],
         },
     },
 

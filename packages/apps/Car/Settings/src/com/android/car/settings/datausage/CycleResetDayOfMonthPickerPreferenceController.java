@@ -18,21 +18,28 @@ package com.android.car.settings.datausage;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.text.BidiFormatter;
+import android.text.TextDirectionHeuristics;
 import android.text.format.Time;
 
-import androidx.preference.Preference;
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.ListPreference;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 
+import java.util.stream.IntStream;
+
 /**
- * Preference which opens a {@link UsageCycleResetDayOfMonthPickerDialog} in order to pick the date
- * on which the data warning/limit cycle should end.
+ * ListPreference used to pick the date on which the data warning/limit cycle should end.
  */
 public class CycleResetDayOfMonthPickerPreferenceController extends
-        DataWarningAndLimitBasePreferenceController<Preference> implements
-        UsageCycleResetDayOfMonthPickerDialog.ResetDayOfMonthPickedListener {
+        DataWarningAndLimitBasePreferenceController<ListPreference> {
 
-    private static final String CYCLE_PICKER_DIALOG_TAG = "cycle_picker_dialog_tag";
+    @VisibleForTesting
+    static final int MIN_DAY = 1;
+    @VisibleForTesting
+    static final int MAX_DAY = 31;
 
     public CycleResetDayOfMonthPickerPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -40,33 +47,38 @@ public class CycleResetDayOfMonthPickerPreferenceController extends
     }
 
     @Override
-    protected Class<Preference> getPreferenceType() {
-        return Preference.class;
+    protected Class<ListPreference> getPreferenceType() {
+        return ListPreference.class;
     }
 
     @Override
     protected void onCreateInternal() {
-        UsageCycleResetDayOfMonthPickerDialog dialog =
-                (UsageCycleResetDayOfMonthPickerDialog) getFragmentController().findDialogByTag(
-                        CYCLE_PICKER_DIALOG_TAG);
-        if (dialog != null) {
-            dialog.setResetDayOfMonthPickedListener(/* listener= */ this);
+        CharSequence[] list = IntStream.rangeClosed(MIN_DAY, MAX_DAY)
+                .mapToObj(i-> String.valueOf(i)).toArray(CharSequence[]::new);
+        getPreference().setEntryValues(list);
+        getPreference().setEntries(list);
+    }
+
+    @Override
+    protected void updateState(ListPreference preference) {
+        String prefix = getContext().getString(R.string.cycle_reset_day_of_month_picker_subtitle);
+        int cycleDayOfMonth = getNetworkPolicyEditor().getPolicyCycleDay(getNetworkTemplate());
+        if (cycleDayOfMonth >= MIN_DAY && cycleDayOfMonth <= MAX_DAY) {
+            String cycleDayOfMonthString = String.valueOf(cycleDayOfMonth);
+            getPreference().setValue(cycleDayOfMonthString);
+            getPreference().setSummary(BidiFormatter.getInstance().unicodeWrap(
+                    String.join(" ", prefix, cycleDayOfMonthString),
+                    TextDirectionHeuristics.LOCALE));
         }
     }
 
     @Override
-    protected boolean handlePreferenceClicked(Preference preference) {
-
-        UsageCycleResetDayOfMonthPickerDialog dialog =
-                UsageCycleResetDayOfMonthPickerDialog.newInstance(
-                        getNetworkPolicyEditor().getPolicyCycleDay(getNetworkTemplate()));
-        dialog.setResetDayOfMonthPickedListener(/* listener= */ this);
-        getFragmentController().showDialog(dialog, CYCLE_PICKER_DIALOG_TAG);
+    protected boolean handlePreferenceChanged(ListPreference preference, Object newValue) {
+        onDayOfMonthPicked(Integer.valueOf((String) newValue));
         return true;
     }
 
-    @Override
-    public void onDayOfMonthPicked(int dayOfMonth) {
+    private void onDayOfMonthPicked(int dayOfMonth) {
         getNetworkPolicyEditor().setPolicyCycleDay(getNetworkTemplate(), dayOfMonth,
                 new Time().timezone);
     }

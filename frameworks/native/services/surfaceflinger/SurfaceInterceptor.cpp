@@ -161,6 +161,7 @@ void SurfaceInterceptor::addInitialDisplayStateLocked(Increment* increment,
 
     addDisplaySurfaceLocked(transaction, display.sequenceId, display.surface);
     addDisplayLayerStackLocked(transaction, display.sequenceId, display.layerStack);
+    addDisplayFlagsLocked(transaction, display.sequenceId, display.flags);
     addDisplaySizeLocked(transaction, display.sequenceId, display.width, display.height);
     addDisplayProjectionLocked(transaction, display.sequenceId, toRotationInt(display.orientation),
                                display.layerStackSpaceRect, display.orientedDisplaySpaceRect);
@@ -183,12 +184,9 @@ status_t SurfaceInterceptor::writeProtoFileLocked() {
     return NO_ERROR;
 }
 
-const sp<const Layer> SurfaceInterceptor::getLayer(const wp<const IBinder>& weakHandle) const {
-    const sp<const IBinder>& handle(weakHandle.promote());
-    const auto layerHandle(static_cast<const Layer::Handle*>(handle.get()));
-    const sp<const Layer> layer(layerHandle->owner.promote());
-    // layer could be a nullptr at this point
-    return layer;
+const sp<const Layer> SurfaceInterceptor::getLayer(const wp<IBinder>& weakHandle) const {
+    sp<IBinder> handle = weakHandle.promote();
+    return Layer::fromHandle(handle).promote();
 }
 
 int32_t SurfaceInterceptor::getLayerId(const sp<const Layer>& layer) const {
@@ -203,12 +201,11 @@ int32_t SurfaceInterceptor::getLayerIdFromWeakRef(const wp<const Layer>& layer) 
     return strongLayer == nullptr ? -1 : getLayerId(strongLayer);
 }
 
-int32_t SurfaceInterceptor::getLayerIdFromHandle(const sp<const IBinder>& handle) const {
+int32_t SurfaceInterceptor::getLayerIdFromHandle(const sp<IBinder>& handle) const {
     if (handle == nullptr) {
         return -1;
     }
-    const auto layerHandle(static_cast<const Layer::Handle*>(handle.get()));
-    const sp<const Layer> layer(layerHandle->owner.promote());
+    const sp<const Layer> layer = Layer::fromHandle(handle).promote();
     return layer == nullptr ? -1 : getLayerId(layer);
 }
 
@@ -485,6 +482,9 @@ void SurfaceInterceptor::addDisplayChangesLocked(Transaction* transaction,
     if (state.what & DisplayState::eLayerStackChanged) {
         addDisplayLayerStackLocked(transaction, sequenceId, state.layerStack);
     }
+    if (state.what & DisplayState::eFlagsChanged) {
+        addDisplayFlagsLocked(transaction, sequenceId, state.flags);
+    }
     if (state.what & DisplayState::eDisplaySizeChanged) {
         addDisplaySizeLocked(transaction, sequenceId, state.width, state.height);
     }
@@ -574,6 +574,13 @@ void SurfaceInterceptor::addDisplayLayerStackLocked(Transaction* transaction,
     DisplayChange* dispChange(createDisplayChangeLocked(transaction, sequenceId));
     LayerStackChange* layerStackChange(dispChange->mutable_layer_stack());
     layerStackChange->set_layer_stack(layerStack);
+}
+
+void SurfaceInterceptor::addDisplayFlagsLocked(Transaction* transaction, int32_t sequenceId,
+                                               uint32_t flags) {
+    DisplayChange* dispChange(createDisplayChangeLocked(transaction, sequenceId));
+    DisplayFlagsChange* flagsChange(dispChange->mutable_flags());
+    flagsChange->set_flags(flags);
 }
 
 void SurfaceInterceptor::addDisplaySizeLocked(Transaction* transaction, int32_t sequenceId,

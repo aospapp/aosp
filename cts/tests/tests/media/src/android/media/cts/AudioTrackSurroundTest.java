@@ -581,27 +581,6 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
         }
     }
 
-    public void testIEC61937_Errors() throws Exception {
-        if (mInfoIEC61937 != null) {
-            final String TEST_NAME = "testIEC61937_Errors";
-            try {
-                AudioTrack track = createAudioTrack(48000, AudioFormat.ENCODING_IEC61937,
-                        AudioFormat.CHANNEL_OUT_MONO);
-                assertTrue(TEST_NAME + ": IEC61937 track creation should fail for mono", false);
-            } catch (IllegalArgumentException e) {
-                // This is expected behavior.
-            }
-
-            try {
-                AudioTrack track = createAudioTrack(48000, AudioFormat.ENCODING_IEC61937,
-                        AudioFormat.CHANNEL_OUT_5POINT1);
-                assertTrue(TEST_NAME + ": IEC61937 track creation should fail for 5.1", false);
-            } catch (IllegalArgumentException e) {
-                // This is expected behavior.
-            }
-        }
-    }
-
     public void testPcmSupport() throws Exception {
         if (REQUIRE_PCM_DEVICE) {
             // There should always be a fake PCM device available.

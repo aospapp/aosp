@@ -16,23 +16,10 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-soong_config_module_type_import {
-    from: "packages/modules/common/Android.bp",
-    module_types: [
-        "module_apex",
-    ],
-}
-
-module_apex {
+apex {
     name: "com.android.os.statsd",
     defaults: ["com.android.os.statsd-defaults"],
     manifest: "apex_manifest.json",
-    enabled: false,
-    soong_config_variables: {
-        module_build_from_source: {
-            enabled: true,
-        },
-    },
 }
 
 apex_defaults {

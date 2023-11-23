@@ -58,6 +58,7 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="@dimen/sud_glif_land_content_area_weight"
+            android:focusedByDefault="true"
             android:orientation="vertical">
 
             <com.google.android.setupdesign.view.BottomScrollView
@@ -65,7 +66,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:fillViewport="true"
-                android:scrollIndicators="?attr/sudScrollIndicators">
+                android:scrollIndicators="?attr/sudScrollIndicators"
+                android:importantForAccessibility="no">
 
                 <LinearLayout
                     android:layout_width="match_parent"

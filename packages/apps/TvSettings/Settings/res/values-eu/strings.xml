@@ -36,7 +36,7 @@
     <string name="header_category_general_settings" msgid="3897615781153506434">"Ezarpen orokorrak"</string>
     <string name="dismiss_suggestion" msgid="6200814545590126814">"Baztertu iradokizuna"</string>
     <string name="hotwording_title" msgid="2606899304616599026">"\"Hey Google\" hautematea"</string>
-    <string name="hotwording_summary" msgid="2170375928302175449">"Hitz egin Google-ren Laguntzailea eginbideari edonoiz"</string>
+    <string name="hotwording_summary" msgid="2170375928302175449">"Hitz egin Google-ren Laguntzailea zerbitzuari edonoiz"</string>
     <string name="header_category_device" msgid="3023893663454705969">"Gailua"</string>
     <string name="header_category_preferences" msgid="3738388885555798797">"Hobespenak"</string>
     <string name="header_category_accessories" msgid="6479803330480847199">"Urruneko kontrolagailua eta osagarriak"</string>
@@ -1020,7 +1020,7 @@
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"Ezin da hori egin"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"Ezin da aldatu bolumena"</string>
     <string name="disabled_by_policy_title_outgoing_calls" msgid="8642280178608881544">"Ez da onartzen deiak egitea"</string>
-    <string name="disabled_by_policy_title_sms" msgid="5721045390560951358">"Ez da onartzen SMS mezuak bidaltzea"</string>
+    <string name="disabled_by_policy_title_sms" msgid="5721045390560951358">"Ez da onartzen SMSak bidaltzea"</string>
     <string name="disabled_by_policy_title_camera" msgid="6576557964422257426">"Ez da onartzen kamera erabiltzea"</string>
     <string name="disabled_by_policy_title_screen_capture" msgid="5774035841010091253">"Ez da onartzen pantaila-argazkiak ateratzea"</string>
     <string name="disabled_by_policy_title_suspend_packages" msgid="6500185610058872758">"Ezin da ireki aplikazioa"</string>
@@ -1050,7 +1050,7 @@
     <string name="network_connection_request_dialog_title" msgid="4103963119407212989">"<xliff:g id="APPNAME">%1$s</xliff:g> aplikazioarekin erabili behar den gailua"</string>
     <string name="network_connection_timeout_dialog_message" msgid="8408857135950230472">"Ez da aurkitu gailurik. Ziurtatu gailuak piztuta daudela eta konekta daitezkeela."</string>
     <string name="network_connection_timeout_dialog_ok" msgid="5374522862360880609">"Saiatu berriro"</string>
-    <string name="network_connection_errorstate_dialog_message" msgid="3346121178275518630">"Arazoren bat izan da. Aplikazioak bertan behera utzi du gailu bat aukeratzeko eskaera."</string>
+    <string name="network_connection_errorstate_dialog_message" msgid="3346121178275518630">"Arazo bat izan da. Aplikazioak bertan behera utzi du gailu bat aukeratzeko eskaera."</string>
     <string name="network_connection_connect_successful" msgid="2981223044343511313">"Konektatu da"</string>
     <string name="network_connection_request_dialog_showall" msgid="2653775399674126208">"Erakutsi guztiak"</string>
     <string name="progress_scanning" msgid="3323638586482686516">"Bilatzen"</string>

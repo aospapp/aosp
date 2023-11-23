@@ -17,6 +17,7 @@ package android.media.cts;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.cts.statsdatom.lib.ReportUtils;
 import android.stats.mediametrics_message.MediametricsMessage;
 
 import com.android.internal.os.StatsdConfigProto;
@@ -83,9 +84,17 @@ public class MediaExtractorHostSideTest extends BaseMediaHostSideTest {
                 .isEqualTo(MediametricsMessage.ExtractorData.EntryPoint.NDK_WITH_JVM);
     }
 
-    public void testMediaMetricsLogSessionId() throws Exception {
-        runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, DEVICE_SIDE_TEST_CLASS, "testLogSessionId");
-        assertThat(getMediaExtractorReportedLogSessionId()).isEqualTo("FakeLogSessionId");
+    public void testMediaMetricsInvalidLogSessionId() throws Exception {
+        runDeviceTests(
+                DEVICE_SIDE_TEST_PACKAGE, DEVICE_SIDE_TEST_CLASS, "testInvalidLogSessionId");
+        // An invalid log session is blocked from statsd, so the reported id is empty.
+        assertThat(getMediaExtractorReportedLogSessionId()).isEmpty();
+    }
+
+    public void testMediaMetricsValidLogSessionId() throws Exception {
+        runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, DEVICE_SIDE_TEST_CLASS, "testValidLogSessionId");
+        // A valid log session id is sent to statsd, so the reported id is not empty.
+        assertThat(getMediaExtractorReportedLogSessionId()).isNotEmpty();
     }
 
     // Internal methods.
@@ -162,12 +171,7 @@ public class MediaExtractorHostSideTest extends BaseMediaHostSideTest {
     private MediametricsMessage.ExtractorData getMediaExtractorReportedData() throws Exception {
         ConfigMetricsReportList reportList = getAndClearReportList();
         assertThat(reportList.getReportsCount()).isEqualTo(1);
-        StatsLog.ConfigMetricsReport report = reportList.getReports(0);
-        ArrayList<StatsLog.EventMetricData> data = new ArrayList<>();
-        report.getMetricsList()
-                .forEach(
-                        statsLogReport ->
-                                data.addAll(statsLogReport.getEventMetrics().getDataList()));
+        List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(reportList);
         List<AtomsProto.MediametricsExtractorReported> mediametricsExtractorReported =
                 data.stream()
                         .map(element -> element.getAtom().getMediametricsExtractorReported())

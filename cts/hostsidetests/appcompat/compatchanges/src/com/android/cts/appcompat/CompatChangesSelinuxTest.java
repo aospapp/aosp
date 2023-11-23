@@ -150,7 +150,7 @@ public class CompatChangesSelinuxTest extends CompatChangeGatingTestCase {
 
     private void startApp() throws Exception {
         runCommand("am start -n " + TEST_PKG + "/" + TEST_PKG + ".Empty");
-        Thread.currentThread().sleep(100);
+        Thread.currentThread().sleep(5000);
     }
 
 

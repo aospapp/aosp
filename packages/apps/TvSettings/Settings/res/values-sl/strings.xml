@@ -164,7 +164,7 @@
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Če to zahteva aplikacija, bo naprava svoj izhod uskladila z izvirnim številom sličic v sekundi vsebine, ki jo gledate. Zaradi tega bo med začetkom ali ustavitvijo predvajanja videoposnetka zaslon za nekaj sekund morda prazen."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Nikoli"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Tudi če to zahteva aplikacija, naprava svojega izhoda ne bo nikoli poskušala uskladiti z izvirnim številom sličic v sekundi vsebine, ki jo gledate."</string>
-    <string name="font_scale_settings_title" msgid="4114019544800225980">"Prilagajanje besedila"</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"Prilagajanje velikosti besedila"</string>
     <string name="font_scale_item_detail" msgid="1558315053348778805">"Prilagoditev na <xliff:g id="SCALE">%1$d</xliff:g> %%"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"Vzorčno besedilo"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"Čudoviti čarovnik iz Oza"</string>

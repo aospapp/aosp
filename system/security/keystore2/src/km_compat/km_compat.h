@@ -140,11 +140,6 @@ class KeyMintDevice : public aidl::android::hardware::security::keymint::BnKeyMi
 };
 
 class KeyMintOperation : public aidl::android::hardware::security::keymint::BnKeyMintOperation {
-  private:
-    ::android::sp<Keymaster> mDevice;
-    uint64_t mOperationHandle;
-    OperationSlot mOperationSlot;
-
   public:
     KeyMintOperation(::android::sp<Keymaster> device, uint64_t operationHandle,
                      OperationSlots* slots, bool isActive)
@@ -168,6 +163,25 @@ class KeyMintOperation : public aidl::android::hardware::security::keymint::BnKe
                          std::vector<uint8_t>* output) override;
 
     ScopedAStatus abort();
+
+  private:
+    /**
+     * Sets mUpdateBuffer to the given value.
+     * @param data
+     */
+    void setUpdateBuffer(std::vector<uint8_t> data);
+    /**
+     * If mUpdateBuffer is not empty, suffix is appended to mUpdateBuffer, and a reference to
+     * mUpdateBuffer is returned. Otherwise a reference to suffix is returned.
+     * @param suffix
+     * @return
+     */
+    const std::vector<uint8_t>& getExtendedUpdateBuffer(const std::vector<uint8_t>& suffix);
+
+    std::vector<uint8_t> mUpdateBuffer;
+    ::android::sp<Keymaster> mDevice;
+    uint64_t mOperationHandle;
+    OperationSlot mOperationSlot;
 };
 
 class SharedSecret : public aidl::android::hardware::security::sharedsecret::BnSharedSecret {

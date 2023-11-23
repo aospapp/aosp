@@ -42,7 +42,7 @@ public class ActionTriggeredReceiver extends BroadcastReceiver {
         String updateSendText = context.getString(R.string.action_received);
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         Notification n1 = new Notification.Builder(
-                context, NotificationListenerVerifierActivity.TAG)
+                context, NotificationPrivacyVerifierActivity.TAG)
                 .setContentTitle(initialSend ?  initialSendText: updateSendText)
                 .setContentText(initialSend ? initialSendText : updateSendText)
                 .setSmallIcon(R.drawable.ic_stat_charlie)
@@ -59,7 +59,7 @@ public class ActionTriggeredReceiver extends BroadcastReceiver {
         Intent intent = new Intent(ACTION);
         intent.setComponent(new ComponentName(context, ActionTriggeredReceiver.class));
         PendingIntent pi = PendingIntent.getBroadcast(context, 0, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return pi;
     }
 }

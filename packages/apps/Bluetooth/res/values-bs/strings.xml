@@ -26,7 +26,7 @@
     <string name="airplane_error_title" msgid="2683839635115739939">"Način rada u avionu"</string>
     <string name="airplane_error_msg" msgid="8698965595254137230">"Ne možete koristiti Bluetooth u načinu rada u avionu."</string>
     <string name="bt_enable_title" msgid="8657832550503456572"></string>
-    <string name="bt_enable_line1" msgid="7203551583048149">"Da biste koristili Bluetooth usluge, prvo morate uključiti Bluetooth."</string>
+    <string name="bt_enable_line1" msgid="7203551583048149">"Da biste koristili usluge Bluetootha, prvo morate uključiti Bluetooth."</string>
     <string name="bt_enable_line2" msgid="4341936569415937994">"Želite uključiti Bluetooth sada?"</string>
     <string name="bt_enable_cancel" msgid="1988832367505151727">"Otkaži"</string>
     <string name="bt_enable_ok" msgid="3432462749994538265">"Uključi"</string>

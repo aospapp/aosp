@@ -243,10 +243,9 @@ void ScannerImpl::ParsePnoSettings(const PnoSettings& pno_settings,
     }
   }
 
-  // Also scan the default frequencies if there is frequency data passed down but more than 30% of
+  // Also scan the default frequencies if more than kPercentNetworksWithFreq of
   // networks don't have frequency data.
-  if (unique_frequencies.size() > 0 && num_networks_no_freqs * 100 / match_ssids->size()
-      > kPercentNetworksWithFreq) {
+  if (num_networks_no_freqs * 100 > kPercentNetworksWithFreq * match_ssids->size()) {
     // Filter out frequencies not supported by chip.
     const auto band_2g = client_interface_->GetBandInfo().band_2g;
     for (const auto frequency : kPnoScanDefaultFreqs2G) {

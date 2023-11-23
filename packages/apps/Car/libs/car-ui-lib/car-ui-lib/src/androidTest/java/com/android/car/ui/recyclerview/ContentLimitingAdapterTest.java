@@ -28,6 +28,7 @@ import android.view.View;
 import android.widget.LinearLayout;
 
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView.ViewHolder;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
@@ -45,15 +46,11 @@ public class ContentLimitingAdapterTest {
     ActivityScenario<CarUiRecyclerViewTestActivity> mScenario;
 
     private ContentLimitingAdapter<TestViewHolder> mContentLimitingAdapter;
-    private CarUiRecyclerViewTestActivity mActivity;
 
     @Before
     public void setUp() {
+        mContentLimitingAdapter = new TestContentLimitingAdapter(50);
         mScenario = mActivityRule.getScenario();
-        mScenario.onActivity(activity -> {
-            mActivity = activity;
-            mContentLimitingAdapter = new TestContentLimitingAdapter(50);
-        });
     }
 
     @Test
@@ -151,17 +148,18 @@ public class ContentLimitingAdapterTest {
         assertThat(mContentLimitingAdapter.getItemCount()).isEqualTo(50);
         onView(withId(R.id.list)).check(matches(isDisplayed()));
 
-        CarUiRecyclerView carUiRecyclerView = mActivity.requireViewById(R.id.list);
-        mActivity.runOnUiThread(() -> {
+        String[] msg = new String[] {null};
+        mScenario.onActivity(activity -> {
+            CarUiRecyclerView carUiRecyclerView = activity.requireViewById(R.id.list);
             carUiRecyclerView.setAdapter(mContentLimitingAdapter);
             carUiRecyclerView.setVisibility(View.VISIBLE);
             mContentLimitingAdapter.setMaxItems(0);
             mContentLimitingAdapter.setScrollingLimitedMessageResId(
                     R.string.scrolling_limited_message);
+            msg[0] = activity.getString(R.string.scrolling_limited_message);
         });
 
-        String msg = mActivity.getString(R.string.scrolling_limited_message);
-        onView(withText(msg)).check(matches(isDisplayed()));
+        onView(withText(msg[0])).check(matches(isDisplayed()));
     }
 
     @Test
@@ -169,8 +167,9 @@ public class ContentLimitingAdapterTest {
         assertThat(mContentLimitingAdapter.getItemCount()).isEqualTo(50);
         onView(withId(R.id.list)).check(matches(isDisplayed()));
 
-        CarUiRecyclerView carUiRecyclerView = mActivity.requireViewById(R.id.list);
-        mActivity.runOnUiThread(() -> {
+        String[] msg = new String[] {null};
+        mScenario.onActivity(activity -> {
+            CarUiRecyclerView carUiRecyclerView = activity.requireViewById(R.id.list);
             carUiRecyclerView.setAdapter(mContentLimitingAdapter);
             carUiRecyclerView.setVisibility(View.VISIBLE);
             mContentLimitingAdapter.setMaxItems(0);
@@ -178,10 +177,10 @@ public class ContentLimitingAdapterTest {
                     R.string.car_ui_scrolling_limited_message);
             mContentLimitingAdapter.setScrollingLimitedMessageResId(
                     R.string.scrolling_limited_message);
+            msg[0] = activity.getString(R.string.scrolling_limited_message);
         });
 
-        String msg = mActivity.getString(R.string.scrolling_limited_message);
-        onView(withText(msg)).check(matches(isDisplayed()));
+        onView(withText(msg[0])).check(matches(isDisplayed()));
     }
 
     @Test
@@ -189,25 +188,50 @@ public class ContentLimitingAdapterTest {
         assertThat(mContentLimitingAdapter.getItemCount()).isEqualTo(50);
         onView(withId(R.id.list)).check(matches(isDisplayed()));
 
-        CarUiRecyclerView carUiRecyclerView = mActivity.requireViewById(R.id.list);
-        mActivity.runOnUiThread(() -> {
+        String[] msg = new String[] {null};
+        mScenario.onActivity(activity -> {
+            CarUiRecyclerView carUiRecyclerView = activity.requireViewById(R.id.list);
             carUiRecyclerView.setAdapter(mContentLimitingAdapter);
             carUiRecyclerView.setVisibility(View.VISIBLE);
             mContentLimitingAdapter.setMaxItems(0);
+            msg[0] = activity.getString(R.string.car_ui_scrolling_limited_message);
         });
 
-        String msg = mActivity.getString(R.string.car_ui_scrolling_limited_message);
-        onView(withText(msg)).check(matches(isDisplayed()));
+        onView(withText(msg[0])).check(matches(isDisplayed()));
+    }
+
+    @Test
+    public void test_setScrollingLimitedMessageResId_affectsFutureLimiters() {
+        mContentLimitingAdapter.notifyLimitingAnchorChanged(0);
+        assertThat(mContentLimitingAdapter.getItemCount()).isEqualTo(50);
+        RecyclerView.ViewHolder last = getItemAtPosition(49);
+        isTestViewHolderWithText(last, "Item 49");
+        mContentLimitingAdapter.setScrollingLimitedMessageResId(R.string.scrolling_limited_message);
+
+        mContentLimitingAdapter.setMaxItems(0);
+
+        assertThat(mContentLimitingAdapter.getItemCount()).isEqualTo(1);
+        last = getItemAtPosition(0);
+        assertThat(last).isInstanceOf(ScrollingLimitedViewHolder.class);
+
+        mScenario.onActivity(activity -> {
+            CarUiRecyclerView carUiRecyclerView = activity.requireViewById(R.id.list);
+            carUiRecyclerView.setAdapter(mContentLimitingAdapter);
+            carUiRecyclerView.setVisibility(View.VISIBLE);
+        });
+
+        onView(withText(R.string.scrolling_limited_message)).check(matches(isDisplayed()));
     }
 
     private RecyclerView.ViewHolder getItemAtPosition(int position) {
         int viewType = mContentLimitingAdapter.getItemViewType(position);
-        RecyclerView.ViewHolder viewHolder =
+        RecyclerView.ViewHolder[] viewHolder = new ViewHolder[] {null};
+        mScenario.onActivity(activity -> viewHolder[0] =
                 mContentLimitingAdapter.createViewHolder(
-                        new LinearLayout(mActivity.getApplicationContext()),
-                        viewType);
-        mContentLimitingAdapter.bindViewHolder(viewHolder, position);
-        return viewHolder;
+                    new LinearLayout(activity.getApplicationContext()),
+                    viewType));
+        mContentLimitingAdapter.bindViewHolder(viewHolder[0], position);
+        return viewHolder[0];
     }
 
     private void isTestViewHolderWithText(RecyclerView.ViewHolder secondToLast, String s) {

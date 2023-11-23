@@ -47,8 +47,6 @@ cc_library {
         "libstagefright_bufferqueue_helper",
         "libstagefright_foundation",
         "libui",
-    ],
-    static_libs: [
         "libv4l2_codec2_common",
     ],
 

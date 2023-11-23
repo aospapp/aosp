@@ -10,6 +10,8 @@
 #define COMPILER_TRANSLATOR_BUILDSPIRV_H_
 
 #include "common/FixedVector.h"
+#include "common/PackedEnums.h"
+#include "common/bitset_utils.h"
 #include "common/hash_utils.h"
 #include "common/spirv/spirv_instruction_builder_autogen.h"
 #include "compiler/translator/Compiler.h"
@@ -63,6 +65,11 @@ class SpirvTypeSpec
     // Bool is disallowed in interface blocks in SPIR-V.  This type is emulated with uint.  This
     // property applies to both blocks with bools in them and the bool type inside the block itself.
     bool isOrHasBoolInInterfaceBlock = false;
+
+    // When |patch| is specified on an I/O block, the members of the type itself are decorated with
+    // it.  This is not recursively applied, and since each I/O block has a unique type, this
+    // doesn't actually result in duplicated types even if it's specializing the type.
+    bool isPatchIOBlock = false;
 };
 
 struct SpirvType
@@ -139,6 +146,9 @@ struct SpirvTypeHash
         // Row-major block must only affect the type if it's a block type.
         ASSERT(!type.typeSpec.isRowMajorQualifiedBlock || type.block != nullptr);
 
+        // Patch must only affect the type if it's a block type.
+        ASSERT(!type.typeSpec.isPatchIOBlock || type.block != nullptr);
+
         // Row-major array must only affect the type if it's an array of non-square matrices in
         // an std140 or std430 block.
         ASSERT(!type.typeSpec.isRowMajorQualifiedArray ||
@@ -160,7 +170,8 @@ struct SpirvTypeHash
                    static_cast<size_t>(type.typeSpec.isInvariantBlock) ^
                    (static_cast<size_t>(type.typeSpec.isRowMajorQualifiedBlock) << 1) ^
                    (static_cast<size_t>(type.typeSpec.isRowMajorQualifiedArray) << 2) ^
-                   (type.typeSpec.blockStorage << 3);
+                   (static_cast<size_t>(type.typeSpec.isPatchIOBlock) << 3) ^
+                   (type.typeSpec.blockStorage << 4);
         }
 
         static_assert(sh::EbtLast < 256, "Basic type doesn't fit in uint8_t");
@@ -273,37 +284,39 @@ struct SpirvConditional
     bool isBreakable = false;
 };
 
+// List of known extensions
+enum class SPIRVExtensions
+{
+    // GL_OVR_multiview / SPV_KHR_multiview
+    MultiviewOVR = 0,
+
+    InvalidEnum = 1,
+    EnumCount   = 1,
+};
+
 // Helper class to construct SPIR-V
 class SPIRVBuilder : angle::NonCopyable
 {
   public:
     SPIRVBuilder(TCompiler *compiler,
                  ShCompileOptions compileOptions,
-                 bool forceHighp,
                  ShHashFunction64 hashFunction,
-                 NameMap &nameMap)
-        : mCompiler(compiler),
-          mCompileOptions(compileOptions),
-          mShaderType(gl::FromGLenum<gl::ShaderType>(compiler->getShaderType())),
-          mDisableRelaxedPrecision(forceHighp),
-          mNextAvailableId(1),
-          mHashFunction(hashFunction),
-          mNameMap(nameMap),
-          mNextUnusedBinding(0),
-          mNextUnusedInputLocation(0),
-          mNextUnusedOutputLocation(0)
-    {}
+                 NameMap &nameMap);
 
     spirv::IdRef getNewId(const SpirvDecorations &decorations);
     SpirvType getSpirvType(const TType &type, const SpirvTypeSpec &typeSpec) const;
     const SpirvTypeData &getTypeData(const TType &type, const SpirvTypeSpec &typeSpec);
+    const SpirvTypeData &getTypeDataOverrideTypeSpec(const TType &type,
+                                                     const SpirvTypeSpec &typeSpec);
     const SpirvTypeData &getSpirvTypeData(const SpirvType &type, const TSymbol *block);
     spirv::IdRef getBasicTypeId(TBasicType basicType, size_t size);
     spirv::IdRef getTypePointerId(spirv::IdRef typeId, spv::StorageClass storageClass);
     spirv::IdRef getFunctionTypeId(spirv::IdRef returnTypeId, const spirv::IdRefList &paramTypeIds);
 
     // Decorations that may apply to intermediate instructions (in addition to variables).
+    // |precise| is only applicable to arithmetic nodes.
     SpirvDecorations getDecorations(const TType &type);
+    SpirvDecorations getArithmeticDecorations(const TType &type, bool isPrecise);
 
     // Extended instructions
     spirv::IdRef getExtInstImportIdStd();
@@ -342,6 +355,8 @@ class SPIRVBuilder : angle::NonCopyable
     bool isInvariantOutput(const TType &type) const;
 
     void addCapability(spv::Capability capability);
+    void addExecutionMode(spv::ExecutionMode executionMode);
+    void addExtension(SPIRVExtensions extension);
     void setEntryPointId(spirv::IdRef id);
     void addEntryPointInterfaceVariableId(spirv::IdRef id);
     void writePerVertexBuiltIns(const TType &type, spirv::IdRef typeId);
@@ -439,16 +454,23 @@ class SPIRVBuilder : angle::NonCopyable
     uint32_t nextUnusedInputLocation(uint32_t consumedCount);
     uint32_t nextUnusedOutputLocation(uint32_t consumedCount);
 
-    void generateExecutionModes(spirv::Blob *blob);
+    void writeExecutionModes(spirv::Blob *blob);
+    void writeExtensions(spirv::Blob *blob);
+    void writeSourceExtensions(spirv::Blob *blob);
 
     ANGLE_MAYBE_UNUSED TCompiler *mCompiler;
     ShCompileOptions mCompileOptions;
     gl::ShaderType mShaderType;
-    const bool mDisableRelaxedPrecision;
 
     // Capabilities the shader is using.  Accumulated as the instructions are generated.  The Shader
     // capability is unconditionally generated, so it's not tracked.
     std::set<spv::Capability> mCapabilities;
+    // Execution modes the shader is using.  Most execution modes are automatically derived from
+    // shader metadata, but some are only discovered while traversing the tree.  Only the latter
+    // execution modes are stored here.
+    angle::BitSet<32> mExecutionModes;
+    // Extensions used by the shader.
+    angle::PackedEnumBitSet<SPIRVExtensions> mExtensions;
 
     // The list of interface variables and the id of main() populated as the instructions are
     // generated.  Used for the OpEntryPoint instruction.

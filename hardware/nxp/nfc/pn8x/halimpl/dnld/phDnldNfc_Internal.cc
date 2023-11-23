@@ -19,6 +19,7 @@
  * Download Component
  */
 
+#include <log/log.h>
 #include <phDnldNfc_Internal.h>
 #include <phDnldNfc_Utils.h>
 #include <phNxpLog.h>
@@ -853,6 +854,12 @@ static NFCSTATUS phDnldNfc_ProcessFrame(void* pContext,
           NXPLOG_FWDNLD_E("Cannot update Response buff with received data!!");
         }
       } else {
+        if (pInfo->wLength <= PHDNLDNFC_FRAME_CRC_LEN) {
+          NXPLOG_FWDNLD_E("Invalid frame received");
+          android_errorWriteLog(0x534e4554, "184728427");
+          wStatus = PHNFCSTVAL(CID_NFC_DNLD, NFCSTATUS_FAILED);
+          return wStatus;
+        }
         /* calculate CRC16 */
         wCrcVal = phDnldNfc_CalcCrc16(
             (pInfo->pBuff), ((pInfo->wLength) - PHDNLDNFC_FRAME_CRC_LEN));
@@ -1187,11 +1194,16 @@ static NFCSTATUS phDnldNfc_UpdateRsp(pphDnldNfc_DlContext_t pDlContext,
     } else {
       if (PH_DL_STATUS_OK == (pInfo->pBuff[PHDNLDNFC_FRAMESTATUS_OFFSET])) {
         if ((0 != (pDlContext->tRspBuffInfo.wLen)) &&
-            (NULL != (pDlContext->tRspBuffInfo.pBuff))) {
+            (NULL != pDlContext->tRspBuffInfo.pBuff) &&
+            (pDlContext->tRspBuffInfo.wLen >= wPldLen)) {
           memcpy((pDlContext->tRspBuffInfo.pBuff),
                  &(pInfo->pBuff[PHDNLDNFC_FRAMESTATUS_OFFSET + 1]), wPldLen);
 
           (pDlContext->tRspBuffInfo.wLen) = wPldLen;
+        } else {
+          NXPLOG_FWDNLD_E("Cannot update Response buff with received data!!");
+          wStatus = NFCSTATUS_BUFFER_TOO_SMALL;
+          android_errorWriteLog(0x534e4554, "192551247");
         }
       } else {
         NXPLOG_FWDNLD_E("Unsuccessful Status received!!");

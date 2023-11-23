@@ -16,14 +16,18 @@
 
 package com.android.car.dialer.bluetooth;
 
+import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.Context;
+import android.content.pm.PackageManager;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 
 import com.android.car.dialer.Constants;
 
@@ -34,16 +38,21 @@ import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import dagger.hilt.android.qualifiers.ApplicationContext;
+
 /** User phone account handle management. */
 @Singleton
 public class PhoneAccountManager {
+    private final Context mContext;
     private final TelecomManager mTelecomManager;
     private final BluetoothAdapter mBluetoothAdapter;
 
     @Inject
     public PhoneAccountManager(
+            @ApplicationContext Context context,
             TelecomManager telecomManager,
             @Nullable BluetoothAdapter bluetoothAdapter) {
+        mContext = context;
         mTelecomManager = telecomManager;
         mBluetoothAdapter = bluetoothAdapter;
     }
@@ -63,6 +72,10 @@ public class PhoneAccountManager {
      */
     public BluetoothDevice getMatchingDevice(
             @Nullable PhoneAccountHandle phoneAccountHandle) {
+        if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED) {
+            return null;
+        }
         Set<BluetoothDevice> bondedDevices =
                 mBluetoothAdapter == null ? null : mBluetoothAdapter.getBondedDevices();
         if (bondedDevices == null) {

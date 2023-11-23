@@ -16,9 +16,8 @@
 
 package com.android.car.messenger.core.interfaces;
 
-import androidx.lifecycle.LiveData;
-
 import androidx.annotation.NonNull;
+import androidx.lifecycle.LiveData;
 
 import com.android.car.messenger.common.Conversation;
 import com.android.car.messenger.core.models.UserAccount;
@@ -42,10 +41,10 @@ public interface DataModel {
     LiveData<Collection<UserAccount>> getAccounts();
 
     /**
-     * Call this to reload user account live data. This is useful when resuming an activity, to
-     * ensure no account changes was missed.
+     * Call this to reload data. This is useful when resuming an activity, to ensure no account
+     * changes was missed or other changes were missed.
      */
-    void refreshUserAccounts();
+    void refresh();
 
     /**
      * Get collection of conversations for the given account.

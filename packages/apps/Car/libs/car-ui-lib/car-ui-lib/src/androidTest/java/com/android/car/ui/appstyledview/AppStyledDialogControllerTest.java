@@ -35,8 +35,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.car.ui.TestActivity;
-import com.android.car.ui.appstyledview.AppStyledViewController.AppStyledDismissListener;
-import com.android.car.ui.appstyledview.AppStyledViewController.AppStyledVCloseClickListener;
 import com.android.car.ui.appstyledview.AppStyledViewController.AppStyledViewNavIcon;
 import com.android.car.ui.test.R;
 
@@ -118,12 +116,12 @@ public class AppStyledDialogControllerTest {
         View appStyledTestView = inflator.inflate(R.layout.app_styled_view_sample, null,
                 false);
 
-        AppStyledVCloseClickListener callback = mock(AppStyledVCloseClickListener.class);
+        Runnable callback = mock(Runnable.class);
 
         mActivityRule.runOnUiThread(() -> {
             mAppStyledDialogController.setContentView(appStyledTestView);
             mAppStyledDialogController.setNavIcon(AppStyledViewNavIcon.BACK);
-            mAppStyledDialogController.setOnCloseClickListener(callback);
+            mAppStyledDialogController.setOnNavIconClickListener(callback);
             mAppStyledDialogController.show();
         });
 
@@ -133,7 +131,7 @@ public class AppStyledDialogControllerTest {
                 .inRoot(new RootWithDecorMatcher(dialog.getWindow().getDecorView()))
                 .perform(click());
 
-        verify(callback).onClick();
+        verify(callback).run();
     }
 
     @Test
@@ -143,7 +141,7 @@ public class AppStyledDialogControllerTest {
         View appStyledTestView = inflator.inflate(R.layout.app_styled_view_sample, null,
                 false);
 
-        AppStyledDismissListener callback = mock(AppStyledDismissListener.class);
+        Runnable callback = mock(Runnable.class);
 
         mActivityRule.runOnUiThread(() -> {
             mAppStyledDialogController.setContentView(appStyledTestView);
@@ -157,8 +155,6 @@ public class AppStyledDialogControllerTest {
         onView(withId(R.id.car_ui_app_styled_view_icon_close))
                 .inRoot(new RootWithDecorMatcher(dialog.getWindow().getDecorView()))
                 .perform(click());
-
-        verify(callback).onDismiss();
     }
 
     private static class RootWithDecorMatcher extends TypeSafeMatcher<Root> {

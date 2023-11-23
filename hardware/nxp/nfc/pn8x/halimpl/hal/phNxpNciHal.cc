@@ -362,9 +362,11 @@ static NFCSTATUS phNxpNciHal_fw_download(void) {
     status = phNxpNciHal_fw_download_seq(nxpprofile_ctrl.bClkSrcVal,
                                          nxpprofile_ctrl.bClkFreqVal);
     if (status != NFCSTATUS_SUCCESS) {
+      phTmlNfc_ReadAbort();
       phDnldNfc_ReSetHwDevHandle();
       fw_retry_count++;
       NXPLOG_NCIHAL_D("Retrying: FW download");
+      android_errorWriteLog(0x534e4554, "192614125");
     }
   } while ((fw_retry_count < 3) && (status != NFCSTATUS_SUCCESS));
 

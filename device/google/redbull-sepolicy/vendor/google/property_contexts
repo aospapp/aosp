@@ -76,3 +76,7 @@ vendor.twoshay.study_group                      u:object_r:vendor_twoshay_prop:s
 
 vendor.all.modules.ready                        u:object_r:vendor_device_prop:s0
 vendor.all.devices.ready                        u:object_r:vendor_device_prop:s0
+
+# Logger app
+vendor.pixellogger.                             u:object_r:vendor_logger_prop:s0
+persist.vendor.pixellogger.                     u:object_r:vendor_logger_prop:s0

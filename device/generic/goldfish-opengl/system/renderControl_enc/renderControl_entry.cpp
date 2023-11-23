@@ -70,6 +70,9 @@ extern "C" {
 	int rcCreateDisplayById(uint32_t displayId);
 	int rcSetDisplayPoseDpi(uint32_t displayId, GLint x, GLint y, uint32_t w, uint32_t h, uint32_t dpi);
 	int rcReadColorBufferDMA(uint32_t colorbuffer, GLint x, GLint y, GLint width, GLint height, GLenum format, GLenum type, void* pixels, uint32_t pixels_size);
+	int rcGetFBDisplayConfigsCount();
+	int rcGetFBDisplayConfigsParam(int configId, EGLint param);
+	int rcGetFBDisplayActiveConfig();
 };
 
 #ifndef GET_CONTEXT
@@ -466,5 +469,23 @@ int rcReadColorBufferDMA(uint32_t colorbuffer, GLint x, GLint y, GLint width, GL
 {
 	GET_CONTEXT;
 	return ctx->rcReadColorBufferDMA(ctx, colorbuffer, x, y, width, height, format, type, pixels, pixels_size);
+}
+
+int rcGetFBDisplayConfigsCount()
+{
+	GET_CONTEXT;
+	return ctx->rcGetFBDisplayConfigsCount(ctx);
+}
+
+int rcGetFBDisplayConfigsParam(int configId, EGLint param)
+{
+	GET_CONTEXT;
+	return ctx->rcGetFBDisplayConfigsParam(ctx, configId, param);
+}
+
+int rcGetFBDisplayActiveConfig()
+{
+	GET_CONTEXT;
+	return ctx->rcGetFBDisplayActiveConfig(ctx);
 }
 

@@ -16,7 +16,9 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.car.messenger">
+    package="com.android.car.messenger"
+    android:versionCode="10000"
+    android:versionName="1.0.0">
 
     <application
         android:name="com.android.car.messenger.impl.CarMessengerApp"
@@ -29,7 +31,8 @@
         <activity
             android:name=".core.ui.launcher.MessageLauncherActivity"
             android:exported="true"
-            android:screenOrientation="landscape">
+            android:screenOrientation="landscape"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -130,7 +133,4 @@
     -->
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
 
-    <uses-sdk
-        android:minSdkVersion="30"
-        android:targetSdkVersion="30" />
 </manifest>

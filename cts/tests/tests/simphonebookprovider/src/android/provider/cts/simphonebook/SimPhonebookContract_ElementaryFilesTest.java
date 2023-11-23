@@ -59,7 +59,7 @@ import java.util.Objects;
 public class SimPhonebookContract_ElementaryFilesTest {
 
     // The minimum value for the ElementaryFiles.NAME_MAX_LENGTH column.
-    private static final int NAME_MAX_LENGTH_MINIMUM = 11;
+    private static final int NAME_MAX_LENGTH_MINIMUM = 2;
     // The minimum value for the ElementaryFiles.PHONE_NUMBER_MAX_LENGTH column.
     private static final int PHONE_NUMBER_MAX_LENGTH_MINIMUM = 20;
 

@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"ଆପ୍‌ ଅନୁମତିଗୁଡ଼ିକ"</string>
     <string name="unused_apps" msgid="2058057455175955094">"ଅବ୍ୟବହୃତ ଆପଗୁଡ଼ିକ"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"କୌଣସି ଅବ୍ୟବହୃତ ଆପ୍ ନାହିଁ"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"0ଟି ଅବ୍ୟବହୃତ ଆପ୍"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"ଆପ୍ ଅକ୍ଷମ କରନ୍ତୁ"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"ଯଦି ଆପଣ ଏହି ଆପକୁ ଅକ୍ଷମ କରିବେ, ତେବେ Android ଓ ଅନ୍ୟ ଆପଗୁଡ଼ିକ ଆଉ ଆଶାନୁରୂପେ କାର୍ଯ୍ୟ କରିନପାରେ। ମନେରଖନ୍ତୁ ଯେ, ଏହି ଆପ୍ ଆପଣଙ୍କ ଡିଭାଇସରେ ପୂର୍ବରୁ-ଇନଷ୍ଟଲ୍ କରାଯାଇଥିବା ଯୋଗୁଁ ଆପଣ ଏହାକୁ ଡିଲିଟ୍ କରିପାରିବେ ନାହିଁ। ଅକ୍ଷମ କରି, ଆପଣ ଏହି ଆପକୁ ବନ୍ଦ କରିଦିଅନ୍ତି ଏବଂ ଆପଣଙ୍କ ଡିଭାଇସରେ ଲୁଚାଇଦିଅନ୍ତି।"</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"ଅନୁମତି ପରିଚାଳକ"</string>

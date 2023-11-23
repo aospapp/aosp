@@ -34,7 +34,6 @@ import static org.junit.Assume.assumeTrue;
 import android.app.Activity;
 import android.app.PictureInPictureParams;
 import android.content.ComponentName;
-import android.content.Context;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Bundle;
@@ -129,7 +128,7 @@ public class WindowMetricsActivityTests extends WindowManagerTestBase {
     private void waitForEnterPipAnimationComplete(ComponentName activityName) {
         waitForEnterPip(activityName);
         mWmState.waitForWithAmState(wmState -> {
-            WindowManagerState.ActivityTask task = wmState.getTaskByActivity(activityName);
+            WindowManagerState.Task task = wmState.getTaskByActivity(activityName);
             if (task == null) {
                 return false;
             }
@@ -145,7 +144,7 @@ public class WindowMetricsActivityTests extends WindowManagerTestBase {
      */
     private void waitForEnterPip(ComponentName activityName) {
         mWmState.waitForWithAmState(wmState -> {
-            WindowManagerState.ActivityTask task = wmState.getTaskByActivity(activityName);
+            WindowManagerState.Task task = wmState.getTaskByActivity(activityName);
             return task != null && task.getWindowingMode() == WINDOWING_MODE_PINNED;
         }, "checking task windowing mode");
     }

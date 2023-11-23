@@ -516,6 +516,57 @@ public class BluetoothLeScanFacade extends RpcReceiver {
     }
 
     /**
+     * Get ScanFilter's device address type
+     *
+     * @param index the ScanFilter object to use
+     * @return the ScanFilter's device address type
+     * @throws Exception
+     */
+    @Rpc(description = "Get ScanFilter's device address type")
+    public Integer bleGetScanFilterAddressType(
+            @RpcParameter(name = "index")
+                    Integer index,
+            @RpcParameter(name = "filterIndex")
+                    Integer filterIndex)
+            throws Exception {
+        if (mScanFilterList.get(index) != null) {
+            if (mScanFilterList.get(index).get(filterIndex) != null) {
+                return mScanFilterList.get(index).get(
+                        filterIndex).getAddressType();
+            } else {
+                throw new Exception("Invalid filterIndex input:" + filterIndex);
+            }
+        } else {
+            throw new Exception("Invalid index input:" + index);
+        }
+    }
+
+    /**
+     * Get ScanFilter's irk
+     *
+     * @param index the ScanFilter object to use
+     * @return the ScanFilter's irk
+     * @throws Exception
+     */
+    @Rpc(description = "Get ScanFilter's irk")
+    public byte[] bleGetScanFilterIrk(
+            @RpcParameter(name = "index")
+                    Integer index,
+            @RpcParameter(name = "filterIndex")
+                    Integer filterIndex)
+            throws Exception {
+        if (mScanFilterList.get(index) != null) {
+            if (mScanFilterList.get(index).get(filterIndex) != null) {
+                return mScanFilterList.get(index).get(filterIndex).getIrk();
+            } else {
+                throw new Exception("Invalid filterIndex input:" + filterIndex);
+            }
+        } else {
+            throw new Exception("Invalid index input:" + index);
+        }
+    }
+
+    /**
      * Get ScanFilter's device name
      *
      * @param index the ScanFilter object to use
@@ -736,6 +787,39 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             String macAddress
             ) {
             mScanFilterBuilder.setDeviceAddress(macAddress);
+    }
+
+    /**
+     * Add filter "macAddress", and "addressType" to existing ScanFilter
+     *
+     * @param macAddress the macAddress to filter against
+     * @param addressType the type of macAddress to filter against
+     * @throws Exception
+     */
+    @Rpc(description = "Add filter \"macAddress\" and \"addressType\" to existing ScanFilter")
+    public void bleSetScanFilterDeviceAddressAndType(
+            @RpcParameter(name = "macAddress") String macAddress,
+            @RpcParameter(name = "addressType") Integer addressType
+    ) {
+        mScanFilterBuilder.setDeviceAddress(macAddress, addressType);
+    }
+
+    /**
+     * Add filter "macAddress", "addressType", and "irk" to existing ScanFilter
+     *
+     * @param macAddress the macAddress to filter against
+     * @param addressType the type of macAddress to filter against
+     * @param irk IRK for address resolution
+     * @throws Exception
+     */
+    @Rpc(description =
+            "Add filter \"macAddress\", \"addressType\", and \"irk\" to existing ScanFilter")
+    public void bleSetScanFilterDeviceAddressTypeAndIrk(
+            @RpcParameter(name = "macAddress") String macAddress,
+            @RpcParameter(name = "addressType") Integer addressType,
+            @RpcParameter(name = "irk") byte[] irk
+    ) {
+        mScanFilterBuilder.setDeviceAddress(macAddress, addressType, irk);
     }
 
     /**

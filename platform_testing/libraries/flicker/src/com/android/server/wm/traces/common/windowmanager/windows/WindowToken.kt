@@ -28,4 +28,20 @@ open class WindowToken(windowContainer: WindowContainer) : WindowContainer(windo
     override fun toString(): String {
         return "${this::class.simpleName}: {$token $title}"
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is WindowToken) return false
+        if (!super.equals(other)) return false
+
+        if (isVisible != other.isVisible) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + isVisible.hashCode()
+        return result
+    }
 }

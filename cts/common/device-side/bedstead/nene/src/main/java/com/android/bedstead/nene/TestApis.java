@@ -20,50 +20,66 @@ import com.android.bedstead.nene.activities.Activities;
 import com.android.bedstead.nene.annotations.Experimental;
 import com.android.bedstead.nene.context.Context;
 import com.android.bedstead.nene.devicepolicy.DevicePolicy;
+import com.android.bedstead.nene.notifications.Notifications;
 import com.android.bedstead.nene.packages.Packages;
 import com.android.bedstead.nene.permissions.Permissions;
+import com.android.bedstead.nene.settings.Settings;
+import com.android.bedstead.nene.systemproperties.SystemProperties;
 import com.android.bedstead.nene.users.Users;
 
 /**
  * Entry point to Nene Test APIs.
  */
 public final class TestApis {
-    private final Context mContext = new Context(this);
-    private final Users mUsers = new Users(this);
-    private final Packages mPackages = new Packages(this);
-    private final DevicePolicy mDevicePolicy = new DevicePolicy(this);
-    private final Activities mActivities = new Activities(this);
-
     /** Access Test APIs related to Users. */
-    public Users users() {
-        return mUsers;
+    public static Users users() {
+        return Users.sInstance;
     }
 
     /** Access Test APIs related to Packages. */
-    public Packages packages() {
-        return mPackages;
+    public static Packages packages() {
+        return Packages.sInstance;
     }
 
     /** Access Test APIs related to device policy. */
-    public DevicePolicy devicePolicy() {
-        return mDevicePolicy;
+    public static DevicePolicy devicePolicy() {
+        return DevicePolicy.sInstance;
     }
 
     /** Access Test APIs related to permissions. */
-    public Permissions permissions() {
+    public static Permissions permissions() {
         return Permissions.sInstance;
     }
 
     /** Access Test APIs related to context. */
-    public Context context() {
-        return mContext;
+    public static Context context() {
+        return Context.sInstance;
+    }
+
+    /** Access Test APIs relating to Settings. */
+    public static Settings settings() {
+        return Settings.sInstance;
+    }
+
+    /** Access Test APIs related to System Properties. */
+    public static SystemProperties systemProperties() {
+        return SystemProperties.sInstance;
     }
 
     /** Access Test APIs related to activities. */
-    // TODO(scottjonathan): Consider if Activities requires a top-level nene API or if it can go
-    //  inside packages
     @Experimental
-    public Activities activities() {
-        return mActivities;
+    public static Activities activities() {
+        return Activities.sInstance;
+    }
+
+    /** Access Test APIs related to notifications. */
+    public static Notifications notifications() {
+        return Notifications.sInstance;
+    }
+
+    /** @deprecated Use statically */
+    @Deprecated()
+    public TestApis() {
+
     }
 }

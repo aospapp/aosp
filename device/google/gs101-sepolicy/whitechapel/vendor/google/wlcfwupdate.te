@@ -1,0 +1,12 @@
+# wlcfwupdate service
+type wlcfwupdate, domain;
+type wlcfwupdate_exec, vendor_file_type, exec_type, file_type;
+
+init_daemon_domain(wlcfwupdate)
+
+allow wlcfwupdate sysfs_batteryinfo:dir search;
+allow wlcfwupdate sysfs_batteryinfo:file r_file_perms;
+allow wlcfwupdate sysfs_wlc:dir search;
+allow wlcfwupdate sysfs_wlc:file rw_file_perms;
+allow wlcfwupdate vendor_toolbox_exec:file execute_no_trans;
+allow wlcfwupdate vendor_wlc_fwupdata_file:file execute_no_trans;

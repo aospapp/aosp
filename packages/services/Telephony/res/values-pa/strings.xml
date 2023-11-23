@@ -273,7 +273,7 @@
     <string name="network_operator_category" msgid="4992217193732304680">"ਨੈੱਟਵਰਕ"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="4213420368777080540">"ਵਿਸਤ੍ਰਿਤ 4G LTE ਮੋਡ"</string>
     <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (7240155150166394308) -->
-    <string name="enhanced_4g_lte_mode_summary" msgid="7725708511804143638">"ਵੌਇਸ ਅਤੇ ਹੋਰ ਸੰਚਾਰ ਬਿਹਤਰ ਬਣਾਉਣ ਲਈ  LTE ਸੇਵਾਵਾਂ ਵਰਤੋ ( ਸਿਫ਼ਾਰਸ਼  ਕੀਤਾ)"</string>
+    <string name="enhanced_4g_lte_mode_summary" msgid="7725708511804143638">"ਅਵਾਜ਼ੀ ਕਾਲਾਂ ਅਤੇ ਹੋਰ ਸੰਚਾਰ ਬਿਹਤਰ ਬਣਾਉਣ ਲਈ LTE ਸੇਵਾਵਾਂ ਵਰਤੋ (ਸਿਫ਼ਾਰਸ਼ੀ)"</string>
     <string name="enhanced_4g_lte_mode_summary_o2" msgid="2521108446409016542">"ਅਵਾਜ਼ ਅਤੇ ਹੋਰ ਸੰਚਾਰਾਂ (ਸਿਫ਼ਾਰਸ਼ ਕੀਤੇ) ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਲਈ 4G ਸੇਵਾਵਾਂ ਵਰਤੋ"</string>
     <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2943982616649705147) -->
     <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (5262249464504131443) -->
@@ -338,24 +338,24 @@
     <string name="enable_disable_maintenance" msgid="3824817751053035017">"ਪ੍ਰਬੰਧਨ"</string>
     <string name="maintenance_enable" msgid="2646784483222342290">"ਪ੍ਰਬੰਧਨ ਸਮਰਥਿਤ"</string>
     <string name="maintenance_disable" msgid="2121032601497725602">"ਪ੍ਰਬੰਧਨ ਅਸਮਰਥਿਤ"</string>
-    <string name="general_news_settings" msgid="2670499575962080411">"ਸਧਾਰਨ ਖ਼ਬਰਾਂ"</string>
-    <string name="bf_news_settings" msgid="8571709425370794221">"ਵਪਾਰਕ ਅਤੇ ਵਿੱਤੀ ਖ਼ਬਰਾਂ"</string>
-    <string name="sports_news_settings" msgid="2684364556989168438">"ਖੇਡ ਦੀਆਂ ਖ਼ਬਰਾਂ"</string>
-    <string name="entertainment_news_settings" msgid="4228527702346305543">"ਮਨੋਰੰਜਕ ਖ਼ਬਰਾਂ"</string>
+    <string name="general_news_settings" msgid="2670499575962080411">"ਸਧਾਰਨ ਖਬਰਾਂ"</string>
+    <string name="bf_news_settings" msgid="8571709425370794221">"ਕਾਰੋਬਾਰੀ ਅਤੇ ਵਿੱਤੀ ਖਬਰਾਂ"</string>
+    <string name="sports_news_settings" msgid="2684364556989168438">"ਖੇਡਾਂ ਨਾਲ ਸੰਬੰਧਿਤ ਖਬਰਾਂ"</string>
+    <string name="entertainment_news_settings" msgid="4228527702346305543">"ਮਨੋਰੰਜਨ ਸੰਬੰਧੀ ਖਬਰਾਂ"</string>
     <string name="enable_disable_local" msgid="7654175079979415572">"ਸਥਾਨਕ"</string>
-    <string name="local_enable" msgid="790606890868710629">"ਸਥਾਨਕ ਖ਼ਬਰਾਂ ਸਮਰਥਿਤ"</string>
-    <string name="local_disable" msgid="7649945293198602877">"ਸਥਾਨਕ ਖ਼ਬਰਾਂ ਅਸਮਰਥਿਤ"</string>
+    <string name="local_enable" msgid="790606890868710629">"ਸਥਾਨਕ ਖਬਰਾਂ ਚਾਲੂ ਕੀਤੀਆਂ ਗਈਆਂ"</string>
+    <string name="local_disable" msgid="7649945293198602877">"ਸਥਾਨਕ ਖਬਰਾਂ ਬੰਦ ਕੀਤੀਆਂ ਗਈਆਂ"</string>
     <string name="enable_disable_regional" msgid="5783403191376564638">"ਖੇਤਰੀ"</string>
-    <string name="regional_enable" msgid="7730109417536296079">"ਖੇਤਰੀ ਖ਼ਬਰਾਂ ਸਮਰਥਿਤ"</string>
-    <string name="regional_disable" msgid="3781951818157772545">"ਖੇਤਰੀ ਖ਼ਬਰਾਂ ਅਸਮਰਥਿਤ"</string>
+    <string name="regional_enable" msgid="7730109417536296079">"ਖੇਤਰੀ ਖਬਰਾਂ ਚਾਲੂ ਕੀਤੀਆਂ ਗਈਆਂ"</string>
+    <string name="regional_disable" msgid="3781951818157772545">"ਖੇਤਰੀ ਖਬਰਾਂ ਬੰਦ ਕੀਤੀਆਂ ਗਈਆਂ"</string>
     <string name="enable_disable_national" msgid="6198481711934897632">"ਰਾਸ਼ਟਰੀ"</string>
-    <string name="national_enable" msgid="5159683504138239304">"ਰਾਸ਼ਟਰੀ ਖ਼ਬਰਾਂ ਸਮਰਥਿਤ"</string>
-    <string name="national_disable" msgid="8484356368757118987">"ਰਾਸ਼ਟਰੀ ਖ਼ਬਰਾਂ ਅਸਮਰਥਿਤ"</string>
+    <string name="national_enable" msgid="5159683504138239304">"ਰਾਸ਼ਟਰੀ ਖਬਰਾਂ ਚਾਲੂ ਕੀਤੀਆਂ ਗਈਆਂ"</string>
+    <string name="national_disable" msgid="8484356368757118987">"ਰਾਸ਼ਟਰੀ ਖਬਰਾਂ ਬੰਦ ਕੀਤੀਆਂ ਗਈਆਂ"</string>
     <string name="enable_disable_international" msgid="4204334217211198792">"ਅੰਤਰਰਾਸ਼ਟਰੀ"</string>
-    <string name="international_enable" msgid="8943466745792690340">"ਅੰਤਰਰਾਸ਼ਟਰੀ ਖ਼ਬਰਾਂ ਸਮਰਥਿਤ"</string>
-    <string name="international_disable" msgid="4803498658100318265">"ਅੰਤਰਰਾਸ਼ਟਰੀ ਖ਼ਬਰਾਂ ਅਸਮਰਥਿਤ"</string>
+    <string name="international_enable" msgid="8943466745792690340">"ਅੰਤਰਰਾਸ਼ਟਰੀ ਖਬਰਾਂ ਚਾਲੂ ਕੀਤੀਆਂ ਗਈਆਂ"</string>
+    <string name="international_disable" msgid="4803498658100318265">"ਅੰਤਰਰਾਸ਼ਟਰੀ ਖਬਰਾਂ ਬੰਦ ਕੀਤੀਆਂ ਗਈਆਂ"</string>
     <string name="list_language_title" msgid="1850167908665485738">"ਭਾਸ਼ਾ"</string>
-    <string name="list_language_summary" msgid="7921756070782277559">"ਖ਼ਬਰਾਂ ਦੀ ਭਾਸ਼ਾ ਚੁਣੋ"</string>
+    <string name="list_language_summary" msgid="7921756070782277559">"ਖਬਰਾਂ ਦੀ ਭਾਸ਼ਾ ਚੁਣੋ"</string>
   <string-array name="list_language_entries">
     <item msgid="2347238508726934281">"ਅੰਗ੍ਰੇਜ਼ੀ"</item>
     <item msgid="5172468397620875174">"ਫਰਾਂਸੀਸੀ"</item>
@@ -405,9 +405,9 @@
     <string name="enable_disable_mhh" msgid="715930476289202466">"ਚਿਕਿਤਸਾ, ਸਿਹਤ ਅਤੇ ਹਸਪਤਾਲ"</string>
     <string name="mhh_enable" msgid="7224396815285147008">"ਚਿਕਿਤਸਾ, ਸਿਹਤ ਅਤੇ ਹਸਪਤਾਲ ਸਮਰਥਿਤ"</string>
     <string name="mhh_disable" msgid="5503643028885686265">"ਚਿਕਿਤਸਾ, ਸਿਹਤ ਅਤੇ ਹਸਪਤਾਲ ਅਸਮਰਥਿਤ"</string>
-    <string name="enable_disable_technology_news" msgid="2794845609698078400">"ਟੈਕਨਾਲੋਜੀ ਖ਼ਬਰਾਂ"</string>
-    <string name="technology_news_enable" msgid="1908991199492598311">"ਟੈਕਨਾਲੋਜੀ ਖ਼ਬਰਾਂ ਸਮਰਥਿਤ"</string>
-    <string name="technology_news_disable" msgid="8388582607149800889">"ਟੈਕਨਾਲੋਜੀ ਖ਼ਬਰਾਂ ਅਸਮਰਥਿਤ"</string>
+    <string name="enable_disable_technology_news" msgid="2794845609698078400">"ਤਕਨਾਲੋਜੀ ਖਬਰਾਂ"</string>
+    <string name="technology_news_enable" msgid="1908991199492598311">"ਤਕਨਾਲੋਜੀ ਖਬਰਾਂ ਚਾਲੂ ਕੀਤੀਆਂ ਗਈਆਂ"</string>
+    <string name="technology_news_disable" msgid="8388582607149800889">"ਤਕਨਾਲੋਜੀ ਖਬਰਾਂ ਬੰਦ ਕੀਤੀਆਂ ਗਈਆਂ"</string>
     <string name="enable_disable_multi_category" msgid="5958248155437940625">"ਮਲਟੀ-ਸ਼੍ਰੇਣੀ"</string>
     <string name="multi_category_enable" msgid="4531915767817483960">"ਮਲਟੀ-ਸ਼੍ਰੇਣੀ ਸਮਰਥਿਤ"</string>
     <string name="multi_category_disable" msgid="6325934413701238104">"ਮਲਟੀ-ਸ਼੍ਰੇਣੀ ਅਸਮਰਥਿਤ"</string>
@@ -595,7 +595,7 @@
     <string name="hac_mode_title" msgid="4127986689621125468">"ਸੁਣਨ ਲਈ ਸਹਾਇਕ ਸਾਧਨ"</string>
     <string name="hac_mode_summary" msgid="7774989500136009881">"ਸੁਣਨ ਲਈ ਸਹਾਇਕ ਸਾਧਨ ਅਨੁਕੂਲਤਾ ਚਾਲੂ ਕਰੋ"</string>
     <string name="rtt_mode_title" msgid="3075948111362818043">"ਨਾਲ-ਦੀ-ਨਾਲ ਦਿਸਦੀ ਲਿਖਤ (RTT) ਵਾਲੀ ਕਾਲ"</string>
-    <string name="rtt_mode_summary" msgid="8631541375609989562">"ਕਿਸੇ ਵੌਇਸ ਕਾਲ ਦੌਰਾਨ ਸੁਨੇਹਾ ਭੇਜਣ ਦਿਓ"</string>
+    <string name="rtt_mode_summary" msgid="8631541375609989562">"ਕਿਸੇ ਅਵਾਜ਼ੀ ਕਾਲ ਦੌਰਾਨ ਸੁਨੇਹਾ ਭੇਜਣ ਦਿਓ"</string>
     <string name="rtt_mode_more_information" msgid="587500128658756318">"RTT ਅਜਿਹੇ ਕਾਲ ਕਰਨ ਵਾਲੇ ਲੋਕਾਂ ਦੀ ਸਹਾਇਤਾ ਕਰਦਾ ਹੈ ਜੋ ਬੋਲੇ, ਘੱਟ ਸੁਣਨ ਵਾਲੇ, ਬੋਲਣ ਵਿੱਚ ਅਸਮਰਥ ਜਾਂ ਜਿਨ੍ਹਾਂ ਲਈ ਸਿਰਫ਼ ਅਵਾਜ਼ ਕਾਫ਼ੀ ਨਹੀਂ ਹੁੰਦੀ।&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;ਹੋਰ ਜਾਣੋ&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT ਕਾਲਾਂ ਨੂੰ ਇੱਕ ਪ੍ਰਤਿਲਿਪੀ ਸੁਨੇਹੇ ਵਜੋਂ ਰੱਖਿਅਤ ਕੀਤਾ ਜਾਂਦਾ ਹੈ\n       &lt;br&gt; - RTT ਵੀਡੀਓ ਕਾਲਾਂ ਲਈ ਉਪਲਬਧ ਨਹੀਂ ਹੈ"</string>
     <string name="no_rtt_when_roaming" msgid="5268008247378355389">"ਨੋਟ ਕਥਨ:ਵੇਲੇ RTT ਉਪਲਬਧ ਨਹੀਂ ਹੈ"</string>
   <string-array name="tty_mode_entries">
@@ -664,7 +664,7 @@
     <string name="contactPhoto" msgid="7885089213135154834">"ਸੰਪਰਕ ਫ਼ੋਟੋ"</string>
     <string name="goPrivate" msgid="4645108311382209551">"ਨਿੱਜੀ ਜਾਓ"</string>
     <string name="selectContact" msgid="1527612842599767382">"ਸੰਪਰਕ ਚੁਣੋ"</string>
-    <string name="not_voice_capable" msgid="2819996734252084253">"ਵੌਇਸ ਕਾਲਿੰਗ ਸਮਰਥਿਤ ਨਹੀਂ"</string>
+    <string name="not_voice_capable" msgid="2819996734252084253">"ਅਵਾਜ਼ੀ ਕਾਲਿੰਗ ਸਮਰਥਿਤ ਨਹੀਂ"</string>
     <string name="description_dial_button" msgid="8614631902795087259">"ਡਾਇਲ ਕਰੋ"</string>
     <string name="description_dialpad_button" msgid="7395114120463883623">"ਡਾਇਲਪੈਡ ਦਿਖਾਓ"</string>
     <string name="pane_title_emergency_dialpad" msgid="3627372514638694401">"ਸੰਕਟਕਾਲੀਨ ਡਾਇਲਪੈਡ"</string>
@@ -855,7 +855,7 @@
     <string name="radio_info_ims_reg_status_not_registered" msgid="8045821447288876085">"ਰਜਿਸਟਰ ਨਹੀਂ ਕੀਤੀ ਗਈ"</string>
     <string name="radio_info_ims_feature_status_available" msgid="6493200914756969292">"ਉਪਲਬਧ"</string>
     <string name="radio_info_ims_feature_status_unavailable" msgid="8930391136839759778">"ਅਣਉਪਲਬਧ"</string>
-    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS ਰਜਿਸਟਰੇਸ਼ਨ: <xliff:g id="STATUS">%1$s</xliff:g>\nLTE \'ਤੇ ਵੌਇਸ: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nਵਾਈ-ਫਾਈ \'ਤੇ ਵੌਇਸ: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nਵੀਡੀਓ ਕਾਲਿੰਗ: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT ਇੰਟਰਫੇਸ: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
+    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS ਰਜਿਸਟਰੇਸ਼ਨ: <xliff:g id="STATUS">%1$s</xliff:g>\nLTE \'ਤੇ ਅਵਾਜ਼: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nਵਾਈ-ਫਾਈ \'ਤੇ ਅਵਾਜ਼ੀ ਕਾਲ: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nਵੀਡੀਓ ਕਾਲਿੰਗ: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT ਇੰਟਰਫੇਸ: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
     <string name="radioInfo_service_in" msgid="45753418231446400">"ਸੇਵਾ ਵਿੱਚ"</string>
     <string name="radioInfo_service_out" msgid="287972405416142312">"ਸੇਵਾ ਵਿੱਚ ਨਹੀਂ"</string>
     <string name="radioInfo_service_emergency" msgid="4763879891415016848">"ਸਿਰਫ਼ ਸੰਕਟਕਾਲੀਨ ਕਾਲਾਂ"</string>
@@ -892,12 +892,12 @@
     <string name="radio_info_ppp_received_label" msgid="5753592451640644889">"ਡਾਟਾ ਪ੍ਰਾਪਤ ਹੋਇਆ:"</string>
     <string name="radio_info_gsm_service_label" msgid="6443348321714241328">"ਵੌਇਸ ਸੇਵਾ:"</string>
     <string name="radio_info_signal_strength_label" msgid="5545444702102543260">"ਸਿਗਨਲ ਦੀ ਤੀਬਰਤਾ:"</string>
-    <string name="radio_info_call_status_label" msgid="7693575431923095487">"ਵੌਇਸ ਕਾਲ ਸਥਿਤੀ:"</string>
+    <string name="radio_info_call_status_label" msgid="7693575431923095487">"ਅਵਾਜ਼ੀ ਕਾਲ ਸਥਿਤੀ:"</string>
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"ਡਾਟਾ ਭੇਜਿਆ ਗਿਆ:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"ਸੁਨੇਹੇ ਦੀ ਉਡੀਕ:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"ਫ਼ੋਨ ਨੰਬਰ:"</string>
     <string name="radio_info_band_mode_label" msgid="23480556225515290">"ਰੇਡੀਓ ਬੈਂਡ ਚੁਣੋ"</string>
-    <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ਵੌਇਸ ਨੈੱਟਵਰਕ ਕਿਸਮ:"</string>
+    <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ਅਵਾਜ਼ੀ ਨੈੱਟਵਰਕ ਦੀ ਕਿਸਮ:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ਡਾਟਾ ਨੈੱਟਵਰਕ ਕਿਸਮ:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ਫ਼ੋਨ ਕ੍ਰਮ-ਸੂਚੀ ਚੁਣੋ"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"ਤਰਜੀਹੀ ਨੈੱਟਵਰਕ ਕਿਸਮ ਸੈੱਟ ਕਰੋ:"</string>

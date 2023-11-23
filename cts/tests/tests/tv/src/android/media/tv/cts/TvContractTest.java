@@ -37,6 +37,8 @@ import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.tv.cts.R;
 
+import androidx.test.InstrumentationRegistry;
+
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
@@ -113,6 +115,11 @@ public class TvContractTest extends AndroidTestCase {
     private static final String[] NON_EXISTING_COLUMN_NAMES =
             {"non_existing_column", "another non-existing column --"};
 
+    private static final String PERMISSION_ACCESS_WATCHED_PROGRAMS =
+            "com.android.providers.tv.permission.ACCESS_WATCHED_PROGRAMS";
+    private static final String PERMISSION_WRITE_EPG_DATA =
+            "com.android.providers.tv.permission.WRITE_EPG_DATA";
+
     private String mInputId;
     private ContentResolver mContentResolver;
     private Uri mChannelsUri;
@@ -123,6 +130,11 @@ public class TvContractTest extends AndroidTestCase {
         if (!Utils.hasTvInputFramework(getContext())) {
             return;
         }
+        InstrumentationRegistry
+                .getInstrumentation()
+                .getUiAutomation()
+                .adoptShellPermissionIdentity(
+                        PERMISSION_ACCESS_WATCHED_PROGRAMS, PERMISSION_WRITE_EPG_DATA);
         mInputId = TvContract.buildInputId(
                 new ComponentName(getContext(), StubTunerTvInputService.class));
         mContentResolver = getContext().getContentResolver();
@@ -138,6 +150,9 @@ public class TvContractTest extends AndroidTestCase {
         mContentResolver.delete(Channels.CONTENT_URI, null, null);
         mContentResolver.delete(RecordedPrograms.CONTENT_URI, null, null);
         mContentResolver.delete(WatchNextPrograms.CONTENT_URI, null, null);
+
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .dropShellPermissionIdentity();
         super.tearDown();
     }
 

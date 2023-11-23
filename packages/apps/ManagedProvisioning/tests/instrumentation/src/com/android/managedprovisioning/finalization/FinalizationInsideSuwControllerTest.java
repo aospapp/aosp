@@ -173,6 +173,9 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
 
     @SmallTest
     public void testManagedProfileFinalizationDuringSuw() {
+        // GIVEN that the DPC is not available on the primary profile
+        when(mUtils.canResolveIntentAsUser(eq(mActivity), any(Intent.class),
+                eq(UserHandle.USER_SYSTEM))).thenReturn(false);
         // GIVEN that deviceManagementEstablished has never been called
         when(mHelper.isStateUnmanagedOrFinalized()).thenReturn(true);
         // GIVEN that we've provisioned a managed profile after SUW

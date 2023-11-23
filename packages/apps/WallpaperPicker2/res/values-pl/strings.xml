@@ -95,7 +95,14 @@
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Podgląd tapety"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Taka kolekcja nie istnieje"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Ukryj podgląd UI"</string>
+    <string name="hint_hide_ui_preview" msgid="4527603797714586070">"Interfejs jest ukryty na podglądzie. Kliknij dwukrotnie, aby go pokazać"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Pokaż podgląd UI"</string>
+    <string name="hint_show_ui_preview" msgid="2744155435325318349">"Interfejs jest widoczny na podglądzie. Kliknij dwukrotnie, aby go ukryć"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Zmień tapetę"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Podgląd tapety na ekranie blokady"</string>
+    <string name="apply_btn" msgid="5764555565943538528">"Zastosuj"</string>
+    <string name="accessibility_customize_hidden" msgid="6320568529768181691">"Panel dostosowywania jest ukryty"</string>
+    <string name="accessibility_customize_shown" msgid="590964727831547651">"Panel dostosowywania jest widoczny"</string>
+    <string name="accessibility_info_hidden" msgid="2288603712350168107">"Panel informacyjny jest ukryty"</string>
+    <string name="accessibility_info_shown" msgid="6626025722456105632">"Panel informacyjny jest widoczny"</string>
 </resources>

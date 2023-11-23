@@ -38,10 +38,35 @@ open class Activity(
      * @param partialWindowTitle window title to search
      */
     fun hasWindow(partialWindowTitle: String): Boolean {
-        return this.windows.any { it.title.contains(partialWindowTitle) }
+        return collectDescendants<WindowState> { it.title.contains(partialWindowTitle) }
+                .isNotEmpty()
     }
 
     override fun toString(): String {
         return "${this::class.simpleName}: {$token $title} state=$state visible=$isVisible"
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Activity) return false
+
+        if (state != other.state) return false
+        if (frontOfTask != other.frontOfTask) return false
+        if (procId != other.procId) return false
+        if (isTranslucent != other.isTranslucent) return false
+        if (orientation != other.orientation) return false
+        if (title != other.title) return false
+        if (token != other.token) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + state.hashCode()
+        result = 31 * result + frontOfTask.hashCode()
+        result = 31 * result + procId
+        result = 31 * result + isTranslucent.hashCode()
+        return result
     }
 }

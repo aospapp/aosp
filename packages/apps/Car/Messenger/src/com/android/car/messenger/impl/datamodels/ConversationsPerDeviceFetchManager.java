@@ -20,9 +20,6 @@ import static android.provider.Telephony.MmsSms.CONTENT_CONVERSATIONS_URI;
 import static android.provider.Telephony.TextBasedSmsColumns.SUBSCRIPTION_ID;
 import static android.provider.Telephony.TextBasedSmsColumns.THREAD_ID;
 
-import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MediatorLiveData;
-import androidx.lifecycle.Observer;
 import android.content.Context;
 import android.database.ContentObserver;
 import android.database.Cursor;
@@ -31,6 +28,9 @@ import android.telephony.SubscriptionInfo;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MediatorLiveData;
+import androidx.lifecycle.Observer;
 
 import com.android.car.messenger.core.interfaces.AppFactory;
 import com.android.car.messenger.core.models.UserAccount;

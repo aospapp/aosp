@@ -20,6 +20,7 @@ import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.graphics.Point;
 import android.os.SystemClock;
+import android.util.Log;
 import android.util.SparseArray;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -35,6 +36,9 @@ import androidx.test.rule.ActivityTestRule;
  * Test utilities for touch emulation.
  */
 public final class CtsTouchUtils {
+
+    private static final String TAG = CtsTouchUtils.class.getSimpleName();
+
     /**
      * Interface definition for a callback to be invoked when an event has been injected.
      */
@@ -288,7 +292,52 @@ public final class CtsTouchUtils {
      */
     public static void emulateDragGesture(Instrumentation instrumentation,
             ActivityTestRule<?> activityTestRule, SparseArray<Point> coordinates) {
-        emulateDragGesture(instrumentation, activityTestRule, coordinates, 2000, 20);
+        final int moveEventCount = 20;
+        int dragDurationMs = 2000;
+
+        final int touchSlop = ViewConfiguration.get(
+                activityTestRule.getActivity()).getScaledTouchSlop();
+        final long longPressTimeoutMs = ViewConfiguration.getLongPressTimeout();
+        final int maxDragDurationMs = getMaxDragDuration(touchSlop, longPressTimeoutMs, coordinates,
+                moveEventCount);
+        if (dragDurationMs > maxDragDurationMs) {
+            Log.d(TAG, "emulateDragGesture: Lowering standard drag duration from " + dragDurationMs
+                    + " ms to " + maxDragDurationMs + " ms to avoid triggering a long press ");
+            dragDurationMs = maxDragDurationMs;
+        }
+
+        emulateDragGesture(instrumentation, activityTestRule, coordinates, dragDurationMs,
+                moveEventCount);
+    }
+
+    /**
+     * Gets the maximal drag duration that assures not triggering a long press during a drag gesture
+     * considering long press timeout and touch slop.
+     *
+     * The calculation is based on the distance between the first and the second point of provided
+     * coordinates.
+     */
+    private static int getMaxDragDuration(int touchSlop, long longPressTimeoutMs,
+            SparseArray<Point> coordinates, int moveEventCount) {
+        final int coordinatesSize = coordinates.size();
+        if (coordinatesSize < 2) {
+            throw new IllegalArgumentException("Need at least 2 points for emulating drag");
+        }
+
+        final int deltaX = coordinates.get(0).x - coordinates.get(1).x;
+        final int deltaY = coordinates.get(0).y - coordinates.get(1).y;
+        final double dragDistance = Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
+        final double moveEventDistance = (double) dragDistance / moveEventCount;
+
+        // Number of move events needed to drag outside of the touch slop.
+        // The initial sleep before the drag gesture begins is considered by adding one extra event.
+        final double neededMoveEventsToExceedTouchSlop = touchSlop / moveEventDistance + 1;
+
+        // Get maximal drag duration that assures a drag speed that does not trigger a long press.
+        // Multiply with 0.9 to be on the safe side.
+        int maxDragDuration = (int) (longPressTimeoutMs * 0.9 * moveEventCount
+                / neededMoveEventsToExceedTouchSlop);
+        return maxDragDuration;
     }
 
     private static void emulateDragGesture(Instrumentation instrumentation,

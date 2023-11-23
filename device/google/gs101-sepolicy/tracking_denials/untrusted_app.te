@@ -1,0 +1,4 @@
+# b/184593993
+dontaudit untrusted_app vendor_camera_prop:file { read };
+dontaudit untrusted_app vendor_camera_prop:file { read };
+dontaudit untrusted_app vendor_camera_prop:file { read };

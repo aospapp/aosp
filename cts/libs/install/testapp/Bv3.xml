@@ -20,7 +20,7 @@
      android:versionName="3.0">
 
 
-    <uses-sdk android:minSdkVersion="19"/>
+    <uses-sdk android:minSdkVersion="28"/>
 
     <application android:label="Test App B3">
         <receiver android:name="com.android.cts.install.lib.testapp.ProcessUserData"

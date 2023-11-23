@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"డౌన్‌లోడ్ మేనేజర్‌ను యాక్సెస్ చేయండి."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"బ్లూటూత్ భాగస్వామ్య మేనేజర్‌ను యాక్సెస్ చేయడానికి యాప్‌ను అనుమతిస్తుంది మరియు ఫైళ్లను బదిలీ చేయడానికి దీన్ని ఉపయోగిస్తుంది."</string>
-    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"అనుమతి జాబితాలో ఉంచిన బ్లూటూత్ పరికర యాక్సెస్."</string>
-    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"బ్లూటూత్ పరికరాన్ని తాత్కాలికంగా అనుమతి జాబితాలో ఉంచడానికి యాప్‌ను అనుమతిస్తుంది, తద్వారా యూజర్ నిర్ధారణ లేకుండానే ఫైళ్లను ఈ పరికరానికి పంపడానికి ఆ పరికరాన్ని అనుమతిస్తుంది."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"అనుమతి లిస్ట్‌లో ఉంచిన బ్లూటూత్ పరికర యాక్సెస్."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"బ్లూటూత్ పరికరాన్ని తాత్కాలికంగా అనుమతి లిస్ట్‌లో ఉంచడానికి యాప్‌ను అనుమతిస్తుంది, తద్వారా యూజర్ నిర్ధారణ లేకుండానే ఫైళ్లను ఈ పరికరానికి పంపడానికి ఆ పరికరాన్ని అనుమతిస్తుంది."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"బ్లూటూత్"</string>
     <string name="unknown_device" msgid="9221903979877041009">"తెలియని పరికరం"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"తెలియదు"</string>
@@ -38,13 +38,13 @@
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" పంపిన ఇన్‌కమింగ్ ఫైల్‌ను అంగీకరిస్తున్నప్పుడు గడువు సమయం ముగిసింది"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"ఇన్‌క‌మింగ్‌ ఫైల్"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> ఫైల్‌ను పంపడానికి సిద్ధంగా ఉన్నారు: <xliff:g id="FILE">%2$s</xliff:g>"</string>
-    <string name="notification_receiving" msgid="4674648179652543984">"బ్లూటూత్ భాగస్వామ్యం: <xliff:g id="FILE">%1$s</xliff:g>ను స్వీకరిస్తోంది"</string>
-    <string name="notification_received" msgid="3324588019186687985">"బ్లూటూత్ భాగస్వామ్యం: <xliff:g id="FILE">%1$s</xliff:g> స్వీకరించబడింది"</string>
-    <string name="notification_received_fail" msgid="3619350997285714746">"బ్లూటూత్ భాగస్వామ్యం: <xliff:g id="FILE">%1$s</xliff:g> ఫైల్ స్వీకరించబడలేదు"</string>
-    <string name="notification_sending" msgid="3035748958534983833">"బ్లూటూత్ భాగస్వామ్యం: <xliff:g id="FILE">%1$s</xliff:g>ను పంపుతోంది"</string>
-    <string name="notification_sent" msgid="9218710861333027778">"బ్లూటూత్ భాగస్వామ్యం: <xliff:g id="FILE">%1$s</xliff:g> పంపబడింది"</string>
+    <string name="notification_receiving" msgid="4674648179652543984">"బ్లూటూత్ షేర్: <xliff:g id="FILE">%1$s</xliff:g>ను స్వీకరిస్తోంది"</string>
+    <string name="notification_received" msgid="3324588019186687985">"బ్లూటూత్ షేర్: <xliff:g id="FILE">%1$s</xliff:g> స్వీకరించబడింది"</string>
+    <string name="notification_received_fail" msgid="3619350997285714746">"బ్లూటూత్ షేర్: <xliff:g id="FILE">%1$s</xliff:g> ఫైల్ స్వీకరించబడలేదు"</string>
+    <string name="notification_sending" msgid="3035748958534983833">"బ్లూటూత్ షేర్: <xliff:g id="FILE">%1$s</xliff:g>ను పంపుతోంది"</string>
+    <string name="notification_sent" msgid="9218710861333027778">"బ్లూటూత్ షేర్: <xliff:g id="FILE">%1$s</xliff:g> పంపబడింది"</string>
     <string name="notification_sent_complete" msgid="302943281067557969">"100% పూర్తయింది"</string>
-    <string name="notification_sent_fail" msgid="6696082233774569445">"బ్లూటూత్ భాగస్వామ్యం: <xliff:g id="FILE">%1$s</xliff:g> ఫైల్ పంపబడలేదు"</string>
+    <string name="notification_sent_fail" msgid="6696082233774569445">"బ్లూటూత్ షేర్: <xliff:g id="FILE">%1$s</xliff:g> ఫైల్ పంపబడలేదు"</string>
     <string name="download_title" msgid="3353228219772092586">"ఫైల్ బదిలీ"</string>
     <string name="download_line1" msgid="4926604799202134144">"వీరి నుండి: \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="download_line2" msgid="5876973543019417712">"ఫైల్: <xliff:g id="FILE">%1$s</xliff:g>"</string>
@@ -86,7 +86,7 @@
     <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"ఫైల్‌ను సేవ్ చేయడానికి USB స్టోరేజ్‌లో సరిపడేంత స్పేస్ లేదు."</string>
     <string name="bt_sm_2_1_default" msgid="2497541206648973852">"ఫైల్‌ను సేవ్ చేయడానికి SD కార్డ్‌లో సరిపడేంత స్పేస్ లేదు."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"కావలసిన స్థలం: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
-    <string name="ErrorTooManyRequests" msgid="8578277541472944529">"చాలా ఎక్కువ అభ్యర్థనలు ప్రాసెస్ చేయబడుతున్నాయి. తర్వాత మళ్లీ ప్రయత్నించండి."</string>
+    <string name="ErrorTooManyRequests" msgid="8578277541472944529">"చాలా ఎక్కువ రిక్వెస్ట్‌లు ప్రాసెస్ చేయబడుతున్నాయి. తర్వాత మళ్లీ ప్రయత్నించండి."</string>
     <string name="status_pending" msgid="2503691772030877944">"ఫైల్ బదిలీ ఇంకా ప్రారంభించబడలేదు."</string>
     <string name="status_running" msgid="6562808920311008696">"ఫైల్ బదిలీ కొనసాగుతోంది."</string>
     <string name="status_success" msgid="239573225847565868">"ఫైల్ బదిలీ విజయవంతంగా పూర్తయింది."</string>
@@ -97,18 +97,18 @@
     <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"USB నిల్వ లేదు."</string>
     <string name="status_no_sd_card_default" msgid="396564893716701954">"SD కార్డు లేదు. బదిలీ చేయబడిన ఫైళ్లను సేవ్ చేయడానికి SD కార్డుని చొప్పించండి."</string>
     <string name="status_connection_error" msgid="947681831523219891">"కనెక్షన్ విఫలమైంది."</string>
-    <string name="status_protocol_error" msgid="3245444473429269539">"అభ్యర్థన సరిగ్గా నిర్వహించబడదు."</string>
+    <string name="status_protocol_error" msgid="3245444473429269539">"రిక్వెస్ట్‌ సరిగ్గా నిర్వహించబడదు."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"తెలియని ఎర్రర్."</string>
     <string name="btopp_live_folder" msgid="7967791481444474554">"బ్లూటూత్‌తో స్వీకరించినవి"</string>
-    <string name="opp_notification_group" msgid="3486303082135789982">"బ్లూటూత్ భాగస్వామ్యం"</string>
+    <string name="opp_notification_group" msgid="3486303082135789982">"బ్లూటూత్ షేర్"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> స్వీకరించడం పూర్తయింది."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> పంపడం పూర్తయింది."</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"ఇన్‌బౌండ్ బదిలీలు"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"అవుట్‌బౌండ్ బదిలీలు"</string>
     <string name="no_transfers" msgid="3482965619151865672">"ట్రాన్స్‌ఫర్ హిస్టరీ ఖాళీగా ఉంది."</string>
-    <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"జాబితా నుండి అన్ని అంశాలు క్లియర్ చేయబడతాయి."</string>
-    <string name="outbound_noti_title" msgid="8051906709452260849">"బ్లూటూత్ భాగస్వామ్యం: పంపిన ఫైళ్లు"</string>
-    <string name="inbound_noti_title" msgid="4143352641953027595">"బ్లూటూత్ భాగస్వామ్యం: స్వీకరించబడిన ఫైళ్లు"</string>
+    <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"లిస్ట్‌ నుండి అన్ని అంశాలు క్లియర్ చేయబడతాయి."</string>
+    <string name="outbound_noti_title" msgid="8051906709452260849">"బ్లూటూత్ షేర్: పంపిన ఫైళ్లు"</string>
+    <string name="inbound_noti_title" msgid="4143352641953027595">"బ్లూటూత్ షేర్: స్వీకరించబడిన ఫైళ్లు"</string>
     <plurals name="noti_caption_unsuccessful" formatted="false" msgid="2020750076679526122">
       <item quantity="other"><xliff:g id="UNSUCCESSFUL_NUMBER_1">%1$d</xliff:g> విఫలం.</item>
       <item quantity="one"><xliff:g id="UNSUCCESSFUL_NUMBER_0">%1$d</xliff:g> విఫలం.</item>
@@ -117,17 +117,17 @@
       <item quantity="other"><xliff:g id="SUCCESSFUL_NUMBER_1">%1$d</xliff:g> విజయవంతం, %2$s</item>
       <item quantity="one"><xliff:g id="SUCCESSFUL_NUMBER_0">%1$d</xliff:g> విజయవంతం, %2$s</item>
     </plurals>
-    <string name="transfer_menu_clear_all" msgid="790017462957873132">"జాబితాను క్లియర్ చేయి"</string>
+    <string name="transfer_menu_clear_all" msgid="790017462957873132">"లిస్ట్‌ను క్లియర్ చేయి"</string>
     <string name="transfer_menu_open" msgid="3368984869083107200">"తెరువు"</string>
-    <string name="transfer_menu_clear" msgid="5854038118831427492">"జాబితా నుండి క్లియర్ చేయి"</string>
+    <string name="transfer_menu_clear" msgid="5854038118831427492">"లిస్ట్‌ నుండి క్లియర్ చేయి"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"క్లియర్ చేయి"</string>
     <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"ప్రస్తుతం ప్లే అవుతున్నవి"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"సేవ్ చేయి"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"రద్దు చేయి"</string>
-    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"మీరు బ్లూటూత్ ద్వారా భాగస్వామ్యం చేయాలనుకునే ఖాతాలను ఎంచుకోండి. మీరు ఇప్పటికీ కనెక్ట్ చేస్తున్నప్పుడు ఖాతాలకు అందించే ఏ ప్రాప్యతనైనా ఆమోదించాల్సి ఉంటుంది."</string>
+    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"మీరు బ్లూటూత్ ద్వారా షేర్ చేయాలనుకునే ఖాతాలను ఎంచుకోండి. మీరు ఇప్పటికీ కనెక్ట్ చేస్తున్నప్పుడు ఖాతాలకు అందించే ఏ యాక్సెస్‌నైనా ఆమోదించాల్సి ఉంటుంది."</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"మిగిలిన స్లాట్‌లు:"</string>
     <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"యాప్‌ చిహ్నం"</string>
-    <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"బ్లూటూత్ సందేశ భాగస్వామ్య సెట్టింగ్‌లు"</string>
+    <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"బ్లూటూత్ మెసెజ్ షేరింగ్ సెట్టింగ్‌లు"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"ఖాతాను ఎంచుకోవడం సాధ్యపడదు. 0 స్లాట్‌లు మిగిలి ఉన్నాయి"</string>
     <string name="bluetooth_connected" msgid="6718623220072656906">"బ్లూటూత్ ఆడియో కనెక్ట్ చేయబడింది"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"బ్లూటూత్ ఆడియో డిస్‌కనెక్ట్ చేయబడింది"</string>

@@ -73,11 +73,11 @@ data class RectF(
      * @return A rectangle with the intersection coordinates
      */
     fun intersection(left: Float, top: Float, right: Float, bottom: Float): RectF {
-        if (this.left < right && left < this.right && this.top < bottom && top < this.bottom) {
-            var intersectionLeft = 0f
-            var intersectionTop = 0f
-            var intersectionRight = 0f
-            var intersectionBottom = 0f
+        if (this.left < right && left < this.right && this.top <= bottom && top <= this.bottom) {
+            var intersectionLeft = this.left
+            var intersectionTop = this.top
+            var intersectionRight = this.right
+            var intersectionBottom = this.bottom
 
             if (this.left < left) {
                 intersectionLeft = left
@@ -110,6 +110,26 @@ data class RectF(
     fun prettyPrint(): String = prettyPrint(this)
 
     override fun toString(): String = if (isEmpty) "[empty]" else prettyPrint()
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RectF) return false
+
+        if (left != other.left) return false
+        if (top != other.top) return false
+        if (right != other.right) return false
+        if (bottom != other.bottom) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = left.hashCode()
+        result = 31 * result + top.hashCode()
+        result = 31 * result + right.hashCode()
+        result = 31 * result + bottom.hashCode()
+        return result
+    }
 
     companion object {
         val EMPTY = RectF()

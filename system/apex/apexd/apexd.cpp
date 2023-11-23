@@ -96,6 +96,7 @@ using android::base::ReadFully;
 using android::base::RemoveFileIfExists;
 using android::base::Result;
 using android::base::SetProperty;
+using android::base::StartsWith;
 using android::base::StringPrintf;
 using android::base::unique_fd;
 using android::dm::DeviceMapper;
@@ -304,27 +305,59 @@ class DmVerityDevice {
   bool cleared_;
 };
 
-Result<DmVerityDevice> CreateVerityDevice(const std::string& name,
-                                          const DmTable& table) {
-  DeviceMapper& dm = DeviceMapper::Instance();
-
-  if (dm.GetState(name) != DmDeviceState::INVALID) {
-    // Delete dangling dm-device. This can happen if apexd fails to delete it
-    // while unmounting an apex.
-    LOG(WARNING) << "Deleting existing dm device " << name;
-    auto result = DeleteVerityDevice(name, /* deferred= */ false);
-    if (!result.ok()) {
-      return result.error();
-    }
-  }
-
-  auto timeout = std::chrono::milliseconds(
-      android::sysprop::ApexProperties::dm_create_timeout().value_or(1000));
+Result<DmVerityDevice> CreateVerityDevice(
+    DeviceMapper& dm, const std::string& name, const DmTable& table,
+    const std::chrono::milliseconds& timeout) {
   std::string dev_path;
   if (!dm.CreateDevice(name, table, &dev_path, timeout)) {
     return Errorf("Couldn't create verity device.");
   }
   return DmVerityDevice(name, dev_path);
+}
+
+Result<DmVerityDevice> CreateVerityDevice(const std::string& name,
+                                          const DmTable& table,
+                                          bool reuse_device) {
+  LOG(VERBOSE) << "Creating verity device " << name;
+  auto timeout = std::chrono::milliseconds(
+      android::sysprop::ApexProperties::dm_create_timeout().value_or(1000));
+
+  DeviceMapper& dm = DeviceMapper::Instance();
+
+  auto state = dm.GetState(name);
+  if (state == DmDeviceState::INVALID) {
+    return CreateVerityDevice(dm, name, table, timeout);
+  }
+
+  if (reuse_device) {
+    if (state == DmDeviceState::ACTIVE) {
+      LOG(WARNING) << "Deleting existing active dm device " << name;
+      if (auto r = DeleteVerityDevice(name, /* deferred= */ false); !r.ok()) {
+        return r.error();
+      }
+      return CreateVerityDevice(dm, name, table, timeout);
+    }
+    if (!dm.LoadTableAndActivate(name, table)) {
+      dm.DeleteDevice(name);
+      return Error() << "Failed to activate dm device " << name;
+    }
+    std::string path;
+    if (!dm.WaitForDevice(name, timeout, &path)) {
+      dm.DeleteDevice(name);
+      return Error() << "Failed waiting for dm device " << name;
+    }
+    return DmVerityDevice(name, path);
+  } else {
+    if (state != DmDeviceState::INVALID) {
+      // Delete dangling dm-device. This can happen if apexd fails to delete it
+      // while unmounting an apex.
+      LOG(WARNING) << "Deleting existing dm device " << name;
+      if (auto r = DeleteVerityDevice(name, /* deferred= */ false); !r.ok()) {
+        return r.error();
+      }
+    }
+    return CreateVerityDevice(dm, name, table, timeout);
+  }
 }
 
 /**
@@ -424,7 +457,7 @@ Result<MountedApexData> MountPackageImpl(const ApexFile& apex,
                                          const std::string& mount_point,
                                          const std::string& device_name,
                                          const std::string& hashtree_file,
-                                         bool verify_image,
+                                         bool verify_image, bool reuse_device,
                                          bool temp_mount = false) {
   if (apex.IsCompressed()) {
     return Error() << "Cannot directly mount compressed APEX "
@@ -524,7 +557,7 @@ Result<MountedApexData> MountPackageImpl(const ApexFile& apex,
         CreateVerityTable(*verity_data, loopback_device.name, hash_device,
                           /* restart_on_corruption = */ !verify_image);
     Result<DmVerityDevice> verity_dev_res =
-        CreateVerityDevice(device_name, *verity_table);
+        CreateVerityDevice(device_name, *verity_table, reuse_device);
     if (!verity_dev_res.ok()) {
       return Error() << "Failed to create Apex Verity device " << full_path
                      << ": " << verity_dev_res.error();
@@ -603,7 +636,8 @@ Result<MountedApexData> VerifyAndTempMountPackage(
   }
   auto ret =
       MountPackageImpl(apex, mount_point, temp_device_name, hashtree_file,
-                       /* verify_image = */ true, /* temp_mount = */ true);
+                       /* verify_image = */ true, /* reuse_device= */ false,
+                       /* temp_mount = */ true);
   if (!ret.ok()) {
     LOG(DEBUG) << "Cleaning up " << hashtree_file;
     if (TEMP_FAILURE_RETRY(unlink(hashtree_file.c_str())) != 0) {
@@ -1042,10 +1076,10 @@ Result<void> UnmountPackage(const ApexFile& apex, bool allow_latest,
 void SetConfig(const ApexdConfig& config) { gConfig = config; }
 
 Result<void> MountPackage(const ApexFile& apex, const std::string& mount_point,
-                          const std::string& device_name) {
+                          const std::string& device_name, bool reuse_device) {
   auto ret = MountPackageImpl(apex, mount_point, device_name,
                               GetHashTreeFileName(apex, /* is_new= */ false),
-                              /* verify_image = */ false);
+                              /* verify_image = */ false, reuse_device);
   if (!ret.ok()) {
     return ret.error();
   }
@@ -1234,7 +1268,8 @@ bool IsValidPackageName(const std::string& package_name) {
 }
 
 Result<void> ActivatePackageImpl(const ApexFile& apex_file,
-                                 const std::string& device_name) {
+                                 const std::string& device_name,
+                                 bool reuse_device) {
   const ApexManifest& manifest = apex_file.GetManifest();
 
   if (!IsValidPackageName(manifest.name())) {
@@ -1293,7 +1328,8 @@ Result<void> ActivatePackageImpl(const ApexFile& apex_file,
       apexd_private::GetPackageMountPoint(manifest);
 
   if (!version_found_mounted) {
-    auto mount_status = MountPackage(apex_file, mount_point, device_name);
+    auto mount_status =
+        MountPackage(apex_file, mount_point, device_name, reuse_device);
     if (!mount_status.ok()) {
       return mount_status;
     }
@@ -1347,8 +1383,8 @@ Result<void> ActivatePackage(const std::string& full_path) {
   if (!apex_file.ok()) {
     return apex_file.error();
   }
-  return ActivatePackageImpl(*apex_file,
-                             GetPackageId(apex_file->GetManifest()));
+  return ActivatePackageImpl(*apex_file, GetPackageId(apex_file->GetManifest()),
+                             /* reuse_device= */ false);
 }
 
 Result<void> DeactivatePackage(const std::string& full_path) {
@@ -1534,39 +1570,10 @@ Result<void> AbortStagedSession(int session_id) {
 
 namespace {
 
-// TODO(b/179497746): Avoid scanning apex directly here
-// Only used in OnBootstrap. Should we remove this function?
-Result<std::vector<ApexFile>> ScanApexFiles(const char* apex_package_dir,
-                                            bool include_compressed = false) {
-  LOG(INFO) << "Scanning " << apex_package_dir << " looking for APEX packages.";
-  if (access(apex_package_dir, F_OK) != 0 && errno == ENOENT) {
-    LOG(INFO) << "... does not exist. Skipping";
-    return {};
-  }
-  std::vector<std::string> suffix_list = {kApexPackageSuffix};
-  if (include_compressed) {
-    suffix_list.push_back(kCompressedApexPackageSuffix);
-  }
-  Result<std::vector<std::string>> scan =
-      FindFilesBySuffix(apex_package_dir, suffix_list);
-  if (!scan.ok()) {
-    return Error() << "Failed to scan " << apex_package_dir << " : "
-                   << scan.error();
-  }
-  std::vector<ApexFile> ret;
-  for (const auto& name : *scan) {
-    Result<ApexFile> apex_file = ApexFile::Open(name);
-    if (!apex_file.ok()) {
-      LOG(ERROR) << "Failed to scan " << name << " : " << apex_file.error();
-    } else {
-      ret.emplace_back(std::move(*apex_file));
-    }
-  }
-  return ret;
-}
+enum ActivationMode { kBootstrapMode = 0, kBootMode, kOtaChrootMode };
 
 std::vector<Result<void>> ActivateApexWorker(
-    bool is_ota_chroot, std::queue<const ApexFile*>& apex_queue,
+    ActivationMode mode, std::queue<const ApexFile*>& apex_queue,
     std::mutex& mutex) {
   std::vector<Result<void>> ret;
 
@@ -1579,11 +1586,18 @@ std::vector<Result<void>> ActivateApexWorker(
       apex_queue.pop();
     }
 
-    std::string device_name = GetPackageId(apex->GetManifest());
-    if (is_ota_chroot) {
+    std::string device_name;
+    if (mode == ActivationMode::kBootMode) {
+      device_name = apex->GetManifest().name();
+    } else {
+      device_name = GetPackageId(apex->GetManifest());
+    }
+    if (mode == ActivationMode::kOtaChrootMode) {
       device_name += ".chroot";
     }
-    if (auto res = ActivatePackageImpl(*apex, device_name); !res.ok()) {
+    bool reuse_device = mode == ActivationMode::kBootMode;
+    auto res = ActivatePackageImpl(*apex, device_name, reuse_device);
+    if (!res.ok()) {
       ret.push_back(Error() << "Failed to activate " << apex->GetPath() << " : "
                             << res.error());
     } else {
@@ -1595,7 +1609,7 @@ std::vector<Result<void>> ActivateApexWorker(
 }
 
 Result<void> ActivateApexPackages(const std::vector<ApexFileRef>& apexes,
-                                  bool is_ota_chroot) {
+                                  ActivationMode mode) {
   std::queue<const ApexFile*> apex_queue;
   std::mutex apex_queue_mutex;
 
@@ -1620,7 +1634,7 @@ Result<void> ActivateApexPackages(const std::vector<ApexFileRef>& apexes,
   futures.reserve(worker_num);
   for (size_t i = 0; i < worker_num; i++) {
     futures.push_back(std::async(std::launch::async, ActivateApexWorker,
-                                 std::ref(is_ota_chroot), std::ref(apex_queue),
+                                 std::ref(mode), std::ref(apex_queue),
                                  std::ref(apex_queue_mutex)));
   }
 
@@ -1653,7 +1667,7 @@ Result<void> ActivateApexPackages(const std::vector<ApexFileRef>& apexes,
 // such apexes that were coming from /data partition we will attempt to activate
 // their corresponding pre-installed copies.
 Result<void> ActivateMissingApexes(const std::vector<ApexFileRef>& apexes,
-                                   bool is_ota_chroot) {
+                                   ActivationMode mode) {
   LOG(INFO) << "Trying to activate pre-installed versions of missing apexes";
   const auto& file_repository = ApexFileRepository::GetInstance();
   const auto& activated_apexes = GetActivePackagesMap();
@@ -1688,13 +1702,14 @@ Result<void> ActivateMissingApexes(const std::vector<ApexFileRef>& apexes,
   }
   std::vector<ApexFile> decompressed_apex;
   if (!compressed_apex.empty()) {
-    decompressed_apex =
-        ProcessCompressedApex(compressed_apex, /* is_ota_chroot= */ false);
+    decompressed_apex = ProcessCompressedApex(
+        compressed_apex,
+        /* is_ota_chroot= */ mode == ActivationMode::kOtaChrootMode);
     for (const ApexFile& apex_file : decompressed_apex) {
       fallback_apexes.emplace_back(std::cref(apex_file));
     }
   }
-  return ActivateApexPackages(fallback_apexes, is_ota_chroot);
+  return ActivateApexPackages(fallback_apexes, mode);
 }
 
 }  // namespace
@@ -1941,7 +1956,6 @@ void DeleteDePreRestoreSnapshots(const ApexSession& session) {
 
 void OnBootCompleted() {
   ApexdLifecycle::GetInstance().MarkBootCompleted();
-  BootCompletedCleanup();
 }
 
 // Returns true if any session gets staged
@@ -2357,12 +2371,27 @@ int OnBootstrap() {
   }
 
   ApexFileRepository& instance = ApexFileRepository::GetInstance();
-  static const std::vector<std::string> kBootstrapApexDirs{
-      kApexPackageSystemDir, kApexPackageSystemExtDir, kApexPackageVendorDir};
-  Result<void> status = instance.AddPreInstalledApex(kBootstrapApexDirs);
+  Result<void> status =
+      instance.AddPreInstalledApex(gConfig->apex_built_in_dirs);
   if (!status.ok()) {
     LOG(ERROR) << "Failed to collect APEX keys : " << status.error();
     return 1;
+  }
+
+  DeviceMapper& dm = DeviceMapper::Instance();
+  // Create empty dm device for each found APEX.
+  // This is a boot time optimization that makes use of the fact that user space
+  // paths will be created by ueventd before apexd is started, and hence
+  // reducing the time to activate APEXEs on /data.
+  // Note: since at this point we don't know which APEXes are updated, we are
+  // optimistically creating a verity device for all of them. Once boot
+  // finishes, apexd will clean up unused devices.
+  // TODO(b/192241176): move to apexd_verity.{h,cpp}
+  for (const auto& apex : instance.GetPreInstalledApexFiles()) {
+    const std::string& name = apex.get().GetManifest().name();
+    if (!dm.CreateEmptyDevice(name)) {
+      LOG(ERROR) << "Failed to create empty device " << name;
+    }
   }
 
   // Create directories for APEX shared libraries.
@@ -2373,26 +2402,16 @@ int OnBootstrap() {
   }
 
   // Find all bootstrap apexes
-  std::vector<ApexFile> bootstrap_apexes;
-  for (const auto& dir : kBootstrapApexDirs) {
-    auto scan = ScanApexFiles(dir.c_str());
-    if (!scan.ok()) {
-      LOG(ERROR) << "Failed to scan APEX files in " << dir << " : "
-                 << scan.error();
-      return 1;
+  std::vector<ApexFileRef> bootstrap_apexes;
+  for (const auto& apex : instance.GetPreInstalledApexFiles()) {
+    if (IsBootstrapApex(apex.get())) {
+      bootstrap_apexes.push_back(apex);
     }
-    std::copy_if(std::make_move_iterator(scan->begin()),
-                 std::make_move_iterator(scan->end()),
-                 std::back_inserter(bootstrap_apexes), IsBootstrapApex);
   }
 
   // Now activate bootstrap apexes.
-  std::vector<ApexFileRef> bootstrap_apexes_ref;
-  std::transform(bootstrap_apexes.begin(), bootstrap_apexes.end(),
-                 std::back_inserter(bootstrap_apexes_ref),
-                 [](const auto& x) { return std::cref(x); });
-  auto ret = ActivateApexPackages(bootstrap_apexes_ref,
-                                  /* is_ota_chroot= */ false);
+  auto ret =
+      ActivateApexPackages(bootstrap_apexes, ActivationMode::kBootstrapMode);
   if (!ret.ok()) {
     LOG(ERROR) << "Failed to activate bootstrap apex files : " << ret.error();
     return 1;
@@ -2835,7 +2854,7 @@ void OnStart() {
 
   // TODO(b/179248390): activate parallelly if possible
   auto activate_status =
-      ActivateApexPackages(activation_list, /* is_ota_chroot= */ false);
+      ActivateApexPackages(activation_list, ActivationMode::kBootMode);
   if (!activate_status.ok()) {
     std::string error_message =
         StringPrintf("Failed to activate packages: %s",
@@ -2846,8 +2865,8 @@ void OnStart() {
     if (!revert_status.ok()) {
       LOG(ERROR) << "Failed to revert : " << revert_status.error();
     }
-    auto retry_status = ActivateMissingApexes(activation_list,
-                                              /* is_ota_chroot= */ false);
+    auto retry_status =
+        ActivateMissingApexes(activation_list, ActivationMode::kBootMode);
     if (!retry_status.ok()) {
       LOG(ERROR) << retry_status.error();
     }
@@ -3047,9 +3066,40 @@ void RemoveInactiveDataApex() {
   }
 }
 
+bool IsApexDevice(const std::string& dev_name) {
+  auto& repo = ApexFileRepository::GetInstance();
+  for (const auto& apex : repo.GetPreInstalledApexFiles()) {
+    if (StartsWith(dev_name, apex.get().GetManifest().name())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// TODO(b/192241176): move to apexd_verity.{h,cpp}.
+void DeleteUnusedVerityDevices() {
+  DeviceMapper& dm = DeviceMapper::Instance();
+  std::vector<DeviceMapper::DmBlockDevice> all_devices;
+  if (!dm.GetAvailableDevices(&all_devices)) {
+    LOG(WARNING) << "Failed to fetch dm devices";
+    return;
+  }
+  for (const auto& dev : all_devices) {
+    auto state = dm.GetState(dev.name());
+    if (state == DmDeviceState::SUSPENDED && IsApexDevice(dev.name())) {
+      LOG(INFO) << "Deleting unused dm device " << dev.name();
+      auto res = DeleteVerityDevice(dev.name(), /* deferred= */ false);
+      if (!res.ok()) {
+        LOG(WARNING) << res.error();
+      }
+    }
+  }
+}
+
 void BootCompletedCleanup() {
   RemoveInactiveDataApex();
   ApexSession::DeleteFinalizedSessions();
+  DeleteUnusedVerityDevices();
 }
 
 int UnmountAll() {
@@ -3298,13 +3348,13 @@ int OnOtaChrootBootstrap() {
     }
   }
 
-  auto activate_status = ActivateApexPackages(activation_list,
-                                              /* is_ota_chroot= */ true);
+  auto activate_status =
+      ActivateApexPackages(activation_list, ActivationMode::kOtaChrootMode);
   if (!activate_status.ok()) {
     LOG(ERROR) << "Failed to activate apex packages : "
                << activate_status.error();
-    auto retry_status = ActivateMissingApexes(activation_list,
-                                              /* is_ota_chroot= */ true);
+    auto retry_status =
+        ActivateMissingApexes(activation_list, ActivationMode::kOtaChrootMode);
     if (!retry_status.ok()) {
       LOG(ERROR) << retry_status.error();
     }
@@ -3664,7 +3714,9 @@ Result<ApexFile> InstallPackage(const std::string& package_path) {
     // previously active APEX is still around. We need to create a new one.
     std::string old_new_id = GetPackageId(temp_apex->GetManifest()) + "_" +
                              std::to_string(*new_id_minor + 1);
-    if (auto res = ActivatePackageImpl(*cur_apex, old_new_id); !res.ok()) {
+    auto res = ActivatePackageImpl(*cur_apex, old_new_id,
+                                   /* reuse_device= */ false);
+    if (!res.ok()) {
       // At this point not much we can do... :(
       LOG(ERROR) << res.error();
     }
@@ -3684,8 +3736,10 @@ Result<ApexFile> InstallPackage(const std::string& package_path) {
   }
 
   // 4. And activate new one.
-  if (auto res = ActivatePackageImpl(*new_apex, new_id); !res.ok()) {
-    return res.error();
+  auto activate_status = ActivatePackageImpl(*new_apex, new_id,
+                                             /* reuse_device= */ false);
+  if (!activate_status.ok()) {
+    return activate_status.error();
   }
 
   // Accept the install.

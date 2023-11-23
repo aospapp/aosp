@@ -16,13 +16,19 @@
 
 package android.security.cts;
 
+import static org.junit.Assume.assumeFalse;
+
 import android.platform.test.annotations.AsbSecurityTest;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.tradefed.device.ITestDevice;
 
-import static org.junit.Assume.*;
+import com.android.compatibility.common.util.CrashUtils;
+import com.android.compatibility.common.util.CrashUtils.Config.BacktraceFilterPattern;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import java.util.Arrays;
+import java.util.regex.Pattern;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class CVE_2020_0385 extends SecurityTestCase {
@@ -31,13 +37,21 @@ public class CVE_2020_0385 extends SecurityTestCase {
      * b/150160041
      * Vulnerability Behaviour: SIGSEGV in self
      */
-    @Test
     @AsbSecurityTest(cveBugId = 150160041)
+    @Test
     public void testPocCVE_2020_0385() throws Exception {
         assumeFalse(moduleIsPlayManaged("com.google.android.media"));
+        String binaryName = "CVE-2020-0385";
         String inputFiles[] = {"cve_2020_0385.xmf", "cve_2020_0385.info"};
-        AdbUtils.runPocAssertNoCrashesNotVulnerable("CVE-2020-0385",
-                AdbUtils.TMP_PATH + inputFiles[0] + " " + AdbUtils.TMP_PATH + inputFiles[1],
-                inputFiles, AdbUtils.TMP_PATH, getDevice());
+        String signals[] = {CrashUtils.SIGSEGV};
+        AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig(binaryName, getDevice());
+        testConfig.config = new CrashUtils.Config().setProcessPatterns(Pattern.compile(binaryName))
+                .setBacktraceIncludes(new BacktraceFilterPattern("libmidiextractor", "Parse_lins"));
+        testConfig.config.setSignals(signals);
+        testConfig.arguments =
+                AdbUtils.TMP_PATH + inputFiles[0] + " " + AdbUtils.TMP_PATH + inputFiles[1];
+        testConfig.inputFiles = Arrays.asList(inputFiles);
+        testConfig.inputFilesDestination = AdbUtils.TMP_PATH;
+        AdbUtils.runPocAssertNoCrashesNotVulnerable(testConfig);
     }
 }

@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"应用"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"点按即可修改"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"保留当前壁纸"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"应用"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"样式预览"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"网格预览"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"字体预览"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>，目前已应用"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>（目前应用及预览的项）"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>（目前预览的项）"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>，更改所选的项以及预览的项"</string>
     <string name="theme_description" msgid="3697012391785254635">"字体：<xliff:g id="ID_1">%1$s</xliff:g>，图标：<xliff:g id="ID_2">%2$s</xliff:g>，形状：<xliff:g id="ID_3">%3$s</xliff:g>，颜色：<xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"默认"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"字体"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"自定义样式名称"</string>
     <string name="mode_title" msgid="2394873501427436055">"深色主题"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"因省电模式已开启，该功能被暂时停用了"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"主题已更改"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"带主题的图标"</string>
     <string name="beta_title" msgid="8703819523760746458">"Beta 版"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"更改应用网格"</string>

@@ -18,13 +18,10 @@ package com.android.car.settings.datausage;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
-
 import android.content.Context;
 import android.net.NetworkPolicy;
+import android.net.NetworkTemplate;
 import android.os.Bundle;
-import android.text.format.DateUtils;
 import android.util.Pair;
 
 import androidx.fragment.app.FragmentManager;
@@ -35,22 +32,23 @@ import androidx.test.rule.ActivityTestRule;
 
 import com.android.car.settings.R;
 import com.android.car.settings.testutils.BaseCarSettingsTestActivity;
-import com.android.settingslib.NetworkPolicyEditor;
+import com.android.settingslib.net.DataUsageController;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.concurrent.TimeUnit;
 
 /** Unit test for {@link AppDataUsageFragment}. */
 @RunWith(AndroidJUnit4.class)
 public class AppDataUsageFragmentTest {
+    private static final String KEY_TEMPLATE = "template";
     private static final String KEY_START = "start";
     private static final String KEY_END = "end";
 
@@ -60,11 +58,6 @@ public class AppDataUsageFragmentTest {
     private FragmentManager mFragmentManager;
 
     private Iterator<Pair<ZonedDateTime, ZonedDateTime>> mIterator;
-
-    @Mock
-    private NetworkPolicyEditor mNetworkPolicyEditor;
-    @Mock
-    private NetworkPolicy mNetworkPolicy;
 
     @Rule
     public ActivityTestRule<BaseCarSettingsTestActivity> mActivityTestRule =
@@ -82,56 +75,32 @@ public class AppDataUsageFragmentTest {
             throws Throwable {
         setUpFragment();
         Bundle bundle = mFragment.getBundle();
+        NetworkTemplate networkTemplate = bundle.getParcelable(KEY_TEMPLATE);
         long start = bundle.getLong(KEY_START);
         long end = bundle.getLong(KEY_END);
-        long timeDiff = end - start;
+        DataUsageController.DataUsageInfo dataUsageInfo =
+                new DataUsageController(mContext).getDataUsageInfo(networkTemplate);
 
-        assertThat(timeDiff).isEqualTo(DateUtils.WEEK_IN_MILLIS * 4);
+        compareMilliseconds(start, dataUsageInfo.cycleStart);
+        compareMilliseconds(end, dataUsageInfo.cycleEnd);
     }
 
     @Test
     public void onActivityCreated_iteratorIsEmpty_startAndEndDateShouldHaveFourWeeksDifference()
             throws Throwable {
-        when(mNetworkPolicyEditor.getPolicy(any())).thenReturn(mNetworkPolicy);
-
         ArrayList<Pair<ZonedDateTime, ZonedDateTime>> list = new ArrayList<>();
         mIterator = list.iterator();
         setUpFragment();
 
         Bundle bundle = mFragment.getBundle();
+        NetworkTemplate networkTemplate = bundle.getParcelable(KEY_TEMPLATE);
         long start = bundle.getLong(KEY_START);
         long end = bundle.getLong(KEY_END);
-        long timeDiff = end - start;
+        DataUsageController.DataUsageInfo dataUsageInfo =
+                new DataUsageController(mContext).getDataUsageInfo(networkTemplate);
 
-        assertThat(timeDiff).isEqualTo(DateUtils.WEEK_IN_MILLIS * 4);
-    }
-
-    @Test
-    public void onActivityCreated_iteratorIsNotEmpty_startAndEndDateShouldBeLastOneInIterator()
-            throws Throwable {
-        when(mNetworkPolicyEditor.getPolicy(any())).thenReturn(mNetworkPolicy);
-
-        ZonedDateTime start1 = ZonedDateTime.now();
-        ZonedDateTime end1 = ZonedDateTime.now();
-        ZonedDateTime start2 = ZonedDateTime.now();
-        ZonedDateTime end2 = ZonedDateTime.now();
-
-        Pair pair1 = new Pair(start1, end1);
-        Pair pair2 = new Pair(start2, end2);
-
-        ArrayList<Pair<ZonedDateTime, ZonedDateTime>> list = new ArrayList<>();
-        list.add(pair1);
-        list.add(pair2);
-
-        mIterator = list.iterator();
-        setUpFragment();
-
-        Bundle bundle = mFragment.getBundle();
-        long start = bundle.getLong(KEY_START);
-        long end = bundle.getLong(KEY_END);
-
-        assertThat(start).isEqualTo(start2.toInstant().toEpochMilli());
-        assertThat(end).isEqualTo(end2.toInstant().toEpochMilli());
+        compareMilliseconds(start, dataUsageInfo.cycleStart);
+        compareMilliseconds(end, dataUsageInfo.cycleEnd);
     }
 
     private void setUpFragment() throws Throwable {
@@ -139,7 +108,7 @@ public class AppDataUsageFragmentTest {
         mActivityTestRule.runOnUiThread(() -> {
             mFragmentManager.beginTransaction()
                     .replace(R.id.fragment_container,
-                            TestAppDataUsageFragment.newInstance(mNetworkPolicyEditor, mIterator),
+                            TestAppDataUsageFragment.newInstance(mIterator),
                             appDataUsageFragmentTag)
                     .commitNow();
         });
@@ -150,20 +119,13 @@ public class AppDataUsageFragmentTest {
 
     public static class TestAppDataUsageFragment extends AppDataUsageFragment {
 
-        private NetworkPolicyEditor mNetworkPolicyEditor;
         private Iterator<Pair<ZonedDateTime, ZonedDateTime>> mIterator;
 
-        public static TestAppDataUsageFragment newInstance(NetworkPolicyEditor networkPolicyEditor,
+        public static TestAppDataUsageFragment newInstance(
                 Iterator<Pair<ZonedDateTime, ZonedDateTime>> cycleIterator) {
             TestAppDataUsageFragment fragment = new TestAppDataUsageFragment();
-            fragment.mNetworkPolicyEditor = networkPolicyEditor;
             fragment.mIterator = cycleIterator;
             return fragment;
-        }
-
-        @Override
-        NetworkPolicyEditor getNetworkPolicyEditor(Context context) {
-            return mNetworkPolicyEditor;
         }
 
         @Override
@@ -173,5 +135,11 @@ public class AppDataUsageFragmentTest {
             }
             return super.getCycleIterator(policy);
         }
+    }
+
+    /** Avoid some offset in milliseconds. */
+    private void compareMilliseconds(long milli1, long milli2) {
+        assertThat(TimeUnit.MILLISECONDS.toMinutes(milli1))
+                .isEqualTo(TimeUnit.MILLISECONDS.toMinutes(milli2));
     }
 }

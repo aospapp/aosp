@@ -131,3 +131,48 @@ INSTANTIATE_TEST_CASE_P(FormatVariations, FormatTest, ::testing::Combine(
         AUDIO_FORMAT_PCM_32_BIT,
         AUDIO_FORMAT_PCM_8_24_BIT
     )));
+
+class FormatTest1p : public testing::TestWithParam<audio_format_t>
+{
+};
+
+
+TEST_P(FormatTest1p, accumulate_by_audio_format)
+{
+    const audio_format_t src_encoding = GetParam();
+
+    constexpr size_t SAMPLES = UINT8_MAX;
+    constexpr audio_format_t orig_encoding = AUDIO_FORMAT_PCM_16_BIT;
+    int16_t orig_data[SAMPLES];
+    fillRamp(orig_data);
+
+    // Copy original data to data buffer at src_encoding.
+    uint32_t src[SAMPLES];
+    memcpy_by_audio_format(
+            src, src_encoding,
+            orig_data, orig_encoding, SAMPLES);
+
+    // Just do a basic test that accumulating on a silent buffer keeps original values.
+    // Accumulation primitives are already tested by primitives_tests.
+    printf("trying accumulation for format: %#x\n", src_encoding);
+    fflush(stdout);
+
+    uint32_t acc[SAMPLES];
+    if (src_encoding == AUDIO_FORMAT_PCM_8_BIT) {
+        memset(acc, 0x80, SAMPLES * sizeof(uint32_t));
+    } else {
+        memset(acc, 0, SAMPLES * sizeof(uint32_t));
+    }
+
+    accumulate_by_audio_format(acc, src, src_encoding, SAMPLES);
+    EXPECT_EQ(0, memcmp(src, acc, SAMPLES * audio_bytes_per_sample(src_encoding)));
+}
+
+INSTANTIATE_TEST_CASE_P(FormatVariation, FormatTest1p, ::testing::Values(
+        AUDIO_FORMAT_PCM_8_BIT,
+        AUDIO_FORMAT_PCM_16_BIT,
+        AUDIO_FORMAT_PCM_FLOAT,
+        AUDIO_FORMAT_PCM_24_BIT_PACKED,
+        AUDIO_FORMAT_PCM_32_BIT,
+        AUDIO_FORMAT_PCM_8_24_BIT
+    ));

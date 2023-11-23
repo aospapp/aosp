@@ -21,7 +21,7 @@
     android:layout_height="wrap_content"
     android:text="@string/add_favorite_button"
     android:textAppearance="?android:attr/textAppearanceLarge"
-    android:textColor="@color/hero_button_text_color"
+    style="@style/AddFavoriteText"
     android:singleLine="true"
     android:gravity="top|center_horizontal"
     android:background="?android:attr/selectableItemBackground"

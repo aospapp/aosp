@@ -30,14 +30,14 @@ import android.os.RemoteException;
 import android.service.notification.NotificationStats;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.Toast;
 
-import androidx.core.app.NotificationCompat;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.app.NotificationCompat;
 
 import com.android.car.assist.CarVoiceInteractionSession;
 import com.android.car.assist.client.CarAssistUtils;
+import com.android.car.notification.template.CarNotificationActionButton;
 import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.statusbar.NotificationVisibility;
 
@@ -81,28 +81,12 @@ public class NotificationClickHandlerFactory {
         mBarService = barService;
         mCarAssistUtils = null;
         mMainHandler = new Handler(Looper.getMainLooper());
+        mNotificationDataManager = NotificationDataManager.getInstance();
     }
 
     @VisibleForTesting
     void setCarAssistUtils(CarAssistUtils carAssistUtils) {
         mCarAssistUtils = carAssistUtils;
-    }
-
-    /**
-     * Sets the {@link NotificationDataManager} which contains additional state information of the
-     * {@link AlertEntry}s.
-     */
-    public void setNotificationDataManager(NotificationDataManager manager) {
-        mNotificationDataManager = manager;
-    }
-
-    /**
-     * Returns the {@link NotificationDataManager} which contains additional state information of
-     * the {@link AlertEntry}s.
-     */
-    @Nullable
-    public NotificationDataManager getNotificationDataManager() {
-        return mNotificationDataManager;
     }
 
     /**
@@ -230,10 +214,38 @@ public class NotificationClickHandlerFactory {
 
     /**
      * Returns a {@link View.OnClickListener} that should be used for the
+     * {@param messageNotification}'s {@param replyButton}.
+     */
+    public View.OnClickListener getReplyClickHandler(AlertEntry messageNotification) {
+        return view -> {
+            if (getReplyAction(messageNotification.getNotification()) == null) {
+                return;
+            }
+            Context context = view.getContext().getApplicationContext();
+            if (mCarAssistUtils == null) {
+                mCarAssistUtils = new CarAssistUtils(context);
+            }
+            CarAssistUtils.ActionRequestCallback requestCallback = resultState -> {
+                if (CarAssistUtils.ActionRequestCallback.RESULT_FAILED.equals(resultState)) {
+                    showToast(context, R.string.assist_action_failed_toast);
+                    Log.e(TAG, "Assistant failed to read aloud the message");
+                }
+                // Don't trigger mCallback so the shade remains open.
+            };
+            mCarAssistUtils.requestAssistantVoiceAction(
+                    messageNotification.getStatusBarNotification(),
+                    CarVoiceInteractionSession.VOICE_ACTION_REPLY_NOTIFICATION,
+                    requestCallback);
+        };
+    }
+
+    /**
+     * Returns a {@link View.OnClickListener} that should be used for the
      * {@param messageNotification}'s {@param muteButton}.
      */
     public View.OnClickListener getMuteClickHandler(
-            Button muteButton, AlertEntry messageNotification) {
+            CarNotificationActionButton muteButton, AlertEntry messageNotification,
+            MuteStatusSetter setter) {
         return v -> {
             NotificationCompat.Action action =
                     CarAssistUtils.getMuteAction(messageNotification.getNotification());
@@ -255,16 +267,26 @@ public class NotificationClickHandlerFactory {
                 }
             } else if (mNotificationDataManager != null) {
                 mNotificationDataManager.toggleMute(messageNotification);
-                Context context = v.getContext().getApplicationContext();
-                muteButton.setText(
-                        (mNotificationDataManager.isMessageNotificationMuted(messageNotification))
-                                ? context.getString(R.string.action_unmute_long)
-                                : context.getString(R.string.action_mute_long));
+                setter.setMuteStatus(muteButton,
+                        mNotificationDataManager.isMessageNotificationMuted(messageNotification));
                 // Don't trigger mCallback so the shade remains open.
             } else {
                 Log.d(TAG, "Could not set mute click handler as NotificationDataManager is null");
             }
         };
+    }
+
+    /**
+     * Sets mute status for a {@link CarNotificationActionButton}.
+     */
+    public interface MuteStatusSetter {
+        /**
+         * Sets mute status for a {@link CarNotificationActionButton}.
+         *
+         * @param button Mute button
+         * @param isMuted {@code true} if button should represent muted state
+         */
+        void setMuteStatus(CarNotificationActionButton button, boolean isMuted);
     }
 
     /**
@@ -331,9 +353,9 @@ public class NotificationClickHandlerFactory {
      * Invokes all onNotificationClicked handlers registered in {@link OnNotificationClickListener}s
      * array.
      */
-    private void handleNotificationClicked(int launceResult, AlertEntry alertEntry) {
+    private void handleNotificationClicked(int launchResult, AlertEntry alertEntry) {
         mClickListeners.forEach(
-                listener -> listener.onNotificationClicked(launceResult, alertEntry));
+                listener -> listener.onNotificationClicked(launchResult, alertEntry));
     }
 
     private void clearNotification(AlertEntry alertEntry) {
@@ -404,4 +426,18 @@ public class NotificationClickHandlerFactory {
         return true;
     }
 
+    /**
+     * Retrieves the {@link NotificationCompat.Action} containing the
+     * {@link NotificationCompat.Action#SEMANTIC_ACTION_REPLY} semantic action.
+     */
+    @Nullable
+    public NotificationCompat.Action getReplyAction(Notification notification) {
+        for (NotificationCompat.Action action : CarAssistUtils.getAllActions(notification)) {
+            if (action.getSemanticAction()
+                    == NotificationCompat.Action.SEMANTIC_ACTION_REPLY) {
+                return action;
+            }
+        }
+        return null;
+    }
 }

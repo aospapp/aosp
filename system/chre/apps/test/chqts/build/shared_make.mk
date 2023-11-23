@@ -11,11 +11,7 @@ $(error Must set Android build environment first)
 endif
 
 NANOAPP_DIR_NAME ?= $(NANOAPP_NAME)
-
-# This path is actually relative to one level deeper as this file
-# gets included from Makefile of each test subdirectory
-NANOAPP_SRC_PATH = ../../src
-CHRE_ROOT_PATH = ../../../..
+NANOAPP_SRC_PATH = $(CHRE_PREFIX)/apps/test/chqts/src
 
 SHARED_LIB_FILES = abort.cc \
   chunk_allocator.cc \
@@ -38,7 +34,7 @@ COMMON_CFLAGS += -DCHRE_NO_ENDIAN_H \
   -D__BIG_ENDIAN=2
 
 COMMON_CFLAGS += -I$(NANOAPP_SRC_PATH)
-COMMON_CFLAGS += -I$(CHRE_ROOT_PATH)/util/include
+COMMON_CFLAGS += -I$(CHRE_PREFIX)/util/include
 
 OPT_LEVEL=2
 

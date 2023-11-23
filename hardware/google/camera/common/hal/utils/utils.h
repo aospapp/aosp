@@ -36,6 +36,7 @@ bool IsArbitraryDataSpaceRawStream(const Stream& stream);
 bool IsYUVSnapshotStream(const Stream& stream);
 bool IsDepthStream(const Stream& stream);
 bool IsOutputZslStream(const Stream& stream);
+bool IsSoftwareDenoiseEligibleSnapshotStream(const Stream& stream);
 
 bool HasCapability(const HalCameraMetadata* metadata, uint8_t capability);
 

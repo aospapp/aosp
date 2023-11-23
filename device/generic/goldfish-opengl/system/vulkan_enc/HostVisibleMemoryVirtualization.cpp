@@ -318,12 +318,19 @@ void subAllocHostMemory(
 
     out->subMemory = new_from_host_VkDeviceMemory(VK_NULL_HANDLE);
     out->subAlloc = alloc->subAlloc;
+    out->isDeviceAddressMemoryAllocation = alloc->isDeviceAddressMemoryAllocation;
+    out->memoryTypeIndex = alloc->memoryTypeIndex;
 }
 
-void subFreeHostMemory(SubAlloc* toFree) {
+bool subFreeHostMemory(SubAlloc* toFree) {
     delete_goldfish_VkDeviceMemory(toFree->subMemory);
     toFree->subAlloc->free(toFree->mappedPtr);
+    bool nowEmpty = toFree->subAlloc->empty();
+    if (nowEmpty) {
+        ALOGV("%s: We have an empty suballoc, time to free the block perhaps?\n", __func__);
+    }
     memset(toFree, 0x0, sizeof(SubAlloc));
+    return nowEmpty;
 }
 
 bool canSubAlloc(android::base::guest::SubAllocator* subAlloc, VkDeviceSize size) {

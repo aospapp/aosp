@@ -267,8 +267,21 @@ public class LiveWallpaperThumbAsset extends Asset {
             Drawable thumb = mInfo.loadThumbnail(mPackageManager);
 
             // Live wallpaper components may or may not specify a thumbnail drawable.
-            if (thumb != null && thumb instanceof BitmapDrawable) {
+            if (thumb instanceof BitmapDrawable) {
                 return ((BitmapDrawable) thumb).getBitmap();
+            } else if (thumb != null) {
+                Bitmap bitmap;
+                if (thumb.getIntrinsicWidth() > 0 && thumb.getIntrinsicHeight() > 0) {
+                    bitmap = Bitmap.createBitmap(thumb.getIntrinsicWidth(),
+                            thumb.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+                } else {
+                    return null;
+                }
+
+                Canvas canvas = new Canvas(bitmap);
+                thumb.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+                thumb.draw(canvas);
+                return bitmap;
             }
 
             // If no thumbnail was specified, return a null bitmap.

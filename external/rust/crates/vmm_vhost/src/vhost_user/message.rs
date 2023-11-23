@@ -7,6 +7,7 @@
 
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
+#![allow(clippy::upper_case_acronyms)]
 
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -140,9 +141,9 @@ pub enum MasterReq {
     MAX_CMD = 41,
 }
 
-impl Into<u32> for MasterReq {
-    fn into(self) -> u32 {
-        self as u32
+impl From<MasterReq> for u32 {
+    fn from(req: MasterReq) -> u32 {
+        req as u32
     }
 }
 
@@ -180,9 +181,9 @@ pub enum SlaveReq {
     MAX_CMD = 10,
 }
 
-impl Into<u32> for SlaveReq {
-    fn into(self) -> u32 {
-        self as u32
+impl From<SlaveReq> for u32 {
+    fn from(req: SlaveReq) -> u32 {
+        req as u32
     }
 }
 
@@ -222,14 +223,35 @@ bitflags! {
 /// Common message header for vhost-user requests and replies.
 /// A vhost-user message consists of 3 header fields and an optional payload. All numbers are in the
 /// machine native byte order.
-#[allow(safe_packed_borrows)]
 #[repr(packed)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Copy)]
 pub(super) struct VhostUserMsgHeader<R: Req> {
     request: u32,
     flags: u32,
     size: u32,
     _r: PhantomData<R>,
+}
+
+impl<R: Req> Debug for VhostUserMsgHeader<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Point")
+            .field("request", &{ self.request })
+            .field("flags", &{ self.flags })
+            .field("size", &{ self.size })
+            .finish()
+    }
+}
+
+impl<R: Req> Clone for VhostUserMsgHeader<R> {
+    fn clone(&self) -> VhostUserMsgHeader<R> {
+        *self
+    }
+}
+
+impl<R: Req> PartialEq for VhostUserMsgHeader<R> {
+    fn eq(&self, other: &Self) -> bool {
+        self.request == other.request && self.flags == other.flags && self.size == other.size
+    }
 }
 
 impl<R: Req> VhostUserMsgHeader<R> {
@@ -248,7 +270,7 @@ impl<R: Req> VhostUserMsgHeader<R> {
     /// Get message type.
     pub fn get_code(&self) -> R {
         // It's safe because R is marked as repr(u32).
-        unsafe { std::mem::transmute_copy::<u32, R>(&self.request) }
+        unsafe { std::mem::transmute_copy::<u32, R>(&{ self.request }) }
     }
 
     /// Set message type.
@@ -657,14 +679,13 @@ impl VhostUserConfig {
 impl VhostUserMsgValidator for VhostUserConfig {
     #[allow(clippy::if_same_then_else)]
     fn is_valid(&self) -> bool {
+        let end_addr = match self.size.checked_add(self.offset) {
+            Some(addr) => addr,
+            None => return false,
+        };
         if (self.flags & !VhostUserConfigFlags::all().bits()) != 0 {
             return false;
-        } else if self.offset < 0x100 {
-            return false;
-        } else if self.size == 0
-            || self.size > VHOST_USER_CONFIG_SIZE
-            || self.size + self.offset > VHOST_USER_CONFIG_SIZE
-        {
+        } else if self.size == 0 || end_addr > VHOST_USER_CONFIG_SIZE {
             return false;
         }
         true
@@ -673,6 +694,42 @@ impl VhostUserMsgValidator for VhostUserConfig {
 
 /// Payload for the VhostUserConfig message.
 pub type VhostUserConfigPayload = Vec<u8>;
+
+/// Single memory region descriptor as payload for ADD_MEM_REG and REM_MEM_REG
+/// requests.
+#[repr(C)]
+#[derive(Default, Clone)]
+pub struct VhostUserInflight {
+    /// Size of the area to track inflight I/O.
+    pub mmap_size: u64,
+    /// Offset of this area from the start of the supplied file descriptor.
+    pub mmap_offset: u64,
+    /// Number of virtqueues.
+    pub num_queues: u16,
+    /// Size of virtqueues.
+    pub queue_size: u16,
+}
+
+impl VhostUserInflight {
+    /// Create a new instance.
+    pub fn new(mmap_size: u64, mmap_offset: u64, num_queues: u16, queue_size: u16) -> Self {
+        VhostUserInflight {
+            mmap_size,
+            mmap_offset,
+            num_queues,
+            queue_size,
+        }
+    }
+}
+
+impl VhostUserMsgValidator for VhostUserInflight {
+    fn is_valid(&self) -> bool {
+        if self.num_queues == 0 || self.queue_size == 0 {
+            return false;
+        }
+        true
+    }
+}
 
 /*
  * TODO: support dirty log, live migration and IOTLB operations.
@@ -742,6 +799,137 @@ impl VhostUserMsgValidator for VhostUserFSSlaveMsg {
             }
         }
         true
+    }
+}
+
+/// Inflight I/O descriptor state for split virtqueues
+#[repr(packed)]
+#[derive(Clone, Copy, Default)]
+pub struct DescStateSplit {
+    /// Indicate whether this descriptor (only head) is inflight or not.
+    pub inflight: u8,
+    /// Padding
+    padding: [u8; 5],
+    /// List of last batch of used descriptors, only when batching is used for submitting
+    pub next: u16,
+    /// Preserve order of fetching available descriptors, only for head descriptor
+    pub counter: u64,
+}
+
+impl DescStateSplit {
+    /// New instance of DescStateSplit struct
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// Inflight I/O queue region for split virtqueues
+#[repr(packed)]
+pub struct QueueRegionSplit {
+    /// Features flags of this region
+    pub features: u64,
+    /// Version of this region
+    pub version: u16,
+    /// Number of DescStateSplit entries
+    pub desc_num: u16,
+    /// List to track last batch of used descriptors
+    pub last_batch_head: u16,
+    /// Idx value of used ring
+    pub used_idx: u16,
+    /// Pointer to an array of DescStateSplit entries
+    pub desc: u64,
+}
+
+impl QueueRegionSplit {
+    /// New instance of QueueRegionSplit struct
+    pub fn new(features: u64, queue_size: u16) -> Self {
+        QueueRegionSplit {
+            features,
+            version: 1,
+            desc_num: queue_size,
+            last_batch_head: 0,
+            used_idx: 0,
+            desc: 0,
+        }
+    }
+}
+
+/// Inflight I/O descriptor state for packed virtqueues
+#[repr(packed)]
+#[derive(Clone, Copy, Default)]
+pub struct DescStatePacked {
+    /// Indicate whether this descriptor (only head) is inflight or not.
+    pub inflight: u8,
+    /// Padding
+    padding: u8,
+    /// Link to next free entry
+    pub next: u16,
+    /// Link to last entry of descriptor list, only for head
+    pub last: u16,
+    /// Length of descriptor list, only for head
+    pub num: u16,
+    /// Preserve order of fetching avail descriptors, only for head
+    pub counter: u64,
+    /// Buffer ID
+    pub id: u16,
+    /// Descriptor flags
+    pub flags: u16,
+    /// Buffer length
+    pub len: u32,
+    /// Buffer address
+    pub addr: u64,
+}
+
+impl DescStatePacked {
+    /// New instance of DescStatePacked struct
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// Inflight I/O queue region for packed virtqueues
+#[repr(packed)]
+pub struct QueueRegionPacked {
+    /// Features flags of this region
+    pub features: u64,
+    /// version of this region
+    pub version: u16,
+    /// size of descriptor state array
+    pub desc_num: u16,
+    /// head of free DescStatePacked entry list
+    pub free_head: u16,
+    /// old head of free DescStatePacked entry list
+    pub old_free_head: u16,
+    /// used idx of descriptor ring
+    pub used_idx: u16,
+    /// old used idx of descriptor ring
+    pub old_used_idx: u16,
+    /// device ring wrap counter
+    pub used_wrap_counter: u8,
+    /// old device ring wrap counter
+    pub old_used_wrap_counter: u8,
+    /// Padding
+    padding: [u8; 7],
+    /// Pointer to array tracking state of each descriptor from descriptor ring
+    pub desc: u64,
+}
+
+impl QueueRegionPacked {
+    /// New instance of QueueRegionPacked struct
+    pub fn new(features: u64, queue_size: u16) -> Self {
+        QueueRegionPacked {
+            features,
+            version: 1,
+            desc_num: queue_size,
+            free_head: 0,
+            old_free_head: 0,
+            used_idx: 0,
+            old_used_idx: 0,
+            used_wrap_counter: 0,
+            old_used_wrap_counter: 0,
+            padding: [0; 7],
+            desc: 0,
+        }
     }
 }
 
@@ -825,7 +1013,10 @@ mod tests {
         hdr.set_version(0x1);
         assert!(hdr.is_valid());
 
+        // Test Debug, Clone, PartiaEq trait
         assert_eq!(hdr, hdr.clone());
+        assert_eq!(hdr.clone().get_code(), hdr.get_code());
+        assert_eq!(format!("{:?}", hdr.clone()), format!("{:?}", hdr));
     }
 
     #[test]
@@ -997,18 +1188,15 @@ mod tests {
 
     #[test]
     fn check_user_config_msg() {
-        let mut msg = VhostUserConfig::new(
-            VHOST_USER_CONFIG_OFFSET,
-            VHOST_USER_CONFIG_SIZE - VHOST_USER_CONFIG_OFFSET,
-            VhostUserConfigFlags::WRITABLE,
-        );
+        let mut msg =
+            VhostUserConfig::new(0, VHOST_USER_CONFIG_SIZE, VhostUserConfigFlags::WRITABLE);
 
         assert!(msg.is_valid());
         msg.size = 0;
         assert!(!msg.is_valid());
         msg.size = 1;
         assert!(msg.is_valid());
-        msg.offset = 0;
+        msg.offset = u32::MAX;
         assert!(!msg.is_valid());
         msg.offset = VHOST_USER_CONFIG_SIZE;
         assert!(!msg.is_valid());

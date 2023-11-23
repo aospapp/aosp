@@ -1,0 +1,74 @@
+/*
+ * Copyright (C) 2020 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// Library-level build file
+
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion gradle.ext.aaosLatestSDK
+
+    defaultConfig {
+        minSdkVersion 28
+        targetSdkVersion gradle.ext.aaosTargetSDK
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+            aidl.srcDirs = ['src']
+            renderscript.srcDirs = ['src']
+            res.srcDirs = ['res']
+        }
+    }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+
+    // This is the gradle equivalent of the libs: ["android.car"] in the Android.bp
+    useLibrary 'android.car'
+}
+
+dependencies {
+
+    implementation "androidx.annotation:annotation:1.2.0"
+    implementation "androidx.cardview:cardview:1.0.0"
+    implementation "androidx.interpolator:interpolator:1.0.0"
+
+    def lifecycle_version = "2.2.0"
+    implementation "androidx.lifecycle:lifecycle-common-java8:$lifecycle_version"
+    // Not available in 2.3+
+    implementation "androidx.lifecycle:lifecycle-extensions:$lifecycle_version"
+
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.0'
+    implementation 'androidx.recyclerview:recyclerview:1.2.1'
+
+    implementation "junit:junit:4.12"
+
+    implementation project(":car-ui-lib")
+}

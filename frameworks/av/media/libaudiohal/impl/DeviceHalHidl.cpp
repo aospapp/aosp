@@ -457,12 +457,26 @@ status_t DeviceHalHidl::removeDeviceEffect(
 }
 #endif
 
-status_t DeviceHalHidl::dump(int fd) {
+status_t DeviceHalHidl::dump(int fd, const Vector<String16>& args) {
     if (mDevice == 0) return NO_INIT;
     native_handle_t* hidlHandle = native_handle_create(1, 0);
     hidlHandle->data[0] = fd;
-    Return<void> ret = mDevice->debug(hidlHandle, {} /* options */);
+    hidl_vec<hidl_string> hidlArgs;
+    argsFromHal(args, &hidlArgs);
+    Return<void> ret = mDevice->debug(hidlHandle, hidlArgs);
     native_handle_delete(hidlHandle);
+
+    // TODO(b/111997867, b/177271958)  Workaround - remove when fixed.
+    // A Binder transmitted fd may not close immediately due to a race condition b/111997867
+    // when the remote binder thread removes the last refcount to the fd blocks in the
+    // kernel for binder activity. We send a Binder ping() command to unblock the thread
+    // and complete the fd close / release.
+    //
+    // See DeviceHalHidl::dump(), EffectHalHidl::dump(), StreamHalHidl::dump(),
+    //     EffectsFactoryHalHidl::dumpEffects().
+
+    (void)mDevice->ping(); // synchronous Binder call
+
     return processReturn("dump", ret);
 }
 

@@ -83,26 +83,32 @@ class KeymasterTestContext : public TestContext {
 };
 
 TEST(AttestAsn1Test, Simple) {
+    const char* fake_app_id = "fake_app_id";
+    const char* fake_app_data = "fake_app_data";
+    const char* fake_challenge = "fake_challenge";
+    const char* fake_attest_app_id = "fake_attest_app_id";
     KeymasterTestContext context;
     AuthorizationSet hw_set(AuthorizationSetBuilder()
                                 .RsaSigningKey(512, 3)
                                 .Digest(KM_DIGEST_SHA_2_256)
                                 .Digest(KM_DIGEST_SHA_2_384)
                                 .Authorization(TAG_OS_VERSION, 60000)
-                                .Authorization(TAG_OS_PATCHLEVEL, 201512)
-                                .Authorization(TAG_INCLUDE_UNIQUE_ID));
-    AuthorizationSet sw_set(AuthorizationSetBuilder()
-                                .Authorization(TAG_ACTIVE_DATETIME, 10)
-                                .Authorization(TAG_CREATION_DATETIME, 10)
-                                .Authorization(TAG_APPLICATION_ID, "fake_app_id", 19)
-                                .Authorization(TAG_APPLICATION_DATA, "fake_app_data", 12));
+                                .Authorization(TAG_OS_PATCHLEVEL, 201512));
+    AuthorizationSet sw_set(
+        AuthorizationSetBuilder()
+            .Authorization(TAG_ACTIVE_DATETIME, 10)
+            .Authorization(TAG_CREATION_DATETIME, 10)
+            .Authorization(TAG_APPLICATION_ID, fake_app_id, strlen(fake_app_id))
+            .Authorization(TAG_APPLICATION_DATA, fake_app_data, strlen(fake_app_data)));
 
     UniquePtr<uint8_t[]> asn1;
     size_t asn1_len = 0;
     AuthorizationSet attest_params(
         AuthorizationSetBuilder()
-            .Authorization(TAG_ATTESTATION_CHALLENGE, "fake_challenge", 14)
-            .Authorization(TAG_ATTESTATION_APPLICATION_ID, "fake_attest_app_id", 18));
+            .Authorization(TAG_INCLUDE_UNIQUE_ID)
+            .Authorization(TAG_ATTESTATION_CHALLENGE, fake_challenge, strlen(fake_challenge))
+            .Authorization(TAG_ATTESTATION_APPLICATION_ID, fake_attest_app_id,
+                           strlen(fake_attest_app_id)));
     ASSERT_EQ(KM_ERROR_OK,
               build_attestation_record(attest_params, sw_set, hw_set, context, &asn1, &asn1_len));
     EXPECT_GT(asn1_len, 0U);
@@ -127,16 +133,19 @@ TEST(AttestAsn1Test, Simple) {
                                        &parsed_sw_set, &parsed_hw_set, &unique_id));
 
     // Check that the challenge is consistent across build and parse.
-    EXPECT_EQ("fake_challenge",
-              std::string(reinterpret_cast<const char*>(attestation_challenge.data), 14));
+    EXPECT_EQ(std::string(fake_challenge),
+              std::string(reinterpret_cast<const char*>(attestation_challenge.data),
+                          attestation_challenge.data_length));
     delete[] attestation_challenge.data;
 
     // Check that the unique id was populated as expected.
-    EXPECT_EQ("fake_app_id", std::string(reinterpret_cast<const char*>(unique_id.data), 11));
+    EXPECT_EQ(std::string(fake_attest_app_id),
+              std::string(reinterpret_cast<const char*>(unique_id.data), unique_id.data_length));
     delete[] unique_id.data;
 
     // The attestation ID is expected to appear in parsed_sw_set.
-    sw_set.push_back(TAG_ATTESTATION_APPLICATION_ID, "fake_attest_app_id", 18);
+    sw_set.push_back(TAG_ATTESTATION_APPLICATION_ID, fake_attest_app_id,
+                     strlen(fake_attest_app_id));
 
     // The TAG_INCLUDE_UNIQUE_ID tag is not expected to appear in parsed_hw_set.
     hw_set.erase(hw_set.find(TAG_INCLUDE_UNIQUE_ID));
@@ -164,26 +173,34 @@ TEST(AttestAsn1Test, Simple) {
 }
 
 TEST(EatTest, Simple) {
+    const char* fake_imei = "490154203237518";
+    const char* fake_app_id = "fake_app_id";
+    const char* fake_app_data = "fake_app_data";
+    const char* fake_challenge = "fake_challenge";
+    const char* fake_attest_app_id = "fake_attest_app_id";
     KeymintTestContext context;
-    AuthorizationSet hw_set(AuthorizationSetBuilder()
-                                .RsaSigningKey(512, 3)
-                                .Digest(KM_DIGEST_SHA_2_256)
-                                .Digest(KM_DIGEST_SHA_2_384)
-                                .Authorization(TAG_OS_VERSION, 60000)
-                                .Authorization(TAG_OS_PATCHLEVEL, 201512)
-                                .Authorization(TAG_INCLUDE_UNIQUE_ID)
-                                .Authorization(TAG_ATTESTATION_ID_IMEI, "490154203237518", 15));
-    AuthorizationSet sw_set(AuthorizationSetBuilder()
-                                .Authorization(TAG_ACTIVE_DATETIME, 10)
-                                .Authorization(TAG_CREATION_DATETIME, 10)
-                                .Authorization(TAG_APPLICATION_ID, "fake_app_id", 19)
-                                .Authorization(TAG_APPLICATION_DATA, "fake_app_data", 12));
+    AuthorizationSet hw_set(
+        AuthorizationSetBuilder()
+            .RsaSigningKey(512, 3)
+            .Digest(KM_DIGEST_SHA_2_256)
+            .Digest(KM_DIGEST_SHA_2_384)
+            .Authorization(TAG_OS_VERSION, 60000)
+            .Authorization(TAG_OS_PATCHLEVEL, 201512)
+            .Authorization(TAG_ATTESTATION_ID_IMEI, fake_imei, strlen(fake_imei)));
+    AuthorizationSet sw_set(
+        AuthorizationSetBuilder()
+            .Authorization(TAG_ACTIVE_DATETIME, 10)
+            .Authorization(TAG_CREATION_DATETIME, 10)
+            .Authorization(TAG_APPLICATION_ID, fake_app_id, strlen(fake_app_id))
+            .Authorization(TAG_APPLICATION_DATA, fake_app_data, strlen(fake_app_data)));
 
     std::vector<uint8_t> eat;
     AuthorizationSet attest_params(
         AuthorizationSetBuilder()
-            .Authorization(TAG_ATTESTATION_CHALLENGE, "fake_challenge", 14)
-            .Authorization(TAG_ATTESTATION_APPLICATION_ID, "fake_attest_app_id", 18));
+            .Authorization(TAG_INCLUDE_UNIQUE_ID)
+            .Authorization(TAG_ATTESTATION_CHALLENGE, fake_challenge, strlen(fake_challenge))
+            .Authorization(TAG_ATTESTATION_APPLICATION_ID, fake_attest_app_id,
+                           strlen(fake_attest_app_id)));
     ASSERT_EQ(KM_ERROR_OK, build_eat_record(attest_params, sw_set, hw_set, context, &eat));
     EXPECT_GT(eat.size(), 0U);
 
@@ -215,16 +232,19 @@ TEST(EatTest, Simple) {
     EXPECT_EQ(std::vector<int64_t>(), unexpected_claims);
 
     // Check that the challenge is consistent across build and parse.
-    EXPECT_EQ("fake_challenge",
-              std::string(reinterpret_cast<const char*>(attestation_challenge.data), 14));
+    EXPECT_EQ(std::string(fake_challenge),
+              std::string(reinterpret_cast<const char*>(attestation_challenge.data),
+                          attestation_challenge.data_length));
     delete[] attestation_challenge.data;
 
     // Check that the unique id was populated as expected.
-    EXPECT_EQ("fake_app_id", std::string(reinterpret_cast<const char*>(unique_id.data), 11));
+    EXPECT_EQ(std::string(fake_attest_app_id),
+              std::string(reinterpret_cast<const char*>(unique_id.data), unique_id.data_length));
     delete[] unique_id.data;
 
     // The attestation ID is expected to appear in parsed_sw_set.
-    sw_set.push_back(TAG_ATTESTATION_APPLICATION_ID, "fake_attest_app_id", 18);
+    sw_set.push_back(TAG_ATTESTATION_APPLICATION_ID, fake_attest_app_id,
+                     strlen(fake_attest_app_id));
 
     // The TAG_INCLUDE_UNIQUE_ID tag is not expected to appear in parsed_hw_set.
     hw_set.erase(hw_set.find(TAG_INCLUDE_UNIQUE_ID));
@@ -247,13 +267,17 @@ TEST(EatTest, Simple) {
 }
 
 TEST(BadImeiTest, Simple) {
+    const char* fake_challenge = "fake_challenge";
+    const char* fake_attest_app_id = "fake_attest_app_id";
+    const char* invalid_imei = "1234567890123456";
     KeymintTestContext context;
-    AuthorizationSet hw_set(
-        AuthorizationSetBuilder().Authorization(TAG_ATTESTATION_ID_IMEI, "1234567890123456", 16));
+    AuthorizationSet hw_set(AuthorizationSetBuilder().Authorization(
+        TAG_ATTESTATION_ID_IMEI, invalid_imei, strlen(invalid_imei)));
     AuthorizationSet attest_params(
         AuthorizationSetBuilder()
-            .Authorization(TAG_ATTESTATION_CHALLENGE, "fake_challenge", 14)
-            .Authorization(TAG_ATTESTATION_APPLICATION_ID, "fake_attest_app_id", 18));
+            .Authorization(TAG_ATTESTATION_CHALLENGE, fake_challenge, strlen(fake_challenge))
+            .Authorization(TAG_ATTESTATION_APPLICATION_ID, fake_attest_app_id,
+                           strlen(fake_attest_app_id)));
     AuthorizationSet sw_set;
 
     std::vector<uint8_t> eat;
@@ -261,10 +285,11 @@ TEST(BadImeiTest, Simple) {
 }
 
 TEST(MissingAuthChallengeTest, Simple) {
+    const char* fake_attest_app_id = "fake_attest_app_id";
     KeymintTestContext context;
     AuthorizationSet hw_set(AuthorizationSetBuilder().Authorization(TAG_OS_PATCHLEVEL, 201512));
     AuthorizationSet attest_params(AuthorizationSetBuilder().Authorization(
-        TAG_ATTESTATION_APPLICATION_ID, "fake_attest_app_id", 18));
+        TAG_ATTESTATION_APPLICATION_ID, fake_attest_app_id, strlen(fake_attest_app_id)));
     AuthorizationSet sw_set;
 
     std::vector<uint8_t> eat;
@@ -273,6 +298,8 @@ TEST(MissingAuthChallengeTest, Simple) {
 }
 
 TEST(UnknownTagTest, Simple) {
+    const char* fake_challenge = "fake_challenge";
+    const char* fake_attest_app_id = "fake_attest_app_id";
     KeymintTestContext context;
     AuthorizationSet unknown_tag_set(
         AuthorizationSetBuilder().Authorization(UNKNOWN_TAG_T, UNKNOWN_TAG_VALUE));
@@ -282,8 +309,9 @@ TEST(UnknownTagTest, Simple) {
     std::vector<uint8_t> eat;
     AuthorizationSet attest_params(
         AuthorizationSetBuilder()
-            .Authorization(TAG_ATTESTATION_CHALLENGE, "fake_challenge", 14)
-            .Authorization(TAG_ATTESTATION_APPLICATION_ID, "fake_attest_app_id", 18));
+            .Authorization(TAG_ATTESTATION_CHALLENGE, fake_challenge, strlen(fake_challenge))
+            .Authorization(TAG_ATTESTATION_APPLICATION_ID, fake_attest_app_id,
+                           strlen(fake_attest_app_id)));
     ASSERT_EQ(KM_ERROR_OK,
               build_eat_record(attest_params, unknown_tag_set, unknown_tag_set, context, &eat));
     EXPECT_GT(eat.size(), 0U);

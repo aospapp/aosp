@@ -2,3 +2,9 @@
 pixel.oslo.airplane_mode.allowed_override       u:object_r:pixel_oslo_debug_prop:s0
 pixel.oslo.allowed_override                     u:object_r:pixel_oslo_debug_prop:s0
 pixel.oslo.gating                               u:object_r:pixel_oslo_debug_prop:s0
+
+# Boot animation dynamic colors
+persist.bootanim.color1     u:object_r:bootanim_system_prop:s0     exact    int
+persist.bootanim.color2     u:object_r:bootanim_system_prop:s0     exact    int
+persist.bootanim.color3     u:object_r:bootanim_system_prop:s0     exact    int
+persist.bootanim.color4     u:object_r:bootanim_system_prop:s0     exact    int

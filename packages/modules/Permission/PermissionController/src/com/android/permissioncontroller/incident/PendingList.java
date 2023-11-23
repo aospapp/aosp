@@ -244,13 +244,13 @@ class PendingList {
 
                 // Intent for the confirmation dialog.
                 final PendingIntent dialog = PendingIntent.getActivity(mContext, 0,
-                        newDialogIntent(rec), 0);
+                        newDialogIntent(rec), PendingIntent.FLAG_IMMUTABLE);
 
                 // Intent for the approval and denial.
                 final PendingIntent deny = PendingIntent.getBroadcast(mContext, 0,
                         new Intent(ApprovalReceiver.ACTION_DENY, rec.report.getUri(),
                             mContext, ApprovalReceiver.class),
-                        0);
+                        PendingIntent.FLAG_IMMUTABLE);
 
                 // Construct the notification
                 final Notification notification = new Notification.Builder(mContext)

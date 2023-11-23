@@ -52,7 +52,7 @@
     <string name="wifitrackerlib_osu_completing_sign_up" msgid="4359503050543182480">"Fuldfører registrering…"</string>
     <string name="wifitrackerlib_osu_sign_up_failed" msgid="3964140125523395898">"Registreringen kunne ikke fuldføres. Tryk for at prøve igen."</string>
     <string name="wifitrackerlib_osu_sign_up_complete" msgid="3279606633343124580">"Registreringen er fuldført. Opretter forbindelse…"</string>
-    <string name="wifitrackerlib_imsi_protection_warning" msgid="7202210931586169466">"Dette netværk kræver et SIM-id, der kan bruges til at spore enhedens placering. "<annotation id="url">"Få flere oplysninger"</annotation></string>
+    <string name="wifitrackerlib_imsi_protection_warning" msgid="7202210931586169466">"Dette netværk kræver et SIM-id, der kan bruges til at spore enhedens lokation. "<annotation id="url">"Få flere oplysninger"</annotation></string>
     <string name="wifitrackerlib_speed_label_very_slow" msgid="6606409259798814244">"Meget langsom"</string>
     <string name="wifitrackerlib_speed_label_slow" msgid="7327906382011957760">"Langsom"</string>
     <string name="wifitrackerlib_speed_label_okay" msgid="6656684124654881956">"OK"</string>

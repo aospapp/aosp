@@ -20,6 +20,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.pm.PackageManager;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
@@ -38,6 +39,7 @@ import org.junit.runner.RunWith;
  */
 @SmallTest
 @RunWith(AndroidJUnit4.class)
+@AppModeFull(reason = "Instant apps cannot access ro.board.* system properties")
 public class OpenGlEsDeqpLevelTest {
 
     private static final String TAG = OpenGlEsDeqpLevelTest.class.getSimpleName();

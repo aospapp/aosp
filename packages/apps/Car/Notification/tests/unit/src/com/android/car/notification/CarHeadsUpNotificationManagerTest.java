@@ -210,12 +210,13 @@ public class CarHeadsUpNotificationManagerTest {
         mActiveNotifications = new HashMap<>();
 
         mManager = new CarHeadsUpNotificationManager(mContext, mClickHandlerFactory,
-                mNotificationDataManager, mCarHeadsUpNotificationContainer) {
+                mCarHeadsUpNotificationContainer) {
             @Override
             protected NotificationListenerService.Ranking getRanking() {
                 return mRankingMock;
             }
         };
+        mManager.setNotificationDataManager(mNotificationDataManager);
     }
 
     @Test

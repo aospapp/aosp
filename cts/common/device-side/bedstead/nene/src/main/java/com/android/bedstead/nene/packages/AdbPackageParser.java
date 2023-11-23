@@ -19,7 +19,6 @@ package com.android.bedstead.nene.packages;
 import android.annotation.TargetApi;
 import android.os.Build;
 
-import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.AdbParseException;
 
 import java.util.Map;
@@ -29,8 +28,8 @@ import java.util.Set;
 @TargetApi(Build.VERSION_CODES.O)
 interface AdbPackageParser {
 
-    static AdbPackageParser get(TestApis testApis, int sdkVersion) {
-        return new AdbPackageParser26(testApis);
+    static AdbPackageParser get(int sdkVersion) {
+        return new AdbPackageParser26();
     }
 
     /**
@@ -39,7 +38,7 @@ interface AdbPackageParser {
      * <p>Values which are not used on the current version of Android will be {@code null}.
      */
     class ParseResult {
-        Map<String, Package> mPackages;
+        Map<String, AdbPackage> mPackages;
         Set<String> mFeatures;
     }
 

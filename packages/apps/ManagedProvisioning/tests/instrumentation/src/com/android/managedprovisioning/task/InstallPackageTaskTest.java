@@ -61,7 +61,7 @@ public class InstallPackageTaskTest {
     private static final PackageLocationProvider FILE_NULL_PATH_PROVIDER = () -> null;
     private static final PackageLocationProvider FILE_INVALID_PATH_PROVIDER =
             () -> new File("invalid/path");
-    private static final String TEST_APP = "android.EmptyTestApp";
+    private static final String TEST_APP = "com.android.bedstead.testapp.EmptyTestApp";
 
     private InstallPackageBlockingCallback mInstallPackageBlockingCallback;
 

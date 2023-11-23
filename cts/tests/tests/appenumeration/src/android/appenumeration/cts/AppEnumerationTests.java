@@ -130,6 +130,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetProviderInfo;
@@ -1010,12 +1011,18 @@ public class AppEnumerationTests {
 
     @Test
     public void queriesPackage_canSeeAppWidgetProviderTarget() throws Exception {
+        assumeTrue(InstrumentationRegistry.getInstrumentation().getContext().getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS));
+
         assertVisible(QUERIES_PACKAGE, TARGET_APPWIDGETPROVIDER,
                 this::getInstalledAppWidgetProviders);
     }
 
     @Test
     public void queriesNothing_cannotSeeAppWidgetProviderTarget() throws Exception {
+        assumeTrue(InstrumentationRegistry.getInstrumentation().getContext().getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS));
+
         assertNotVisible(QUERIES_NOTHING, TARGET_APPWIDGETPROVIDER,
                 this::getInstalledAppWidgetProviders);
         assertNotVisible(QUERIES_NOTHING, TARGET_APPWIDGETPROVIDER_SHARED_USER,
@@ -1025,6 +1032,9 @@ public class AppEnumerationTests {
     @Test
     public void queriesNothingSharedUser_canSeeAppWidgetProviderSharedUserTarget()
             throws Exception {
+        assumeTrue(InstrumentationRegistry.getInstrumentation().getContext().getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS));
+
         assertVisible(QUERIES_NOTHING_SHARED_USER, TARGET_APPWIDGETPROVIDER_SHARED_USER,
                 this::getInstalledAppWidgetProviders);
     }

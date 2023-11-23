@@ -52,7 +52,7 @@ import androidx.test.core.app.ActivityScenario;
 import androidx.test.espresso.contrib.RecyclerViewActions;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
-import com.android.car.arch.common.FutureData;
+import com.android.car.apps.common.util.FutureData;
 import com.android.car.dialer.R;
 import com.android.car.dialer.telecom.UiCallManager;
 import com.android.car.dialer.testing.TestActivity;
@@ -103,12 +103,12 @@ public class ContactDetailsFragmentTest {
                     if (f instanceof ContactDetailsFragment) {
                         // Set up adapter with the mock UiCallManager.
                         ContactDetailsViewHolder.Factory viewHolderFactory =
-                                (v, phoneNumberPresenter) -> new ContactDetailsViewHolder(v,
-                                        phoneNumberPresenter, mMockUiCallManager);
+                                (v, phoneNumberPresenter) -> new ContactDetailsViewHolder(
+                                        v, phoneNumberPresenter, mMockUiCallManager);
                         ((ContactDetailsFragment) f).mContactDetailsAdapterFactory =
-                                (contact, phoneNumberPresenter) -> new ContactDetailsAdapter(
-                                        f.getContext(), viewHolderFactory, contact,
-                                        phoneNumberPresenter);
+                                (contact, phoneNumberPresenter, activity) ->
+                                        new ContactDetailsAdapter(f.getContext(), viewHolderFactory,
+                                                contact, phoneNumberPresenter, activity);
                         fm.unregisterFragmentLifecycleCallbacks(mCallbacks);
                     }
                 }

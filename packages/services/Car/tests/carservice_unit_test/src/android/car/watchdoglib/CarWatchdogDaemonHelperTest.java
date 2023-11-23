@@ -34,10 +34,10 @@ import android.automotive.watchdog.internal.ICarWatchdogMonitor;
 import android.automotive.watchdog.internal.ICarWatchdogServiceForSystem;
 import android.automotive.watchdog.internal.PackageInfo;
 import android.automotive.watchdog.internal.PackageIoOveruseStats;
-import android.automotive.watchdog.internal.PackageResourceOveruseAction;
 import android.automotive.watchdog.internal.PowerCycle;
 import android.automotive.watchdog.internal.ResourceOveruseConfiguration;
 import android.automotive.watchdog.internal.StateType;
+import android.automotive.watchdog.internal.UserPackageIoUsageStats;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -185,12 +185,10 @@ public class CarWatchdogDaemonHelperTest {
     }
 
     @Test
-    public void testIndirectCall_actionTakenOnResourceOveruse() throws Exception {
-        List<PackageResourceOveruseAction> actions = new ArrayList<>();
+    public void testIndirectCall_controlProcessHealthCheck() throws Exception {
+        mCarWatchdogDaemonHelper.controlProcessHealthCheck(true);
 
-        mCarWatchdogDaemonHelper.actionTakenOnResourceOveruse(actions);
-
-        verify(mFakeCarWatchdog).actionTakenOnResourceOveruse(eq(actions));
+        verify(mFakeCarWatchdog).controlProcessHealthCheck(eq(true));
     }
 
     /*
@@ -266,5 +264,10 @@ public class CarWatchdogDaemonHelperTest {
 
         @Override
         public void resetResourceOveruseStats(List<String> packageNames) {}
+
+        @Override
+        public List<UserPackageIoUsageStats> getTodayIoUsageStats() {
+            return new ArrayList<>();
+        }
     }
 }

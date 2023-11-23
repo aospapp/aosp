@@ -150,6 +150,8 @@ class WifiSoftApAcsTest(WifiBaseTest):
             self.log.debug("DUT is connected to softAP %s with details: %s" %
                            (softap[wutils.WifiEnums.SSID_KEY], softap_info))
             frequency = softap_info['frequency']
+            self.dut.log.info("DUT SoftAp operates on Channel: {}".
+                              format(WifiEnums.freq_to_channel[frequency]))
             if frequency > 0:
                 break
             time.sleep(1) # frequency not updated yet, try again after a delay
@@ -194,6 +196,10 @@ class WifiSoftApAcsTest(WifiBaseTest):
             return channel
         # Connect to the AP and start IPerf traffic, while we bring up softap.
         wutils.connect_to_wifi_network(self.dut_client, network)
+        freq = self.dut_client.droid.wifiGetConnectionInfo()["frequency"]
+        ap_chan = wutils.WifiEnums.freq_to_channel[freq]
+        self.dut_client.log.info("{} operates on channel: {}"
+                                 .format(network["SSID"], ap_chan))
         wutils.verify_11ax_wifi_connection(
             self.dut_client, self.wifi6_models, "wifi6_ap" in self.user_params)
         t = Thread(target=self.run_iperf_client,args=((network,self.dut_client),))

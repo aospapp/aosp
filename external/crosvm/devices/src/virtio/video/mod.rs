@@ -10,7 +10,7 @@
 use std::fmt::{self, Display};
 use std::thread;
 
-use base::{error, AsRawDescriptor, Error as SysError, Event, RawDescriptor, Tube};
+use base::{error, info, AsRawDescriptor, Error as SysError, Event, RawDescriptor, Tube};
 use data_model::{DataInit, Le32};
 use vm_memory::GuestMemory;
 
@@ -32,6 +32,8 @@ mod params;
 mod protocol;
 mod response;
 mod worker;
+
+mod vda;
 
 use command::ReadCmdError;
 use worker::Worker;
@@ -197,29 +199,27 @@ impl VirtioDevice for VideoDevice {
                 return;
             }
         };
-        let mut worker = Worker {
+        let mut worker = Worker::new(
             interrupt,
             mem,
+            cmd_queue,
             cmd_evt,
+            event_queue,
             event_evt,
             kill_evt,
-            resource_bridge,
-        };
+        );
         let worker_result = match &self.device_type {
             VideoDeviceType::Decoder => thread::Builder::new()
                 .name("virtio video decoder".to_owned())
                 .spawn(move || {
-                    let vda = match libvda::decode::VdaInstance::new(
-                        libvda::decode::VdaImplType::Gavda,
-                    ) {
-                        Ok(vda) => vda,
+                    let device = match decoder::Decoder::new(resource_bridge) {
+                        Ok(device) => Box::new(device),
                         Err(e) => {
                             error!("Failed to initialize vda: {}", e);
                             return;
                         }
                     };
-                    let device = decoder::Decoder::new(&vda);
-                    if let Err(e) = worker.run(cmd_queue, event_queue, device) {
+                    if let Err(e) = worker.run(device) {
                         error!("Failed to start decoder worker: {}", e);
                     };
                     // Don't return any information since the return value is never checked.
@@ -227,21 +227,14 @@ impl VirtioDevice for VideoDevice {
             VideoDeviceType::Encoder => thread::Builder::new()
                 .name("virtio video encoder".to_owned())
                 .spawn(move || {
-                    let encoder = match encoder::LibvdaEncoder::new() {
-                        Ok(vea) => vea,
-                        Err(e) => {
-                            error!("Failed to initialize vea: {}", e);
-                            return;
-                        }
-                    };
-                    let device = match encoder::EncoderDevice::new(&encoder) {
-                        Ok(d) => d,
+                    let device = match encoder::EncoderDevice::new(resource_bridge) {
+                        Ok(d) => Box::new(d),
                         Err(e) => {
                             error!("Failed to create encoder device: {}", e);
                             return;
                         }
                     };
-                    if let Err(e) = worker.run(cmd_queue, event_queue, device) {
+                    if let Err(e) = worker.run(device) {
                         error!("Failed to start encoder worker: {}", e);
                     }
                 }),
@@ -253,5 +246,115 @@ impl VirtioDevice for VideoDevice {
             );
             return;
         }
+    }
+}
+
+/// Manages the zero-length, EOS-marked buffer signaling the end of a stream.
+///
+/// Both the decoder and encoder need to signal end-of-stream events using a zero-sized buffer
+/// marked with the `VIRTIO_VIDEO_BUFFER_FLAG_EOS` flag. This struct allows to keep a buffer aside
+/// for that purpose.
+///
+/// TODO(b/149725148): Remove this when libvda supports buffer flags.
+struct EosBufferManager {
+    stream_id: u32,
+    eos_buffer: Option<u32>,
+    client_awaits_eos: bool,
+    responses: Vec<device::VideoEvtResponseType>,
+}
+
+impl EosBufferManager {
+    /// Create a new EOS manager for stream `stream_id`.
+    fn new(stream_id: u32) -> Self {
+        Self {
+            stream_id,
+            eos_buffer: None,
+            client_awaits_eos: false,
+            responses: Default::default(),
+        }
+    }
+
+    /// Attempt to reserve buffer `buffer_id` for use as EOS buffer.
+    ///
+    /// This method should be called by the output buffer queueing code of the device. It returns
+    /// `true` if the buffer has been kept aside for EOS, `false` otherwise (which means another
+    /// buffer is already kept aside for EOS). If `true` is returned, the client must not use the
+    /// buffer for any other purpose.
+    fn try_reserve_eos_buffer(&mut self, buffer_id: u32) -> bool {
+        let is_none = self.eos_buffer.is_none();
+
+        if is_none {
+            info!(
+                "stream {}: keeping buffer {} aside to signal EOS.",
+                self.stream_id, buffer_id
+            );
+            self.eos_buffer = Some(buffer_id);
+        }
+
+        is_none
+    }
+
+    /// Attempt to complete an EOS event using the previously reserved buffer, if available.
+    ///
+    /// `responses` is a vector of responses to be sent to the driver along with the EOS buffer. If
+    /// an EOS buffer has been made available using the `try_reserve_eos_buffer` method, then this
+    /// method returns the `responses` vector with the EOS buffer dequeue appended in first
+    /// position.
+    ///
+    /// If no EOS buffer is available, then the contents of `responses` is put aside, and will be
+    /// returned the next time this method is called with an EOS buffer available. When this
+    /// happens, `client_awaits_eos` will be set to true, and the client can check this member and
+    /// call this method again right after queuing the next buffer to obtain the EOS response as
+    /// soon as is possible.
+    fn try_complete_eos(
+        &mut self,
+        responses: Vec<device::VideoEvtResponseType>,
+    ) -> Option<Vec<device::VideoEvtResponseType>> {
+        let eos_buffer_id = self.eos_buffer.take().or_else(|| {
+            info!("stream {}: no EOS resource available on successful flush response, waiting for next buffer to be queued.", self.stream_id);
+            self.client_awaits_eos = true;
+            if !self.responses.is_empty() {
+                error!("stream {}: EOS requested while one is already in progress. This is a bug!", self.stream_id);
+            }
+            self.responses = responses;
+            None
+        })?;
+
+        let eos_tag = device::AsyncCmdTag::Queue {
+            stream_id: self.stream_id,
+            queue_type: command::QueueType::Output,
+            resource_id: eos_buffer_id,
+        };
+
+        let eos_response = response::CmdResponse::ResourceQueue {
+            timestamp: 0,
+            flags: protocol::VIRTIO_VIDEO_BUFFER_FLAG_EOS,
+            size: 0,
+        };
+
+        self.client_awaits_eos = false;
+
+        info!(
+            "stream {}: signaling EOS using buffer {}.",
+            self.stream_id, eos_buffer_id
+        );
+
+        let mut responses = std::mem::take(&mut self.responses);
+        responses.insert(
+            0,
+            device::VideoEvtResponseType::AsyncCmd(device::AsyncCmdResponse::from_response(
+                eos_tag,
+                eos_response,
+            )),
+        );
+
+        Some(responses)
+    }
+
+    /// Reset the state of the manager, for use during e.g. stream resets.
+    fn reset(&mut self) {
+        self.eos_buffer = None;
+        self.client_awaits_eos = false;
+        self.responses.clear();
     }
 }

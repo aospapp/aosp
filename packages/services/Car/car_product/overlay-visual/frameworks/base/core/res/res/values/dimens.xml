@@ -17,10 +17,10 @@
 */
 -->
 <resources>
-    <dimen name="status_bar_height">68dp</dimen>
-    <dimen name="status_bar_height_landscape">68dp</dimen>
-    <dimen name="status_bar_height_portrait">68dp</dimen>
-    <dimen name="car_qs_header_system_icons_area_height">68dp</dimen>
+    <dimen name="status_bar_height">76dp</dimen>
+    <dimen name="status_bar_height_landscape">76dp</dimen>
+    <dimen name="status_bar_height_portrait">76dp</dimen>
+    <dimen name="car_qs_header_system_icons_area_height">76dp</dimen>
     <dimen name="navigation_bar_height">96dp</dimen>
     <dimen name="navigation_bar_height_landscape">96dp</dimen>
 
@@ -119,6 +119,10 @@
     <!-- Make the dots in lock pattern thicker in Car -->
     <dimen name="lock_pattern_dot_size">20dp</dimen>
 
+    <!-- Focus dimensions -->
+    <dimen name="focus_stroke_width">8dp</dimen>
+    <dimen name="focus_pressed_stroke_width">4dp</dimen>
+
     <!-- Autofill save dialog padding -->
     <dimen name="autofill_save_outer_top_margin">@*android:dimen/car_padding_2</dimen>
     <dimen name="autofill_save_outer_top_padding">@*android:dimen/car_padding_2</dimen>
@@ -134,4 +138,49 @@
     <dimen name="floating_toolbar_menu_image_width">@*android:dimen/car_primary_icon_size</dimen>
     <dimen name="floating_toolbar_menu_image_button_vertical_padding">@*android:dimen/car_padding_2</dimen>
     <dimen name="floating_toolbar_text_size">@*android:dimen/car_body1_size</dimen>
+
+    <!-- Switch dimensions -->
+    <dimen name="car_switch_track_height">48dp</dimen>
+    <dimen name="car_switch_track_width">88dp</dimen>
+    <!-- Increases the vertical touch target size. -->
+    <dimen name="car_switch_track_margin_vertical">14dp</dimen>
+    <!-- Switch focus ring height. -->
+    <dimen name="car_switch_track_focus_ring_height">72dp</dimen>
+    <!-- Switch focus ring width. -->
+    <dimen name="car_switch_track_focus_ring_width">112dp</dimen>
+    <!-- Switch focus ring padding. -->
+    <dimen name="car_switch_track_focus_ring_padding">12dp</dimen>
+    <!-- Should be the half of car_switch_track_focus_ring_height. -->
+    <dimen name="car_switch_track_focus_ring_outer_radius">36dp</dimen>
+    <!-- Should be the half of car_switch_track_height. -->
+    <dimen name="car_switch_thumb_outer_radius">24dp</dimen>
+    <!--  The difference between the track size and the thumb size. -->
+    <dimen name="car_switch_thumb_stroke_width">4dp</dimen>
+    <!-- car_switch_thumb_size + car_switch_thumb_stroke_width == car_switch_track_height -->
+    <dimen name="car_switch_thumb_size">40dp</dimen>
+
+    <!-- Radio button dimensions -->
+    <dimen name="car_radio_button_outer_ring_size">45dp</dimen>
+    <dimen name="car_radio_button_outer_ring_stroke_width">2dp</dimen>
+    <dimen name="car_radio_button_inner_circle_size">32dp</dimen>
+    <dimen name="car_radio_button_focus_ring_size">69dp</dimen>
+    <dimen name="car_radio_button_focus_ring_padding">12dp</dimen>
+
+    <!-- SeekBar dimensions. -->
+    <!-- Allows thumb to extend out of the range of the track. -->
+    <!-- For more information see android.widget.SeekBar#attr_android:thumbOffset. -->
+    <dimen name="car_seekbar_thumb_offset">24dp</dimen>
+    <!-- Horizontal padding for the SeekBar.-->
+    <dimen name="car_seekbar_horizontal_padding">24dp</dimen>
+    <!-- The SeekBar track height.-->
+    <dimen name="car_seekbar_track_height">24dp</dimen>
+    <!-- Vertical padding that extends the touch area for the SeekBar. -->
+    <dimen name="car_seekbar_track_vertical_padding">26dp</dimen>
+    <!-- The stroke with of the ring around the SeekBar thumb when selected. -->
+    <dimen name="car_seekbar_thumb_selected_stroke_width">8dp</dimen>
+    <!-- The size of the SeekBar thumb. -->
+    <dimen name="car_seekbar_thumb_size">68dp</dimen>
+
+    <!-- Sets the Theme android:disabledAlpha value, Used by SeekBar. -->
+    <dimen name="car_disabled_alpha">0.46</dimen>
 </resources>

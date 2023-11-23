@@ -19,9 +19,8 @@
 
 #include "IoOveruseConfigs.h"
 #include "PackageInfoResolver.h"
-#include "ProcPidStat.h"
 #include "ProcStat.h"
-#include "UidIoStats.h"
+#include "UidStatsCollector.h"
 #include "WatchdogPerfService.h"
 
 #include <android-base/result.h>
@@ -32,7 +31,7 @@
 #include <android/automotive/watchdog/internal/IoOveruseConfiguration.h>
 #include <android/automotive/watchdog/internal/PackageInfo.h>
 #include <android/automotive/watchdog/internal/PackageIoOveruseStats.h>
-#include <android/automotive/watchdog/internal/PackageResourceOveruseAction.h>
+#include <cutils/multiuser.h>
 #include <utils/Mutex.h>
 
 #include <time.h>
@@ -62,17 +61,17 @@ class IoOveruseMonitorPeer;
 // Used only in tests.
 std::tuple<int64_t, int64_t> calculateStartAndDuration(const time_t& currentTime);
 
-/*
+/**
  * IIoOveruseMonitor interface defines the methods that the I/O overuse monitoring module
  * should implement.
  */
 class IIoOveruseMonitor : virtual public IDataProcessorInterface {
 public:
     // Returns whether or not the monitor is initialized.
-    virtual bool isInitialized() = 0;
+    virtual bool isInitialized() const = 0;
 
     // Dumps the help text.
-    virtual bool dumpHelpText(int fd) = 0;
+    virtual bool dumpHelpText(int fd) const = 0;
 
     // Below API is from internal/ICarWatchdog.aidl. Please refer to the AIDL for description.
     virtual android::base::Result<void> updateResourceOveruseConfigurations(
@@ -81,11 +80,7 @@ public:
                     configs) = 0;
     virtual android::base::Result<void> getResourceOveruseConfigurations(
             std::vector<android::automotive::watchdog::internal::ResourceOveruseConfiguration>*
-                    configs) = 0;
-    virtual android::base::Result<void> actionTakenOnIoOveruse(
-            const std::vector<
-                    android::automotive::watchdog::internal::PackageResourceOveruseAction>&
-                    actions) = 0;
+                    configs) const = 0;
 
     // Below methods support APIs from ICarWatchdog.aidl. Please refer to the AIDL for description.
     virtual android::base::Result<void> addIoOveruseListener(
@@ -94,10 +89,13 @@ public:
     virtual android::base::Result<void> removeIoOveruseListener(
             const sp<IResourceOveruseListener>& listener) = 0;
 
-    virtual android::base::Result<void> getIoOveruseStats(IoOveruseStats* ioOveruseStats) = 0;
+    virtual android::base::Result<void> getIoOveruseStats(IoOveruseStats* ioOveruseStats) const = 0;
 
     virtual android::base::Result<void> resetIoOveruseStats(
             const std::vector<std::string>& packageNames) = 0;
+
+    // Removes stats for the given user from the internal cache.
+    virtual void removeStatsForUser(userid_t userId) = 0;
 };
 
 class IoOveruseMonitor final : public IIoOveruseMonitor {
@@ -106,42 +104,42 @@ public:
 
     ~IoOveruseMonitor() { terminate(); }
 
-    bool isInitialized() {
+    bool isInitialized() const override {
         std::shared_lock readLock(mRwMutex);
         return isInitializedLocked();
     }
 
     // Below methods implement IDataProcessorInterface.
-    std::string name() { return "IoOveruseMonitor"; }
+    std::string name() const override { return "IoOveruseMonitor"; }
     friend std::ostream& operator<<(std::ostream& os, const IoOveruseMonitor& monitor);
     android::base::Result<void> onBoottimeCollection(
-            time_t /*time*/, const android::wp<UidIoStats>& /*uidIoStats*/,
-            const android::wp<ProcStat>& /*procStat*/,
-            const android::wp<ProcPidStat>& /*procPidStat*/) {
+            [[maybe_unused]] time_t time,
+            [[maybe_unused]] const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
+            [[maybe_unused]] const android::wp<ProcStat>& procStat) override {
         // No I/O overuse monitoring during boot-time.
         return {};
     }
 
-    android::base::Result<void> onPeriodicCollection(time_t time, SystemState systemState,
-                                                     const android::wp<UidIoStats>& uidIoStats,
-                                                     const android::wp<ProcStat>& procStat,
-                                                     const android::wp<ProcPidStat>& procPidStat);
+    android::base::Result<void> onPeriodicCollection(
+            time_t time, SystemState systemState,
+            const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
+            const android::wp<ProcStat>& procStat) override;
 
     android::base::Result<void> onCustomCollection(
             time_t time, SystemState systemState,
             const std::unordered_set<std::string>& filterPackages,
-            const android::wp<UidIoStats>& uidIoStats, const android::wp<ProcStat>& procStat,
-            const android::wp<ProcPidStat>& procPidStat);
+            const android::wp<UidStatsCollectorInterface>& uidStatsCollector,
+            const android::wp<ProcStat>& procStat) override;
 
     android::base::Result<void> onPeriodicMonitor(
             time_t time, const android::wp<IProcDiskStatsInterface>& procDiskStats,
-            const std::function<void()>& alertHandler);
+            const std::function<void()>& alertHandler) override;
 
-    android::base::Result<void> onDump(int fd);
+    android::base::Result<void> onDump(int fd) const override;
 
-    bool dumpHelpText(int fd);
+    bool dumpHelpText(int fd) const override;
 
-    android::base::Result<void> onCustomCollectionDump(int /*fd*/) {
+    android::base::Result<void> onCustomCollectionDump([[maybe_unused]] int fd) override {
         // No special processing for custom collection. Thus no custom collection dump.
         return {};
     }
@@ -149,26 +147,25 @@ public:
     // Below methods implement AIDL interfaces.
     android::base::Result<void> updateResourceOveruseConfigurations(
             const std::vector<
-                    android::automotive::watchdog::internal::ResourceOveruseConfiguration>&
-                    configs);
+                    android::automotive::watchdog::internal::ResourceOveruseConfiguration>& configs)
+            override;
 
     android::base::Result<void> getResourceOveruseConfigurations(
             std::vector<android::automotive::watchdog::internal::ResourceOveruseConfiguration>*
-                    configs);
+                    configs) const override;
 
-    android::base::Result<void> actionTakenOnIoOveruse(
-            const std::vector<
-                    android::automotive::watchdog::internal::PackageResourceOveruseAction>&
-                    actions);
-
-    android::base::Result<void> addIoOveruseListener(const sp<IResourceOveruseListener>& listener);
+    android::base::Result<void> addIoOveruseListener(
+            const sp<IResourceOveruseListener>& listener) override;
 
     android::base::Result<void> removeIoOveruseListener(
-            const sp<IResourceOveruseListener>& listener);
+            const sp<IResourceOveruseListener>& listener) override;
 
-    android::base::Result<void> getIoOveruseStats(IoOveruseStats* ioOveruseStats);
+    android::base::Result<void> getIoOveruseStats(IoOveruseStats* ioOveruseStats) const override;
 
-    android::base::Result<void> resetIoOveruseStats(const std::vector<std::string>& packageName);
+    android::base::Result<void> resetIoOveruseStats(
+            const std::vector<std::string>& packageName) override;
+
+    void removeStatsForUser(userid_t userId) override;
 
 protected:
     android::base::Result<void> init();
@@ -183,7 +180,7 @@ private:
 
     struct UserPackageIoUsage {
         UserPackageIoUsage(const android::automotive::watchdog::internal::PackageInfo& packageInfo,
-                           const IoUsage& IoUsage, const bool isGarageModeActive);
+                           const UidIoStats& uidIoStats, const bool isGarageModeActive);
         android::automotive::watchdog::internal::PackageInfo packageInfo = {};
         PerStateBytes writtenBytes = {};
         PerStateBytes forgivenWriteBytes = {};
@@ -192,6 +189,8 @@ private:
         uint64_t lastSyncedWrittenBytes = 0;
 
         UserPackageIoUsage& operator+=(const UserPackageIoUsage& r);
+        UserPackageIoUsage& operator+=(
+                const android::automotive::watchdog::internal::IoUsageStats& r);
 
         const std::string id() const;
         void resetStats();
@@ -211,7 +210,9 @@ private:
     };
 
 private:
-    bool isInitializedLocked() { return mIoOveruseConfigs != nullptr; }
+    bool isInitializedLocked() const { return mIoOveruseConfigs != nullptr; }
+
+    void syncTodayIoUsageStatsLocked();
 
     void notifyNativePackagesLocked(const std::unordered_map<uid_t, IoOveruseStats>& statsByUid);
 
@@ -221,7 +222,7 @@ private:
     using Processor = std::function<void(ListenersByUidMap&, ListenersByUidMap::const_iterator)>;
     bool findListenerAndProcessLocked(const sp<IBinder>& binder, const Processor& processor);
 
-    /*
+    /**
      * Writes in-memory configs to disk asynchronously if configs are not written after latest
      * update.
      */
@@ -236,16 +237,25 @@ private:
     // Makes sure only one collection is running at any given time.
     mutable std::shared_mutex mRwMutex;
 
+    // Indicates whether or not today's I/O usage stats, that were collected during previous boot,
+    // are read from CarService because CarService persists these stats in database across reboot.
+    bool mDidReadTodayPrevBootStats GUARDED_BY(mRwMutex);
+
     // Summary of configs available for all the components and system-wide overuse alert thresholds.
     sp<IIoOveruseConfigs> mIoOveruseConfigs GUARDED_BY(mRwMutex);
 
-    /*
+    /**
      * Delta of system-wide written kib across all disks from the last |mPeriodicMonitorBufferSize|
      * polls along with the polling duration.
      */
     std::vector<WrittenBytesSnapshot> mSystemWideWrittenBytes GUARDED_BY(mRwMutex);
     size_t mPeriodicMonitorBufferSize GUARDED_BY(mRwMutex);
     time_t mLastSystemWideIoMonitorTime GUARDED_BY(mRwMutex);
+
+    // Cache of I/O usage stats from previous boot that happened today. Key is a unique ID with
+    // the format `packageName:userId`.
+    std::unordered_map<std::string, android::automotive::watchdog::internal::IoUsageStats>
+            mPrevBootIoUsageStatsById GUARDED_BY(mRwMutex);
 
     // Cache of per user package I/O usage. Key is a unique ID with the format `packageName:userId`.
     std::unordered_map<std::string, UserPackageIoUsage> mUserPackageDailyIoUsageById

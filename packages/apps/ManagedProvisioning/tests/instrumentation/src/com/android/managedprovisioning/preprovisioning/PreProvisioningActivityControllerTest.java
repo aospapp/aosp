@@ -22,12 +22,19 @@ import static android.app.admin.DevicePolicyManager.CODE_MANAGED_USERS_NOT_SUPPO
 import static android.app.admin.DevicePolicyManager.CODE_OK;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ALLOWED_PROVISIONING_MODES;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMERS;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMER_CONTENT;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMER_HEADER;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_IMEI;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCALE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCAL_TIME;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_MODE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SERIAL_NUMBER;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_TIME_ZONE;
 import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_DEVICE_OWNER;
 import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_ORGANIZATION_OWNED;
 import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_PERSONALLY_OWNED;
@@ -37,6 +44,7 @@ import static android.app.admin.DevicePolicyManager.PROVISIONING_MODE_MANAGED_PR
 import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
 
 import static com.android.managedprovisioning.common.Globals.ACTION_RESUME_PROVISIONING;
+import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_LOCAL_TIME;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -64,9 +72,11 @@ import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.drawable.VectorDrawable;
 import android.net.ConnectivityManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Parcelable;
 import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -86,6 +96,7 @@ import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferenc
 import com.android.managedprovisioning.common.PolicyComplianceUtils;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
+import com.android.managedprovisioning.model.DisclaimersParam;
 import com.android.managedprovisioning.model.PackageDownloadInfo;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.model.WifiInfo;
@@ -96,6 +107,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @SmallTest
 public class PreProvisioningActivityControllerTest extends AndroidTestCase {
@@ -116,6 +128,26 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
                     .setSignatureChecksum(new byte[] {1})
                     .build();
     private static final String TEST_IMEI = "my imei";
+    private static final String DISCLAIMER_HEADER = "header1";
+    private static final Uri DISCLAIMER_CONTENT_URI =
+            Uri.parse("file:///test.example.uri/disclaimers.txt");
+    private static final DisclaimersParam.Disclaimer[] OTHER_DISCLAIMERS =
+            {new DisclaimersParam.Disclaimer("header2", "content2")};
+    private static final DisclaimersParam.Disclaimer[] DISCLAIMERS =
+            {new DisclaimersParam.Disclaimer(DISCLAIMER_HEADER, DISCLAIMER_CONTENT_URI.toString())};
+    private static final DisclaimersParam DISCLAIMERS_PARAM =
+            new DisclaimersParam.Builder().setDisclaimers(DISCLAIMERS).build();
+    private static final DisclaimersParam OTHER_DISCLAIMERS_PARAM =
+            new DisclaimersParam.Builder().setDisclaimers(OTHER_DISCLAIMERS).build();
+    private static final Parcelable[] DISCLAIMERS_EXTRA = createDisclaimersExtra();
+    private static final String LOCALE_EXTRA = "en_US";
+    private static final Locale LOCALE = Locale.US;
+    private static final Locale OTHER_LOCALE = Locale.CANADA;
+    private static final String INVALID_LOCALE_EXTRA = "INVALIDLOCALE";
+    private static final long LOCAL_TIME_EXTRA = 1234L;
+    private static final long OTHER_LOCAL_TIME = 4321L;
+    private static final String TIME_ZONE_EXTRA = "GMT";
+    private static final String OTHER_TIME_ZONE = "GMT+1";
 
     @Mock
     private Context mContext;
@@ -222,7 +254,8 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
                 mSharedPreferences,
                 new PolicyComplianceUtils(),
                 new GetProvisioningModeUtils(),
-                mViewModel);
+                mViewModel,
+                (context, provisioningId) -> parcelables -> DISCLAIMERS_PARAM);
     }
 
     public void testManagedProfile() throws Exception {
@@ -1041,13 +1074,9 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
     }
 
     public void testUpdateProvisioningParamsFromIntent_managedProfileModeWithAccountMigratedExtraTrue_setsParamToTrue() {
-        Intent resultIntent = new Intent()
-                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_MANAGED_PROFILE)
+        Intent resultIntent = createResultIntentWithManagedProfile()
                 .putExtra(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, true);
-        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
-                .setAllowedProvisioningModes(new ArrayList<>(List.of(
-                        PROVISIONING_MODE_MANAGED_PROFILE
-                )))
+        final ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
                 .build();
         initiateProvisioning(params);
 
@@ -1057,13 +1086,9 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
     }
 
     public void testUpdateProvisioningParamsFromIntent_managedProfileModeWithAccountMigratedExtraFalse_setsParamToFalse() {
-        Intent resultIntent = new Intent()
-                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_MANAGED_PROFILE)
+        Intent resultIntent = createResultIntentWithManagedProfile()
                 .putExtra(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, false);
-        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
-                .setAllowedProvisioningModes(new ArrayList<>(List.of(
-                        PROVISIONING_MODE_MANAGED_PROFILE
-                )))
+        final ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
                 .build();
         initiateProvisioning(params);
 
@@ -1073,12 +1098,8 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
     }
 
     public void testUpdateProvisioningParamsFromIntent_managedProfileMode_accountMigratedIsFalse() {
-        Intent resultIntent = new Intent()
-                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_MANAGED_PROFILE);
-        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
-                .setAllowedProvisioningModes(new ArrayList<>(List.of(
-                        PROVISIONING_MODE_MANAGED_PROFILE
-                )))
+        Intent resultIntent = createResultIntentWithManagedProfile();
+        final ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
                 .build();
         initiateProvisioning(params);
 
@@ -1088,13 +1109,9 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
     }
 
     public void testUpdateProvisioningParamsFromIntent_managedDeviceModeWithAccountMigratedExtraTrue_accountMigratedIsFalse() {
-        Intent resultIntent = new Intent()
-                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_FULLY_MANAGED_DEVICE)
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
                 .putExtra(EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION, true);
-        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
-                .setAllowedProvisioningModes(new ArrayList<>(List.of(
-                        PROVISIONING_MODE_FULLY_MANAGED_DEVICE
-                )))
+        final ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
                 .build();
         initiateProvisioning(params);
 
@@ -1104,13 +1121,9 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
     }
 
     public void testUpdateProvisioningParamsFromIntent_managedProfileModeWithLeaveSystemAppsEnabledTrue_setsParamToTrue() {
-        Intent resultIntent = new Intent()
-                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_MANAGED_PROFILE)
+        Intent resultIntent = createResultIntentWithManagedProfile()
                 .putExtra(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED, true);
-        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
-                .setAllowedProvisioningModes(new ArrayList<>(List.of(
-                        PROVISIONING_MODE_MANAGED_PROFILE
-                )))
+        final ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
                 .build();
         initiateProvisioning(params);
 
@@ -1120,13 +1133,9 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
     }
 
     public void testUpdateProvisioningParamsFromIntent_managedProfileModeWithLeaveSystemAppsEnabledFalse_setsParamToFalse() {
-        Intent resultIntent = new Intent()
-                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_MANAGED_PROFILE)
+        Intent resultIntent = createResultIntentWithManagedProfile()
                 .putExtra(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED, false);
-        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
-                .setAllowedProvisioningModes(new ArrayList<>(List.of(
-                        PROVISIONING_MODE_MANAGED_PROFILE
-                )))
+        final ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
                 .build();
         initiateProvisioning(params);
 
@@ -1136,12 +1145,8 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
     }
 
     public void testUpdateProvisioningParamsFromIntent_managedProfileMode_leaveSystemAppsEnabledIsFalse() {
-        Intent resultIntent = new Intent()
-                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_MANAGED_PROFILE);
-        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
-                .setAllowedProvisioningModes(new ArrayList<>(List.of(
-                        PROVISIONING_MODE_MANAGED_PROFILE
-                )))
+        Intent resultIntent = createResultIntentWithManagedProfile();
+        final ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
                 .build();
         initiateProvisioning(params);
 
@@ -1151,13 +1156,9 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
     }
 
     public void testUpdateProvisioningParamsFromIntent_managedDeviceModeWithLeaveSystemAppsEnabledTrue_paramIsFalse() {
-        Intent resultIntent = new Intent()
-                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_FULLY_MANAGED_DEVICE)
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
                 .putExtra(EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED, true);
-        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
-                .setAllowedProvisioningModes(new ArrayList<>(List.of(
-                        PROVISIONING_MODE_FULLY_MANAGED_DEVICE
-                )))
+        final ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
                 .build();
         initiateProvisioning(params);
 
@@ -1170,13 +1171,9 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
         PersistableBundle testAdminExtrasBundle = new PersistableBundle();
         testAdminExtrasBundle.putInt("key1", 2);
         testAdminExtrasBundle.putString("key2", "value2");
-        Intent resultIntent = new Intent()
-                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_MANAGED_PROFILE)
+        Intent resultIntent = createResultIntentWithManagedProfile()
                 .putExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, testAdminExtrasBundle);
-        final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
-                .setAllowedProvisioningModes(new ArrayList<>(List.of(
-                        PROVISIONING_MODE_MANAGED_PROFILE
-                )))
+        final ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
                 .build();
         initiateProvisioning(params);
 
@@ -1196,8 +1193,7 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
         expectedResult.putInt("key1", 2);
         expectedResult.putInt("key2", 3);
         expectedResult.putInt("someKey", 124);
-        Intent resultIntent = new Intent()
-                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_MANAGED_PROFILE)
+        Intent resultIntent = createResultIntentWithManagedProfile()
                 .putExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE, resultingAdminBundle);
         final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
                 .setAdminExtrasBundle(existingAdminBundle)
@@ -1218,8 +1214,7 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
         PersistableBundle existingAdminBundle = new PersistableBundle();
         existingAdminBundle.putInt("key2", 3);
         existingAdminBundle.putInt("someKey", 123);
-        Intent resultIntent = new Intent()
-                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_MANAGED_PROFILE);
+        Intent resultIntent = createResultIntentWithManagedProfile();
         final ProvisioningParams params = createProvisioningParamsBuilderForInitiateProvisioning()
                 .setAdminExtrasBundle(existingAdminBundle)
                 .setKeepAccountMigrated(false)
@@ -1235,6 +1230,306 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
                 .isEqualTo(existingAdminBundle.toString());
     }
 
+    public void testUpdateProvisioningParamsFromIntent_validDisclaimersWithWorkProfile_works() {
+        Intent resultIntent = createResultIntentWithManagedProfile()
+                .putExtra(EXTRA_PROVISIONING_DISCLAIMERS, DISCLAIMERS_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().disclaimersParam).isEqualTo(DISCLAIMERS_PARAM);
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_validDisclaimersWithDeviceOwner_works() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_DISCLAIMERS, DISCLAIMERS_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().disclaimersParam).isEqualTo(DISCLAIMERS_PARAM);
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_noDisclaimersSet_isNull() {
+        Intent resultIntent = createResultIntentWithManagedProfile();
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().disclaimersParam).isNull();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_withPreExistingDisclaimers_replaced() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_DISCLAIMERS, DISCLAIMERS_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .setDisclaimersParam(OTHER_DISCLAIMERS_PARAM)
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().disclaimersParam).isEqualTo(DISCLAIMERS_PARAM);
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_validLocaleWithWorkProfile_ignored() {
+        Intent resultIntent = createResultIntentWithManagedProfile()
+                .putExtra(EXTRA_PROVISIONING_LOCALE, LOCALE_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().locale).isNull();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_validLocaleWithDeviceOwner_works() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_LOCALE, LOCALE_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().locale).isEqualTo(LOCALE);
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_noLocaleSet_isNull() {
+        Intent resultIntent = createResultIntentWithManagedProfile();
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().locale).isNull();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_withPreExistingLocale_replaced() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_LOCALE, LOCALE_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .setLocale(OTHER_LOCALE)
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().locale).isEqualTo(LOCALE);
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_invalidLocale_ignored() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_LOCALE, INVALID_LOCALE_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().locale).isNull();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_localTimeWithWorkProfile_ignored() {
+        Intent resultIntent = createResultIntentWithManagedProfile()
+                .putExtra(EXTRA_PROVISIONING_LOCAL_TIME, LOCAL_TIME_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().localTime).isEqualTo(DEFAULT_LOCAL_TIME);
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_localTimeWithDeviceOwner_works() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_LOCAL_TIME, LOCAL_TIME_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().localTime).isEqualTo(LOCAL_TIME_EXTRA);
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_noLocalTimeSet_isDefaultLocalTime() {
+        Intent resultIntent = createResultIntentWithManagedProfile();
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().localTime).isEqualTo(DEFAULT_LOCAL_TIME);
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_withPreExistingLocalTime_replaced() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_LOCAL_TIME, LOCAL_TIME_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .setLocalTime(OTHER_LOCAL_TIME)
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().localTime).isEqualTo(LOCAL_TIME_EXTRA);
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_timeZoneWithWorkProfile_ignored() {
+        Intent resultIntent = createResultIntentWithManagedProfile()
+                .putExtra(EXTRA_PROVISIONING_TIME_ZONE, TIME_ZONE_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().timeZone).isNull();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_timeZoneWithDeviceOwner_works() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_TIME_ZONE, TIME_ZONE_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().timeZone).isEqualTo(TIME_ZONE_EXTRA);
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_noTimeZoneSet_isNull() {
+        Intent resultIntent = createResultIntentWithManagedProfile();
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().timeZone).isNull();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_withPreExistingTimeZone_replaced() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_TIME_ZONE, TIME_ZONE_EXTRA);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .setTimeZone(OTHER_TIME_ZONE)
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().timeZone).isEqualTo(TIME_ZONE_EXTRA);
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_skipEncryptionWithWorkProfile_works() {
+        Intent resultIntent = createResultIntentWithManagedProfile()
+                .putExtra(EXTRA_PROVISIONING_SKIP_ENCRYPTION, /* value= */ true);
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().skipEncryption).isTrue();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_skipEncryptionWithDeviceOwner_works() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_SKIP_ENCRYPTION, /* value= */ true);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().skipEncryption).isTrue();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_noSkipEncryptionSet_isFalse() {
+        Intent resultIntent = createResultIntentWithManagedProfile();
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().skipEncryption).isFalse();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_withPreExistingSkipEncryption_replaced() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_SKIP_ENCRYPTION, true);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .setSkipEncryption(false)
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().skipEncryption).isTrue();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_deviceOwnerPermissionGrantOptOutWithWorkProfile_ignored() {
+        Intent resultIntent = createResultIntentWithManagedProfile()
+                .putExtra(EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT, /* value= */ true);
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().deviceOwnerPermissionGrantOptOut).isFalse();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_deviceOwnerPermissionGrantOptOutWithDeviceOwner_works() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT, /* value= */ true);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().deviceOwnerPermissionGrantOptOut).isTrue();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_noDeviceOwnerPermissionGrantOptOutSet_isFalse() {
+        Intent resultIntent = createResultIntentWithManagedProfile();
+        ProvisioningParams params = createProvisioningParamsBuilderForManagedProfile()
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().deviceOwnerPermissionGrantOptOut).isFalse();
+    }
+
+    public void testUpdateProvisioningParamsFromIntent_withPreExistingDeviceOwnerPermissionGrantOptOut_replaced() {
+        Intent resultIntent = createResultIntentWithFullyManagedDevice()
+                .putExtra(EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT, /* value= */ true);
+        ProvisioningParams params = createProvisioningParamsBuilderForFullyManagedDevice()
+                .setDeviceOwnerPermissionGrantOptOut(false)
+                .build();
+        initiateProvisioning(params);
+
+        mController.updateProvisioningParamsFromIntent(resultIntent);
+
+        assertThat(mController.getParams().deviceOwnerPermissionGrantOptOut).isTrue();
+    }
+
     public void testInitiateProvisioning_withActionProvisionManagedDevice_failsSilently()
             throws Exception {
         prepareMocksForDoIntent(/* skipEncryption= */ false);
@@ -1246,6 +1541,14 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
         verify(mUi, never()).initiateUi(any());
         verify(mUi).abortProvisioning();
         verifyNoMoreInteractions(mUi);
+    }
+
+    private static Parcelable[] createDisclaimersExtra() {
+        Bundle disclaimer = new Bundle();
+        disclaimer.putString(
+                EXTRA_PROVISIONING_DISCLAIMER_HEADER, DISCLAIMER_HEADER);
+        disclaimer.putParcelable(EXTRA_PROVISIONING_DISCLAIMER_CONTENT, DISCLAIMER_CONTENT_URI);
+        return new Parcelable[]{ disclaimer };
     }
 
     private ProvisioningParams.Builder createProvisioningParamsBuilderForInitiateProvisioning() {
@@ -1342,7 +1645,6 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
         return ProvisioningParams.Builder.builder()
                 .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
                 .setStartedByTrustedSource(true)
-                .setSkipEncryption(true)
                 .setDeviceAdminComponentName(TEST_MDM_COMPONENT_NAME);
     }
 
@@ -1354,5 +1656,29 @@ public class PreProvisioningActivityControllerTest extends AndroidTestCase {
         }
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() ->
                 mController.initiateProvisioning(mIntent, TEST_MDM_PACKAGE));
+    }
+
+    private ProvisioningParams.Builder createProvisioningParamsBuilderForFullyManagedDevice() {
+        return createProvisioningParamsBuilderForInitiateProvisioning()
+                .setAllowedProvisioningModes(new ArrayList<>(List.of(
+                        PROVISIONING_MODE_FULLY_MANAGED_DEVICE
+                )));
+    }
+
+    private ProvisioningParams.Builder createProvisioningParamsBuilderForManagedProfile() {
+        return createProvisioningParamsBuilderForInitiateProvisioning()
+                .setAllowedProvisioningModes(new ArrayList<>(List.of(
+                        PROVISIONING_MODE_MANAGED_PROFILE
+                )));
+    }
+
+    private Intent createResultIntentWithManagedProfile() {
+        return new Intent()
+                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_MANAGED_PROFILE);
+    }
+
+    private Intent createResultIntentWithFullyManagedDevice() {
+        return new Intent()
+                .putExtra(EXTRA_PROVISIONING_MODE, PROVISIONING_MODE_FULLY_MANAGED_DEVICE);
     }
 }

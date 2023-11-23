@@ -111,10 +111,11 @@ static void drop_privileges(int server_port) {
     // AID_UHID for using 'hid' command to read/write to /dev/uhid
     // AID_EXT_DATA_RW for writing to /sdcard/Android/data (devices without sdcardfs)
     // AID_EXT_OBB_RW for writing to /sdcard/Android/obb (devices without sdcardfs)
+    // AID_READTRACEFS for reading tracefs entries
     gid_t groups[] = {AID_ADB,          AID_LOG,          AID_INPUT,    AID_INET,
                       AID_NET_BT,       AID_NET_BT_ADMIN, AID_SDCARD_R, AID_SDCARD_RW,
                       AID_NET_BW_STATS, AID_READPROC,     AID_UHID,     AID_EXT_DATA_RW,
-                      AID_EXT_OBB_RW};
+                      AID_EXT_OBB_RW,   AID_READTRACEFS};
     minijail_set_supplementary_gids(jail.get(), arraysize(groups), groups);
 
     // Don't listen on a port (default 5037) if running in secure mode.

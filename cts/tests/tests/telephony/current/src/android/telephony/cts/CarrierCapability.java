@@ -146,4 +146,19 @@ public class CarrierCapability {
                     "45006",    // LGT
                     "45008"     // KT
             );
+
+
+    public static final List<String> SUPPORT_TEL_URI_PUBLISH =
+            Arrays.asList(
+                    "310410",   // AT&T Mobility
+                    "310280",   // AT&T Mobility
+                    "310030",   // AT&T Mobility
+                    "310070",   // AT&T Mobility
+                    "310170",   // AT&T Mobility
+                    "310380",   // AT&T Mobility
+                    "310560",   // AT&T Mobility
+                    "310680",   // AT&T Mobility
+                    "310950",   // AT&T Mobility
+                    "311180"    // AT&T Mobility
+            );
 }

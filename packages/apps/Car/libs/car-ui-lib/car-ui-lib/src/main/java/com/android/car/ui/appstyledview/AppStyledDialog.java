@@ -16,6 +16,7 @@
 
 package com.android.car.ui.appstyledview;
 
+import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -26,8 +27,6 @@ import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 
-import com.android.car.ui.appstyledview.AppStyledViewController.AppStyledDismissListener;
-
 /**
  * App styled dialog used to display a view that cannot be customized via OEM. Dialog will inflate a
  * layout and add the view provided by the application into the layout. Everything other than the
@@ -35,14 +34,18 @@ import com.android.car.ui.appstyledview.AppStyledViewController.AppStyledDismiss
  *
  * Apps should not use this directly. App's should use {@link AppStyledDialogController}.
  */
-public class AppStyledDialog extends Dialog implements DialogInterface.OnDismissListener {
+/* package */ class AppStyledDialog extends Dialog implements DialogInterface.OnDismissListener {
 
     private final AppStyledViewController mController;
-    private AppStyledDismissListener mOnDismissListener;
+    private Runnable mOnDismissListener;
     private View mContent;
+    private final Context mContext;
 
-    public AppStyledDialog(@NonNull Context context, AppStyledViewController controller) {
+    public AppStyledDialog(@NonNull Context context, @NonNull AppStyledViewController controller) {
         super(context);
+        // super.getContext() returns a ContextThemeWrapper which is not an Activity which we need 
+        // in order to get call getWindow()
+        mContext = context;
         mController = controller;
         setOnDismissListener(this);
     }
@@ -60,15 +63,46 @@ public class AppStyledDialog extends Dialog implements DialogInterface.OnDismiss
     @Override
     public void onDismiss(DialogInterface dialog) {
         if (mOnDismissListener != null) {
-            mOnDismissListener.onDismiss();
+            mOnDismissListener.run();
         }
+    }
+
+    /**
+     * An hack used to show the dialogs in Immersive Mode (that is with the NavBar hidden). To
+     * obtain this, the method makes the dialog not focusable before showing it, change the UI
+     * visibility of the window like the owner activity of the dialog and then (after showing it)
+     * makes the dialog focusable again.
+     */
+    @Override
+    public void show() {
+        // Set the dialog to not focusable.
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+
+        copySystemUiVisibility();
+
+        // Show the dialog with NavBar hidden.
+        super.show();
+
+        // Set the dialog to focusable again.
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+    }
+
+    /**
+     * Copy the visibility of the Activity that has started the dialog {@link mContext}. If the
+     * activity is in Immersive mode the dialog will be in Immersive mode too and vice versa.
+     */
+    private void copySystemUiVisibility() {
+        getWindow().getDecorView().setSystemUiVisibility(
+                ((Activity) mContext).getWindow().getDecorView().getSystemUiVisibility()
+        );
     }
 
     void setContent(View contentView) {
         mContent = contentView;
     }
 
-    void setOnDismissListener(AppStyledDismissListener listener) {
+    void setOnDismissListener(Runnable listener) {
         mOnDismissListener = listener;
     }
 

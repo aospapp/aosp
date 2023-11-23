@@ -173,8 +173,6 @@ struct AtomDecl {
     int triggerStateReset = INT_MAX;
     bool nested = true;
 
-    int uidField = 0;
-
     AtomDecl();
     AtomDecl(const AtomDecl& that);
     AtomDecl(int code, const string& name, const string& message, const string& oneOfName);

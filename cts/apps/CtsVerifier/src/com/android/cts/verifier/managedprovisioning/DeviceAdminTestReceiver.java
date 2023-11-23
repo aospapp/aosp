@@ -43,6 +43,7 @@ import com.android.cts.verifier.R;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -74,16 +75,20 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         if (DeviceAdminReceiverUtils.disableSelf(context, intent)) return;
         if (DeviceOwnerHelper.runManagerMethod(this, context, intent)) return;
 
+        DevicePolicyManager dpm = getManager(context);
         String action = intent.getAction();
-        Log.d(TAG, "onReceive(): user=" + UserHandle.myUserId() + ", action=" + action);
+        Log.d(TAG, "onReceive(): user=" + UserHandle.myUserId() + ", action=" + action
+                + ", EXTRA_USER=" + intent.getExtra(Intent.EXTRA_USER)
+                + ", dpm=" + dpm);
 
         // Must set affiliation on headless system user, otherwise some operations in the current
         // user (which is PO) won't be allowed (like uininstalling a package)
         if (ACTION_DEVICE_ADMIN_ENABLED.equals(action) && UserManager.isHeadlessSystemUserMode()) {
-            Set<String> ids = new HashSet<>();
-            ids.add("affh!");
+            Set<String> ids = new HashSet<>(1);
+            ids.add(DeviceAdminTestReceiver.AFFILIATION_ID);
             Log.i(TAG, "Setting affiliation ids to " + ids);
-            getManager(context).setAffiliationIds(getWho(context), ids);
+            dpm.setAffiliationIds(getWho(context), ids);
+            Log.i(TAG, "Is affiliated: " + dpm.isAffiliatedUser());
         }
 
         super.onReceive(context, intent);
@@ -133,7 +138,8 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
 
     @Override
     public void onEnabled(Context context, Intent intent) {
-        Log.i(TAG, "Device admin enabled");
+        int myUserId = UserHandle.myUserId();
+        Log.i(TAG, "Device admin enabled on user " + myUserId);
         if (intent.getBooleanExtra(EXTRA_MANAGED_USER_TEST, false)) {
             DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
             ComponentName admin = getReceiverComponentName();
@@ -146,7 +152,7 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
             bindPrimaryUserService(context, iCrossUserService -> {
                 try {
                     UserHandle userHandle = Process.myUserHandle();
-                    Log.d(TAG, "calling switchUser(" + userHandle + ")");
+                    Log.d(TAG, "calling switchUser(" + userHandle + ") from " + myUserId);
                     iCrossUserService.switchUser(userHandle);
                 } catch (RemoteException re) {
                     Log.e(TAG, "Error when calling primary user", re);
@@ -247,8 +253,10 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
     private void bindPrimaryUserService(Context context, Consumer<ICrossUserService> consumer) {
         DevicePolicyManager devicePolicyManager = context.getSystemService(
                 DevicePolicyManager.class);
-        UserHandle primaryUser = devicePolicyManager.getBindDeviceAdminTargetUsers(
-                getReceiverComponentName()).get(0);
+        List<UserHandle> adminUsers = devicePolicyManager.getBindDeviceAdminTargetUsers(
+                getReceiverComponentName());
+        Log.d(TAG, "bindPrimaryUserService(): admins=" + adminUsers);
+        UserHandle primaryUser = adminUsers.get(0);
 
         Log.d(TAG, "Calling primary user: " + primaryUser);
         final ServiceConnection serviceConnection = new ServiceConnection() {

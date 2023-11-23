@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 use std::cmp::min;
-use std::fmt::{self, Debug, Display};
+use std::fmt::Debug;
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::sync::Arc;
@@ -16,6 +16,7 @@ use base::{
 use cros_async::Executor;
 use libc::EINVAL;
 use remain::sorted;
+use thiserror::Error as ThisError;
 use vm_memory::GuestMemory;
 
 mod qcow;
@@ -25,30 +26,56 @@ pub use qcow::{QcowFile, QCOW_MAGIC};
 mod composite;
 #[cfg(feature = "composite-disk")]
 use composite::{CompositeDiskFile, CDISK_MAGIC, CDISK_MAGIC_LEN};
+#[cfg(feature = "composite-disk")]
+mod gpt;
+#[cfg(feature = "composite-disk")]
+pub use composite::{
+    create_composite_disk, create_zero_filler, Error as CompositeError, ImagePartitionType,
+    PartitionInfo,
+};
+#[cfg(feature = "composite-disk")]
+pub use gpt::Error as GptError;
 
 mod android_sparse;
 use android_sparse::{AndroidSparse, SPARSE_HEADER_MAGIC};
 
 #[sorted]
-#[derive(Debug)]
+#[derive(ThisError, Debug)]
 pub enum Error {
+    #[error("failed to create block device: {0}")]
     BlockDeviceNew(base::Error),
+    #[error("requested file conversion not supported")]
     ConversionNotSupported,
+    #[error("failure in android sparse disk: {0}")]
     CreateAndroidSparseDisk(android_sparse::Error),
     #[cfg(feature = "composite-disk")]
+    #[error("failure in composite disk: {0}")]
     CreateCompositeDisk(composite::Error),
+    #[error("failure creating single file disk: {0}")]
     CreateSingleFileDisk(cros_async::AsyncError),
+    #[error("failure with fallocate: {0}")]
     Fallocate(cros_async::AsyncError),
+    #[error("failure with fsync: {0}")]
     Fsync(cros_async::AsyncError),
+    #[error("failure in qcow: {0}")]
     QcowError(qcow::Error),
+    #[error("failed to read data: {0}")]
     ReadingData(io::Error),
+    #[error("failed to read header: {0}")]
     ReadingHeader(io::Error),
+    #[error("failed to read to memory: {0}")]
     ReadToMem(cros_async::AsyncError),
+    #[error("failed to seek file: {0}")]
     SeekingFile(io::Error),
+    #[error("failed to set file size: {0}")]
     SettingFileSize(io::Error),
+    #[error("unknown disk type")]
     UnknownType,
+    #[error("failed to write from memory: {0}")]
     WriteFromMem(cros_async::AsyncError),
+    #[error("failed to write from vec: {0}")]
     WriteFromVec(cros_async::AsyncError),
+    #[error("failed to write data: {0}")]
     WritingData(io::Error),
 }
 
@@ -113,35 +140,6 @@ pub trait ToAsyncDisk: DiskFile {
 impl ToAsyncDisk for File {
     fn to_async_disk(self: Box<Self>, ex: &Executor) -> Result<Box<dyn AsyncDisk>> {
         Ok(Box::new(SingleFileDisk::new(*self, ex)?))
-    }
-}
-
-impl Display for Error {
-    #[remain::check]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Error::*;
-
-        #[sorted]
-        match self {
-            BlockDeviceNew(e) => write!(f, "failed to create block device: {}", e),
-            ConversionNotSupported => write!(f, "requested file conversion not supported"),
-            CreateAndroidSparseDisk(e) => write!(f, "failure in android sparse disk: {}", e),
-            #[cfg(feature = "composite-disk")]
-            CreateCompositeDisk(e) => write!(f, "failure in composite disk: {}", e),
-            CreateSingleFileDisk(e) => write!(f, "failure creating single file disk: {}", e),
-            Fallocate(e) => write!(f, "failure with fallocate: {}", e),
-            Fsync(e) => write!(f, "failure with fsync: {}", e),
-            QcowError(e) => write!(f, "failure in qcow: {}", e),
-            ReadingData(e) => write!(f, "failed to read data: {}", e),
-            ReadingHeader(e) => write!(f, "failed to read header: {}", e),
-            ReadToMem(e) => write!(f, "failed to read to memory: {}", e),
-            SeekingFile(e) => write!(f, "failed to seek file: {}", e),
-            SettingFileSize(e) => write!(f, "failed to set file size: {}", e),
-            UnknownType => write!(f, "unknown disk type"),
-            WriteFromMem(e) => write!(f, "failed to write from memory: {}", e),
-            WriteFromVec(e) => write!(f, "failed to write from vec: {}", e),
-            WritingData(e) => write!(f, "failed to write data: {}", e),
-        }
     }
 }
 
@@ -273,7 +271,13 @@ pub fn detect_image_type(file: &File) -> Result<ImageType> {
 
     // Try to read the disk in a nicely-aligned block size unless the whole file is smaller.
     const MAGIC_BLOCK_SIZE: usize = 4096;
-    let mut magic = [0u8; MAGIC_BLOCK_SIZE];
+    #[repr(align(512))]
+    struct BlockAlignedBuffer {
+        data: [u8; MAGIC_BLOCK_SIZE],
+    }
+    let mut magic = BlockAlignedBuffer {
+        data: [0u8; MAGIC_BLOCK_SIZE],
+    };
     let magic_read_len = if disk_size > MAGIC_BLOCK_SIZE as u64 {
         MAGIC_BLOCK_SIZE
     } else {
@@ -282,19 +286,19 @@ pub fn detect_image_type(file: &File) -> Result<ImageType> {
         disk_size as usize
     };
 
-    f.read_exact(&mut magic[0..magic_read_len])
+    f.read_exact(&mut magic.data[0..magic_read_len])
         .map_err(Error::ReadingHeader)?;
     f.seek(SeekFrom::Start(orig_seek))
         .map_err(Error::SeekingFile)?;
 
     #[cfg(feature = "composite-disk")]
-    if let Some(cdisk_magic) = magic.get(0..CDISK_MAGIC_LEN) {
+    if let Some(cdisk_magic) = magic.data.get(0..CDISK_MAGIC_LEN) {
         if cdisk_magic == CDISK_MAGIC.as_bytes() {
             return Ok(ImageType::CompositeDisk);
         }
     }
 
-    if let Some(magic4) = magic.get(0..4) {
+    if let Some(magic4) = magic.data.get(0..4) {
         if magic4 == QCOW_MAGIC.to_be_bytes() {
             return Ok(ImageType::Qcow2);
         } else if magic4 == SPARSE_HEADER_MAGIC.to_le_bytes() {
@@ -431,7 +435,7 @@ impl AsyncDisk for SingleFileDisk {
         mem_offsets: &'a [cros_async::MemRegion],
     ) -> Result<usize> {
         self.inner
-            .read_to_mem(file_offset, mem, mem_offsets)
+            .read_to_mem(Some(file_offset), mem, mem_offsets)
             .await
             .map_err(Error::ReadToMem)
     }
@@ -443,7 +447,7 @@ impl AsyncDisk for SingleFileDisk {
         mem_offsets: &'a [cros_async::MemRegion],
     ) -> Result<usize> {
         self.inner
-            .write_from_mem(file_offset, mem, mem_offsets)
+            .write_from_mem(Some(file_offset), mem, mem_offsets)
             .await
             .map_err(Error::WriteFromMem)
     }
@@ -482,7 +486,7 @@ impl AsyncDisk for SingleFileDisk {
             let buf = vec![0u8; write_size];
             nwritten += self
                 .inner
-                .write_from_vec(file_offset + nwritten as u64, buf)
+                .write_from_vec(Some(file_offset + nwritten as u64), buf)
                 .await
                 .map(|(n, _)| n as u64)
                 .map_err(Error::WriteFromVec)?;

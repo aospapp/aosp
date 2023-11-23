@@ -11,10 +11,12 @@ import android.car.drivingstate.CarUxRestrictionsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
+import android.os.Build;
 import android.os.Handler;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
@@ -28,6 +30,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.OnScrollListener;
 
 import com.android.car.uxr.UxrContentLimiterImpl;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.statusbar.IStatusBarService;
 
 import java.util.ArrayList;
@@ -45,6 +48,7 @@ import java.util.TreeMap;
  */
 public class CarNotificationView extends ConstraintLayout
         implements CarUxRestrictionsManager.OnUxRestrictionsChangedListener {
+    public static final boolean DEBUG = Build.IS_DEBUGGABLE;
     public static final String TAG = "CarNotificationView";
 
     private CarNotificationViewAdapter mAdapter;
@@ -63,6 +67,7 @@ public class CarNotificationView extends ConstraintLayout
     public CarNotificationView(Context context, AttributeSet attrs) {
         super(context, attrs);
         mContext = context;
+        mNotificationDataManager = NotificationDataManager.getInstance();
     }
 
     /**
@@ -135,6 +140,11 @@ public class CarNotificationView extends ConstraintLayout
         return false;
     }
 
+    @VisibleForTesting
+    List<NotificationGroup> getNotifications() {
+        return mNotifications;
+    }
+
     /** Sets a {@link KeyEventHandler} to help interact with the notification panel. */
     public void setKeyEventHandler(KeyEventHandler keyEventHandler) {
         mKeyEventHandler = keyEventHandler;
@@ -146,7 +156,41 @@ public class CarNotificationView extends ConstraintLayout
     public void setNotifications(List<NotificationGroup> notifications) {
         mNotifications = notifications;
         mAdapter.setNotifications(notifications, /* setRecyclerViewListHeaderAndFooter= */ true);
+        refreshVisibility();
+    }
 
+    /**
+     * Removes notification from group list and updates views.
+     */
+    public void removeNotification(AlertEntry alertEntry) {
+        if (DEBUG) {
+            Log.d(TAG, "Removing notification: " + alertEntry);
+        }
+
+        for (int i = 0; i < mNotifications.size(); i++) {
+            NotificationGroup notificationGroup = new NotificationGroup(mNotifications.get(i));
+            boolean notificationRemoved = notificationGroup.removeNotification(alertEntry);
+            if (notificationRemoved) {
+                if (notificationGroup.getChildCount() == 0) {
+                    if (DEBUG) {
+                        Log.d(TAG, "Group deleted");
+                    }
+                    mNotifications.remove(i);
+                } else {
+                    if (DEBUG) {
+                        Log.d(TAG, "Edited notification group: " + notificationGroup);
+                    }
+                    mNotifications.set(i, notificationGroup);
+                }
+                break;
+            }
+        }
+
+        mAdapter.setNotifications(mNotifications, /* setRecyclerViewListHeaderAndFooter= */ true);
+        refreshVisibility();
+    }
+
+    private void refreshVisibility() {
         if (mAdapter.hasNotifications()) {
             mListView.setVisibility(View.VISIBLE);
             mEmptyNotificationHeaderText.setVisibility(View.GONE);
@@ -163,7 +207,6 @@ public class CarNotificationView extends ConstraintLayout
      */
     public void resetState() {
         mAdapter.collapseAllGroups();
-        mAdapter.setChildNotificationsBeingCleared(new HashSet());
     }
 
     @Override
@@ -179,17 +222,6 @@ public class CarNotificationView extends ConstraintLayout
     public void setClickHandlerFactory(NotificationClickHandlerFactory clickHandlerFactory) {
         mClickHandlerFactory = clickHandlerFactory;
         mAdapter.setClickHandlerFactory(clickHandlerFactory);
-    }
-
-    /**
-     * Sets NotificationDataManager that handles additional states for notifications such as "seen",
-     * and muting a messaging type notification.
-     *
-     * @param notificationDataManager An instance of NotificationDataManager.
-     */
-    public void setNotificationDataManager(NotificationDataManager notificationDataManager) {
-        mNotificationDataManager = notificationDataManager;
-        mAdapter.setNotificationDataManager(notificationDataManager);
     }
 
     /**
@@ -237,7 +269,6 @@ public class CarNotificationView extends ConstraintLayout
             return;
         }
 
-        registerChildNotificationsBeingCleared(dismissibleNotifications);
         AnimatorSet animatorSet = createDismissAnimation(dismissibleNotificationViews);
         animatorSet.addListener(new AnimatorListenerAdapter() {
             @Override
@@ -287,21 +318,6 @@ public class CarNotificationView extends ConstraintLayout
         List<View> notificationViewsSorted = new ArrayList<>(notificationViews.values());
 
         return notificationViewsSorted;
-    }
-
-    /**
-     *  Register child notifications being cleared to prevent them from appearing briefly while
-     *  clear all flow is still processing.
-     */
-    private void registerChildNotificationsBeingCleared(
-            List<NotificationGroup> groupNotificationsBeingCleared) {
-        HashSet<AlertEntry> childNotificationsBeingCleared = new HashSet<>();
-        groupNotificationsBeingCleared.forEach(notificationGroup -> {
-            notificationGroup.getChildNotifications().forEach(notification -> {
-                childNotificationsBeingCleared.add(notification);
-            });
-        });
-        mAdapter.setChildNotificationsBeingCleared(childNotificationsBeingCleared);
     }
 
     /**

@@ -21,35 +21,35 @@
      - Added title "Enter your Pattern" at the top
      - Hid the emergency call at the bottom
 -->
-
-<com.android.keyguard.KeyguardPatternView
+<com.android.systemui.car.keyguard.CarKeyguardPatternView
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/keyguard_pattern_view"
     android:orientation="horizontal"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:paddingHorizontal="@*android:dimen/car_margin">
-
-    <FrameLayout
-        android:layout_height="match_parent"
+    android:layout_height="match_parent">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/pattern_container"
         android:layout_width="0dp"
-        android:layout_weight="1">
-
+        android:layout_weight="1"
+        android:layout_height="match_parent">
         <com.android.internal.widget.LockPatternView
             android:id="@+id/lockPatternView"
             android:layout_width="@dimen/keyguard_pattern_dimension"
             android:layout_height="@dimen/keyguard_pattern_dimension"
-            android:layout_gravity="center"/>
-    </FrameLayout>
-
+            android:layout_marginVertical="@dimen/pin_pattern_pad_margin_vertical"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
     <LinearLayout
         android:id="@+id/pattern_container"
-        android:layout_height="match_parent"
         android:layout_width="0dp"
         android:layout_weight="1"
+        android:layout_height="match_parent"
         android:orientation="vertical"
         android:gravity="center_vertical">
-
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -73,10 +73,9 @@
             android:id="@+id/keyguard_selector_fade_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:layout_gravity="bottom|center_horizontal"
             android:gravity="center_horizontal"
-            android:visibility="gone" />
+            android:orientation="vertical"
+            android:visibility="gone"/>
     </LinearLayout>
-
-</com.android.keyguard.KeyguardPatternView>
+</com.android.systemui.car.keyguard.CarKeyguardPatternView>

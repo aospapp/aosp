@@ -118,7 +118,7 @@ TIntermTyped *RewriteBuiltinFunctionCall(TCompiler *compiler,
     if (!BuiltInGroup::IsBuiltIn(node->getOp()))
     {
         // AST functions don't require modification as r32f image function parameters are removed by
-        // MonomorphizeUnsupportedFunctionsInVulkanGLSL.
+        // MonomorphizeUnsupportedFunctions.
         return nullptr;
     }
 
@@ -237,8 +237,8 @@ TIntermTyped *RewriteBuiltinFunctionCall(TCompiler *compiler,
         if (isImageLoad)
         {
             // vec4(uintBitsToFloat(imageLoad().rgb), 1.0)
-            const TType &vec4Type           = *StaticType::GetBasic<EbtFloat, 4>();
-            TIntermSequence constructorArgs = {replacementCall, CreateFloatNode(1.0f)};
+            const TType &vec4Type           = *StaticType::GetBasic<EbtFloat, EbpHigh, 4>();
+            TIntermSequence constructorArgs = {replacementCall, CreateFloatNode(1.0f, EbpMedium)};
             replacementCall = TIntermAggregate::CreateConstructor(vec4Type, &constructorArgs);
         }
     }

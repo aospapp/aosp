@@ -16,6 +16,7 @@
 
 package com.android.car.ui.recyclerview;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
@@ -33,6 +34,7 @@ import com.android.car.ui.R;
  * the provided clickListener. The first callback is fired after the initial Delay, and subsequent
  * ones after the defined interval.
  */
+@SuppressLint("ClickableViewAccessibility")
 public class OnContinuousScrollListener implements OnTouchListener {
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());

@@ -1,0 +1,34 @@
+# pixelstats vendor
+type pixelstats_vendor, domain;
+
+type pixelstats_vendor_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(pixelstats_vendor)
+
+unix_socket_connect(pixelstats_vendor, chre, chre)
+
+get_prop(pixelstats_vendor, hwservicemanager_prop)
+hwbinder_use(pixelstats_vendor)
+
+binder_call(pixelstats_vendor, stats_service_server)
+binder_use(pixelstats_vendor);
+allow pixelstats_vendor fwk_stats_service:service_manager find;
+
+allow pixelstats_vendor sysfs_scsi_devices_0000:file rw_file_perms;
+allow pixelstats_vendor sysfs_pixelstats:file r_file_perms;
+
+# Wireless charge
+allow pixelstats_vendor sysfs_wlc:dir search;
+allow pixelstats_vendor sysfs_wlc:file rw_file_perms;
+
+# Pca charge
+allow pixelstats_vendor sysfs_pca:file rw_file_perms;
+
+# OrientationCollector
+allow pixelstats_vendor fwk_sensor_hwservice:hwservice_manager find;
+
+# Batery history
+allow pixelstats_vendor battery_history_device:chr_file r_file_perms;
+
+# BCL
+allow pixelstats_vendor sysfs_bcl:dir search;
+allow pixelstats_vendor sysfs_bcl:file r_file_perms;

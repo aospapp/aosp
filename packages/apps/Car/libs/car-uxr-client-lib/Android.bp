@@ -30,7 +30,10 @@ android_library {
     libs: [
         "android.car-system-stubs",
     ],
-    sdk_version: "system_current",
+
+    min_sdk_version: "28", // P
+    target_sdk_version: "31",
+    sdk_version: "current",
 
     static_libs: [
         "androidx.recyclerview_recyclerview",

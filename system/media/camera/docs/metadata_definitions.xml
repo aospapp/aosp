@@ -146,6 +146,9 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
     <typedef name="multiResolutionStreamConfigurationMap">
       <language name="java">android.hardware.camera2.params.MultiResolutionStreamConfigurationMap</language>
     </typedef>
+    <typedef name="deviceStateSensorOrientationMap">
+      <language name="java">android.hardware.camera2.params.DeviceStateSensorOrientationMap</language>
+    </typedef>
   </types>
 
   <namespace name="android">
@@ -3406,13 +3409,13 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
         <entry name="afRegionsSet" type="byte" visibility="fwk_only"
                enum="true" typedef="boolean">
           <enum>
-            <value>TRUE
-            <notes>AF regions (android.control.afRegions) have been set by the camera client.
+            <value>FALSE
+            <notes>AF regions (android.control.afRegions) have not been set by the camera client.
             </notes>
             </value>
-            <value>FALSE
+            <value>TRUE
             <notes>
-              AF regions (android.control.afRegions) have not been set by the camera client.
+              AF regions (android.control.afRegions) have been set by the camera client.
             </notes>
             </value>
           </enum>
@@ -3429,13 +3432,13 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
         <entry name="aeRegionsSet" type="byte" visibility="fwk_only"
           enum="true" typedef="boolean">
           <enum>
-            <value>TRUE
-            <notes> AE regions (android.control.aeRegions) have been set by the camera client.
+            <value>FALSE
+            <notes> AE regions (android.control.aeRegions) have not been set by the camera client.
             </notes>
             </value>
-            <value>FALSE
+            <value>TRUE
             <notes>
-              AE regions (android.control.aeRegions) have not been set by the camera client.
+              AE regions (android.control.aeRegions) have been set by the camera client.
             </notes>
             </value>
           </enum>
@@ -3452,13 +3455,13 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
         <entry name="awbRegionsSet" type="byte" visibility="fwk_only"
           enum="true" typedef="boolean">
           <enum>
-            <value>TRUE
-            <notes> AWB regions (android.control.awbRegions) have been set by the camera client.
+            <value>FALSE
+            <notes> AWB regions (android.control.awbRegions) have not been set by the camera client.
             </notes>
             </value>
-            <value>FALSE
+            <value>TRUE
             <notes>
-              AWB regions (android.control.awbRegions) have not been set by the camera client.
+              AWB regions (android.control.awbRegions) have been set by the camera client.
             </notes>
             </value>
           </enum>
@@ -7111,7 +7114,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           IMPLEMENTATION_DEFINED | same as YUV_420_888                  | Any            |
 
           For applications targeting SDK version 31 or newer, if the mobile device declares to be
-          {@link android.os.Build.VERSION_CDOES.MEDIA_PERFORMANCE_CLASS media performance class} S,
+          media performance class 12 or higher by setting
+          {@link android.os.Build.VERSION_CDOES.MEDIA_PERFORMANCE_CLASS} to be 31 or larger,
           the primary camera devices (first rear/front camera in the camera ID list) will not
           support JPEG sizes smaller than 1080p. If the application configures a JPEG stream
           smaller than 1080p, the camera device will round up the JPEG image size to at least
@@ -7131,9 +7135,11 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           IMPLEMENTATION_DEFINED | same as YUV_420_888                  | Any            |
 
           For applications targeting SDK version 31 or newer, if the mobile device doesn't declare
-          to be media performance class S, or if the camera device isn't a primary rear/front
-          camera, the minimum required output stream configurations are the same as for applications
-          targeting SDK version older than 31.
+          to be media performance class 12 or better by setting
+          {@link android.os.Build.VERSION_CDOES.MEDIA_PERFORMANCE_CLASS} to be 31 or larger,
+          or if the camera device isn't a primary rear/front camera, the minimum required output
+          stream configurations are the same as for applications targeting SDK version older than
+          31.
 
           Refer to android.request.availableCapabilities for additional
           mandatory stream configurations on a per-capability basis.
@@ -7183,10 +7189,11 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           * 720p (1280 x 720)
           * 1080p (1920 x 1080)
 
-          Note that for Performance Class 12 primary cameras (first rear/front facing camera in the
-          camera ID list), camera framework filters out JPEG sizes smaller than 1080p depending on
+          Note that for primary cameras (first rear/front facing camera in the camera ID list)
+          on a device with {@link android.os.Build.VERSION_CDOES.MEDIA_PERFORMANCE_CLASS} set to
+          31 or larger, camera framework filters out JPEG sizes smaller than 1080p depending on
           applications' targetSdkLevel. The camera HAL must still support the smaller JPEG sizes
-          to maintain backward comopatibility.
+          to maintain backward compatibility.
 
           For LIMITED capability devices
           (`android.info.supportedHardwareLevel == LIMITED`),
@@ -8164,14 +8171,14 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
         <entry name="cropRegionSet" type="byte" visibility="fwk_only"
                enum="true" typedef="boolean">
           <enum>
-            <value>TRUE
-            <notes>Crop region (android.scaler.cropRegion) has been set by the
+            <value>FALSE
+            <notes>Crop region (android.scaler.cropRegion) has not been set by the
               camera client.
             </notes>
             </value>
-            <value>FALSE
+            <value>TRUE
             <notes>
-              Scaler crop regions (android.scaler.cropRegion) has not been set by the camera
+              Scaler crop regions (android.scaler.cropRegion) has been set by the camera
               client.
             </notes>
             </value>
@@ -9190,7 +9197,26 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           <details>
           Also defines the direction of rolling shutter readout, which is from top to bottom in
           the sensor's coordinate system.
+
+          Starting with Android API level 32, camera clients that query the orientation via
+          {@link android.hardware.camera2.CameraCharacteristics#get} on foldable devices which
+          include logical cameras can receive a value that can dynamically change depending on the
+          device/fold state.
+          Clients are advised to not cache or store the orientation value of such logical sensors.
+          In case repeated queries to CameraCharacteristics are not preferred, then clients can
+          also access the entire mapping from device state to sensor orientation in
+          {@link android.hardware.camera2.params.DeviceStateSensorOrientationMap}.
+          Do note that a dynamically changing sensor orientation value in camera characteristics
+          will not be the best way to establish the orientation per frame. Clients that want to
+          know the sensor orientation of a particular captured frame should query the
+          android.logicalMultiCamera.activePhysicalId from the corresponding capture result and
+          check the respective physical camera orientation.
           </details>
+          <ndk_details>
+          Native camera clients must query android.info.deviceStateOrientations for the mapping
+          between device state and camera sensor orientation. Dynamic updates to the sensor
+          orientation are not supported in this code path.
+          </ndk_details>
           <tag id="BC" />
         </entry>
         <entry name="profileHueSatMapDimensions" type="int32"
@@ -9621,6 +9647,15 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           with test patterns from on-device memory. In that case, it should be
           indistinguishable to the ISP whether the data came from the
           sensor interconnect bus (such as CSI2) or memory.
+
+          For privacy use cases, if the camera device:
+
+          * supports SOLID_COLOR or BLACK test patterns,
+          * is a logical multi-camera, and
+          * lists testPatternMode as a physical request key,
+
+          Each physical camera must support the same SOLID_COLOR and/or BLACK test patterns
+          as the logical camera.
           </hal_details>
         </entry>
       </controls>
@@ -11473,6 +11508,35 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               without any buffer management HAL API. When this key is present and camera framework
               supports the buffer management API version, camera framework will interact with camera
               HAL using such version of buffer management API.
+          </details>
+        </entry>
+        <entry name="deviceStateSensorOrientationMap" type="int64" visibility="java_public"
+          synthetic="true" optional="true" typedef="deviceStateSensorOrientationMap"
+          hwlevel="limited">
+          <description>This lists the mapping between a device folding state and
+          specific camera sensor orientation for logical cameras on a foldable device.
+          </description>
+          <details>
+          Logical cameras on foldable devices can support sensors with different orientation
+          values. The orientation value may need to change depending on the specific folding
+          state. Information about the mapping between the device folding state and the
+          sensor orientation can be obtained in
+          {@link android.hardware.camera2.params.DeviceStateSensorOrientationMap}.
+          Device state orientation maps are optional and maybe present on devices that support
+          android.scaler.rotateAndCrop.
+          </details>
+        </entry>
+        <entry name="deviceStateOrientations" type="int64" visibility="ndk_public"
+          container="array" hwlevel="limited" hal_version="3.7">
+          <array>
+            <size>2</size>
+            <size>n</size>
+          </array>
+          <units>(device fold state, sensor orientation) x n</units>
+          <details>
+          HAL must populate the array with
+          (hardware::camera::provider::V2_5::DeviceState, sensorOrientation) pairs for each
+          supported device state bitwise combination.
           </details>
         </entry>
       </static>

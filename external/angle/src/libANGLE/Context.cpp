@@ -6,7 +6,6 @@
 
 // Context.cpp: Implements the gl::Context class, managing all GL state and performing
 // rendering operations. It is the GLES2 specific implementation of EGLContext.
-
 #include "libANGLE/Context.h"
 #include "libANGLE/Context.inl.h"
 
@@ -268,7 +267,13 @@ enum SubjectIndexes : angle::SubjectIndex
     kUniformBuffer0SubjectIndex = kImageMaxSubjectIndex,
     kUniformBufferMaxSubjectIndex =
         kUniformBuffer0SubjectIndex + IMPLEMENTATION_MAX_UNIFORM_BUFFER_BINDINGS,
-    kSampler0SubjectIndex    = kUniformBufferMaxSubjectIndex,
+    kAtomicCounterBuffer0SubjectIndex = kUniformBufferMaxSubjectIndex,
+    kAtomicCounterBufferMaxSubjectIndex =
+        kAtomicCounterBuffer0SubjectIndex + IMPLEMENTATION_MAX_ATOMIC_COUNTER_BUFFER_BINDINGS,
+    kShaderStorageBuffer0SubjectIndex = kAtomicCounterBufferMaxSubjectIndex,
+    kShaderStorageBufferMaxSubjectIndex =
+        kShaderStorageBuffer0SubjectIndex + IMPLEMENTATION_MAX_SHADER_STORAGE_BUFFER_BINDINGS,
+    kSampler0SubjectIndex    = kShaderStorageBufferMaxSubjectIndex,
     kSamplerMaxSubjectIndex  = kSampler0SubjectIndex + IMPLEMENTATION_MAX_ACTIVE_TEXTURES,
     kVertexArraySubjectIndex = kSamplerMaxSubjectIndex,
     kReadFramebufferSubjectIndex,
@@ -369,12 +374,24 @@ Context::Context(egl::Display *display,
       mOverlay(mImplementation.get()),
       mIsExternal(GetIsExternal(attribs)),
       mSaveAndRestoreState(GetSaveAndRestoreState(attribs)),
-      mIsCurrent(false)
+      mIsDestroyed(false)
 {
     for (angle::SubjectIndex uboIndex = kUniformBuffer0SubjectIndex;
          uboIndex < kUniformBufferMaxSubjectIndex; ++uboIndex)
     {
         mUniformBufferObserverBindings.emplace_back(this, uboIndex);
+    }
+
+    for (angle::SubjectIndex acbIndex = kAtomicCounterBuffer0SubjectIndex;
+         acbIndex < kAtomicCounterBufferMaxSubjectIndex; ++acbIndex)
+    {
+        mAtomicCounterBufferObserverBindings.emplace_back(this, acbIndex);
+    }
+
+    for (angle::SubjectIndex ssboIndex = kShaderStorageBuffer0SubjectIndex;
+         ssboIndex < kShaderStorageBufferMaxSubjectIndex; ++ssboIndex)
+    {
+        mShaderStorageBufferObserverBindings.emplace_back(this, ssboIndex);
     }
 
     for (angle::SubjectIndex samplerIndex = kSampler0SubjectIndex;
@@ -505,7 +522,7 @@ void Context::initializeDefaultResources()
     ANGLE_CONTEXT_TRY(mImplementation->initialize());
 
     // Add context into the share group
-    mState.getShareGroup()->getContexts()->insert(this);
+    mState.getShareGroup()->addSharedContext(this);
 
     bindVertexArray({0});
 
@@ -613,6 +630,10 @@ egl::Error Context::onDestroy(const egl::Display *display)
         return egl::NoError();
     }
 
+    // eglDestoryContext() must have been called for this Context and there must not be any Threads
+    // that still have it current.
+    ASSERT(mIsDestroyed == true && mRefCount == 0);
+
     // Dump frame capture if enabled.
     getShareGroup()->getFrameCaptureShared()->onDestroyContext(this);
 
@@ -621,10 +642,7 @@ egl::Error Context::onDestroy(const egl::Display *display)
         mGLES1Renderer->onDestroy(this, &mState);
     }
 
-    if (mIsCurrent)
-    {
-        ANGLE_TRY(unMakeCurrent(display));
-    }
+    ANGLE_TRY(unMakeCurrent(display));
 
     for (auto fence : mFenceNVMap)
     {
@@ -721,8 +739,6 @@ egl::Error Context::makeCurrent(egl::Display *display,
 
     if (!mHasBeenCurrent)
     {
-        ASSERT(!mIsCurrent);
-
         initializeDefaultResources();
         initRendererString();
         initVersionStrings();
@@ -742,10 +758,7 @@ egl::Error Context::makeCurrent(egl::Display *display,
         mHasBeenCurrent = true;
     }
 
-    if (mIsCurrent)
-    {
-        ANGLE_TRY(unsetDefaultFramebuffer());
-    }
+    ANGLE_TRY(unsetDefaultFramebuffer());
 
     getShareGroup()->getFrameCaptureShared()->onMakeCurrent(this, drawSurface);
 
@@ -765,16 +778,11 @@ egl::Error Context::makeCurrent(egl::Display *display,
         return angle::ResultToEGL(implResult);
     }
 
-    mIsCurrent = true;
-
     return egl::NoError();
 }
 
 egl::Error Context::unMakeCurrent(const egl::Display *display)
 {
-    ASSERT(mIsCurrent);
-    mIsCurrent = false;
-
     ANGLE_TRY(angle::ResultToEGL(mImplementation->onUnMakeCurrent(this)));
 
     ANGLE_TRY(unsetDefaultFramebuffer());
@@ -1527,6 +1535,16 @@ void Context::getFloatvImpl(GLenum pname, GLfloat *params) const
             break;
         case GL_MAX_FRAGMENT_INTERPOLATION_OFFSET:
             *params = mState.mCaps.maxInterpolationOffset;
+            break;
+        case GL_PRIMITIVE_BOUNDING_BOX:
+            params[0] = mState.mBoundingBoxMinX;
+            params[1] = mState.mBoundingBoxMinY;
+            params[2] = mState.mBoundingBoxMinZ;
+            params[3] = mState.mBoundingBoxMinW;
+            params[4] = mState.mBoundingBoxMaxX;
+            params[5] = mState.mBoundingBoxMaxY;
+            params[6] = mState.mBoundingBoxMaxZ;
+            params[7] = mState.mBoundingBoxMaxW;
             break;
         default:
             mState.getFloatv(pname, params);
@@ -3559,6 +3577,14 @@ Extensions Context::generateSupportedExtensions() const
         ASSERT(supportedExtensions.textureCompressionASTCHDRKHR);
     }
 
+    // GL_KHR_protected_textures
+    // If EGL_KHR_protected_content is not supported then GL_EXT_protected_texture
+    // can not be supported.
+    if (!mDisplay->getExtensions().protectedContentEXT)
+    {
+        supportedExtensions.protectedTexturesEXT = false;
+    }
+
     // GL_ANGLE_get_tex_level_parameter is implemented in the frontend
     supportedExtensions.getTexLevelParameterANGLE = true;
 
@@ -3768,8 +3794,8 @@ void Context::initCaps()
         mSupportedExtensions.compressedETC1RGB8TextureOES = false;
     }
 
-    // If we're capturing application calls for replay, don't expose any binary formats to prevent
-    // traces from trying to use cached results
+    // If we're capturing application calls for replay, apply some feature limits to increase
+    // portability of the trace.
     if (getShareGroup()->getFrameCaptureShared()->enabled() ||
         getFrontendFeatures().captureLimits.enabled)
     {
@@ -3779,8 +3805,13 @@ void Context::initCaps()
                        : "FrameCapture limits were forced")
                << std::endl;
 
-        INFO() << "Limiting binary format support count to zero";
-        mDisplay->overrideFrontendFeatures({"disable_program_binary"}, true);
+        if (!getFrontendFeatures().enableProgramBinaryForCapture.enabled)
+        {
+            // Some apps insist on being able to use glProgramBinary. For those, we'll allow the
+            // extension to remain on. Otherwise, force the extension off.
+            INFO() << "Disabling GL_OES_get_program_binary for trace portability";
+            mDisplay->overrideFrontendFeatures({"disable_program_binary"}, true);
+        }
 
         // Set to the most common limit per gpuinfo.org. Required for several platforms we test.
         constexpr GLint maxImageUnits = 8;
@@ -3794,6 +3825,16 @@ void Context::initCaps()
         ASSERT(uniformBufferOffsetAlignment % mState.mCaps.uniformBufferOffsetAlignment == 0);
         INFO() << "Setting uniform buffer offset alignment to " << uniformBufferOffsetAlignment;
         mState.mCaps.uniformBufferOffsetAlignment = uniformBufferOffsetAlignment;
+
+        // Also limit texture buffer offset alignment, if enabled
+        if (mState.mExtensions.textureBufferAny())
+        {
+            constexpr GLint textureBufferOffsetAlignment =
+                gl::limits::kMinTextureBufferOffsetAlignment;
+            ASSERT(textureBufferOffsetAlignment % mState.mCaps.textureBufferOffsetAlignment == 0);
+            INFO() << "Setting texture buffer offset alignment to " << textureBufferOffsetAlignment;
+            mState.mCaps.textureBufferOffsetAlignment = textureBufferOffsetAlignment;
+        }
 
         INFO() << "Disabling GL_EXT_map_buffer_range and GL_OES_mapbuffer during capture, which "
                   "are not supported on some native drivers";
@@ -5915,7 +5956,14 @@ void Context::primitiveBoundingBox(GLfloat minX,
                                    GLfloat maxZ,
                                    GLfloat maxW)
 {
-    UNIMPLEMENTED();
+    mState.mBoundingBoxMinX = minX;
+    mState.mBoundingBoxMinY = minY;
+    mState.mBoundingBoxMinZ = minZ;
+    mState.mBoundingBoxMinW = minW;
+    mState.mBoundingBoxMaxX = maxX;
+    mState.mBoundingBoxMaxY = maxY;
+    mState.mBoundingBoxMaxZ = maxZ;
+    mState.mBoundingBoxMaxW = maxW;
 }
 
 void Context::bufferStorage(BufferBinding target,
@@ -6024,6 +6072,16 @@ void Context::bindBufferRange(BufferBinding target,
     {
         mUniformBufferObserverBindings[index].bind(object);
         mStateCache.onUniformBufferStateChange(this);
+    }
+    else if (target == BufferBinding::AtomicCounter)
+    {
+        mAtomicCounterBufferObserverBindings[index].bind(object);
+        mStateCache.onAtomicCounterBufferStateChange(this);
+    }
+    else if (target == BufferBinding::ShaderStorage)
+    {
+        mShaderStorageBufferObserverBindings[index].bind(object);
+        mStateCache.onShaderStorageBufferStateChange(this);
     }
     else
     {
@@ -7245,6 +7303,24 @@ void Context::validateProgram(ShaderProgramID program)
 
 void Context::validateProgramPipeline(ProgramPipelineID pipeline)
 {
+    // GLES spec 3.2, Section 7.4 "Program Pipeline Objects"
+    // If pipeline is a name that has been generated (without subsequent deletion) by
+    // GenProgramPipelines, but refers to a program pipeline object that has not been
+    // previously bound, the GL first creates a new state vector in the same manner as
+    // when BindProgramPipeline creates a new program pipeline object.
+    //
+    // void BindProgramPipeline( uint pipeline );
+    // pipeline is the program pipeline object name. The resulting program pipeline
+    // object is a new state vector, comprising all the state and with the same initial values
+    // listed in table 21.20.
+    //
+    // If we do not have a pipeline object that's been created with glBindProgramPipeline, we leave
+    // VALIDATE_STATUS at it's default false value without generating a pipeline object.
+    if (!getProgramPipeline(pipeline))
+    {
+        return;
+    }
+
     ProgramPipeline *programPipeline =
         mState.mProgramPipelineManager->checkProgramPipelineAllocation(mImplementation.get(),
                                                                        pipeline);
@@ -8578,6 +8654,18 @@ void Context::importSemaphoreZirconHandle(SemaphoreID semaphore,
     ANGLE_CONTEXT_TRY(semaphoreObject->importZirconHandle(this, handleType, handle));
 }
 
+void Context::eGLImageTargetTexStorage(GLenum target, GLeglImageOES image, const GLint *attrib_list)
+{
+    return;
+}
+
+void Context::eGLImageTargetTextureStorage(GLuint texture,
+                                           GLeglImageOES image,
+                                           const GLint *attrib_list)
+{
+    return;
+}
+
 void Context::eGLImageTargetTexture2D(TextureType target, GLeglImageOES image)
 {
     Texture *texture        = getTextureByType(target);
@@ -8721,12 +8809,6 @@ const angle::FrontendFeatures &Context::getFrontendFeatures() const
     return mDisplay->getFrontendFeatures();
 }
 
-angle::ResourceTracker &Context::getFrameCaptureSharedResourceTracker() const
-{
-    angle::FrameCaptureShared *frameCaptureShared = getShareGroup()->getFrameCaptureShared();
-    return frameCaptureShared->getResourceTracker();
-}
-
 bool Context::isRenderbufferGenerated(RenderbufferID renderbuffer) const
 {
     return mState.mRenderbufferManager->isHandleGenerated(renderbuffer);
@@ -8858,6 +8940,16 @@ void Context::onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMess
             {
                 mState.onUniformBufferStateChange(index - kUniformBuffer0SubjectIndex);
                 mStateCache.onUniformBufferStateChange(this);
+            }
+            else if (index < kAtomicCounterBufferMaxSubjectIndex)
+            {
+                mState.onAtomicCounterBufferStateChange(index - kAtomicCounterBuffer0SubjectIndex);
+                mStateCache.onAtomicCounterBufferStateChange(this);
+            }
+            else if (index < kShaderStorageBufferMaxSubjectIndex)
+            {
+                mState.onShaderStorageBufferStateChange(index - kShaderStorageBuffer0SubjectIndex);
+                mStateCache.onShaderStorageBufferStateChange(this);
             }
             else
             {
@@ -9035,6 +9127,11 @@ void Context::dirtyAllState()
     mState.setAllDirtyBits();
     mState.setAllDirtyObjects();
     mState.gles1().setAllDirty();
+}
+
+void Context::finishImmutable() const
+{
+    ANGLE_CONTEXT_TRY(mImplementation->finish(this));
 }
 
 // ErrorSet implementation.
@@ -9314,6 +9411,16 @@ void StateCache::onUniformBufferStateChange(Context *context)
     updateBasicDrawStatesError();
 }
 
+void StateCache::onAtomicCounterBufferStateChange(Context *context)
+{
+    updateBasicDrawStatesError();
+}
+
+void StateCache::onShaderStorageBufferStateChange(Context *context)
+{
+    updateBasicDrawStatesError();
+}
+
 void StateCache::onColorMaskChange(Context *context)
 {
     updateBasicDrawStatesError();
@@ -9520,8 +9627,8 @@ void StateCache::updateActiveImageUnitIndices(Context *context)
 
 void StateCache::updateCanDraw(Context *context)
 {
-    mCachedCanDraw = (context->isGLES1() ||
-                      (context->getState().getProgramExecutable() &&
-                       context->getState().getProgramExecutable()->hasVertexAndFragmentShader()));
+    mCachedCanDraw =
+        (context->isGLES1() || (context->getState().getProgramExecutable() &&
+                                context->getState().getProgramExecutable()->hasVertexShader()));
 }
 }  // namespace gl

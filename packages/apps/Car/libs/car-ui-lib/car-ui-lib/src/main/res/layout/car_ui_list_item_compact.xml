@@ -25,7 +25,7 @@
 
     <!-- The following touch interceptor views are sized to encompass the specific sub-sections of
     the list item view to easily control the bounds of a background ripple effects. -->
-    <View
+    <com.android.car.ui.SecureView
         android:id="@+id/car_ui_list_item_touch_interceptor"
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -36,7 +36,7 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <!-- This touch interceptor does not include the action container -->
-    <View
+    <com.android.car.ui.SecureView
         android:id="@+id/car_ui_list_item_reduced_touch_interceptor"
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -116,7 +116,7 @@
         app:layout_goneMarginStart="@dimen/car_ui_list_item_text_no_icon_start_margin" />
 
     <!-- This touch interceptor is sized and positioned to encompass the action container   -->
-    <View
+    <com.android.car.ui.SecureView
         android:id="@+id/car_ui_list_item_action_container_touch_interceptor"
         android:layout_width="0dp"
         android:layout_height="0dp"

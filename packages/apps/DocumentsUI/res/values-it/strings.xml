@@ -125,24 +125,24 @@
     <string name="delete_notification_title" msgid="2512757431856830792">"Eliminazione dei file"</string>
     <string name="copy_remaining" msgid="5390517377265177727">"<xliff:g id="DURATION">%s</xliff:g> rimanenti"</string>
     <plurals name="copy_begin" formatted="false" msgid="151184708996738192">
+      <item quantity="one">Copying <xliff:g id="COUNT_1">%1$d</xliff:g> items.</item>
       <item quantity="other">Copia di <xliff:g id="COUNT_1">%1$d</xliff:g> elementi.</item>
-      <item quantity="one">Copia di <xliff:g id="COUNT_0">%1$d</xliff:g> elemento.</item>
     </plurals>
     <plurals name="compress_begin" formatted="false" msgid="3534158317098678895">
+      <item quantity="one">Compressing <xliff:g id="COUNT_1">%1$d</xliff:g> files.</item>
       <item quantity="other">Compressione di <xliff:g id="COUNT_1">%1$d</xliff:g> file in corso.</item>
-      <item quantity="one">Compressione di <xliff:g id="COUNT_0">%1$d</xliff:g> file in corso.</item>
     </plurals>
     <plurals name="extract_begin" formatted="false" msgid="1006380679562903749">
+      <item quantity="one">Extracting <xliff:g id="COUNT_1">%1$d</xliff:g> files.</item>
       <item quantity="other">Estrazione di <xliff:g id="COUNT_1">%1$d</xliff:g> file in corso.</item>
-      <item quantity="one">Estrazione di <xliff:g id="COUNT_0">%1$d</xliff:g> file in corso.</item>
     </plurals>
     <plurals name="move_begin" formatted="false" msgid="1464229874265756956">
+      <item quantity="one">Moving <xliff:g id="COUNT_1">%1$d</xliff:g> items.</item>
       <item quantity="other">Spostamento di <xliff:g id="COUNT_1">%1$d</xliff:g> elementi.</item>
-      <item quantity="one">Spostamento di <xliff:g id="COUNT_0">%1$d</xliff:g> elemento.</item>
     </plurals>
     <plurals name="deleting" formatted="false" msgid="1729138001178158901">
+      <item quantity="one">Deleting <xliff:g id="COUNT_1">%1$d</xliff:g> items.</item>
       <item quantity="other">Eliminazione di <xliff:g id="COUNT_1">%1$d</xliff:g> elementi.</item>
-      <item quantity="one">Eliminazione di <xliff:g id="COUNT_0">%1$d</xliff:g> elemento.</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"Annulla"</string>
     <string name="copy_preparing" msgid="4759516490222449324">"Preparazione…"</string>
@@ -152,50 +152,50 @@
     <string name="delete_preparing" msgid="7339349837842802508">"Preparazione…"</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
+      <item quantity="one">Couldn’t copy <xliff:g id="COUNT_1">%1$d</xliff:g> items</item>
       <item quantity="other">Copia di <xliff:g id="COUNT_1">%1$d</xliff:g> elementi non riuscita</item>
-      <item quantity="one">Copia di <xliff:g id="COUNT_0">%1$d</xliff:g> elemento non riuscita</item>
     </plurals>
     <plurals name="compress_error_notification_title" formatted="false" msgid="3043630066678213644">
+      <item quantity="one">Couldn’t compress <xliff:g id="COUNT_1">%1$d</xliff:g> files</item>
       <item quantity="other">Impossibile comprimere <xliff:g id="COUNT_1">%1$d</xliff:g> file</item>
-      <item quantity="one">Impossibile comprimere <xliff:g id="COUNT_0">%1$d</xliff:g> file</item>
     </plurals>
     <plurals name="move_error_notification_title" formatted="false" msgid="2185736082411854754">
+      <item quantity="one">Couldn’t move <xliff:g id="COUNT_1">%1$d</xliff:g> items</item>
       <item quantity="other">Spostamento di <xliff:g id="COUNT_1">%1$d</xliff:g> elementi non riuscito</item>
-      <item quantity="one">Spostamento di <xliff:g id="COUNT_0">%1$d</xliff:g> elemento non riuscito</item>
     </plurals>
     <plurals name="delete_error_notification_title" formatted="false" msgid="7568122018481625267">
+      <item quantity="one">Couldn’t delete <xliff:g id="COUNT_1">%1$d</xliff:g> items</item>
       <item quantity="other">Eliminazione di <xliff:g id="COUNT_1">%1$d</xliff:g> elementi non riuscita</item>
-      <item quantity="one">Eliminazione di <xliff:g id="COUNT_0">%1$d</xliff:g> elemento non riuscita</item>
     </plurals>
     <string name="notification_touch_for_details" msgid="2385563502445129570">"Tocca per vedere i dettagli"</string>
     <string name="close" msgid="905969391788869975">"Chiudi"</string>
     <plurals name="copy_failure_alert_content" formatted="false" msgid="5570549471912990536">
+      <item quantity="one">These files weren’t copied: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">I seguenti file non sono stati copiati: <xliff:g id="LIST_1">%1$s</xliff:g></item>
-      <item quantity="one">Il seguente file non è stato copiato: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="compress_failure_alert_content" formatted="false" msgid="5760632881868842400">
+      <item quantity="one">These files weren’t compressed: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">I seguenti file non sono stati compressi: <xliff:g id="LIST_1">%1$s</xliff:g></item>
-      <item quantity="one">Il seguente file non è stato compresso: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="extract_failure_alert_content" formatted="false" msgid="7572748127571720803">
+      <item quantity="one">These files weren’t extracted: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">I seguenti file non sono stati estratti: <xliff:g id="LIST_1">%1$s</xliff:g></item>
-      <item quantity="one">Il seguente file non è stato estratto: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="move_failure_alert_content" formatted="false" msgid="2747390342670799196">
+      <item quantity="one">These files weren’t moved: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">I seguenti file non sono stati spostati: <xliff:g id="LIST_1">%1$s</xliff:g></item>
-      <item quantity="one">Il seguente file non è stato spostato: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="delete_failure_alert_content" formatted="false" msgid="6122372614839711711">
+      <item quantity="one">These files weren’t deleted: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">I seguenti file non sono stati eliminati: <xliff:g id="LIST_1">%1$s</xliff:g></item>
-      <item quantity="one">Il seguente file non è stato eliminato: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="copy_converted_warning_content" formatted="false" msgid="7433742181712126588">
+      <item quantity="one">These files were converted to another format: <xliff:g id="LIST_1">%1$s</xliff:g></item>
       <item quantity="other">I seguenti file sono stati convertiti in un altro formato: <xliff:g id="LIST_1">%1$s</xliff:g></item>
-      <item quantity="one">Il seguente file è stato convertito in un altro formato: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="clipboard_files_clipped" formatted="false" msgid="4847061634862926902">
+      <item quantity="one">Copied <xliff:g id="COUNT_1">%1$d</xliff:g> items to clipboard.</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> elementi copiati negli appunti.</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> elemento copiato negli appunti.</item>
     </plurals>
     <string name="file_operation_rejected" msgid="4301554203329008794">"Operazione sul file non supportata."</string>
     <string name="file_operation_error" msgid="2234357335716533795">"Operazione sul file non riuscita."</string>
@@ -208,26 +208,26 @@
     <string name="allow" msgid="1275746941353040309">"Consenti"</string>
     <string name="deny" msgid="5127201668078153379">"Rifiuta"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
+      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> selected</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> elementi selezionati</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> elemento selezionato</item>
     </plurals>
     <plurals name="elements_dragged" formatted="false" msgid="5932571296037626279">
+      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> items</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> elementi</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> elemento</item>
     </plurals>
     <string name="delete_filename_confirmation_message" msgid="8338069763240613258">"Eliminare \"<xliff:g id="NAME">%1$s</xliff:g>\"?"</string>
     <string name="delete_foldername_confirmation_message" msgid="9084085260877704140">"Eliminare la cartella \"<xliff:g id="NAME">%1$s</xliff:g>\" e i relativi contenuti?"</string>
     <plurals name="delete_files_confirmation_message" formatted="false" msgid="4866664063250034142">
+      <item quantity="one">Delete <xliff:g id="COUNT_1">%1$d</xliff:g> files?</item>
       <item quantity="other">Eliminare <xliff:g id="COUNT_1">%1$d</xliff:g> file?</item>
-      <item quantity="one">Eliminare <xliff:g id="COUNT_0">%1$d</xliff:g> file?</item>
     </plurals>
     <plurals name="delete_folders_confirmation_message" formatted="false" msgid="1028946402799686388">
+      <item quantity="one">Delete <xliff:g id="COUNT_1">%1$d</xliff:g> folders and their contents?</item>
       <item quantity="other">Eliminare <xliff:g id="COUNT_1">%1$d</xliff:g> cartelle e i relativi contenuti?</item>
-      <item quantity="one">Eliminare <xliff:g id="COUNT_0">%1$d</xliff:g> cartella e i relativi contenuti?</item>
     </plurals>
     <plurals name="delete_items_confirmation_message" formatted="false" msgid="7285090426511028179">
+      <item quantity="one">Delete <xliff:g id="COUNT_1">%1$d</xliff:g> items?</item>
       <item quantity="other">Eliminare <xliff:g id="COUNT_1">%1$d</xliff:g> elementi?</item>
-      <item quantity="one">Eliminare <xliff:g id="COUNT_0">%1$d</xliff:g> elemento?</item>
     </plurals>
     <string name="images_shortcut_label" msgid="2545168016070493574">"Immagini"</string>
     <string name="archive_loading_failed" msgid="7243436722828766996">"Impossibile aprire il file di archivio per la navigazione. Il file è corrotto o in un formato non supportato."</string>
@@ -239,8 +239,8 @@
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Sovrascrivere <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Continua in background"</string>
     <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> selected</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> elementi selezionati</item>
-      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> elemento selezionato</item>
     </plurals>
     <string name="root_info_header_recent" msgid="5654901877295332262">"File recenti"</string>
     <string name="root_info_header_global_search" msgid="4904078222280496152">"File"</string>

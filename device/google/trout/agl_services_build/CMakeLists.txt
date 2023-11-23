@@ -22,6 +22,8 @@ set(ZLIB_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/zlib)
 
 if (CMAKE_CROSSCOMPILING)
     # ========== vehicle hal server build settings ===================
+    set(trout_ANDROID_LIBBASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/android/libbase)
+    set(trout_ANDROID_LIBLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/android/logging/liblog)
     set(trout_ANDROID_SYSCORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/android/system_core)
     set(trout_FMTLIB_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmtlib)
     set(trout_GOOGLETEST_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/googletest)

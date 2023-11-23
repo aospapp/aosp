@@ -55,8 +55,8 @@ message CameraDeviceInfo {
     }
 
     message RangeFloat {
-        optional int32 lower = 1;
-        optional int32 upper = 2;
+        optional float lower = 1;
+        optional float upper = 2;
     }
 
     message RangeInt {

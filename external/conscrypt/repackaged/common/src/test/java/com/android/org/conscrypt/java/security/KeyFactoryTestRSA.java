@@ -16,16 +16,25 @@
  */
 package com.android.org.conscrypt.java.security;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.security.KeyFactory;
 import java.security.KeyPair;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Provider;
 import java.security.PublicKey;
 import java.security.Security;
+import java.security.interfaces.RSAPrivateCrtKey;
+import java.security.interfaces.RSAPrivateKey;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPrivateCrtKeySpec;
 import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
@@ -34,6 +43,7 @@ import java.util.Arrays;
 import java.util.List;
 import libcore.junit.util.EnableDeprecatedBouncyCastleAlgorithmsRule;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
@@ -62,12 +72,16 @@ public class KeyFactoryTestRSA extends AbstractKeyFactoryTest<RSAPublicKeySpec, 
     }
 
     @Test
-    public void testExtraBufferSpace_Private() throws Exception {
-        PrivateKey privateKey = DefaultKeys.getPrivateKey("RSA");
-        byte[] encoded = privateKey.getEncoded();
-        byte[] longBuffer = new byte[encoded.length + 147];
-        System.arraycopy(encoded, 0, longBuffer, 0, encoded.length);
-        KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(longBuffer));
+    @Ignore("b/209335673 Base image has fix for b/191150645 but release version of module does not")
+    public void getEncodedFailsWhenCrtValuesMissing() throws Exception {
+        PrivateKey privateKey = getPrivateKey();
+        try {
+            // Key has only modulus and private exponent so can't be encoded as PKCS#8
+            privateKey.getEncoded();
+            fail();
+        } catch (RuntimeException e) {
+            // Expected
+        }
     }
 
     @Test
@@ -107,5 +121,43 @@ public class KeyFactoryTestRSA extends AbstractKeyFactoryTest<RSAPublicKeySpec, 
         } catch (InvalidKeySpecException e) {
             // expected
         }
+    }
+
+    @Test
+    @Ignore("b/209335673 Base image has fix for b/191150645 but release version of module does not")
+    public void javaSerialization() throws Exception {
+        PrivateKey privatekey = getPrivateKey();
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream out = new ObjectOutputStream(bos);
+        out.writeObject(privatekey);
+
+        ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
+        ObjectInputStream in = new ObjectInputStream(bis);
+        PrivateKey copy = (PrivateKey) in.readObject();
+
+        assertEquals(privatekey, copy);
+    }
+
+    // b/209335673 Base image has fix for b/191150645 but release version of module does not,
+    // @Override
+    // protected List<KeyPair> getKeys() throws NoSuchAlgorithmException, InvalidKeySpecException {
+    //     return Arrays.asList(
+    //             new KeyPair(DefaultKeys.getPublicKey(algorithmName), getPrivateKey())
+    //     );
+    // }
+
+    // The private RSA key returned by DefaultKeys.getPrivateKey() is built from a PKCS#8
+    // KeySpec and so will be an instance of RSAPrivateCrtKey, but we want to test RSAPrivateKey
+    // in this unit test and so we extract the modulus and private exponent to build the
+    // correct private key subtype.
+    private PrivateKey getPrivateKey() throws NoSuchAlgorithmException, InvalidKeySpecException {
+        RSAPrivateCrtKey crtKey = (RSAPrivateCrtKey) DefaultKeys.getPrivateKey(algorithmName);
+        RSAPrivateKeySpec spec =
+                new RSAPrivateKeySpec(crtKey.getModulus(), crtKey.getPrivateExponent());
+        PrivateKey privateKey = KeyFactory.getInstance("RSA").generatePrivate(spec);
+        assertTrue(privateKey instanceof RSAPrivateKey);
+        assertFalse(privateKey instanceof RSAPrivateCrtKey);
+        return privateKey;
     }
 }

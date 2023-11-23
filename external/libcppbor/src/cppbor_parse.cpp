@@ -195,6 +195,13 @@ std::tuple<const uint8_t*, ParseClient*> handleCompound(
 
 std::tuple<const uint8_t*, ParseClient*> parseRecursively(const uint8_t* begin, const uint8_t* end,
                                                           bool emitViews, ParseClient* parseClient) {
+    if (begin == end) {
+        parseClient->error(
+                begin,
+                "Input buffer is empty. Begin and end cannot point to the same location.");
+        return {begin, nullptr};
+    }
+
     const uint8_t* pos = begin;
 
     MajorType type = static_cast<MajorType>(*pos & 0xE0);

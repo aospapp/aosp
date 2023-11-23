@@ -25,7 +25,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
-#include <sys/inotify.h>
+#include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -35,6 +35,7 @@ namespace automotive {
 namespace powerpolicy {
 
 using ::android::Mutex;
+using ::android::automotive::SysfsMonitor;
 using ::android::base::Error;
 using ::android::base::GetProperty;
 using ::android::base::ReadFileToString;
@@ -49,12 +50,11 @@ namespace {
 
 constexpr const char kPropertySystemBootReason[] = "sys.boot.reason";
 constexpr const char kSilentModeHwStateFilename[] = "/sys/power/pm_silentmode_hw_state";
-constexpr const char kKernelSilentModeFilename[] = "/sys/power/pm_silentmode_kernel";
+constexpr const char kKernelSilentModeFilename[] = "/sys/power/pm_silentmode_kernel_state";
 // To prevent boot animation from being started.
 constexpr const char kPropertyNoBootAnimation[] = "debug.sf.nobootanimation";
 // To stop boot animation while it is being played.
 constexpr const char kPropertyBootAnimationExit[] = "service.bootanim.exit";
-constexpr int kEventBufferSize = 512;
 
 bool fileExists(const char* filename) {
     struct stat buffer;
@@ -68,7 +68,7 @@ SilentModeHandler::SilentModeHandler(ISilentModeChangeHandler* handler) :
       mSilentModeHwStateFilename(kSilentModeHwStateFilename),
       mKernelSilentModeFilename(kKernelSilentModeFilename),
       mSilentModeChangeHandler(handler),
-      mFdInotify(-1) {
+      mSysfsMonitor(sp<SysfsMonitor>::make()) {
     mBootReason = GetProperty(kPropertySystemBootReason, "");
 }
 
@@ -83,7 +83,7 @@ void SilentModeHandler::init() {
     if (mForcedMode) {
         handleSilentModeChange(mSilentModeByHwState);
         mSilentModeChangeHandler->notifySilentModeChange(mSilentModeByHwState);
-        ALOGI("Now in forced mode: monitoring %s is disabled", kSilentModeHwStateFilename);
+        ALOGI("Now in forced mode: monitoring %s is disabled", mSilentModeHwStateFilename.c_str());
     } else {
         startMonitoringSilentModeHwState();
     }
@@ -101,13 +101,15 @@ bool SilentModeHandler::isSilentMode() {
 void SilentModeHandler::stopMonitoringSilentModeHwState(bool shouldWaitThread) {
     if (mIsMonitoring) {
         mIsMonitoring = false;
-        inotify_rm_watch(mFdInotify, mWdSilentModeHwState);
-        mWdSilentModeHwState = -1;
+        if (auto ret = mSysfsMonitor->unregisterFd(mFdSilentModeHwState.get()); !ret.ok()) {
+            ALOGW("Unregistering %s from SysfsMonitor failed", mSilentModeHwStateFilename.c_str());
+        }
         if (shouldWaitThread && mSilentModeMonitoringThread.joinable()) {
             mSilentModeMonitoringThread.join();
         }
     }
-    mFdInotify.reset(-1);
+    mFdSilentModeHwState.reset();
+    mSysfsMonitor->release();
 }
 
 Result<void> SilentModeHandler::dump(int fd, const Vector<String16>& /*args*/) {
@@ -132,56 +134,38 @@ void SilentModeHandler::startMonitoringSilentModeHwState() {
         ALOGW("Silent Mode monitoring is already started");
         return;
     }
-    if (mFdInotify < 0) {
-        mFdInotify.reset(inotify_init1(IN_CLOEXEC));
-        if (mFdInotify < 0) {
-            ALOGE("Failed to start monitoring Silent Mode HW state: creating inotify instance "
-                  "failed (errno = %d)",
-                  errno);
-            return;
-        }
-    }
     const char* filename = mSilentModeHwStateFilename.c_str();
     if (!fileExists(filename)) {
         ALOGW("Failed to start monitoring Silent Mode HW state: %s doesn't exist", filename);
-        mFdInotify.reset(-1);
         return;
     }
-    // TODO(b/178843534): Additional masks might be needed to detect sysfs change.
-    const uint32_t masks = IN_MODIFY;
-    mWdSilentModeHwState = inotify_add_watch(mFdInotify, filename, masks);
+    if (mFdSilentModeHwState == -1) {
+        if (mFdSilentModeHwState.reset(open(filename, O_RDONLY | O_NONBLOCK | O_CLOEXEC));
+            mFdSilentModeHwState == -1) {
+            ALOGW("Failed to open %s for monitoring: errno = %d", filename, errno);
+            return;
+        }
+    }
+    auto ret = mSysfsMonitor->init([this](const std::vector<int32_t>& fileDescriptors) {
+        // Only one sysfs file is registered.
+        if (mFdSilentModeHwState != fileDescriptors[0]) {
+            return;
+        }
+        handleSilentModeHwStateChange();
+    });
+    if (!ret.ok()) {
+        ALOGW("Failed to initialize SysfsMonitor: %s", ret.error().message().c_str());
+        return;
+    }
+    if (auto ret = mSysfsMonitor->registerFd(mFdSilentModeHwState.get()); !ret.ok()) {
+        ALOGW("Failed to register %s to SysfsMonitor: %s", filename, ret.error().message().c_str());
+        return;
+    }
     mIsMonitoring = true;
-    mSilentModeMonitoringThread = std::thread([this]() {
-        char eventBuf[kEventBufferSize];
-        struct inotify_event* event;
-        constexpr size_t inotifyEventSize = sizeof(*event);
-        ALOGI("Monitoring %s started", mSilentModeHwStateFilename.c_str());
-        while (mIsMonitoring) {
-            int eventPos = 0;
-            int numBytes = read(mFdInotify, eventBuf, sizeof(eventBuf));
-            if (numBytes < static_cast<int>(inotifyEventSize)) {
-                if (errno == EINTR) {
-                    ALOGW("System call interrupted. Wait for inotify event again.");
-                    continue;
-                }
-                mIsMonitoring = false;
-                inotify_rm_watch(mFdInotify, mWdSilentModeHwState);
-                mWdSilentModeHwState = -1;
-                mFdInotify.reset(-1);
-                ALOGW("Failed to wait for change at %s (errno = %d)",
-                      mSilentModeHwStateFilename.c_str(), errno);
-                return;
-            }
-            while (numBytes >= static_cast<int>(inotifyEventSize)) {
-                int eventSize;
-                event = (struct inotify_event*)(eventBuf + eventPos);
-                if (event->wd == mWdSilentModeHwState && (event->mask & masks)) {
-                    handleSilentModeHwStateChange();
-                }
-                eventSize = inotifyEventSize + event->len;
-                numBytes -= eventSize;
-                eventPos += eventSize;
-            }
+    mSilentModeMonitoringThread = std::thread([this, filename]() {
+        if (auto ret = mSysfsMonitor->observe(); !ret.ok()) {
+            ALOGI("Failed to observe %s", filename);
+            return;
         }
         ALOGI("Monitoring %s ended", mSilentModeHwStateFilename.c_str());
     });

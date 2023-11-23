@@ -1,0 +1,4 @@
+# WFC
+/vendor/bin/wfc-pkt-router     u:object_r:pktrouter_exec:s0
+
+/dev/umts_wfc[01]              u:object_r:pktrouter_device:s0

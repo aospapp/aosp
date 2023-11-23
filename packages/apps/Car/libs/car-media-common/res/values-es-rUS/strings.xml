@@ -30,5 +30,5 @@
     <string name="error_code_content_already_playing" msgid="1306236349553004461">"Ya se está reproduciendo ese contenido"</string>
     <string name="error_code_skip_limit_reached" msgid="4203743406433151146">"No se pueden omitir más pistas"</string>
     <string name="error_code_action_aborted" msgid="8611777981356536501">"No se pudo completar la acción. Vuelve a intentarlo."</string>
-    <string name="error_code_end_of_queue" msgid="6935022448319288887">"No hay más contenido en la cola"</string>
+    <string name="error_code_end_of_queue" msgid="6935022448319288887">"No hay más contenido en la fila"</string>
 </resources>

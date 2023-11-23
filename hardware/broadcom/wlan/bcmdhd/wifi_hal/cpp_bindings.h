@@ -347,6 +347,10 @@ protected:
         return wifi_register_vendor_handler(wifiHandle(), id, subcmd, &event_handler, this);
     }
 
+    void unregisterVendorHandlerWithoutLock(uint32_t id, int subcmd) {
+        wifi_unregister_vendor_handler_without_lock(wifiHandle(), id, subcmd);
+    }
+
     void unregisterVendorHandler(uint32_t id, int subcmd) {
         wifi_unregister_vendor_handler(wifiHandle(), id, subcmd);
     }

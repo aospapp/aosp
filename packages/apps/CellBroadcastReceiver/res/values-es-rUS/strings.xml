@@ -135,7 +135,7 @@
     <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> alertas no leídas"</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"Alertas nuevas"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"Mostrar diálogo para inhabilitar después de la primera alerta (salvo Alerta Presidencial)"</string>
-    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Mostrar cuadro de desactivación"</string>
+    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Mostrar diálogo para inhabilitar"</string>
     <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Actualmente, recibes alertas de emergencia inalámbricas. ¿Quieres seguir recibiéndolas?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Sí"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"No"</string>

@@ -33,9 +33,10 @@ import com.google.common.truth.StandardSubjectBuilder
  */
 class RegionSubject(
     fm: FailureMetadata,
-    private val subjects: List<FlickerSubject>,
+    override val parent: FlickerSubject?,
     val region: android.graphics.Region
 ) : FlickerSubject(fm, region) {
+    override val timestamp: Long get() = parent?.timestamp ?: 0
     private val topPositionSubject
         get() = check(MSG_ERROR_TOP_POSITION).that(region.bounds.top)
     private val bottomPositionSubject
@@ -50,15 +51,13 @@ class RegionSubject(
     private val android.graphics.Rect.area get() = this.width() * this.height()
     private val Rect.area get() = this.width * this.height
 
-    override val defaultFacts: String = buildString {
-        subjects.forEach { subject -> appendln(subject.defaultFacts) }
-    }
+    override val selfFacts = listOf(Fact.fact("Region - Covered", region.toString()))
 
     /**
      * {@inheritDoc}
      */
     override fun clone(): FlickerSubject {
-        return RegionSubject(fm, subjects, region)
+        return RegionSubject(fm, parent, region)
     }
 
     /**
@@ -73,6 +72,34 @@ class RegionSubject(
         leftPositionSubject.isEqualTo(other.bounds.left)
         rightPositionSubject.isEqualTo(other.bounds.right)
         areaSubject.isEqualTo(other.bounds.area)
+    }
+
+    /**
+     * Subtracts [other] from this subject [region]
+     */
+    fun minus(other: Region): RegionSubject = minus(other.toAndroidRegion())
+
+    /**
+     * Subtracts [other] from this subject [region]
+     */
+    fun minus(other: android.graphics.Region): RegionSubject {
+        val remainingRegion = android.graphics.Region(this.region)
+        remainingRegion.op(other, android.graphics.Region.Op.XOR)
+        return assertThat(remainingRegion, this)
+    }
+
+    /**
+     * Adds [other] to this subject [region]
+     */
+    fun plus(other: Region): RegionSubject = plus(other.toAndroidRegion())
+
+    /**
+     * Adds [other] to this subject [region]
+     */
+    fun plus(other: android.graphics.Region): RegionSubject {
+        val remainingRegion = android.graphics.Region(this.region)
+        remainingRegion.op(other, android.graphics.Region.Op.UNION)
+        return assertThat(remainingRegion, this)
     }
 
     /**
@@ -503,26 +530,24 @@ class RegionSubject(
          * Boiler-plate Subject.Factory for RectSubject
          */
         @JvmStatic
-        @JvmOverloads
         fun getFactory(
-            flickerSubjects: List<FlickerSubject> = emptyList()
+            parent: FlickerSubject?
         ) = Factory { fm: FailureMetadata, region: android.graphics.Region? ->
             val subjectRegion = region ?: android.graphics.Region()
-            RegionSubject(fm, flickerSubjects, subjectRegion)
+            RegionSubject(fm, parent, subjectRegion)
         }
 
         /**
          * User-defined entry point for existing android regions
          */
         @JvmStatic
-        @JvmOverloads
         fun assertThat(
             region: android.graphics.Region?,
-            flickerSubjects: List<FlickerSubject> = emptyList()
+            parent: FlickerSubject? = null
         ): RegionSubject {
             val strategy = FlickerFailureStrategy()
             val subject = StandardSubjectBuilder.forCustomFailureStrategy(strategy)
-                .about(getFactory(flickerSubjects))
+                .about(getFactory(parent))
                 .that(region ?: android.graphics.Region()) as RegionSubject
             strategy.init(subject)
             return subject
@@ -533,59 +558,47 @@ class RegionSubject(
          */
         @JvmStatic
         @JvmOverloads
-        fun assertThat(
-            rect: Array<Rect>,
-            flickerSubjects: List<FlickerSubject> = emptyList()
-        ): RegionSubject = assertThat(Region(rect), flickerSubjects)
+        fun assertThat(rect: Array<Rect>, parent: FlickerSubject? = null): RegionSubject =
+                assertThat(Region(rect), parent)
 
         /**
          * User-defined entry point for existing rects
          */
         @JvmStatic
         @JvmOverloads
-        fun assertThat(
-            rect: Rect?,
-            flickerSubjects: List<FlickerSubject> = emptyList()
-        ): RegionSubject = assertThat(Region(rect), flickerSubjects)
+        fun assertThat(rect: Rect?, parent: FlickerSubject? = null): RegionSubject =
+                assertThat(Region(rect), parent)
 
         /**
          * User-defined entry point for existing rects
          */
         @JvmStatic
-        fun assertThat(
-            rect: RectF?,
-            flickerSubjects: List<FlickerSubject> = emptyList()
-        ): RegionSubject = assertThat(rect?.toRect(), flickerSubjects)
+        @JvmOverloads
+        fun assertThat(rect: RectF?, parent: FlickerSubject? = null): RegionSubject =
+                assertThat(rect?.toRect(), parent)
 
         /**
          * User-defined entry point for existing rects
          */
         @JvmStatic
-        fun assertThat(
-            rect: Array<RectF>,
-            flickerSubjects: List<FlickerSubject> = emptyList()
-        ): RegionSubject = assertThat(
-            mergeRegions(rect.map { Region(it.toRect()) }.toTypedArray()),
-            flickerSubjects)
+        @JvmOverloads
+        fun assertThat(rect: Array<RectF>, parent: FlickerSubject? = null): RegionSubject =
+            assertThat(mergeRegions(rect.map { Region(it.toRect()) }.toTypedArray()), parent)
 
         /**
          * User-defined entry point for existing regions
          */
         @JvmStatic
         @JvmOverloads
-        fun assertThat(
-            regions: Array<Region>,
-            flickerSubjects: List<FlickerSubject> = emptyList()
-        ): RegionSubject = assertThat(mergeRegions(regions), flickerSubjects)
+        fun assertThat(regions: Array<Region>, parent: FlickerSubject? = null): RegionSubject =
+                assertThat(mergeRegions(regions), parent)
 
         /**
          * User-defined entry point for existing regions
          */
         @JvmStatic
         @JvmOverloads
-        fun assertThat(
-            region: Region?,
-            flickerSubjects: List<FlickerSubject> = emptyList()
-        ): RegionSubject = assertThat(region?.toAndroidRegion(), flickerSubjects)
+        fun assertThat(region: Region?, parent: FlickerSubject? = null): RegionSubject =
+                assertThat(region?.toAndroidRegion(), parent)
     }
 }

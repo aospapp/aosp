@@ -67,6 +67,31 @@ void reportSpeakerImpedance(const std::shared_ptr<IStats> &stats_client,
         ALOGE("Unable to report VendorSpeakerImpedance to Stats service");
 }
 
+void reportSpeakerHealthStat(const std::shared_ptr<IStats> &stats_client,
+                             const PixelAtoms::VendorSpeakerStatsReported &speakerHealthStat) {
+    // Load values array
+    std::vector<VendorAtomValue> values(5);
+    VendorAtomValue tmp;
+    tmp.set<VendorAtomValue::intValue>(speakerHealthStat.speaker_location());
+    values[0] = tmp;
+    tmp.set<VendorAtomValue::intValue>(speakerHealthStat.impedance());
+    values[1] = tmp;
+    tmp.set<VendorAtomValue::intValue>(speakerHealthStat.max_temperature());
+    values[2] = tmp;
+    tmp.set<VendorAtomValue::intValue>(speakerHealthStat.excursion());
+    values[3] = tmp;
+    tmp.set<VendorAtomValue::intValue>(speakerHealthStat.heartbeat());
+    values[4] = tmp;
+
+    // Send vendor atom to IStats HAL
+    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+                        .atomId = PixelAtoms::Atom::kVendorSpeakerStatsReported,
+                        .values = std::move(values)};
+    const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
+    if (!ret.isOk())
+        ALOGE("Unable to report VendorSpeakerStatsReported to Stats service");
+}
+
 void reportSlowIo(const std::shared_ptr<IStats> &stats_client,
                   const PixelAtoms::VendorSlowIo &slowIo) {
     // Load values array

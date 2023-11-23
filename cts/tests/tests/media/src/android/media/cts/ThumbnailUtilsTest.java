@@ -183,6 +183,10 @@ public class ThumbnailUtilsTest {
     @Test
     public void testCreateImageThumbnailAvif() throws Exception {
         if (!MediaUtils.check(mIsAtLeastS, "test needs Android 12")) return;
+        if (!MediaUtils.canDecodeVideo("AV1", 1920, 1080, 30)) {
+            MediaUtils.skipTest("No AV1 codec for 1080p");
+            return;
+        }
         final File file = stageFile("sample.avif", new File(mDir, "cts.avif"));
 
         for (Size size : TEST_SIZES) {

@@ -16,18 +16,20 @@
 
 package com.android.car.ui.preference;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.utils.CarUiUtils.requireViewByRefId;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.Switch;
 
 import androidx.annotation.Nullable;
-import androidx.preference.Preference;
 import androidx.preference.PreferenceViewHolder;
 
 import com.android.car.ui.R;
+import com.android.car.ui.utils.CarUiUtils;
 
 import java.util.function.Consumer;
 
@@ -36,6 +38,7 @@ import java.util.function.Consumer;
  * body of the preference.
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(MIN_TARGET_API)
 public class CarUiTwoActionSwitchPreference extends CarUiTwoActionBasePreference {
     @Nullable
     protected Consumer<Boolean> mSecondaryActionOnClickListener;
@@ -68,19 +71,10 @@ public class CarUiTwoActionSwitchPreference extends CarUiTwoActionBasePreference
 
     @Override
     protected void performSecondaryActionClickInternal() {
-        if (isSecondaryActionEnabled()) {
-            if (isUxRestricted()) {
-                Consumer<Preference> restrictedListener = getOnClickWhileRestrictedListener();
-                if (restrictedListener != null) {
-                    restrictedListener.accept(this);
-                }
-            } else {
-                mSecondaryActionChecked = !mSecondaryActionChecked;
-                notifyChanged();
-                if (mSecondaryActionOnClickListener != null) {
-                    mSecondaryActionOnClickListener.accept(mSecondaryActionChecked);
-                }
-            }
+        mSecondaryActionChecked = !mSecondaryActionChecked;
+        notifyChanged();
+        if (mSecondaryActionOnClickListener != null) {
+            mSecondaryActionOnClickListener.accept(mSecondaryActionChecked);
         }
     }
 
@@ -100,16 +94,23 @@ public class CarUiTwoActionSwitchPreference extends CarUiTwoActionBasePreference
         holder.itemView.setFocusable(false);
         holder.itemView.setClickable(false);
         firstActionContainer.setOnClickListener(this::performClickUnrestricted);
-        firstActionContainer.setEnabled(isEnabled() || isUxRestricted());
-        firstActionContainer.setFocusable(isEnabled() || isUxRestricted());
+        firstActionContainer.setEnabled(
+                isEnabled() || isUxRestricted() || isClickableWhileDisabled());
+        firstActionContainer.setFocusable(
+                isEnabled() || isUxRestricted() || isClickableWhileDisabled());
 
         secondActionContainer.setVisibility(mSecondaryActionVisible ? View.VISIBLE : View.GONE);
         s.setChecked(mSecondaryActionChecked);
         s.setEnabled(isSecondaryActionEnabled());
 
-        secondaryAction.setOnClickListener(v -> performSecondaryActionClickInternal());
-        secondaryAction.setEnabled(isSecondaryActionEnabled() || isUxRestricted());
-        secondaryAction.setFocusable(isSecondaryActionEnabled() || isUxRestricted());
+        secondaryAction.setOnClickListener(v -> performSecondaryActionClick());
+        secondaryAction.setEnabled(
+                isSecondaryActionEnabled() || isUxRestricted() || isClickableWhileDisabled());
+        secondaryAction.setFocusable(
+                isSecondaryActionEnabled() || isUxRestricted() || isClickableWhileDisabled());
+
+        CarUiUtils.makeAllViewsEnabledAndUxRestricted(secondaryAction, isSecondaryActionEnabled(),
+                isUxRestricted());
     }
 
     /**

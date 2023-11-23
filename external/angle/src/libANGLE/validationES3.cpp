@@ -373,8 +373,25 @@ static bool ValidateTexImageFormatCombination(const Context *context,
     return true;
 }
 
+static bool ValidateES3CompressedFormatForTexture2DArray(const Context *context, GLenum format)
+{
+    if (IsETC1Format(format) || IsPVRTC1Format(format))
+    {
+        context->validationError(GL_INVALID_OPERATION, kInternalFormatRequiresTexture2D);
+        return false;
+    }
+
+    return true;
+}
+
 static bool ValidateES3CompressedFormatForTexture3D(const Context *context, GLenum format)
 {
+    if (IsETC1Format(format) || IsPVRTC1Format(format))
+    {
+        context->validationError(GL_INVALID_OPERATION, kInternalFormatRequiresTexture2D);
+        return false;
+    }
+
     if (IsETC2EACFormat(format))
     {
         // ES 3.1, Section 8.7, page 169.
@@ -403,6 +420,14 @@ static bool ValidateES3CompressedFormatForTexture3D(const Context *context, GLen
         context->validationError(GL_INVALID_OPERATION, kInternalFormatRequiresTexture2DArrayRGTC);
         return false;
     }
+
+    if (IsBPTCFormat(format) && (context->getLimitations().noCompressedTexture3D))
+    {
+        // GL_EXT_texture_compression_bptc
+        context->validationError(GL_INVALID_OPERATION, kInternalFormatRequiresTexture2DArrayBPTC);
+        return false;
+    }
+
     return true;
 }
 
@@ -585,16 +610,6 @@ bool ValidateES3TexImageParametersBase(const Context *context,
         return false;
     }
 
-    if (isCompressed && texType == TextureType::_3D)
-    {
-        GLenum compressedDataFormat = isSubImage ? format : internalformat;
-        if (!ValidateES3CompressedFormatForTexture3D(context, compressedDataFormat))
-        {
-            // Error already generated.
-            return false;
-        }
-    }
-
     // Validate texture formats
     GLenum actualInternalFormat =
         isSubImage ? texture->getFormat(target, level).info->internalFormat : internalformat;
@@ -609,10 +624,41 @@ bool ValidateES3TexImageParametersBase(const Context *context,
                                                  : GetInternalFormatInfo(internalformat, type);
     if (isCompressed)
     {
-        if (!actualFormatInfo.compressed)
+        // compressedTexSubImage does not generate GL_INVALID_ENUM when format is unknown or invalid
+        if (!isSubImage)
         {
-            context->validationError(GL_INVALID_ENUM, kCompressedMismatch);
-            return false;
+            if (!actualFormatInfo.compressed)
+            {
+                context->validationError(GL_INVALID_ENUM, kCompressedMismatch);
+                return false;
+            }
+
+            if (!actualFormatInfo.textureSupport(context->getClientVersion(),
+                                                 context->getExtensions()))
+            {
+                context->validationError(GL_INVALID_ENUM, kInvalidFormat);
+                return false;
+            }
+        }
+
+        if (texType == TextureType::_2DArray)
+        {
+            GLenum compressedDataFormat = isSubImage ? format : internalformat;
+            if (!ValidateES3CompressedFormatForTexture2DArray(context, compressedDataFormat))
+            {
+                // Error already generated.
+                return false;
+            }
+        }
+
+        if (texType == TextureType::_3D)
+        {
+            GLenum compressedDataFormat = isSubImage ? format : internalformat;
+            if (!ValidateES3CompressedFormatForTexture3D(context, compressedDataFormat))
+            {
+                // Error already generated.
+                return false;
+            }
         }
 
         if (isSubImage)
@@ -648,12 +694,6 @@ bool ValidateES3TexImageParametersBase(const Context *context,
                 context->validationError(GL_INVALID_OPERATION, kInvalidCompressedImageSize);
                 return false;
             }
-        }
-
-        if (!actualFormatInfo.textureSupport(context->getClientVersion(), context->getExtensions()))
-        {
-            context->validationError(GL_INVALID_ENUM, kInvalidFormat);
-            return false;
         }
 
         // Disallow 3D-only compressed formats from being set on 2D textures
@@ -1409,17 +1449,35 @@ bool ValidateES3TexStorageParametersBase(const Context *context,
         return false;
     }
 
-    if (formatInfo.compressed && target == TextureType::Rectangle)
+    if (formatInfo.compressed)
     {
-        context->validationError(GL_INVALID_ENUM, kRectangleTextureCompressed);
-        return false;
-    }
-
-    if (formatInfo.compressed && target == TextureType::_3D)
-    {
-        if (!ValidateES3CompressedFormatForTexture3D(context, formatInfo.internalFormat))
+        if (target == TextureType::Rectangle)
         {
-            // Error already generated.
+            context->validationError(GL_INVALID_ENUM, kRectangleTextureCompressed);
+            return false;
+        }
+
+        if (target == TextureType::_2DArray)
+        {
+            if (!ValidateES3CompressedFormatForTexture2DArray(context, formatInfo.internalFormat))
+            {
+                // Error already generated.
+                return false;
+            }
+        }
+
+        if (target == TextureType::_3D)
+        {
+            if (!ValidateES3CompressedFormatForTexture3D(context, formatInfo.internalFormat))
+            {
+                // Error already generated.
+                return false;
+            }
+        }
+
+        if (!ValidCompressedImageSize(context, formatInfo.internalFormat, 0, width, height, depth))
+        {
+            context->validationError(GL_INVALID_OPERATION, kInvalidCompressedImageSize);
             return false;
         }
     }
@@ -3172,8 +3230,13 @@ bool ValidateCopyBufferSubData(const Context *context,
         return false;
     }
 
-    // Verify that readBuffer and writeBuffer are not currently mapped
-    if (readBuffer->isMapped() || writeBuffer->isMapped())
+    // EXT_buffer_storage allows persistently mapped buffers to be updated via glCopyBufferSubData
+    bool isReadPersistent  = (readBuffer->getAccessFlags() & GL_MAP_PERSISTENT_BIT_EXT) != 0;
+    bool isWritePersistent = (writeBuffer->getAccessFlags() & GL_MAP_PERSISTENT_BIT_EXT) != 0;
+
+    // Verify that readBuffer and writeBuffer are not currently mapped unless persistent
+    if ((readBuffer->isMapped() && !isReadPersistent) ||
+        (writeBuffer->isMapped() && !isWritePersistent))
     {
         context->validationError(GL_INVALID_OPERATION, kBufferMapped);
         return false;

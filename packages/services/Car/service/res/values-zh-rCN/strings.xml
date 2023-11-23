@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"控制汽车电源政策。"</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"渲染模板"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"渲染模板。"</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"控制应用启动"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"控制应用启动。"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"我的设备"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"访客"</string>
     <string name="importance_default" msgid="8587741629268312938">"重要性：默认"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"以后再重置"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"信息娱乐系统将在下次汽车发动时重置。"</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"必须停车才能启动重置流程。"</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"“<xliff:g id="ID_1">^1</xliff:g>”给系统性能造成了影响"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"停用应用可提高系统性能。您可以在“设置”中重新启用应用。"</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"优先运行应用可继续使用应用。"</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"卸载应用可提高系统性能。"</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"停用应用"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"优先运行应用"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"卸载应用"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"已停用“<xliff:g id="ID_1">^1</xliff:g>”。您可以在“设置”中重新启用该应用。"</string>
 </resources>

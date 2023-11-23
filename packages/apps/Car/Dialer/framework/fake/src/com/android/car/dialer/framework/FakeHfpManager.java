@@ -22,6 +22,7 @@ import androidx.lifecycle.MutableLiveData;
 
 import com.android.car.dialer.framework.testdata.CallLogDataHandler;
 import com.android.car.dialer.framework.testdata.ContactDataHandler;
+import com.android.car.dialer.framework.testdata.TestData;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,8 +39,6 @@ import javax.inject.Singleton;
  */
 @Singleton
 public class FakeHfpManager {
-    private static final String CONTACT_DATA_FILE = "ContactsForPhone%d.json";
-    private static final String CALL_LOG_DATA_FILE = "CallLogForPhone%d.json";
 
     private Map<String, SimulatedBluetoothDevice> mDeviceMap = new HashMap<>();
     private List<BluetoothDevice> mDeviceList;
@@ -65,12 +64,14 @@ public class FakeHfpManager {
     /**
      * Connects a mocked bluetooth device.
      */
-    public void connectHfpDevice() {
-        SimulatedBluetoothDevice device = prepareNewDevice();
-        device.connect();
-        mDeviceMap.put(String.valueOf(mDeviceMap.size()), device);
-        mDeviceList.add(device.getBluetoothDevice());
+    public SimulatedBluetoothDevice connectHfpDevice(boolean withMockData) {
+        int newDeviceId = TestData.newDeviceId();
+        SimulatedBluetoothDevice device = prepareNewDevice(newDeviceId);
+        device.connect(withMockData);
+        mDeviceMap.put(String.valueOf(newDeviceId), device);
+        mDeviceList.add(0, device.getBluetoothDevice());
         mHfpDeviceListLiveData.postValue(mDeviceList);
+        return device;
     }
 
     /**
@@ -78,16 +79,19 @@ public class FakeHfpManager {
      */
     public void disconnectHfpDevice(String id) {
         SimulatedBluetoothDevice simulatedBluetoothDevice = mDeviceMap.remove(id);
+        if (simulatedBluetoothDevice == null) {
+            return;
+        }
         mDeviceList.remove(simulatedBluetoothDevice.getBluetoothDevice());
         simulatedBluetoothDevice.disconnect();
         mHfpDeviceListLiveData.postValue(mDeviceList);
     }
 
-    private SimulatedBluetoothDevice prepareNewDevice() {
-        String contactDataFile = String.format(CONTACT_DATA_FILE, mDeviceMap.size() + 1);
-        String callLogDataFile = String.format(CALL_LOG_DATA_FILE, mDeviceMap.size() + 1);
+    private SimulatedBluetoothDevice prepareNewDevice(int id) {
+        String contactDataFile = TestData.getContactDataFile(id);
+        String callLogDataFile = TestData.getCallLogDataFile(id);
         SimulatedBluetoothDevice simulatedBluetoothDevice = new SimulatedBluetoothDevice(
-                mContactDataHandler, mCallLogDataHandler, contactDataFile, callLogDataFile);
+                id, mContactDataHandler, mCallLogDataHandler, contactDataFile, callLogDataFile);
 
         return simulatedBluetoothDevice;
     }

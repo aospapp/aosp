@@ -82,6 +82,7 @@ class MmsUtils {
             stringBuilder.append(cursor.getString(cursor.getColumnIndex(Part.TEXT)));
             stringBuilder.append(" ");
         }
+
         return stringBuilder.toString().replace(REPLACE_CHARS, "");
     }
 

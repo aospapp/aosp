@@ -26,6 +26,9 @@ import static android.provider.CallLog.Calls.USER_MISSED_CALL_SCREENING_SERVICE_
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
@@ -36,8 +39,11 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.IContentProvider;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.provider.CallLog;
 import android.telecom.DisconnectCause;
 import android.telecom.TelecomManager;
@@ -73,6 +79,7 @@ public class MissedInformationTest extends TelecomSystemTest {
     @Mock Call mIncomingCall;
     private CallsManager mCallsManager;
     private CallIntentProcessor.AdapterImpl mAdapter;
+    private PackageManager mPackageManager;
 
     @Override
     @Before
@@ -85,6 +92,9 @@ public class MissedInformationTest extends TelecomSystemTest {
         when(mContentProvider.call(any(String.class), any(String.class),
                 any(String.class), any(Bundle.class))).thenReturn(new Bundle());
         doReturn(mContentResolver).when(mSpyContext).getContentResolver();
+        doReturn(mContext).when(mContext).createContextAsUser(any(UserHandle.class), anyInt());
+        mPackageManager = mContext.getPackageManager();
+        when(mPackageManager.getPackageUid(anyString(), eq(0))).thenReturn(Binder.getCallingUid());
     }
 
     @Override

@@ -579,7 +579,7 @@
     <string name="onscreenEndCallText" msgid="6138725377654842757">"สิ้นสุด"</string>
     <string name="onscreenShowDialpadText" msgid="658465753816164079">"แป้นหมายเลข"</string>
     <string name="onscreenMuteText" msgid="5470306116733843621">"ปิดเสียง"</string>
-    <string name="onscreenAddCallText" msgid="9075675082903611677">"เพิ่มการโทร"</string>
+    <string name="onscreenAddCallText" msgid="9075675082903611677">"เพิ่มสาย"</string>
     <string name="onscreenMergeCallsText" msgid="3692389519611225407">"รวมสาย"</string>
     <string name="onscreenSwapCallsText" msgid="2682542150803377991">"สลับ"</string>
     <string name="onscreenManageCallsText" msgid="1162047856081836469">"จัดการการโทร"</string>

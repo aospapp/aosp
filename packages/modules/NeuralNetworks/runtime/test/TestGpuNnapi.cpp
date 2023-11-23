@@ -103,6 +103,7 @@ constexpr uint32_t kExpectedResultInInt = 2;
 //   - ElementType: The corresponding C++ type. Use sizeof(ElementType) to get the element size.
 //   - kIsQuantized: Whether the data type is a quantized type or not.
 //   - kClearData: The CLEAR_DATA used in the compute shader.
+//   - kTolerance: The absolute tolerance used to check the computation result.
 template <Type dataType>
 struct TestTypeHelper;
 template <>
@@ -111,6 +112,7 @@ struct TestTypeHelper<Type::TENSOR_FLOAT32> {
     static constexpr bool kIsQuantized = false;
     // One float32 of value (1.0) packed into uint32_t
     static constexpr uint32_t kClearData = 0x3f800000;
+    static constexpr double kTolerance = 1e-6;
 };
 template <>
 struct TestTypeHelper<Type::TENSOR_FLOAT16> {
@@ -118,6 +120,7 @@ struct TestTypeHelper<Type::TENSOR_FLOAT16> {
     static constexpr bool kIsQuantized = false;
     // Two float16 of value (1.0) packed into uint32_t
     static constexpr uint32_t kClearData = 0x3c003c00;
+    static constexpr double kTolerance = 1e-3;
 };
 template <>
 struct TestTypeHelper<Type::TENSOR_QUANT8_ASYMM> {
@@ -125,6 +128,7 @@ struct TestTypeHelper<Type::TENSOR_QUANT8_ASYMM> {
     static constexpr bool kIsQuantized = true;
     // Four uint8_t of value (1) packed into uint32_t
     static constexpr uint32_t kClearData = 0x01010101;
+    static constexpr double kTolerance = 0;
 };
 template <>
 struct TestTypeHelper<Type::TENSOR_QUANT8_ASYMM_SIGNED> {
@@ -132,6 +136,7 @@ struct TestTypeHelper<Type::TENSOR_QUANT8_ASYMM_SIGNED> {
     static constexpr bool kIsQuantized = true;
     // Four int8_t of value (1) packed into uint32_t
     static constexpr uint32_t kClearData = 0x01010101;
+    static constexpr double kTolerance = 0;
 };
 
 bool isExtensionSupported(const std::vector<VkExtensionProperties>& supportedExtensions,
@@ -231,7 +236,9 @@ void allocateBlobAhwb(uint32_t size, uint64_t usage, AHardwareBuffer** outAhwb) 
             .format = AHARDWAREBUFFER_FORMAT_BLOB,
             .usage = usage,
     };
-    ASSERT_EQ(AHardwareBuffer_allocate(&desc, outAhwb), 0);
+    if (AHardwareBuffer_allocate(&desc, outAhwb) != 0) {
+        GTEST_SKIP() << "Device failed to allocate Android hardware buffer";
+    }
 }
 
 using NameAndDevice = std::pair<const char*, const ANeuralNetworksDevice*>;
@@ -960,12 +967,13 @@ class GpuNnapiTest : public testing::TestWithParam<NameAndDevice> {
             auto [nnapiSuccess, nnapiSyncFd] = nnapi->run(gpuSyncFd);
             ASSERT_TRUE(nnapiSuccess);
 
-            checkResults<dataType>(std::move(nnapiSyncFd));
+            const double tolerance = TestTypeHelper<dataType>::kTolerance;
+            checkResults<dataType>(std::move(nnapiSyncFd), tolerance);
         }
     }
 
     template <Type dataType>
-    void checkResults(base::unique_fd syncFd) {
+    void checkResults(base::unique_fd syncFd, double tolerance) {
         using ElementType = typename TestTypeHelper<dataType>::ElementType;
 
         // Lock the buffer with the sync fence
@@ -981,12 +989,14 @@ class GpuNnapiTest : public testing::TestWithParam<NameAndDevice> {
         for (uint32_t i = 0; i < kOperandLength; i++) {
             const ElementType actual = reinterpret_cast<ElementType*>(data)[i];
 
-            // We expect bit-exact here because the arithmetic is trivial, and all intermediate
-            // and final results can be exactly represented by the primary data type.
-            if (actual != expected) {
+            // We expect the absolute difference in double is within the tolerance.
+            const double expected_f64 = static_cast<double>(expected);
+            const double actual_f64 = static_cast<double>(actual);
+            const double diff = std::abs(expected_f64 - actual_f64);
+            if (diff > tolerance) {
                 // Print at most kMaxNumberOfPrintedErrors errors by EXPECT_EQ
                 if (numberOfErrors < kMaxNumberOfPrintedErrors) {
-                    EXPECT_EQ(actual, expected)
+                    EXPECT_NEAR(actual_f64, expected_f64, tolerance)
                             << "When comparing element [" << kOperandLength / kOperandSizeX << ", "
                             << kOperandLength % kOperandSizeX << "]";
                 }

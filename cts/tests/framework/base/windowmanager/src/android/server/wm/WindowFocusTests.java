@@ -290,7 +290,6 @@ public class WindowFocusTests extends WindowManagerTestBase {
                 DEFAULT_DISPLAY);
 
         final InvisibleVirtualDisplaySession session = createManagedInvisibleDisplaySession();
-        final int secondaryDisplayId = session.getDisplayId();
         final SecondaryActivity secondaryActivity = session.startActivityAndFocus();
         // Secondary display disconnected.
         session.close();

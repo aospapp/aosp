@@ -56,9 +56,9 @@
     <string name="wallpaper_disabled_by_administrator_message" msgid="1551430406714747884">"Jou toesteladministrateur het die stel van \'n muurpapier gedeaktiveer"</string>
     <string name="wallpaper_set_successfully_message" msgid="2958998799111688578">"Muurpapier is suksesvol gestel"</string>
     <string name="wallpapers_unavailable_offline_message" msgid="8136405438621689532">"Jy moet \'n internetverbinding hê om muurpapiere te bekyk. Koppel en probeer weer."</string>
-    <string name="currently_set_home_wallpaper_thumbnail" msgid="4022381436821898917">"Kleinkiekie van die muurpapier wat tans op die tuisskerm gestel is"</string>
-    <string name="currently_set_lock_wallpaper_thumbnail" msgid="2094209303934569997">"Kleinkiekie van die muurpapier wat tans op die sluitskerm gestel is"</string>
-    <string name="currently_set_wallpaper_thumbnail" msgid="8651887838745545107">"Kleinkiekie van die muurpapier wat tans gestel is"</string>
+    <string name="currently_set_home_wallpaper_thumbnail" msgid="4022381436821898917">"Miniprent van die muurpapier wat tans op die tuisskerm gestel is"</string>
+    <string name="currently_set_lock_wallpaper_thumbnail" msgid="2094209303934569997">"Miniprent van die muurpapier wat tans op die sluitskerm gestel is"</string>
+    <string name="currently_set_wallpaper_thumbnail" msgid="8651887838745545107">"Miniprent van die muurpapier wat tans gestel is"</string>
     <string name="wallpaper_thumbnail" msgid="569931475923605974">"Muurpapierkleinkiekie"</string>
     <string name="explore_home_screen" msgid="8756346794535765482">"Verken tuisskermmuurpapier"</string>
     <string name="explore_lock_screen" msgid="268938342103703665">"Verken sluitskermmuurpapier"</string>
@@ -95,7 +95,14 @@
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Muurpapiervoorskou"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Die versameling bestaan nie"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Versteek UI-voorskou"</string>
+    <string name="hint_hide_ui_preview" msgid="4527603797714586070">"UI word versteek in voorskou. Dubbeltik om te wys"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Wys UI-voorskou"</string>
+    <string name="hint_show_ui_preview" msgid="2744155435325318349">"UI wys in voorskou. Dubbeltik om te versteek"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Verander muurpapier"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Voorskou van sluitskerm se muurpapier"</string>
+    <string name="apply_btn" msgid="5764555565943538528">"Pas toe"</string>
+    <string name="accessibility_customize_hidden" msgid="6320568529768181691">"Pasmaak word versteek"</string>
+    <string name="accessibility_customize_shown" msgid="590964727831547651">"Pasmaak word gewys"</string>
+    <string name="accessibility_info_hidden" msgid="2288603712350168107">"Inligting word versteek"</string>
+    <string name="accessibility_info_shown" msgid="6626025722456105632">"Inligting word gewys"</string>
 </resources>

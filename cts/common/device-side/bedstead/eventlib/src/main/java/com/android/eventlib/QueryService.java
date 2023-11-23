@@ -23,7 +23,6 @@ import android.os.IBinder;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Implementation of {@link IQueryService}.
@@ -35,56 +34,15 @@ public final class QueryService extends Service {
     public static final String EVENT_KEY = "EVENT";
     public static final String TIMEOUT_KEY = "TIMEOUT";
 
-    private static class QueryClient {
-        final EventLogsQuery<?, ?> query;
-        final LocalEventQuerier<?, ?> querier;
-
-        public QueryClient(EventLogsQuery<?, ?> query, LocalEventQuerier<?, ?> querier) {
-            this.query = query;
-            this.querier = querier;
-        }
-    }
-
     private final IQueryService.Stub binder = new IQueryService.Stub() {
-
-        // Map of all initialised clients, to keep track of progress when using poll/next
-        private final ConcurrentHashMap<Long, QueryClient> clients = new ConcurrentHashMap<>();
-
         @Override
-        public void init(long id, Bundle data) {
+        public Bundle poll(Bundle data, int skip) {
             EventLogsQuery<?, ?> query = (EventLogsQuery<?, ?>) data.getSerializable(QUERIER_KEY);
             LocalEventQuerier<?, ?> querier =
                     new LocalEventQuerier<>(getApplicationContext(), query);
-
-            clients.put(id, new QueryClient(query, querier));
-        }
-
-        @Override
-        public Bundle get(long id, Bundle data) {
-            Instant earliestLogtime = (Instant) data.getSerializable(EARLIEST_LOG_TIME_KEY);
-            Event e = clients.get(id).querier.get(earliestLogtime);
-            return prepareReturnBundle(e);
-        }
-
-        @Override
-        public Bundle getNext(long id, Bundle data) {
-            Instant earliestLogtime = (Instant) data.getSerializable(EARLIEST_LOG_TIME_KEY);
-            Event e = clients.get(id).querier.getNext(earliestLogtime);
-            return prepareReturnBundle(e);
-        }
-
-        @Override
-        public Bundle next(long id, Bundle data) {
-            Instant earliestLogtime = (Instant) data.getSerializable(EARLIEST_LOG_TIME_KEY);
-            Event e = clients.get(id).querier.next(earliestLogtime);
-            return prepareReturnBundle(e);
-        }
-
-        @Override
-        public Bundle poll(long id, Bundle data) {
             Instant earliestLogtime = (Instant) data.getSerializable(EARLIEST_LOG_TIME_KEY);
             Duration timeoutDuration = (Duration) data.getSerializable(TIMEOUT_KEY);
-            Event e = clients.get(id).querier.poll(earliestLogtime, timeoutDuration);
+            Event e = querier.poll(earliestLogtime, timeoutDuration, skip);
             return prepareReturnBundle(e);
         }
 

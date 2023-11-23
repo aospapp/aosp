@@ -46,8 +46,8 @@
     <string name="accounts_category_title" msgid="7286858931427579845">"Contas e início de sessão"</string>
     <string name="accounts_category_summary_no_account" msgid="3053606166993074648">"Sem contas."</string>
     <plurals name="accounts_category_summary" formatted="false" msgid="1711483230329281167">
-      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> contas</item>
       <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> conta</item>
+      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> contas</item>
     </plurals>
     <string name="accounts_slice_summary" msgid="1571012157154521119">"Serviços multimédia, Assistente, Pagamentos"</string>
     <string name="connectivity_network_category_title" msgid="8226264889892008114">"Rede e Internet"</string>
@@ -57,8 +57,8 @@
     <string name="remotes_and_accessories_category_title" msgid="4795119810430255047">"Controlos remotos e acessórios"</string>
     <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3604712105359656700">"Sem dispositivos Bluetooth ligados."</string>
     <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="5219926550837712529">
-      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> acessórios</item>
       <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> acessório</item>
+      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> acessórios</item>
     </plurals>
     <string name="display_and_sound_category_title" msgid="9203309625380755860">"Ecrã e som"</string>
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"Ajuda e comentários"</string>
@@ -263,8 +263,8 @@
     <string name="manage_device_admin" msgid="5714217234035017983">"Apps de administração do dispositivo"</string>
     <string name="number_of_device_admins_none" msgid="2734299122299837459">"Sem apps ativas"</string>
     <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> apps ativas</item>
       <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> app ativa</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> apps ativas</item>
     </plurals>
     <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"Desativada pelo gestor, política de encriptação ou armazenamento de credenciais"</string>
     <string name="enterprise_privacy_settings" msgid="8226765895133003202">"Informações do dispositivo gerido"</string>
@@ -284,16 +284,16 @@
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"Apps instaladas"</string>
     <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"O número de apps é uma estimativa. Pode não incluir as apps instaladas fora da Play Store."</string>
     <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
-      <item quantity="other">No mínimo, <xliff:g id="COUNT_1">%d</xliff:g> apps</item>
       <item quantity="one">No mínimo, <xliff:g id="COUNT_0">%d</xliff:g> app</item>
+      <item quantity="other">No mínimo, <xliff:g id="COUNT_1">%d</xliff:g> apps</item>
     </plurals>
     <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"Autoriz. de Localização"</string>
     <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"Autorizações do microfone"</string>
     <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"Autorizações da câmara"</string>
     <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"Apps predefinidas"</string>
     <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> apps</item>
       <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> app</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> apps</item>
     </plurals>
     <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"Teclado predefinido"</string>
     <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"Definido como <xliff:g id="APP_LABEL">%s</xliff:g>"</string>
@@ -305,35 +305,35 @@
     <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"Credenciais fidedignas no seu perfil pessoal"</string>
     <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"Credenciais fidedignas no seu perfil de trabalho"</string>
     <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
-      <item quantity="other">No mínimo, <xliff:g id="COUNT_1">%d</xliff:g> certificados da AC (autoridade de certificação)</item>
       <item quantity="one">No mínimo, <xliff:g id="COUNT_0">%d</xliff:g> certificado da AC (autoridade de certificação)</item>
+      <item quantity="other">No mínimo, <xliff:g id="COUNT_1">%d</xliff:g> certificados da AC (autoridade de certificação)</item>
     </plurals>
     <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"O gestor pode bloquear o dispositivo e repor a palavra-passe"</string>
     <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"O gestor pode eliminar todos os dados do dispositivo"</string>
     <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"Tentativas de introdução da palavra-passe falhadas antes da eliminação de todos os dados do dispositivo"</string>
     <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"Tentativas de introdução da palavra-passe falhadas antes da eliminação de todos os dados do perfil de trabalho"</string>
     <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> tentativas</item>
       <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> tentativa</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> tentativas</item>
     </plurals>
     <string name="do_disclosure_generic" msgid="8390478119591845948">"Este dispositivo é gerido pela sua entidade."</string>
     <string name="do_disclosure_with_name" msgid="4755509039938948975">"Este dispositivo é gerido por <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>."</string>
     <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
     <string name="learn_more" msgid="820336467414665686">"Saiba mais"</string>
     <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
-      <item quantity="other">Apps de câmara</item>
       <item quantity="one">App de câmara</item>
+      <item quantity="other">Apps de câmara</item>
     </plurals>
     <string name="default_calendar_app_title" msgid="1533912443930743532">"Aplicação de calendário"</string>
     <string name="default_contacts_app_title" msgid="7792041146751261191">"Aplicação de contactos"</string>
     <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
-      <item quantity="other">Apps de cliente de email</item>
       <item quantity="one">App de cliente de email</item>
+      <item quantity="other">Apps de cliente de email</item>
     </plurals>
     <string name="default_map_app_title" msgid="9051013257374474801">"Aplicação de mapas"</string>
     <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
-      <item quantity="other">Apps de telefone</item>
       <item quantity="one">App de telefone</item>
+      <item quantity="other">Apps de telefone</item>
     </plurals>
     <string name="default_browser_title" msgid="3612813200586492159">"App do navegador"</string>
     <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
@@ -354,8 +354,8 @@
     <string name="about_serial" msgid="3432319328808745459">"Número de série"</string>
     <string name="about_build" msgid="8467840394761634575">"Compilação do SO do Android TV"</string>
     <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
-      <item quantity="other">Está agora a <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> passos de se tornar um programador</item>
       <item quantity="one">Está agora a <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> passo de se tornar um programador</item>
+      <item quantity="other">Está agora a <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> passos de se tornar um programador</item>
     </plurals>
     <string name="about_ads" msgid="7662896442040086522">"Anúncios"</string>
     <string name="ads_description" msgid="8081069475265061074">"Gira as Definições dos anúncios, como repor o ID de publicidade."</string>
@@ -371,21 +371,21 @@
     <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"A rede pode ser monitorizada"</string>
     <string name="done_button" msgid="616159688526431451">"Concluído"</string>
     <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
-      <item quantity="other">Confie nos certificados ou remova-os</item>
       <item quantity="one">Confie no certificado ou remova-o</item>
+      <item quantity="other">Confie nos certificados ou remova-os</item>
     </plurals>
     <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> instalou autoridades de certificação no seu dispositivo, o que pode permitir monitorizar a atividade na rede do dispositivo, incluindo emails, apps e Websites seguros.\n\nPara obter mais informações acerca destes certificados, contacte o administrador.</item>
       <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> instalou uma autoridade de certificação no seu dispositivo, o que pode permitir monitorizar a atividade na rede do dispositivo, incluindo emails, apps e Websites seguros.\n\nPara obter mais informações acerca deste certificado, contacte o administrador.</item>
+      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> instalou autoridades de certificação no seu dispositivo, o que pode permitir monitorizar a atividade na rede do dispositivo, incluindo emails, apps e Websites seguros.\n\nPara obter mais informações acerca destes certificados, contacte o administrador.</item>
     </plurals>
     <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
-      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> instalou autoridades de certificação para o seu perfil de trabalho, o que pode permitir monitorizar a atividade na rede de trabalho, incluindo emails, apps e Websites seguros.\n\nPara obter mais informações acerca destes certificados, contacte o administrador.</item>
       <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> instalou uma autoridade de certificação para o seu perfil de trabalho, o que pode permitir monitorizar a atividade na rede de trabalho, incluindo emails, apps e Websites seguros.\n\nPara obter mais informações acerca deste certificado, contacte o administrador.</item>
+      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> instalou autoridades de certificação para o seu perfil de trabalho, o que pode permitir monitorizar a atividade na rede de trabalho, incluindo emails, apps e Websites seguros.\n\nPara obter mais informações acerca destes certificados, contacte o administrador.</item>
     </plurals>
     <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"A sua atividade de rede, incluindo emails, aplicações e Sites seguros, pode ser monitorizada por terceiros.\n\nIsto é possível através de uma credencial fidedigna instalada no seu dispositivo."</string>
     <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
-      <item quantity="other">Verificar certificados</item>
       <item quantity="one">Verificar certificado</item>
+      <item quantity="other">Verificar certificados</item>
     </plurals>
     <string name="device_status" msgid="8266002761193692207">"Estado"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"Rede, números de série e outras informações"</string>
@@ -839,16 +839,16 @@
     <string name="inputs_tv_auto_on" msgid="544848340484583318">"Ligação automática TV ativada"</string>
     <string name="inputs_tv_auto_on_desc" msgid="3640723210479925817">"Ligue a TV com o dispositivo HDMI"</string>
     <plurals name="inputs_header_connected_input" formatted="false" msgid="1179814566738084315">
-      <item quantity="other">Entradas ligadas</item>
       <item quantity="one">Entrada ligada</item>
+      <item quantity="other">Entradas ligadas</item>
     </plurals>
     <plurals name="inputs_header_standby_input" formatted="false" msgid="1205685426052294376">
-      <item quantity="other">Entradas em espera</item>
       <item quantity="one">Entrada em espera</item>
+      <item quantity="other">Entradas em espera</item>
     </plurals>
     <plurals name="inputs_header_disconnected_input" formatted="false" msgid="8405783081133938537">
-      <item quantity="other">Entradas não ligadas</item>
       <item quantity="one">Entrada não ligada</item>
+      <item quantity="other">Entradas não ligadas</item>
     </plurals>
     <string name="user_add_profile_item_summary" msgid="3211866291940617804">"Restringir o acesso a apps e a outro conteúdo na sua conta"</string>
     <string name="user_new_profile_name" msgid="6637593067318708353">"Perfil restrito"</string>
@@ -864,8 +864,8 @@
     <string name="restricted_profile_configure_title" msgid="3327502517511010296">"Definições"</string>
     <string name="restricted_profile_configure_apps_title" msgid="2244201859522056827">"Apps autorizadas"</string>
     <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="7923692208224457728">
-      <item quantity="other">%d aplicações permitidas</item>
       <item quantity="one">1 aplicação permitida</item>
+      <item quantity="other">%d aplicações permitidas</item>
     </plurals>
     <string name="restricted_profile_allowed" msgid="970921490464867884">"Permitido"</string>
     <string name="restricted_profile_not_allowed" msgid="8184983064118036268">"Não permitido"</string>

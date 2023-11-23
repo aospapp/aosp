@@ -86,6 +86,7 @@ class FastPairGattServer {
     private static final boolean DBG = FastPairUtils.DBG;
     private static final int MAX_KEY_COUNT = 10;
     private static final int KEY_LIFESPAN = 10_000;
+    private static final int INVALID = -1;
 
     private final boolean mAutomaticPasskeyConfirmation;
     private final byte[] mModelId;
@@ -95,7 +96,7 @@ class FastPairGattServer {
     private ArrayList<AccountKey> mKeys = new ArrayList<>();
     private BluetoothGattServer mBluetoothGattServer;
     private BluetoothManager mBluetoothManager;
-    private int mPairingPasskey = -1;
+    private int mPairingPasskey = INVALID;
     private int mFailureCount = 0;
     private int mSuccessCount = 0;
     private BluetoothGattService mFastPairService = new BluetoothGattService(
@@ -149,7 +150,9 @@ class FastPairGattServer {
         @Override
         public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
             super.onConnectionStateChange(device, status, newState);
-            Log.d(TAG, "onConnectionStateChange " + newState + "Device: " + device.toString());
+            if (DBG) {
+                Log.d(TAG, "onConnectionStateChange " + newState + "Device: " + device.toString());
+            }
             if (newState == 0) {
                 mPairingPasskey = -1;
                 mSharedSecretKey = null;
@@ -219,8 +222,6 @@ class FastPairGattServer {
                         .sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset,
                                 mEncryptedResponse);
                 processPairingKey(value);
-                mBluetoothGattServer
-                        .notifyCharacteristicChanged(device, mPasskeyCharacteristic, false);
 
             } else {
                 Log.w(TAG, "onWriteOther" + characteristic.getUuid());
@@ -249,12 +250,13 @@ class FastPairGattServer {
                 Log.d(TAG, intent.getAction());
             }
             if (BluetoothDevice.ACTION_PAIRING_REQUEST.equals(intent.getAction())) {
-                if (DBG) {
-                    Log.d(TAG, "PairingCode " + intent
-                                    .getIntExtra(BluetoothDevice.EXTRA_PAIRING_KEY, -1));
-                }
                 mRemotePairingDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                mPairingPasskey = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_KEY, -1);
+                mPairingPasskey = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_KEY, INVALID);
+                if (DBG) {
+                    Log.d(TAG, "DeviceAddress: " + mRemotePairingDevice
+                            + " PairingCode: " + mPairingPasskey);
+                }
+                sendPairingResponse(mPairingPasskey);
             }
         }
     };
@@ -308,6 +310,9 @@ class FastPairGattServer {
 
         } catch (Exception e) {
             Log.e(TAG, e.toString());
+        }
+        if (DBG) {
+            Log.w(TAG, "Encryption Failed, clear key");
         }
         mHandler.removeCallbacks(mClearSharedSecretKey);
         mSharedSecretKey = null;
@@ -439,7 +444,7 @@ class FastPairGattServer {
 
         byte[] encryptedRequest = Arrays.copyOfRange(pairingRequest, 0, 16);
         if (DBG) {
-            Log.d(TAG, "Checking " + possibleKeys.size() + "Keys");
+            Log.d(TAG, "Checking " + possibleKeys.size() + " Keys");
         }
         // check all the keys for a valid pairing request
         for (SecretKeySpec key : possibleKeys) {
@@ -486,7 +491,7 @@ class FastPairGattServer {
                     .getRemoteDevice(remoteAddressBytes);
             if (DBG) {
                 Log.d(TAG, "Local RPA = " + mLocalRpaDevice);
-                Log.d(TAG, "Decrypted, LocalMacAddress" + localAddress + "remoteAddress"
+                Log.d(TAG, "Decrypted, LocalMacAddress: " + localAddress + " remoteAddress: "
                         + reportedDevice.toString());
             }
             // Test that the received device address matches this devices address
@@ -494,7 +499,6 @@ class FastPairGattServer {
                 if (DBG) {
                     Log.d(TAG, "SecretKey Validated");
                 }
-
                 // encrypt and respond to the seeker with the local public address
                 byte[] rawResponse = new byte[16];
                 new Random().nextBytes(rawResponse);
@@ -536,16 +540,23 @@ class FastPairGattServer {
                 }
                 mRemotePairingDevice.setPairingConfirmation(true);
             }
-        } else {
+        } else if (mPairingPasskey != INVALID) {
             Log.w(TAG, "Passkeys don't match, rejecting");
             mRemotePairingDevice.setPairingConfirmation(false);
         }
+        return true;
+    }
 
+    void sendPairingResponse(int passkey) {
+        if (!isConnected()) return;
+        if (DBG) {
+            Log.d(TAG, "sendPairingResponse + " + passkey);
+        }
         // Send an encrypted response to the seeker with the Bluetooth passkey as required
         byte[] decryptedResponse = new byte[16];
         new Random().nextBytes(decryptedResponse);
         ByteBuffer pairingPasskeyBytes = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(
-                mPairingPasskey);
+                passkey);
         decryptedResponse[0] = 0x3;
         decryptedResponse[1] = pairingPasskeyBytes.get(1);
         decryptedResponse[2] = pairingPasskeyBytes.get(2);
@@ -553,11 +564,11 @@ class FastPairGattServer {
 
         mEncryptedResponse = encrypt(decryptedResponse);
         if (mEncryptedResponse == null) {
-            return false;
+            return;
         }
         mPasskeyCharacteristic.setValue(mEncryptedResponse);
-        return true;
-
+        mBluetoothGattServer
+                .notifyCharacteristicChanged(mRemoteGattDevice, mPasskeyCharacteristic, false);
     }
 
     /**

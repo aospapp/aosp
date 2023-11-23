@@ -27,11 +27,22 @@ class Backend {
   virtual HWC2::Error ValidateDisplay(DrmHwcTwo::HwcDisplay *display,
                                       uint32_t *num_types,
                                       uint32_t *num_requests);
-  virtual std::tuple<int, int> GetClientLayers(
+  virtual std::tuple<int, size_t> GetClientLayers(
       DrmHwcTwo::HwcDisplay *display,
-      const std::map<uint32_t, DrmHwcTwo::HwcLayer *> &z_map);
+      const std::vector<DrmHwcTwo::HwcLayer *> &layers);
   virtual bool IsClientLayer(DrmHwcTwo::HwcDisplay *display,
                              DrmHwcTwo::HwcLayer *layer);
+
+ protected:
+  bool HardwareSupportsLayerType(HWC2::Composition comp_type);
+  uint32_t CalcPixOps(const std::vector<DrmHwcTwo::HwcLayer *> &layers,
+                      size_t first_z, size_t size);
+  void MarkValidated(std::vector<DrmHwcTwo::HwcLayer *> &layers,
+                     size_t client_first_z, size_t client_size);
+  std::tuple<int, int> GetExtraClientRange(
+      DrmHwcTwo::HwcDisplay *display,
+      const std::vector<DrmHwcTwo::HwcLayer *> &layers, int client_start,
+      size_t client_size);
 };
 }  // namespace android
 

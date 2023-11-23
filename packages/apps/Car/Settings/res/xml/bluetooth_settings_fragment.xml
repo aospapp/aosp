@@ -20,7 +20,7 @@
     xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/bluetooth_settings_title"
     android:key="@string/psk_bluetooth_settings">
-    <com.android.car.settings.common.ClickableWhileDisabledSwitchPreference
+    <com.android.car.settings.common.ColoredSwitchPreference
         android:key="@string/pk_bluetooth_state_switch"
         android:title="@string/bluetooth_settings_title"
         style="@style/ColoredSwitchPreferenceStyle"

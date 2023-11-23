@@ -198,4 +198,9 @@ public final class Logger {
     private boolean isI() {
         return Log.isLoggable(TAG, Log.INFO) || forceAllLogging();
     }
+
+    @Override
+    public String toString() {
+        return "Logger[TAG=" + TAG + ", prefix=\"" + mPrefix + "\"]";
+    }
 }

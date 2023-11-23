@@ -183,11 +183,9 @@ public class AutoNotificationsConfigUtility implements IAutoConfigUtility {
         expandedNotificationsConfig.addResource(
                 AutoConfigConstants.APP_ICON,
                 new AutoConfigResource(
-                        AutoConfigConstants.RESOURCE_ID, "app_icon", SYSTEM_UI_PACKAGE));
-        expandedNotificationsConfig.addResource(
-                AutoConfigConstants.APP_NAME,
-                new AutoConfigResource(
-                        AutoConfigConstants.RESOURCE_ID, "header_text", SYSTEM_UI_PACKAGE));
+                        AutoConfigConstants.RESOURCE_ID,
+                        "notification_body_icon",
+                        SYSTEM_UI_PACKAGE));
         expandedNotificationsConfig.addResource(
                 AutoConfigConstants.NOTIFICATION_TITLE,
                 new AutoConfigResource(

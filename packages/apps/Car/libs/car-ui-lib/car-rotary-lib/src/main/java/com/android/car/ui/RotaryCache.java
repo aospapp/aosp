@@ -28,7 +28,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.HashMap;
 
 /**
- * Cache used by {@link FocusArea} to save focus history and nudge history of the rotary controller.
+ * Cache used by {@link FocusAreaHelper} to save focus history and nudge history of the rotary
+ * controller.
  */
 class RotaryCache {
     /** The cache is disabled. */
@@ -51,7 +52,7 @@ class RotaryCache {
     @NonNull
     private final FocusCache mFocusCache;
 
-    /** Cache of FocusAreas that were nudged to. */
+    /** Cache of focus areas that were nudged to. */
     @NonNull
     private final FocusAreaCache mFocusAreaCache;
 
@@ -118,15 +119,15 @@ class RotaryCache {
         }
     }
 
-    /** A record of a FocusArea that was nudged to. */
+    /** A record of a focus area that was nudged to. */
     private static class FocusAreaHistory {
-        /** The FocusArea that was nudged to. */
+        /** The focus area that was nudged to. */
         @NonNull
-        final FocusArea mFocusArea;
+        final IFocusArea mFocusArea;
         /** The {@link SystemClock#uptimeMillis} when this history was recorded. */
         final long mTimestamp;
 
-        FocusAreaHistory(@NonNull FocusArea focusArea, long timestamp) {
+        FocusAreaHistory(@NonNull IFocusArea focusArea, long timestamp) {
             mFocusArea = focusArea;
             mTimestamp = timestamp;
         }
@@ -150,14 +151,14 @@ class RotaryCache {
             }
         }
 
-        void put(int direction, @NonNull FocusArea targetFocusArea, long elapsedRealtime) {
+        void put(int direction, @NonNull IFocusArea targetFocusArea, long elapsedRealtime) {
             if (mCacheType == CACHE_TYPE_DISABLED) {
                 return;
             }
             put(direction, new FocusAreaHistory(targetFocusArea, elapsedRealtime));
         }
 
-        FocusArea get(int direction, long elapsedRealtime) {
+        IFocusArea get(int direction, long elapsedRealtime) {
             FocusAreaHistory history = get(direction);
             return isValidHistory(history, elapsedRealtime) ? history.mFocusArea : null;
         }
@@ -187,7 +188,7 @@ class RotaryCache {
     }
 
     /**
-     * Searches the cache to find the last focused view of the FocusArea. Returns the view, or null
+     * Searches the cache to find the last focused view of the focus area. Returns the view, or null
      * if there is nothing in the cache, the cache is stale.
      */
     @Nullable
@@ -201,20 +202,20 @@ class RotaryCache {
     }
 
     /**
-     * Searches the cache to find the target FocusArea for a nudge in a given {@code direction}.
-     * Returns the target FocusArea, or null if there is nothing in the cache, the cache is stale.
+     * Searches the cache to find the target focus area for a nudge in a given {@code direction}.
+     * Returns the target focus area, or null if there is nothing in the cache, the cache is stale.
      */
     @Nullable
-    FocusArea getCachedFocusArea(int direction, long elapsedRealtime) {
+    IFocusArea getCachedFocusArea(int direction, long elapsedRealtime) {
         return mFocusAreaCache.get(direction, elapsedRealtime);
     }
 
-    /** Saves the FocusArea nudge history. */
-    void saveFocusArea(int direction, @NonNull FocusArea targetFocusArea, long elapsedRealtime) {
+    /** Saves the focus area nudge history. */
+    void saveFocusArea(int direction, @NonNull IFocusArea targetFocusArea, long elapsedRealtime) {
         mFocusAreaCache.put(direction, targetFocusArea, elapsedRealtime);
     }
 
-    /** Clears the FocusArea nudge history cache. */
+    /** Clears the focus area nudge history cache. */
     void clearFocusAreaHistory() {
         mFocusAreaCache.clear();
     }

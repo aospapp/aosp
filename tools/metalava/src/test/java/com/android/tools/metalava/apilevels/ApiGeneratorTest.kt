@@ -67,7 +67,7 @@ class ApiGeneratorTest : DriverTest() {
                 ARG_CURRENT_CODENAME,
                 "Z",
                 ARG_CURRENT_VERSION,
-                "35" // not real api level of Z
+                "89" // not real api level of Z
             ),
             sourceFiles = arrayOf(
                 java(
@@ -85,7 +85,7 @@ class ApiGeneratorTest : DriverTest() {
         val xml = output.readText(UTF_8)
         assertTrue(xml.contains("<class name=\"android/Manifest\$permission\" since=\"1\">"))
         assertTrue(xml.contains("<field name=\"BIND_CARRIER_MESSAGING_SERVICE\" since=\"22\" deprecated=\"23\"/>"))
-        assertTrue(xml.contains("<class name=\"android/pkg/MyTest\" since=\"36\""))
+        assertTrue(xml.contains("<class name=\"android/pkg/MyTest\" since=\"90\""))
         assertFalse(xml.contains("<implements name=\"java/lang/annotation/Annotation\" removed=\""))
         assertFalse(xml.contains("<extends name=\"java/lang/Enum\" removed=\""))
         assertFalse(xml.contains("<method name=\"append(C)Ljava/lang/AbstractStringBuilder;\""))
@@ -117,5 +117,111 @@ class ApiGeneratorTest : DriverTest() {
 
         val methodVersion = apiLookup.getMethodVersion("android/icu/util/CopticCalendar", "computeTime", "()")
         assertEquals(24, methodVersion)
+    }
+
+    @Test
+    fun `Correct API Level for release`() {
+        var oldSdkJars = File("prebuilts/tools/common/api-versions")
+        if (!oldSdkJars.isDirectory) {
+            oldSdkJars = File("../../prebuilts/tools/common/api-versions")
+            if (!oldSdkJars.isDirectory) {
+                println("Ignoring ${ApiGeneratorTest::class.java}: prebuilts not found - is \$PWD set to an Android source tree?")
+                return
+            }
+        }
+
+        var platformJars = File("prebuilts/sdk")
+        if (!platformJars.isDirectory) {
+            platformJars = File("../../prebuilts/sdk")
+            if (!platformJars.isDirectory) {
+                println("Ignoring ${ApiGeneratorTest::class.java}: prebuilts not found: $platformJars")
+                return
+            }
+        }
+        val output = File.createTempFile("api-info", "xml")
+        output.deleteOnExit()
+        val outputPath = output.path
+
+        check(
+            extraArguments = arrayOf(
+                ARG_GENERATE_API_LEVELS,
+                outputPath,
+                ARG_ANDROID_JAR_PATTERN,
+                "${oldSdkJars.path}/android-%/android.jar",
+                ARG_ANDROID_JAR_PATTERN,
+                "${platformJars.path}/%/public/android.jar",
+                ARG_CURRENT_CODENAME,
+                "REL",
+                ARG_CURRENT_VERSION,
+                "89" // not real api level
+            ),
+            sourceFiles = arrayOf(
+                java(
+                    """
+                        package android.pkg;
+                        public class MyTest {
+                        }
+                        """
+                )
+            )
+        )
+
+        assertTrue(output.isFile)
+        // Anything with a REL codename is in the current API level
+        val xml = output.readText(UTF_8)
+        assertTrue(xml.contains("<class name=\"android/pkg/MyTest\" since=\"89\""))
+    }
+
+    @Test
+    fun `Correct API Level for non-release`() {
+        var oldSdkJars = File("prebuilts/tools/common/api-versions")
+        if (!oldSdkJars.isDirectory) {
+            oldSdkJars = File("../../prebuilts/tools/common/api-versions")
+            if (!oldSdkJars.isDirectory) {
+                println("Ignoring ${ApiGeneratorTest::class.java}: prebuilts not found - is \$PWD set to an Android source tree?")
+                return
+            }
+        }
+
+        var platformJars = File("prebuilts/sdk")
+        if (!platformJars.isDirectory) {
+            platformJars = File("../../prebuilts/sdk")
+            if (!platformJars.isDirectory) {
+                println("Ignoring ${ApiGeneratorTest::class.java}: prebuilts not found: $platformJars")
+                return
+            }
+        }
+        val output = File.createTempFile("api-info", "xml")
+        output.deleteOnExit()
+        val outputPath = output.path
+
+        check(
+            extraArguments = arrayOf(
+                ARG_GENERATE_API_LEVELS,
+                outputPath,
+                ARG_ANDROID_JAR_PATTERN,
+                "${oldSdkJars.path}/android-%/android.jar",
+                ARG_ANDROID_JAR_PATTERN,
+                "${platformJars.path}/%/public/android.jar",
+                ARG_CURRENT_CODENAME,
+                "ZZZ", // not just Z, but very ZZZ
+                ARG_CURRENT_VERSION,
+                "89" // not real api level
+            ),
+            sourceFiles = arrayOf(
+                java(
+                    """
+                        package android.pkg;
+                        public class MyTest {
+                        }
+                        """
+                )
+            )
+        )
+
+        assertTrue(output.isFile)
+        // Metalava should understand that a codename means "current api + 1"
+        val xml = output.readText(UTF_8)
+        assertTrue(xml.contains("<class name=\"android/pkg/MyTest\" since=\"90\""))
     }
 }

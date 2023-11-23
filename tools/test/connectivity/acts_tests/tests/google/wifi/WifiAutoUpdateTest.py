@@ -68,19 +68,27 @@ class WifiAutoUpdateTest(WifiBaseTest):
         wutils.wifi_toggle_state(self.dut, True)
 
         # configure APs
-        self.legacy_configure_ap_and_start(wpa_network=True)
+        opt_param = ["reference_networks"]
+        self.unpack_userparams(opt_param_names=opt_param)
+        if "AccessPoint" in self.user_params:
+            self.legacy_configure_ap_and_start(wpa_network=True,
+                                               wep_network=True)
+        elif "OpenWrtAP" in self.user_params:
+            self.configure_openwrt_ap_and_start(wpa_network=True,
+                                                wep_network=True,
+                                                ap_count=2)
         self.wpapsk_2g = self.reference_networks[0]["2g"]
         self.wpapsk_5g = self.reference_networks[0]["5g"]
-        self.open_2g = self.open_network[0]["2g"]
-        self.open_5g = self.open_network[0]["5g"]
+        self.wep_2g = self.wep_networks[0]["2g"]
+        self.wep_5g = self.wep_networks[0]["5g"]
 
         # saved & connected networks, network suggestions
         # and new networks
-        self.saved_networks = [self.open_2g]
+        self.saved_networks = [self.wep_2g]
         self.network_suggestions = [self.wpapsk_5g]
-        self.connected_networks = [self.wpapsk_2g, self.open_5g]
+        self.connected_networks = [self.wpapsk_2g, self.wep_5g]
         self.new_networks = [self.reference_networks[1]["2g"],
-                             self.open_network[1]["5g"]]
+                             self.wep_networks[1]["5g"]]
 
         # add pre ota upgrade configuration
         self.wifi_config_list = []
@@ -110,7 +118,6 @@ class WifiAutoUpdateTest(WifiBaseTest):
     def teardown_class(self):
         if "AccessPoint" in self.user_params:
             del self.user_params["reference_networks"]
-            del self.user_params["open_network"]
 
     ### Helper Methods
 

@@ -20,6 +20,7 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -154,6 +155,23 @@ public class PinPadView extends GridLayout {
                     // Must return false so that ripple can show
                     return false;
                 case MotionEvent.ACTION_UP:
+                    getHandler().removeCallbacks(mOnBackspaceLongClick);
+                    // Must return false so that ripple can show
+                    return false;
+                default:
+                    return false;
+            }
+        });
+        backspace.setOnKeyListener((v, code, event) -> {
+            if (code != KeyEvent.KEYCODE_DPAD_CENTER) {
+                return false;
+            }
+            switch (event.getAction()) {
+                case KeyEvent.ACTION_DOWN:
+                    getHandler().post(mOnBackspaceLongClick);
+                    // Must return false so that ripple can show
+                    return false;
+                case KeyEvent.ACTION_UP:
                     getHandler().removeCallbacks(mOnBackspaceLongClick);
                     // Must return false so that ripple can show
                     return false;

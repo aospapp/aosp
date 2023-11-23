@@ -17,6 +17,27 @@ package {
 }
 
 android_library {
+    name: "car-rotary-lib-resources",
+
+    sdk_version: "current",
+    min_sdk_version: "28",
+    target_sdk_version: "30",
+
+    manifest: "src/main/AndroidManifest.xml",
+    resource_dirs: [
+        "src/main/res",
+        "src/main/res-overlayable",
+    ],
+    static_libs: [
+        "androidx.recyclerview_recyclerview",
+    ],
+    apex_available: [
+        "com.android.permission",
+        "//apex_available:platform",
+    ],
+}
+
+android_library {
     name: "car-rotary-lib",
 
     sdk_version: "current",
@@ -25,16 +46,14 @@ android_library {
 
     manifest: "src/main/AndroidManifest.xml",
     srcs: ["src/main/java/**/*.java"],
-    resource_dirs: [
-        "src/main/res",
-        "src/main/res-overlayable",
-    ],
     optimize: {
         enabled: false,
     },
     static_libs: [
         "androidx.annotation_annotation",
+        "androidx-constraintlayout_constraintlayout",
         "androidx.recyclerview_recyclerview",
+        "car-rotary-lib-resources",
     ],
     apex_available: [
         "com.android.permission",

@@ -16,44 +16,50 @@
 
 package com.android.car.settings.system;
 
-import static android.os.UserManager.DISALLOW_NETWORK_RESET;
-
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.os.UserManager;
 
-import androidx.preference.Preference;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.test.annotation.UiThreadTest;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
-import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment;
+import com.android.car.settings.testutils.TestLifecycleOwner;
+import com.android.car.ui.preference.CarUiPreference;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.MockitoSession;
 
 /** Unit test for {@link ResetNetworkEntryPreferenceController}. */
 @RunWith(AndroidJUnit4.class)
 public class ResetNetworkEntryPreferenceControllerTest {
-    private Context mContext = ApplicationProvider.getApplicationContext();
-    private Preference mPreference;
+    private static final String TEST_RESTRICTION = android.os.UserManager.DISALLOW_NETWORK_RESET;
+
+    private final Context mContext = spy(ApplicationProvider.getApplicationContext());
+    private final LifecycleOwner mLifecycleOwner = new TestLifecycleOwner();
+    private CarUiPreference mPreference;
     private ResetNetworkEntryPreferenceController mPreferenceController;
     private CarUxRestrictions mCarUxRestrictions;
-    private MockitoSession mSession;
 
     @Mock
     private FragmentController mFragmentController;
@@ -64,46 +70,85 @@ public class ResetNetworkEntryPreferenceControllerTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
 
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mMockUserManager);
+
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
-
-        mSession = ExtendedMockito.mockitoSession()
-                .mockStatic(UserManager.class, withSettings().lenient())
-                .startMocking();
-        when(UserManager.get(mContext)).thenReturn(mMockUserManager);
-
-        mPreference = new Preference(mContext);
+        mPreference = new CarUiPreference(mContext);
         mPreferenceController = new ResetNetworkEntryPreferenceController(mContext,
                 "key", mFragmentController, mCarUxRestrictions);
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreference);
     }
 
-    @After
-    public void tearDown() {
-        if (mSession != null) {
-            mSession.finishMocking();
-        }
-    }
-
     @Test
     public void getAvailabilityStatus_nonAdminUser_disabledForUser() {
-        when(mMockUserManager.isAdminUser()).thenReturn(false);
+        mockUserIsAdmin(false);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
     }
 
     @Test
-    public void getAvailabilityStatus_adminUser_available() {
-        when(mMockUserManager.isAdminUser()).thenReturn(true);
+    public void getAvailabilityStatus_adminUser_restrictedByUm_disabledForUser() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByUm(true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_restrictedByDpm_disabledForUser() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByDpm(true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
+    }
+
+    @Test
+    public void getAvailabilityStatus_adminUser_notRestricted_available() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByDpm(false);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
+        assertThat(mPreference.isEnabled()).isTrue();
     }
 
     @Test
-    public void getAvailabilityStatus_adminUser_restricted_disabledForUser() {
-        when(mMockUserManager.isAdminUser()).thenReturn(true);
-        when(mMockUserManager.hasUserRestriction(DISALLOW_NETWORK_RESET)).thenReturn(true);
+    @UiThreadTest
+    public void testDisabledClick_restrictedByDpm_showDialog() {
+        mockUserIsAdmin(true);
+        mockUserRestrictionSetByDpm(true);
 
-        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreference.performClick();
+
+        assertShowingDisabledByAdminDialog();
+    }
+
+    private void mockUserIsAdmin(boolean isAdmin) {
+        when(mMockUserManager.isAdminUser()).thenReturn(isAdmin);
+    }
+
+    private void mockUserRestrictionSetByUm(boolean restricted) {
+        when(mMockUserManager.hasBaseUserRestriction(eq(TEST_RESTRICTION), any()))
+                .thenReturn(restricted);
+    }
+
+    private void mockUserRestrictionSetByDpm(boolean restricted) {
+        mockUserRestrictionSetByUm(false);
+        when(mMockUserManager.hasUserRestriction(TEST_RESTRICTION)).thenReturn(restricted);
+    }
+
+    private void assertShowingDisabledByAdminDialog() {
+        verify(mFragmentController).showDialog(any(ActionDisabledByAdminDialogFragment.class),
+                eq(DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG));
     }
 }

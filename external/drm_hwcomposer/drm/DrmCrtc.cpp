@@ -18,9 +18,10 @@
 
 #include "DrmCrtc.h"
 
-#include <log/log.h>
-#include <stdint.h>
+#include <utils/log.h>
 #include <xf86drmMode.h>
+
+#include <cstdint>
 
 #include "DrmDevice.h"
 

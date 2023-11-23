@@ -17,13 +17,10 @@
 #include "LooperStub.h"
 #include "MockDataProcessor.h"
 #include "MockProcDiskStats.h"
-#include "MockProcPidStat.h"
 #include "MockProcStat.h"
-#include "MockUidIoStats.h"
-#include "ProcPidDir.h"
-#include "ProcPidStat.h"
+#include "MockUidStatsCollector.h"
 #include "ProcStat.h"
-#include "UidIoStats.h"
+#include "UidStatsCollector.h"
 #include "WatchdogPerfService.h"
 
 #include <WatchdogProperties.sysprop.h>
@@ -42,12 +39,10 @@ namespace watchdog {
 using ::android::sp;
 using ::android::String16;
 using ::android::wp;
-using ::android::automotive::watchdog::internal::PowerCycle;
 using ::android::automotive::watchdog::testing::LooperStub;
 using ::android::base::Error;
 using ::android::base::Result;
 using ::testing::_;
-using ::testing::DefaultValue;
 using ::testing::InSequence;
 using ::testing::Mock;
 using ::testing::NiceMock;
@@ -71,19 +66,17 @@ public:
 
     void injectFakes() {
         looperStub = sp<LooperStub>::make();
-        mockUidIoStats = sp<NiceMock<MockUidIoStats>>::make();
+        mockUidStatsCollector = sp<MockUidStatsCollector>::make();
         mockProcDiskStats = sp<NiceMock<MockProcDiskStats>>::make();
         mockProcStat = sp<NiceMock<MockProcStat>>::make();
-        mockProcPidStat = sp<NiceMock<MockProcPidStat>>::make();
         mockDataProcessor = sp<StrictMock<MockDataProcessor>>::make();
 
         {
             Mutex::Autolock lock(service->mMutex);
             service->mHandlerLooper = looperStub;
-            service->mUidIoStats = mockUidIoStats;
+            service->mUidStatsCollector = mockUidStatsCollector;
             service->mProcDiskStats = mockProcDiskStats;
             service->mProcStat = mockProcStat;
-            service->mProcPidStat = mockProcPidStat;
         }
         EXPECT_CALL(*mockDataProcessor, init()).Times(1);
         ASSERT_RESULT_OK(service->registerDataProcessor(mockDataProcessor));
@@ -114,19 +107,17 @@ public:
     }
 
     void verifyAndClearExpectations() {
-        Mock::VerifyAndClearExpectations(mockUidIoStats.get());
+        Mock::VerifyAndClearExpectations(mockUidStatsCollector.get());
         Mock::VerifyAndClearExpectations(mockProcStat.get());
-        Mock::VerifyAndClearExpectations(mockProcPidStat.get());
         Mock::VerifyAndClearExpectations(mockDataProcessor.get());
     }
 
     sp<WatchdogPerfService> service;
     // Below fields are populated only on injectFakes.
     sp<LooperStub> looperStub;
-    sp<MockUidIoStats> mockUidIoStats;
+    sp<MockUidStatsCollector> mockUidStatsCollector;
     sp<MockProcDiskStats> mockProcDiskStats;
     sp<MockProcStat> mockProcStat;
-    sp<MockProcPidStat> mockProcPidStat;
     sp<MockDataProcessor> mockDataProcessor;
 };
 
@@ -139,13 +130,13 @@ void startPeriodicCollection(internal::WatchdogPerfServicePeer* servicePeer) {
 
     ASSERT_RESULT_OK(servicePeer->start());
 
-    EXPECT_CALL(*servicePeer->mockUidIoStats, collect()).Times(2);
+    EXPECT_CALL(*servicePeer->mockUidStatsCollector, collect()).Times(2);
     EXPECT_CALL(*servicePeer->mockProcStat, collect()).Times(2);
-    EXPECT_CALL(*servicePeer->mockProcPidStat, collect()).Times(2);
     EXPECT_CALL(*servicePeer->mockDataProcessor,
-                onBoottimeCollection(_, wp<UidIoStats>(servicePeer->mockUidIoStats),
-                                     wp<ProcStat>(servicePeer->mockProcStat),
-                                     wp<ProcPidStat>(servicePeer->mockProcPidStat)))
+                onBoottimeCollection(_,
+                                     wp<UidStatsCollectorInterface>(
+                                             servicePeer->mockUidStatsCollector),
+                                     wp<ProcStat>(servicePeer->mockProcStat)))
             .Times(2);
 
     // Make sure the collection event changes from EventType::INIT to
@@ -206,17 +197,15 @@ TEST(WatchdogPerfServiceTest, TestValidCollectionSequence) {
 
     ASSERT_RESULT_OK(servicePeer.start());
 
-    wp<UidIoStats> uidIoStats(servicePeer.mockUidIoStats);
+    wp<UidStatsCollectorInterface> uidStatsCollector(servicePeer.mockUidStatsCollector);
     wp<IProcDiskStatsInterface> procDiskStats(servicePeer.mockProcDiskStats);
     wp<ProcStat> procStat(servicePeer.mockProcStat);
-    wp<ProcPidStat> procPidStat(servicePeer.mockProcPidStat);
 
     // #1 Boot-time collection
-    EXPECT_CALL(*servicePeer.mockUidIoStats, collect()).Times(1);
+    EXPECT_CALL(*servicePeer.mockUidStatsCollector, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockProcStat, collect()).Times(1);
-    EXPECT_CALL(*servicePeer.mockProcPidStat, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onBoottimeCollection(_, uidIoStats, procStat, procPidStat))
+                onBoottimeCollection(_, uidStatsCollector, procStat))
             .Times(1);
 
     ASSERT_RESULT_OK(servicePeer.looperStub->pollCache());
@@ -228,11 +217,10 @@ TEST(WatchdogPerfServiceTest, TestValidCollectionSequence) {
     servicePeer.verifyAndClearExpectations();
 
     // #2 Boot-time collection
-    EXPECT_CALL(*servicePeer.mockUidIoStats, collect()).Times(1);
+    EXPECT_CALL(*servicePeer.mockUidStatsCollector, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockProcStat, collect()).Times(1);
-    EXPECT_CALL(*servicePeer.mockProcPidStat, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onBoottimeCollection(_, uidIoStats, procStat, procPidStat))
+                onBoottimeCollection(_, uidStatsCollector, procStat))
             .Times(1);
 
     ASSERT_RESULT_OK(servicePeer.looperStub->pollCache());
@@ -245,11 +233,10 @@ TEST(WatchdogPerfServiceTest, TestValidCollectionSequence) {
     servicePeer.verifyAndClearExpectations();
 
     // #3 Last boot-time collection
-    EXPECT_CALL(*servicePeer.mockUidIoStats, collect()).Times(1);
+    EXPECT_CALL(*servicePeer.mockUidStatsCollector, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockProcStat, collect()).Times(1);
-    EXPECT_CALL(*servicePeer.mockProcPidStat, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onBoottimeCollection(_, uidIoStats, procStat, procPidStat))
+                onBoottimeCollection(_, uidStatsCollector, procStat))
             .Times(1);
 
     ASSERT_RESULT_OK(service->onBootFinished());
@@ -286,12 +273,10 @@ TEST(WatchdogPerfServiceTest, TestValidCollectionSequence) {
     servicePeer.verifyAndClearExpectations();
 
     // #6 Periodic collection
-    EXPECT_CALL(*servicePeer.mockUidIoStats, collect()).Times(1);
+    EXPECT_CALL(*servicePeer.mockUidStatsCollector, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockProcStat, collect()).Times(1);
-    EXPECT_CALL(*servicePeer.mockProcPidStat, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onPeriodicCollection(_, SystemState::NORMAL_MODE, uidIoStats, procStat,
-                                     procPidStat))
+                onPeriodicCollection(_, SystemState::NORMAL_MODE, uidStatsCollector, procStat))
             .Times(1);
 
     ASSERT_RESULT_OK(servicePeer.looperStub->pollCache());
@@ -312,12 +297,10 @@ TEST(WatchdogPerfServiceTest, TestValidCollectionSequence) {
 
     ASSERT_RESULT_OK(service->onCustomCollection(-1, args));
 
-    EXPECT_CALL(*servicePeer.mockUidIoStats, collect()).Times(1);
+    EXPECT_CALL(*servicePeer.mockUidStatsCollector, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockProcStat, collect()).Times(1);
-    EXPECT_CALL(*servicePeer.mockProcPidStat, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onCustomCollection(_, SystemState::NORMAL_MODE, _, uidIoStats, procStat,
-                                   procPidStat))
+                onCustomCollection(_, SystemState::NORMAL_MODE, _, uidStatsCollector, procStat))
             .Times(1);
 
     ASSERT_RESULT_OK(servicePeer.looperStub->pollCache());
@@ -329,12 +312,10 @@ TEST(WatchdogPerfServiceTest, TestValidCollectionSequence) {
     servicePeer.verifyAndClearExpectations();
 
     // #8 Custom collection
-    EXPECT_CALL(*servicePeer.mockUidIoStats, collect()).Times(1);
+    EXPECT_CALL(*servicePeer.mockUidStatsCollector, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockProcStat, collect()).Times(1);
-    EXPECT_CALL(*servicePeer.mockProcPidStat, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onCustomCollection(_, SystemState::NORMAL_MODE, _, uidIoStats, procStat,
-                                   procPidStat))
+                onCustomCollection(_, SystemState::NORMAL_MODE, _, uidStatsCollector, procStat))
             .Times(1);
 
     ASSERT_RESULT_OK(servicePeer.looperStub->pollCache());
@@ -362,12 +343,10 @@ TEST(WatchdogPerfServiceTest, TestValidCollectionSequence) {
             << "Invalid collection event";
 
     // #10 Switch to periodic collection
-    EXPECT_CALL(*servicePeer.mockUidIoStats, collect()).Times(1);
+    EXPECT_CALL(*servicePeer.mockUidStatsCollector, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockProcStat, collect()).Times(1);
-    EXPECT_CALL(*servicePeer.mockProcPidStat, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onPeriodicCollection(_, SystemState::NORMAL_MODE, uidIoStats, procStat,
-                                     procPidStat))
+                onPeriodicCollection(_, SystemState::NORMAL_MODE, uidStatsCollector, procStat))
             .Times(1);
 
     ASSERT_RESULT_OK(servicePeer.looperStub->pollCache());
@@ -398,9 +377,8 @@ TEST(WatchdogPerfServiceTest, TestCollectionTerminatesOnZeroEnabledCollectors) {
 
     ASSERT_RESULT_OK(servicePeer.start());
 
-    ON_CALL(*servicePeer.mockUidIoStats, enabled()).WillByDefault(Return(false));
+    ON_CALL(*servicePeer.mockUidStatsCollector, enabled()).WillByDefault(Return(false));
     ON_CALL(*servicePeer.mockProcStat, enabled()).WillByDefault(Return(false));
-    ON_CALL(*servicePeer.mockProcPidStat, enabled()).WillByDefault(Return(false));
 
     // Collection should terminate and call data processor's terminate method on error.
     EXPECT_CALL(*servicePeer.mockDataProcessor, terminate()).Times(1);
@@ -422,7 +400,7 @@ TEST(WatchdogPerfServiceTest, TestCollectionTerminatesOnDataCollectorError) {
 
     // Inject data collector error.
     Result<void> errorRes = Error() << "Failed to collect data";
-    EXPECT_CALL(*servicePeer.mockUidIoStats, collect()).WillOnce(Return(errorRes));
+    EXPECT_CALL(*servicePeer.mockUidStatsCollector, collect()).WillOnce(Return(errorRes));
 
     // Collection should terminate and call data processor's terminate method on error.
     EXPECT_CALL(*servicePeer.mockDataProcessor, terminate()).Times(1);
@@ -447,9 +425,10 @@ TEST(WatchdogPerfServiceTest, TestCollectionTerminatesOnDataProcessorError) {
     // Inject data processor error.
     Result<void> errorRes = Error() << "Failed to process data";
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onBoottimeCollection(_, wp<UidIoStats>(servicePeer.mockUidIoStats),
-                                     wp<ProcStat>(servicePeer.mockProcStat),
-                                     wp<ProcPidStat>(servicePeer.mockProcPidStat)))
+                onBoottimeCollection(_,
+                                     wp<UidStatsCollectorInterface>(
+                                             servicePeer.mockUidStatsCollector),
+                                     wp<ProcStat>(servicePeer.mockProcStat)))
             .WillOnce(Return(errorRes));
 
     // Collection should terminate and call data processor's terminate method on error.
@@ -484,16 +463,15 @@ TEST(WatchdogPerfServiceTest, TestCustomCollection) {
     int maxIterations = static_cast<int>(kTestCustomCollectionDuration.count() /
                                          kTestCustomCollectionInterval.count());
     for (int i = 0; i <= maxIterations; ++i) {
-        EXPECT_CALL(*servicePeer.mockUidIoStats, collect()).Times(1);
+        EXPECT_CALL(*servicePeer.mockUidStatsCollector, collect()).Times(1);
         EXPECT_CALL(*servicePeer.mockProcStat, collect()).Times(1);
-        EXPECT_CALL(*servicePeer.mockProcPidStat, collect()).Times(1);
         EXPECT_CALL(*servicePeer.mockDataProcessor,
                     onCustomCollection(_, SystemState::NORMAL_MODE,
                                        UnorderedElementsAreArray(
                                                {"android.car.cts", "system_server"}),
-                                       wp<UidIoStats>(servicePeer.mockUidIoStats),
-                                       wp<ProcStat>(servicePeer.mockProcStat),
-                                       wp<ProcPidStat>(servicePeer.mockProcPidStat)))
+                                       wp<UidStatsCollectorInterface>(
+                                               servicePeer.mockUidStatsCollector),
+                                       wp<ProcStat>(servicePeer.mockProcStat)))
                 .Times(1);
 
         ASSERT_RESULT_OK(servicePeer.looperStub->pollCache());
@@ -529,10 +507,9 @@ TEST(WatchdogPerfServiceTest, TestPeriodicMonitorRequestsCollection) {
 
     ASSERT_NO_FATAL_FAILURE(startPeriodicCollection(&servicePeer));
 
-    wp<UidIoStats> uidIoStats(servicePeer.mockUidIoStats);
+    wp<UidStatsCollectorInterface> uidStatsCollector(servicePeer.mockUidStatsCollector);
     wp<IProcDiskStatsInterface> procDiskStats(servicePeer.mockProcDiskStats);
     wp<ProcStat> procStat(servicePeer.mockProcStat);
-    wp<ProcPidStat> procPidStat(servicePeer.mockProcPidStat);
 
     // Periodic monitor issuing an alert to start new collection.
     EXPECT_CALL(*servicePeer.mockProcDiskStats, collect()).Times(1);
@@ -549,12 +526,10 @@ TEST(WatchdogPerfServiceTest, TestPeriodicMonitorRequestsCollection) {
             << " seconds interval";
     servicePeer.verifyAndClearExpectations();
 
-    EXPECT_CALL(*servicePeer.mockUidIoStats, collect()).Times(1);
+    EXPECT_CALL(*servicePeer.mockUidStatsCollector, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockProcStat, collect()).Times(1);
-    EXPECT_CALL(*servicePeer.mockProcPidStat, collect()).Times(1);
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onPeriodicCollection(_, SystemState::NORMAL_MODE, uidIoStats, procStat,
-                                     procPidStat))
+                onPeriodicCollection(_, SystemState::NORMAL_MODE, uidStatsCollector, procStat))
             .Times(1);
 
     ASSERT_RESULT_OK(servicePeer.looperStub->pollCache());
@@ -575,7 +550,7 @@ TEST(WatchdogPerfServiceTest, TestSystemStateSwitch) {
     ASSERT_NO_FATAL_FAILURE(skipPeriodicMonitorEvents(&servicePeer));
 
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onPeriodicCollection(_, SystemState::NORMAL_MODE, _, _, _))
+                onPeriodicCollection(_, SystemState::NORMAL_MODE, _, _))
             .Times(1);
 
     ASSERT_RESULT_OK(servicePeer.looperStub->pollCache());
@@ -587,7 +562,7 @@ TEST(WatchdogPerfServiceTest, TestSystemStateSwitch) {
     service->setSystemState(SystemState::GARAGE_MODE);
 
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onPeriodicCollection(_, SystemState::GARAGE_MODE, _, _, _))
+                onPeriodicCollection(_, SystemState::GARAGE_MODE, _, _))
             .Times(1);
 
     ASSERT_RESULT_OK(servicePeer.looperStub->pollCache());
@@ -599,7 +574,7 @@ TEST(WatchdogPerfServiceTest, TestSystemStateSwitch) {
     service->setSystemState(SystemState::NORMAL_MODE);
 
     EXPECT_CALL(*servicePeer.mockDataProcessor,
-                onPeriodicCollection(_, SystemState::NORMAL_MODE, _, _, _))
+                onPeriodicCollection(_, SystemState::NORMAL_MODE, _, _))
             .Times(1);
 
     ASSERT_RESULT_OK(servicePeer.looperStub->pollCache());

@@ -246,7 +246,7 @@ class AsusAXE11000AP(object):
           BAND_2G_RAD_PORT).get_attribute("value")
       dict_2g["radius_secret"] = self.driver.find_element_by_name(
           BAND_2G_RAD_KEY).get_attribute("value")
-    channel_field = self._get_webdriver_elements_for_channels(band)
+    channel_field = self._get_webdriver_elements_for_channels("2g")
     ch_val = self.driver.find_element_by_name(channel_field).get_attribute(
         "value")
     channel = 0
@@ -282,9 +282,9 @@ class AsusAXE11000AP(object):
           BAND_5G_RAD_IP).get_attribute("value")
       dict_5g["radius_port"] = self.driver.find_element_by_name(
           BAND_5G_RAD_PORT).get_attribute("value")
-      dict_2g["radius_secret"] = self.driver.find_element_by_name(
+      dict_5g["radius_secret"] = self.driver.find_element_by_name(
           BAND_5G_RAD_KEY).get_attribute("value")
-    channel_field = self._get_webdriver_elements_for_channels(band)
+    channel_field = self._get_webdriver_elements_for_channels("5g")
     ch_val = self.driver.find_element_by_name(channel_field).get_attribute(
         "value")
     channel = 0
@@ -312,7 +312,7 @@ class AsusAXE11000AP(object):
     if dict_6g["security"] == "sae":
       dict_6g["password"] = self.driver.find_element_by_name(
           BAND_6G_PSK).get_attribute("value")
-    channel_field = self._get_webdriver_elements_for_channels(band)
+    channel_field = self._get_webdriver_elements_for_channels("6g")
     ch_val = self.driver.find_element_by_name(channel_field).get_attribute(
         "value")
     channel = 0

@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"안전 경보 시스템의 필수 월간 테스트 받기"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"전국 경보"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"전국 경보가 아닌 첫 번째 경보를 표시한 후 선택 해제 대화상자를 표시합니다."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"정부 알림 문자"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"긴급 재난 문자입니다. 이 메시지는 끌 수 없습니다."</string>
 </resources>

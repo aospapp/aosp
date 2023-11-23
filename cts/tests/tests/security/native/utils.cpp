@@ -15,6 +15,10 @@
  */
 
 #include <string>
+#include <vector>
+
+#include <android-base/properties.h>
+#include <gtest/gtest.h>
 
 #include "utils.h"
 
@@ -34,4 +38,29 @@ bool deviceSupportsFeature(const char *feature) {
     pclose(p);
   }
   return device_supports_feature;
+}
+
+int getFirstApiLevel() {
+  int level = android::base::GetIntProperty("ro.product.first_api_level", 0);
+  if (level == 0) {
+    level = android::base::GetIntProperty("ro.build.version.sdk", 0);
+  }
+  if (level == 0) {
+    ADD_FAILURE() << "Failed to determine first API level";
+  }
+  return level;
+}
+
+int getVendorApiLevel() {
+    std::vector<std::string> BOARD_API_LEVEL_PROPS = {
+            "ro.board.api_level", "ro.board.first_api_level", "ro.vndk.version",
+            "ro.vendor.build.version.sdk"};
+    const int API_LEVEL_CURRENT = 10000;
+    for (const auto& api_level_prop : BOARD_API_LEVEL_PROPS) {
+        int api_level = android::base::GetIntProperty(api_level_prop, API_LEVEL_CURRENT);
+        if (api_level != API_LEVEL_CURRENT) {
+            return api_level;
+        }
+    }
+    return API_LEVEL_CURRENT;
 }

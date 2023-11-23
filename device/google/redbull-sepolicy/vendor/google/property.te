@@ -17,3 +17,6 @@ vendor_internal_prop(vendor_logging_prop)
 vendor_restricted_prop(vendor_camera_ro_prop)
 
 vendor_public_prop(vendor_hw_plat_prop)
+
+# Logger
+vendor_internal_prop(vendor_logger_prop)

@@ -517,6 +517,9 @@
              android:process=":providerProcess">
         </provider>
 
+        <service android:name="android.content.wm.cts.ContextTestBase$TestWindowService"
+                 android:exported="true" />
+
         <activity android:name="com.android.cts.content.StubActivity"/>
 
         <service android:name="com.android.cts.content.NotAlwaysSyncableSyncService"

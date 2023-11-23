@@ -20,12 +20,12 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
-
 import com.android.tradefed.device.IFileEntry;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.RunUtil;
@@ -194,6 +194,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
      * Tests if the native shared library list reported by the package manager is the same as
      * the public.libraries*.txt files in the partitions.
      */
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testPublicLibrariesAreAllRegistered() throws DeviceNotAvailableException {
         Set<String> libraryNamesFromTxt =
@@ -359,6 +360,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
     // Tests for when apps depend on non-existing lib
     ///////////////////////////////////////////////////////////////////////////
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testOldAppDependsOnNonExistingLib() throws Exception {
         String[] requiredLibs = {mNonExistingLib};
@@ -371,6 +373,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
         runInstalledTestApp();
     }
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testNewAppDependsOnNonExistingLib() throws Exception {
         String[] requiredLibs = {mNonExistingLib};
@@ -384,6 +387,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
         // install failed, so can't run the on-device test
     }
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testNewAppDependsOnNonExistingLib_withCompatEnabled_installFail()
             throws Exception {
@@ -398,6 +402,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
                 requiredLibs, optionalLibs, availableLibs, unavailableLibs)));
     }
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testNewAppDependsOnNonExistingLib_withCompatDisabled_installSucceed()
             throws Exception {
@@ -412,6 +417,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
                 requiredLibs, optionalLibs, availableLibs, unavailableLibs)));
     }
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testOldAppOptionallyDependsOnNonExistingLib() throws Exception {
         String[] requiredLibs = {};
@@ -424,6 +430,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
         runInstalledTestApp();
     }
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testNewAppOptionallyDependsOnNonExistingLib() throws Exception {
         String[] requiredLibs = {};
@@ -440,6 +447,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
     // Tests for when apps depend on private lib
     ///////////////////////////////////////////////////////////////////////////
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testOldAppDependsOnPrivateLib() throws Exception {
         String[] requiredLibs = {mPrivateLib};
@@ -452,6 +460,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
         runInstalledTestApp();
     }
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testNewAppDependsOnPrivateLib() throws Exception {
         String[] requiredLibs = {mPrivateLib};
@@ -465,6 +474,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
         // install failed, so can't run the on-device test
     }
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testOldAppOptionallyDependsOnPrivateLib() throws Exception {
         String[] requiredLibs = {};
@@ -477,6 +487,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
         runInstalledTestApp();
     }
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testNewAppOptionallyDependsOnPrivateLib() throws Exception {
         String[] requiredLibs = {};
@@ -493,6 +504,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
     // Tests for when apps depend on all public libraries
     ///////////////////////////////////////////////////////////////////////////
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testOldAppDependsOnAllPublicLibraries() throws Exception {
         String[] requiredLibs = add(mPublicLibraries);
@@ -505,6 +517,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
         runInstalledTestApp();
     }
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testNewAppDependsOnAllPublicLibraries() throws Exception {
         String[] requiredLibs = add(mPublicLibraries);
@@ -521,6 +534,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
     // Tests for when apps depend on some public libraries
     ///////////////////////////////////////////////////////////////////////////
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testOldAppDependsOnSomePublicLibraries() throws Exception {
         // select the first half of the public lib
@@ -534,6 +548,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
         runInstalledTestApp();
     }
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testNewAppDependsOnSomePublicLibraries() throws Exception {
         String[] requiredLibs = add(mSomePublicLibraries);
@@ -549,6 +564,7 @@ public class UsesNativeLibraryTestCase extends BaseHostJUnit4Test {
         runInstalledTestApp();
     }
 
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testNewAppOptionallyDependsOnSomePublicLibraries() throws Exception {
         // select the first half of the public lib

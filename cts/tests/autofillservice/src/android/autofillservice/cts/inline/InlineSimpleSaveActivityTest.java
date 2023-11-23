@@ -92,8 +92,10 @@ public class InlineSimpleSaveActivityTest
         mUiBot.assertNoDatasetsEver();
 
         // Change input
+        final SimpleSaveActivity.FillExpectation changeExpectation =
+                mActivity.expectInputTextChange("ID");
         mActivity.syncRunOnUiThread(() -> mActivity.getInput().setText("ID"));
-        mUiBot.waitForIdle();
+        changeExpectation.assertTextChange();
 
         // Trigger save UI.
         mUiBot.selectByRelativeId(ID_COMMIT);
@@ -136,15 +138,19 @@ public class InlineSimpleSaveActivityTest
         mUiBot.assertDatasets("YO");
 
         // Select suggestion
+        final SimpleSaveActivity.FillExpectation fillExpectation =
+                mActivity.expectAutoFill("id", "pass");
         mUiBot.selectDataset("YO");
         mUiBot.waitForIdle();
 
         // Check the results.
-        mActivity.expectAutoFill("id", "pass");
+        fillExpectation.assertAutoFilled();
 
         // Change input
+        final SimpleSaveActivity.FillExpectation changeExpectation =
+                mActivity.expectInputTextChange("ID");
         mActivity.syncRunOnUiThread(() -> mActivity.getInput().setText("ID"));
-        mUiBot.waitForIdle();
+        changeExpectation.assertTextChange();
 
         // Trigger save UI.
         mUiBot.selectByRelativeId(ID_COMMIT);

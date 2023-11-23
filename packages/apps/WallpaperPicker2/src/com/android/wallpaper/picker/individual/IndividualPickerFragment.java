@@ -92,6 +92,7 @@ import com.android.wallpaper.picker.WallpaperInfoHelper;
 import com.android.wallpaper.picker.WallpapersUiContainer;
 import com.android.wallpaper.picker.individual.SetIndividualHolder.OnSetListener;
 import com.android.wallpaper.util.DiskBasedLogger;
+import com.android.wallpaper.util.LaunchUtils;
 import com.android.wallpaper.util.SizeCalculator;
 import com.android.wallpaper.widget.WallpaperInfoView;
 import com.android.wallpaper.widget.WallpaperPickerRecyclerViewAccessibilityDelegate;
@@ -860,6 +861,9 @@ public class IndividualPickerFragment extends AppbarFragment
 
                                 activity.setResult(Activity.RESULT_OK);
                                 activity.finish();
+
+                                // Go back to launcher home.
+                                LaunchUtils.launchHome(appContext);
                             } else if (mFormFactor == FormFactorChecker.FORM_FACTOR_DESKTOP) {
                                 mAdapter.updateSelectedTile(SPECIAL_FIXED_TILE_ADAPTER_POSITION);
                             }
@@ -944,7 +948,7 @@ public class IndividualPickerFragment extends AppbarFragment
         mWallpaperPersister.setWallpaperInfoInPreview(mSelectedWallpaperInfo);
         if (mSelectedWallpaperInfo instanceof LiveWallpaperInfo) {
             mWallpaperSetter.setCurrentWallpaper(getActivity(), mSelectedWallpaperInfo, null,
-                    destination, 0, null, mSetWallpaperCallback);
+                    destination, 0, null, null, mSetWallpaperCallback);
         } else {
             mWallpaperSetter.setCurrentWallpaper(
                     getActivity(), mSelectedWallpaperInfo, destination, mSetWallpaperCallback);

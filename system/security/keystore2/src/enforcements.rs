@@ -633,7 +633,7 @@ impl Enforcements {
 
         let hat_and_last_off_body = if need_auth_token {
             let hat_and_last_off_body = Self::find_auth_token(|hat: &AuthTokenEntry| {
-                if let (Some(auth_type), true) = (user_auth_type, has_sids) {
+                if let (Some(auth_type), true) = (user_auth_type, timeout_bound) {
                     hat.satisfies(&user_secure_ids, auth_type)
                 } else {
                     unlocked_device_required

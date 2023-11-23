@@ -18,14 +18,16 @@ package com.android.queryable.queries;
 
 import android.content.Intent;
 
-import com.android.queryable.util.SerializableParcelWrapper;
 import com.android.queryable.Queryable;
+import com.android.queryable.util.SerializableParcelWrapper;
 
 import java.io.Serializable;
 
 /** Implementation of {@link IntentQuery}. */
 public final class IntentQueryHelper<E extends Queryable> implements IntentQuery<E>,
         Serializable {
+
+    private static final long serialVersionUID = 1;
 
     private final E mQuery;
     private final StringQueryHelper<E> mAction;
@@ -68,13 +70,21 @@ public final class IntentQueryHelper<E extends Queryable> implements IntentQuery
 
     /**
      * {@code true} if all filters are met by the {@link Intent} contained in
-     * {@code serializableBundle}.
+     * {@code serializableIntent}.
      */
-    public boolean matches(SerializableParcelWrapper<Intent> serializableBundle) {
-        if ((serializableBundle == null || serializableBundle.get() == null)) {
+    public boolean matches(SerializableParcelWrapper<Intent> serializableIntent) {
+        if ((serializableIntent == null || serializableIntent.get() == null)) {
             return false;
         }
 
-        return matches(serializableBundle.get());
+        return matches(serializableIntent.get());
+    }
+
+    @Override
+    public String describeQuery(String fieldName) {
+        return Queryable.joinQueryStrings(
+                mAction.describeQuery(fieldName + ".action"),
+                mExtras.describeQuery(fieldName + ".extras")
+        );
     }
 }

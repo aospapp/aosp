@@ -4,14 +4,15 @@
     <string name="system_tracing" msgid="4719188511746319848">"Tracciamento del sistema"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"Registra le attività del sistema e analizzale in seguito per migliorare le prestazioni"</string>
     <string name="record_trace" msgid="6416875085186661845">"Registra traccia"</string>
+    <string name="start_new_trace" msgid="8177130420802170353">"Avvia nuova traccia"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Monitora app di cui è possibile eseguire il debug"</string>
     <string name="categories" msgid="2280163673538611008">"Categorie"</string>
     <string name="restore_default_categories" msgid="5090536794637169521">"Ripristina categorie predefinite"</string>
     <string name="default_categories_restored" msgid="6861683793680564181">"Categorie predefinite ripristinate"</string>
     <string name="default_categories" msgid="2117679794687799407">"Predefinite"</string>
     <plurals name="num_categories_selected" formatted="false" msgid="963928263524652497">
+      <item quantity="one">%d selected</item>
       <item quantity="other">%d selezionate</item>
-      <item quantity="one">%d selezionata</item>
     </plurals>
     <string name="applications" msgid="521776761270770549">"App"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Nessuna app disponibile di cui è possibile eseguire il debug"</string>

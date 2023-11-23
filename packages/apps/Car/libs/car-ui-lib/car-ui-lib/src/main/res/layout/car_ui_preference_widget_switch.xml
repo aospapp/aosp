@@ -15,10 +15,15 @@
     limitations under the License.
 -->
 
-<Switch
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@android:id/switch_widget"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:clickable="false"
-    android:focusable="false" />
+    android:layout_width="?android:attr/listPreferredItemHeightSmall"
+    android:layout_height="?android:attr/listPreferredItemHeightSmall">
+    <com.android.car.ui.uxr.DrawableStateSwitch
+        android:id="@android:id/switch_widget"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:clickable="false"
+        android:focusable="false" />
+</FrameLayout>

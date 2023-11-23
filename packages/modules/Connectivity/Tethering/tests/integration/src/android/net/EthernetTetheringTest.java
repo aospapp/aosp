@@ -17,6 +17,7 @@
 package android.net;
 
 import static android.Manifest.permission.ACCESS_NETWORK_STATE;
+import static android.Manifest.permission.CONNECTIVITY_USE_RESTRICTED_NETWORKS;
 import static android.Manifest.permission.MANAGE_TEST_NETWORKS;
 import static android.Manifest.permission.NETWORK_SETTINGS;
 import static android.Manifest.permission.TETHER_PRIVILEGED;
@@ -121,9 +122,12 @@ public class EthernetTetheringTest {
     @Before
     public void setUp() throws Exception {
         // Needed to create a TestNetworkInterface, to call requestTetheredInterface, and to receive
-        // tethered client callbacks.
+        // tethered client callbacks. The restricted networks permission is needed to ensure that
+        // EthernetManager#isAvailable will correctly return true on devices where Ethernet is
+        // marked restricted, like cuttlefish.
         mUiAutomation.adoptShellPermissionIdentity(
-                MANAGE_TEST_NETWORKS, NETWORK_SETTINGS, TETHER_PRIVILEGED, ACCESS_NETWORK_STATE);
+                MANAGE_TEST_NETWORKS, NETWORK_SETTINGS, TETHER_PRIVILEGED, ACCESS_NETWORK_STATE,
+                CONNECTIVITY_USE_RESTRICTED_NETWORKS);
         mRunTests = mTm.isTetheringSupported() && mEm != null;
         assumeTrue(mRunTests);
 

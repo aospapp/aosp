@@ -46,8 +46,9 @@ import java.util.Collections;
  */
 @RunWith(AndroidJUnit4.class)
 public final class CompatChangesTest {
-  private static final long CTS_SYSTEM_API_CHANGEID = 149391281;
-  private static final long CTS_SYSTEM_API_OVERRIDABLE_CHANGEID = 174043039;
+  private static final long CTS_SYSTEM_API_CHANGEID = 149391281L;
+  private static final long CTS_SYSTEM_API_OVERRIDABLE_CHANGEID = 174043039L;
+  private static final long UNKNOWN_CHANGEID = 123L;
 
   private static final String OVERRIDE_PACKAGE = "com.android.cts.appcompat.preinstalloverride";
 
@@ -115,6 +116,13 @@ public final class CompatChangesTest {
   }
 
   @Test
+  public void putPackageOverrides_doesNothingIfChangeIsUnknown() {
+    CompatChanges.putPackageOverrides(OVERRIDE_PACKAGE,
+            Collections.singletonMap(UNKNOWN_CHANGEID,
+                    new PackageOverride.Builder().setEnabled(true).build()));
+  }
+
+  @Test
   public void putPackageOverrides_success() {
     CompatChanges.putPackageOverrides(OVERRIDE_PACKAGE,
             Collections.singletonMap(CTS_SYSTEM_API_OVERRIDABLE_CHANGEID,
@@ -161,6 +169,12 @@ public final class CompatChangesTest {
   public void removePackageOverrides_doesNothingIfOverrideNotPresent() {
     CompatChanges.removePackageOverrides(OVERRIDE_PACKAGE,
             Collections.singleton(CTS_SYSTEM_API_OVERRIDABLE_CHANGEID));
+  }
+
+  @Test
+  public void removePackageOverrides_doesNothingIfChangeIsUnknown() {
+    CompatChanges.removePackageOverrides(OVERRIDE_PACKAGE,
+            Collections.singleton(UNKNOWN_CHANGEID));
   }
 
   @Test

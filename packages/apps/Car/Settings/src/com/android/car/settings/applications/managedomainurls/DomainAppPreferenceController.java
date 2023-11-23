@@ -84,10 +84,18 @@ public class DomainAppPreferenceController extends PreferenceController<Preferen
 
     public DomainAppPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                ApplicationsState.getInstance((Application) context.getApplicationContext()),
+                context.getPackageManager());
+    }
+
+    @VisibleForTesting
+    DomainAppPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            ApplicationsState applicationsState, PackageManager packageManager) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mApplicationsState = ApplicationsState.getInstance(
-                (Application) context.getApplicationContext());
-        mPm = context.getPackageManager();
+        mApplicationsState = applicationsState;
+        mPm = packageManager;
     }
 
     @Override

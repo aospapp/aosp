@@ -845,18 +845,19 @@ public class MediaCodecBlockModelTest extends AndroidTestCase {
                             rowSampling = 2;
                             colSampling = 2;
                         }
-                        long timestampUs = 1000000l * frameIndex / kFrameRate;
-                        ++frameIndex;
-                        if (frameIndex >= 32) {
-                            signaledEos = true;
-                        }
-                        timestampList.add(timestampUs);
-                        mediaCodec.getQueueRequest(event.index)
-                                .setHardwareBuffer(buffer)
-                                .setPresentationTimeUs(timestampUs)
-                                .setFlags(signaledEos ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0)
-                                .queue();
                     }
+
+                    long timestampUs = 1000000l * frameIndex / kFrameRate;
+                    ++frameIndex;
+                    if (frameIndex >= 32) {
+                        signaledEos = true;
+                    }
+                    timestampList.add(timestampUs);
+                    mediaCodec.getQueueRequest(event.index)
+                            .setHardwareBuffer(buffer)
+                            .setPresentationTimeUs(timestampUs)
+                            .setFlags(signaledEos ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0)
+                            .queue();
                 } else {
                     MediaCodec.OutputFrame frame = mediaCodec.getOutputFrame(event.index);
                     eos = (frame.getFlags() & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;

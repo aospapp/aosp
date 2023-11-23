@@ -139,6 +139,11 @@ abstract class BasePermissionTest {
         return UiAutomatorUtils.waitFindObject(selector, timeoutMillis)
     }
 
+    protected fun waitFindObjectOrNull(selector: BySelector): UiObject2? {
+        waitForIdle()
+        return UiAutomatorUtils.waitFindObjectOrNull(selector)
+    }
+
     protected fun waitFindObjectOrNull(selector: BySelector, timeoutMillis: Long): UiObject2? {
         waitForIdle()
         return UiAutomatorUtils.waitFindObjectOrNull(selector, timeoutMillis)
@@ -147,6 +152,10 @@ abstract class BasePermissionTest {
     protected fun click(selector: BySelector, timeoutMillis: Long = 20_000) {
         waitFindObject(selector, timeoutMillis).click()
         waitForIdle()
+    }
+
+    protected fun clickPermissionControllerUi(selector: BySelector, timeoutMillis: Long = 20_000) {
+        click(selector.pkg(context.packageManager.permissionControllerPackageName), timeoutMillis)
     }
 
     protected fun pressBack() {

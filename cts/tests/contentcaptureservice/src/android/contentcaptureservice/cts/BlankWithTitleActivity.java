@@ -15,23 +15,13 @@
  */
 package android.contentcaptureservice.cts;
 
-import static android.contentcaptureservice.cts.Assertions.assertDecorViewAppeared;
 import static android.contentcaptureservice.cts.Assertions.assertRightActivity;
-import static android.contentcaptureservice.cts.Assertions.assertSessionPaused;
-import static android.contentcaptureservice.cts.Assertions.assertSessionResumed;
-import static android.contentcaptureservice.cts.Assertions.assertViewAppeared;
-import static android.contentcaptureservice.cts.Assertions.assertViewTreeFinished;
-import static android.contentcaptureservice.cts.Assertions.assertViewTreeStarted;
-import static android.contentcaptureservice.cts.Assertions.assertViewsOptionallyDisappeared;
-
-import static com.google.common.truth.Truth.assertThat;
 
 import android.contentcaptureservice.cts.CtsContentCaptureService.Session;
 import android.util.Log;
 import android.view.View;
 import android.view.contentcapture.ContentCaptureEvent;
 import android.view.contentcapture.ContentCaptureSessionId;
-import android.view.contentcapture.ViewNode;
 
 import androidx.annotation.NonNull;
 
@@ -51,20 +41,13 @@ public class BlankWithTitleActivity extends AbstractContentCaptureActivity {
         final List<ContentCaptureEvent> events = session.getEvents();
         Log.v(TAG, "events(" + events.size() + "): " + events);
 
-        final int minEvents = 9; // TODO(b/122315042): disappeared not always sent
-        assertThat(events.size()).isAtLeast(minEvents);
-
-        assertSessionResumed(events, 0);
-        assertViewTreeStarted(events, 1);
-        assertDecorViewAppeared(events, 2, decorView);
-        // TODO(b/123540067): ignoring 3 intermediate parents
-        final ViewNode title = assertViewAppeared(events, 6).getViewNode();
-        assertThat(title.getText()).isEqualTo("Blanka");
-        assertViewTreeFinished(events, 7);
-        assertSessionPaused(events, 8);
-        if (false) { // TODO(b/123540067): disabled because it includes the parent
-            assertViewsOptionallyDisappeared(events, minEvents, decorView.getAutofillId(),
-                    title.getAutofillId());
-        }
+        new EventsAssertor(events)
+                .isAtLeast(9)
+                .assertSessionResumed()
+                .assertViewTreeStarted()
+                .assertDecorViewAppeared(decorView)
+                .assertViewAppeared("Blanka")
+                .assertViewTreeFinished()
+                .assertSessionPaused();
     }
 }

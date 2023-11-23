@@ -22,10 +22,12 @@ import android.app.role.RoleManager;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.os.Bundle;
+import android.os.RemoteException;
 import android.util.AttributeSet;
 import android.util.Log;
 
 import com.android.internal.app.AssistUtils;
+import com.android.internal.app.IVoiceInteractionSessionListener;
 import com.android.internal.app.IVoiceInteractionSessionShowCallback;
 
 /**
@@ -34,7 +36,7 @@ import com.android.internal.app.IVoiceInteractionSessionShowCallback;
 public class AssitantButton extends CarSystemBarButton {
     private static final String TAG = "AssistantButton";
     private final AssistUtils mAssistUtils;
-    private IVoiceInteractionSessionShowCallback mShowCallback =
+    private final IVoiceInteractionSessionShowCallback mShowCallback =
             new IVoiceInteractionSessionShowCallback.Stub() {
                 @Override
                 public void onFailed() {
@@ -51,6 +53,23 @@ public class AssitantButton extends CarSystemBarButton {
         super(context, attrs);
         mAssistUtils = new AssistUtils(context);
         setOnClickListener(v -> showAssistant());
+        mAssistUtils.registerVoiceInteractionSessionListener(
+                new IVoiceInteractionSessionListener.Stub() {
+                    @Override
+                    public void onVoiceSessionShown() throws RemoteException {
+                        assistantSetSelected(/* selected= */ true);
+                    }
+
+                    @Override
+                    public void onVoiceSessionHidden() throws RemoteException {
+                        assistantSetSelected(/* selected= */ false);
+                    }
+
+                    @Override
+                    public void onSetUiHints(Bundle hints) {
+                    }
+                }
+        );
     }
 
     private void showAssistant() {
@@ -67,5 +86,18 @@ public class AssitantButton extends CarSystemBarButton {
     @Override
     protected String getRoleName() {
         return RoleManager.ROLE_ASSISTANT;
+    }
+
+    @Override
+    public void setSelected(boolean selected) {
+        // override to no-op as AssistantButton will maintain its own selected state by listening to
+        // the actual voice interaction session.
+    }
+
+    private void assistantSetSelected(boolean selected) {
+        if (hasSelectionState()) {
+            getContext().getMainExecutor().execute(
+                    () -> AssitantButton.super.setSelected(selected));
+        }
     }
 }

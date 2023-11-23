@@ -111,7 +111,7 @@ def get_resources_from_single_file(filename, ignore_strings=False):
             resType = "array"
         if resource.tag == 'item' or resource.tag == 'public':
             resType = resource.get('type')
-        if resType == 'string' and ignore_strings:
+        if (resType == 'string' or resType == 'plurals') and ignore_strings:
             continue
         if resType == 'overlayable':
             for policy in resource:
@@ -149,3 +149,58 @@ def add_resource_to_set(resourceset, resource):
 def merge_resources(set1, set2):
     for resource in set2:
         add_resource_to_set(set1, resource)
+
+def get_androidx_resources():
+    # source: https://android.googlesource.com/platform/frameworks/opt/sherpa/+/studio-3.0/constraintlayout/src/main/res/values/attrs.xml
+    resources = set()
+    add_resource_to_set(resources, Resource('layout_optimizationLevel', 'attr'))
+    add_resource_to_set(resources, Resource('constraintSet', 'attr'))
+    add_resource_to_set(resources, Resource('barrierDirection', 'attr'))
+    add_resource_to_set(resources, Resource('constraint_referenced_ids', 'attr'))
+    add_resource_to_set(resources, Resource('chainUseRtl', 'attr'))
+    add_resource_to_set(resources, Resource('title', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintGuide_begin', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintGuide_end', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintGuide_percent', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintLeft_toLeftOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintLeft_toRightOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintRight_toLeftOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintRight_toRightOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintTop_toTopOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintTop_toBottomOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintBottom_toTopOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintBottom_toBottomOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintBaseline_toBaselineOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintStart_toEndOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintStart_toStartOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintEnd_toStartOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintEnd_toEndOf', 'attr'))
+    add_resource_to_set(resources, Resource('layout_goneMarginLeft', 'attr'))
+    add_resource_to_set(resources, Resource('layout_goneMarginTop', 'attr'))
+    add_resource_to_set(resources, Resource('layout_goneMarginRight', 'attr'))
+    add_resource_to_set(resources, Resource('layout_goneMarginBottom', 'attr'))
+    add_resource_to_set(resources, Resource('layout_goneMarginStart', 'attr'))
+    add_resource_to_set(resources, Resource('layout_goneMarginEnd', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintHorizontal_bias', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintVertical_bias', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintWidth_default', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintHeight_default', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintWidth_min', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintWidth_max', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintWidth_percent', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintHeight_min', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintHeight_max', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintHeight_percent', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintLeft_creator', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintTop_creator', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintRight_creator', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintBottom_creator', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintBaseline_creator', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintDimensionRatio', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintHorizontal_weight', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintVertical_weight', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintHorizontal_chainStyle', 'attr'))
+    add_resource_to_set(resources, Resource('layout_constraintVertical_chainStyle', 'attr'))
+    add_resource_to_set(resources, Resource('layout_editor_absoluteX', 'attr'))
+    add_resource_to_set(resources, Resource('layout_editor_absoluteY', 'attr'))
+    return resources

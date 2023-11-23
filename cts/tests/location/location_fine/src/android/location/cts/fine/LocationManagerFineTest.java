@@ -17,7 +17,10 @@
 package android.location.cts.fine;
 
 import static android.Manifest.permission.WRITE_SECURE_SETTINGS;
+import static android.app.AppOpsManager.OPSTR_MONITOR_HIGH_POWER_LOCATION;
+import static android.app.AppOpsManager.OPSTR_MONITOR_LOCATION;
 import static android.content.pm.PackageManager.FEATURE_AUTOMOTIVE;
+import static android.content.pm.PackageManager.FEATURE_TELEVISION;
 import static android.location.LocationManager.EXTRA_PROVIDER_ENABLED;
 import static android.location.LocationManager.EXTRA_PROVIDER_NAME;
 import static android.location.LocationManager.FUSED_PROVIDER;
@@ -26,6 +29,7 @@ import static android.location.LocationManager.NETWORK_PROVIDER;
 import static android.location.LocationManager.PASSIVE_PROVIDER;
 import static android.location.LocationManager.PROVIDERS_CHANGED_ACTION;
 import static android.location.LocationRequest.PASSIVE_INTERVAL;
+import static android.location.LocationRequest.QUALITY_HIGH_ACCURACY;
 import static android.os.PowerManager.LOCATION_MODE_ALL_DISABLED_WHEN_SCREEN_OFF;
 import static android.os.PowerManager.LOCATION_MODE_GPS_DISABLED_WHEN_SCREEN_OFF;
 import static android.os.PowerManager.LOCATION_MODE_THROTTLE_REQUESTS_WHEN_SCREEN_OFF;
@@ -51,7 +55,6 @@ import android.app.PendingIntent;
 import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.location.Criteria;
 import android.location.GnssMeasurementsEvent;
 import android.location.GnssNavigationMessage;
@@ -66,6 +69,7 @@ import android.location.cts.common.BroadcastCapture;
 import android.location.cts.common.GetCurrentLocationCapture;
 import android.location.cts.common.LocationListenerCapture;
 import android.location.cts.common.LocationPendingIntentCapture;
+import android.location.cts.common.OpActiveChangedCapture;
 import android.location.cts.common.ProviderRequestChangedListenerCapture;
 import android.location.cts.common.gnss.GnssAntennaInfoCapture;
 import android.location.cts.common.gnss.GnssMeasurementsCapture;
@@ -143,15 +147,11 @@ public class LocationManagerFineTest {
         }
 
         mManager.addTestProvider(TEST_PROVIDER,
-                true,
-                false,
-                true,
-                false,
-                false,
-                false,
-                false,
-                Criteria.POWER_MEDIUM,
-                Criteria.ACCURACY_FINE);
+                new ProviderProperties.Builder()
+                        .setHasNetworkRequirement(true)
+                        .setHasCellRequirement(true)
+                        .setPowerUsage(ProviderProperties.POWER_USAGE_HIGH)
+                        .setAccuracy(ProviderProperties.ACCURACY_FINE).build());
         mManager.setTestProviderEnabled(TEST_PROVIDER, true);
     }
 
@@ -264,8 +264,6 @@ public class LocationManagerFineTest {
 
     @Test
     public void testGetCurrentLocation_Timeout() throws Exception {
-        Location loc = createLocation(TEST_PROVIDER, mRandom);
-
         try (GetCurrentLocationCapture capture = new GetCurrentLocationCapture()) {
             mManager.getCurrentLocation(
                     TEST_PROVIDER,
@@ -665,8 +663,9 @@ public class LocationManagerFineTest {
 
     @Test
     public void testRequestLocationUpdates_BatterySaver_GpsDisabledScreenOff() throws Exception {
-        // battery saver is unsupported on auto
+        // battery saver is unsupported on auto and tv
         assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_TELEVISION));
 
         PowerManager powerManager = Objects.requireNonNull(
                 mContext.getSystemService(PowerManager.class));
@@ -725,8 +724,9 @@ public class LocationManagerFineTest {
 
     @Test
     public void testRequestLocationUpdates_BatterySaver_AllDisabledScreenOff() throws Exception {
-        // battery saver is unsupported on auto
+        // battery saver is unsupported on auto and tv
         assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_TELEVISION));
 
         PowerManager powerManager = Objects.requireNonNull(
                 mContext.getSystemService(PowerManager.class));
@@ -766,8 +766,9 @@ public class LocationManagerFineTest {
 
     @Test
     public void testRequestLocationUpdates_BatterySaver_ThrottleScreenOff() throws Exception {
-        // battery saver is unsupported on auto
+        // battery saver is unsupported on auto and tv
         assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_TELEVISION));
 
         PowerManager powerManager = Objects.requireNonNull(
                 mContext.getSystemService(PowerManager.class));
@@ -838,6 +839,57 @@ public class LocationManagerFineTest {
             loc = createLocation(TEST_PROVIDER, mRandom);
             mManager.setTestProviderLocation(TEST_PROVIDER, loc);
             assertThat(capture.getNextLocation(FAILURE_TIMEOUT_MS)).isEqualTo(loc);
+        }
+    }
+
+    @Test
+    public void testMonitoring() throws Exception {
+        AppOpsManager appOps = Objects.requireNonNull(
+                mContext.getSystemService(AppOpsManager.class));
+
+        try (OpActiveChangedCapture opCapture = new OpActiveChangedCapture(appOps,
+                OPSTR_MONITOR_LOCATION);
+             OpActiveChangedCapture opHighPowerCapture = new OpActiveChangedCapture(appOps,
+                     OPSTR_MONITOR_HIGH_POWER_LOCATION);
+             LocationListenerCapture capture1 = new LocationListenerCapture(mContext);
+             LocationListenerCapture capture2 = new LocationListenerCapture(mContext);
+             LocationListenerCapture capture3 = new LocationListenerCapture(mContext)) {
+            appOps.startWatchingActive(new String[]{OPSTR_MONITOR_LOCATION}, Runnable::run,
+                    opCapture);
+            appOps.startWatchingActive(new String[]{OPSTR_MONITOR_HIGH_POWER_LOCATION},
+                    Runnable::run, opHighPowerCapture);
+
+            mManager.requestLocationUpdates(TEST_PROVIDER,
+                    new LocationRequest.Builder(Long.MAX_VALUE - 1).build(),
+                    Executors.newSingleThreadExecutor(), capture1);
+            assertThat(opCapture.getNextActive(TIMEOUT_MS)).isTrue();
+            assertThat(opHighPowerCapture.getNextActive(FAILURE_TIMEOUT_MS)).isNull();
+
+            mManager.requestLocationUpdates(TEST_PROVIDER, new LocationRequest.Builder(
+                            0).setQuality(
+                            QUALITY_HIGH_ACCURACY).build(),
+                    Executors.newSingleThreadExecutor(), capture2);
+            assertThat(opCapture.getNextActive(FAILURE_TIMEOUT_MS)).isNull();
+            assertThat(opHighPowerCapture.getNextActive(TIMEOUT_MS)).isTrue();
+
+            mManager.requestLocationUpdates(TEST_PROVIDER, new LocationRequest.Builder(
+                            0).setQuality(
+                            QUALITY_HIGH_ACCURACY).build(),
+                    Executors.newSingleThreadExecutor(), capture3);
+            assertThat(opCapture.getNextActive(FAILURE_TIMEOUT_MS)).isNull();
+            assertThat(opHighPowerCapture.getNextActive(FAILURE_TIMEOUT_MS)).isNull();
+
+            mManager.removeUpdates(capture2);
+            assertThat(opCapture.getNextActive(FAILURE_TIMEOUT_MS)).isNull();
+            assertThat(opHighPowerCapture.getNextActive(FAILURE_TIMEOUT_MS)).isNull();
+
+            mManager.removeUpdates(capture3);
+            assertThat(opCapture.getNextActive(FAILURE_TIMEOUT_MS)).isNull();
+            assertThat(opHighPowerCapture.getNextActive(TIMEOUT_MS)).isFalse();
+
+            mManager.removeUpdates(capture1);
+            assertThat(opCapture.getNextActive(TIMEOUT_MS)).isFalse();
+            assertThat(opHighPowerCapture.getNextActive(FAILURE_TIMEOUT_MS)).isNull();
         }
     }
 
@@ -1007,7 +1059,7 @@ public class LocationManagerFineTest {
 
     @Test
     public void testRequestFlush_Gnss() throws Exception {
-        assumeTrue(mManager.getAllProviders().contains(GPS_PROVIDER));
+        assumeTrue(mManager.hasProvider(GPS_PROVIDER));
 
         try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
             mManager.requestLocationUpdates(GPS_PROVIDER, 0, 0,

@@ -22,16 +22,22 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import android.annotation.TargetApi;
+import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
+import android.content.Context;
 import android.database.Cursor;
 import android.view.View;
 
 import androidx.test.espresso.Root;
-import androidx.test.rule.ActivityTestRule;
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import com.android.car.ui.recyclerview.CarUiContentListItem;
 import com.android.car.ui.recyclerview.CarUiListItemAdapter;
@@ -44,62 +50,171 @@ import org.hamcrest.TypeSafeMatcher;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
+@TargetApi(MIN_TARGET_API)
 public class AlertDialogBuilderTest {
 
     @Rule
-    public ActivityTestRule<TestActivity> mActivityRule =
-            new ActivityTestRule<>(TestActivity.class);
+    public ActivityScenarioRule<TestActivity> mActivityRule =
+            new ActivityScenarioRule<>(TestActivity.class);
 
     @Test
-    public void test_AlertDialogBuilder_works() throws Throwable {
+    public void test_AlertDialogBuilder_works() {
         String title = "Test message from AlertDialogBuilder";
         String subtitle = "Subtitle from AlertDialogBuilder";
-        mActivityRule.runOnUiThread(() ->
-                new AlertDialogBuilder(mActivityRule.getActivity())
+        runOnUiThread(activity ->
+                new AlertDialogBuilder(activity)
                         .setMessage(title)
                         .setSubtitle(subtitle)
                         .show());
 
         AlertDialog dialog = checkDefaultButtonExists(true,
-                new AlertDialogBuilder(mActivityRule.getActivity())
+                runOnUiThread(activity -> new AlertDialogBuilder(activity)
                         .setMessage(title)
-                        .setSubtitle(subtitle));
+                        .setSubtitle(subtitle)));
         onView(withText(title))
-                .inRoot(new RootWithDecorMatcher(dialog.getWindow().getDecorView()))
+                .inRoot(RootWithDecorMatcher.get(dialog))
                 .check(matches(isDisplayed()));
         onView(withText(subtitle))
-                .inRoot(new RootWithDecorMatcher(dialog.getWindow().getDecorView()))
+                .inRoot(RootWithDecorMatcher.get(dialog))
                 .check(matches(isDisplayed()));
     }
 
     @Test
-    public void test_showSingleListChoiceItem_StringArray_hidesDefaultButton() throws Throwable {
-        AlertDialogBuilder builder = new AlertDialogBuilder(mActivityRule.getActivity())
+    public void test_simplePropertiesWithResources_work() {
+        AlertDialog dialog = runOnUiThread(activity ->
+                new AlertDialogBuilder(activity)
+                        .setTitle(R.string.title)
+                        .setSubtitle(R.string.subtitle)
+                        .setIcon(R.drawable.ic_launcher)
+                        .setMessage(R.string.message)
+                        .setPositiveButton(R.string.positive, (d, which) -> {})
+                        .setNegativeButton(R.string.negative, (d, which) -> {})
+                        .setNeutralButton(R.string.neutral, (d, which) -> {})
+                        .show());
+        assertNotNull(dialog);
+        onView(withText(R.string.title))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.subtitle))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.message))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.positive))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.negative))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.neutral))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+    }
+
+    @Test
+    public void test_simplePropertiesWithStrings_work() {
+        AlertDialog dialog = runOnUiThread(activity ->
+                new AlertDialogBuilder(activity)
+                        .setTitle("Title!!")
+                        .setSubtitle("Subtitle!!")
+                        .setIcon(activity.getDrawable(R.drawable.ic_launcher))
+                        .setMessage("Message!!")
+                        .setPositiveButton("Positive!!", (d, which) -> {})
+                        .setNegativeButton("Negative!!", (d, which) -> {})
+                        .setNeutralButton("Neutral!!", (d, which) -> {})
+                        .show());
+        assertNotNull(dialog);
+        onView(withText("Title!!"))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText("Subtitle!!"))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText("Message!!"))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText("Positive!!"))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText("Negative!!"))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText("Neutral!!"))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+    }
+
+    @Test
+    public void test_setCursor_works() {
+        FakeCursor cursor = new FakeCursor(Arrays.asList("Item 1", "Item 2"), "items");
+        AlertDialog dialog = runOnUiThread(activity ->
+                new AlertDialogBuilder(activity)
+                        .setCursor(cursor, (d, which) -> {}, "items")
+                        .show());
+        assertNotNull(dialog);
+        onView(withText("Item 1"))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText("Item 2"))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+    }
+
+    @Test
+    public void test_getContext_works() {
+        Context context = runOnUiThread(activity ->
+                new AlertDialogBuilder(activity).getContext());
+        assertNotNull(context);
+    }
+
+    @Test
+    public void test_setCarUiRadioButtons_works() {
+        CarUiRadioButtonListItem item1 = new CarUiRadioButtonListItem();
+        item1.setTitle("Item 1");
+        CarUiRadioButtonListItem item2 = new CarUiRadioButtonListItem();
+        item2.setTitle("Item 2");
+
+        AlertDialog dialog = runOnUiThread(activity ->
+                new AlertDialogBuilder(activity)
+                        .setSingleChoiceItems(
+                                new CarUiRadioButtonListItemAdapter(Arrays.asList(item1, item2)))
+                        .show());
+        assertNotNull(dialog);
+        onView(withText("Item 1"))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+        onView(withText("Item 2"))
+                .inRoot(RootWithDecorMatcher.get(dialog))
+                .check(matches(isDisplayed()));
+    }
+
+    @Test
+    public void test_showSingleListChoiceItem_StringArray_hidesDefaultButton() {
+        AlertDialogBuilder builder = runOnUiThread(activity -> new AlertDialogBuilder(activity)
                 .setAllowDismissButton(false)
                 .setSingleChoiceItems(new CharSequence[]{"Item 1", "Item 2"}, 0,
-                        ((dialog, which) -> {
-                        }));
+                        (dialog, which) -> {}));
 
         checkDefaultButtonExists(false, builder);
     }
 
     @Test
-    public void test_showSingleListChoiceItem_StringArrayResource_hidesDefaultButton()
-            throws Throwable {
-        AlertDialogBuilder builder = new AlertDialogBuilder(mActivityRule.getActivity())
+    public void test_showSingleListChoiceItem_StringArrayResource_hidesDefaultButton() {
+        AlertDialogBuilder builder = runOnUiThread(activity -> new AlertDialogBuilder(activity)
                 .setAllowDismissButton(false)
-                .setSingleChoiceItems(R.array.test_string_array, 0, ((dialog, which) -> {
-                }));
+                .setSingleChoiceItems(R.array.test_string_array, 0, (dialog, which) -> {}));
 
         checkDefaultButtonExists(false, builder);
     }
 
     @Test
-    public void test_showSingleListChoiceItem_CarUiRadioButtonListItemAdapter_forcesDefaultButton()
-            throws Throwable {
+    public void test_singleListChoiceItems_CarUiRadioButtonListItemAdapter_forcesDefaultButton() {
         CarUiRadioButtonListItem item1 = new CarUiRadioButtonListItem();
         item1.setTitle("Item 1");
         CarUiRadioButtonListItem item2 = new CarUiRadioButtonListItem();
@@ -109,48 +224,44 @@ public class AlertDialogBuilderTest {
 
         CarUiRadioButtonListItemAdapter adapter = new CarUiRadioButtonListItemAdapter(
                 Arrays.asList(item1, item2, item3));
-        AlertDialogBuilder builder = new AlertDialogBuilder(mActivityRule.getActivity())
+        AlertDialogBuilder builder = runOnUiThread(activity -> new AlertDialogBuilder(activity)
                 .setAllowDismissButton(false)
-                .setSingleChoiceItems(adapter);
+                .setSingleChoiceItems(adapter));
 
         checkDefaultButtonExists(true, builder);
     }
 
     @Test
-    public void test_showSingleListChoiceItem_cursor_hidesDefaultButton() throws Throwable {
+    public void test_showSingleListChoiceItem_cursor_hidesDefaultButton() {
         Cursor cursor = new FakeCursor(Arrays.asList("Item 1", "Item 2"), "ColumnName");
-        AlertDialogBuilder builder = new AlertDialogBuilder(mActivityRule.getActivity())
+        AlertDialogBuilder builder = runOnUiThread(activity -> new AlertDialogBuilder(activity)
                 .setTitle("Title")
                 .setAllowDismissButton(false)
-                .setSingleChoiceItems(cursor, 0, "ColumnName", ((dialog, which) -> {
-                }));
+                .setSingleChoiceItems(cursor, 0, "ColumnName", (dialog, which) -> {}));
 
         checkDefaultButtonExists(false, builder);
     }
 
     @Test
-    public void test_setItems_StringArrayResource_hidesDefaultButton() throws Throwable {
-        AlertDialogBuilder builder = new AlertDialogBuilder(mActivityRule.getActivity())
+    public void test_setItems_StringArrayResource_hidesDefaultButton() {
+        AlertDialogBuilder builder = runOnUiThread(activity -> new AlertDialogBuilder(activity)
                 .setAllowDismissButton(false)
-                .setItems(R.array.test_string_array, ((dialog, which) -> {
-                }));
+                .setItems(R.array.test_string_array, (dialog, which) -> {}));
 
         checkDefaultButtonExists(false, builder);
     }
 
     @Test
-    public void test_setItems_StringArray_hidesDefaultButton() throws Throwable {
-        AlertDialogBuilder builder = new AlertDialogBuilder(mActivityRule.getActivity())
+    public void test_setItems_StringArray_hidesDefaultButton() {
+        AlertDialogBuilder builder = runOnUiThread(activity -> new AlertDialogBuilder(activity)
                 .setAllowDismissButton(false)
-                .setItems(new CharSequence[]{"Item 1", "Item 2"}, ((dialog, which) -> {
-                }));
+                .setItems(new CharSequence[]{"Item 1", "Item 2"}, (dialog, which) -> {}));
 
         checkDefaultButtonExists(false, builder);
     }
 
     @Test
-    public void test_setAdapter_hidesDefaultButton()
-            throws Throwable {
+    public void test_setAdapter_hidesDefaultButton() {
         CarUiContentListItem item1 = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
         item1.setTitle("Item 1");
         CarUiContentListItem item2 = new CarUiContentListItem(CarUiContentListItem.Action.NONE);
@@ -160,56 +271,49 @@ public class AlertDialogBuilderTest {
 
         CarUiListItemAdapter adapter = new CarUiListItemAdapter(
                 Arrays.asList(item1, item2, item3));
-        AlertDialogBuilder builder = new AlertDialogBuilder(mActivityRule.getActivity())
+        AlertDialogBuilder builder = runOnUiThread(activity -> new AlertDialogBuilder(activity)
                 .setAllowDismissButton(false)
-                .setAdapter(adapter);
+                .setAdapter(adapter));
 
         checkDefaultButtonExists(false, builder);
     }
 
     @Test
-    public void test_multichoiceItems_StringArrayResource_forcesDefaultButton()
-            throws Throwable {
-        AlertDialogBuilder builder = new AlertDialogBuilder(mActivityRule.getActivity())
+    public void test_multichoiceItems_StringArrayResource_forcesDefaultButton() {
+        AlertDialogBuilder builder = runOnUiThread(activity -> new AlertDialogBuilder(activity)
                 .setAllowDismissButton(false)
                 .setMultiChoiceItems(R.array.test_string_array, null,
-                        ((dialog, which, isChecked) -> {
-                        }));
+                        (dialog, which, isChecked) -> {}));
 
         checkDefaultButtonExists(true, builder);
     }
 
     @Test
-    public void test_multichoiceItems_StringArray_forcesDefaultButton()
-            throws Throwable {
-        AlertDialogBuilder builder = new AlertDialogBuilder(mActivityRule.getActivity())
+    public void test_multichoiceItems_StringArray_forcesDefaultButton() {
+        AlertDialogBuilder builder = runOnUiThread(activity -> new AlertDialogBuilder(activity)
                 .setAllowDismissButton(false)
                 .setMultiChoiceItems(new CharSequence[]{"Test 1", "Test 2"}, null,
-                        ((dialog, which, isChecked) -> {
-                        }));
+                        (dialog, which, isChecked) -> {}));
 
         checkDefaultButtonExists(true, builder);
     }
 
     @Test
-    public void test_multichoiceItems_Cursor_forcesDefaultButton()
-            throws Throwable {
+    public void test_multichoiceItems_Cursor_forcesDefaultButton() {
         Cursor cursor = new FakeCursor(Arrays.asList("Item 1", "Item 2"), "Label");
-        AlertDialogBuilder builder = new AlertDialogBuilder(mActivityRule.getActivity())
+        AlertDialogBuilder builder = runOnUiThread(activity -> new AlertDialogBuilder(activity)
                 .setAllowDismissButton(false)
                 .setMultiChoiceItems(cursor, "isChecked", "Label",
-                        ((dialog, which, isChecked) -> {
-                        }));
+                        (dialog, which, isChecked) -> {}));
 
         checkDefaultButtonExists(true, builder);
     }
 
-    private AlertDialog checkDefaultButtonExists(boolean shouldExist, AlertDialogBuilder builder)
-            throws Throwable {
+    private AlertDialog checkDefaultButtonExists(boolean shouldExist, AlertDialogBuilder builder) {
         AtomicBoolean didThrowException = new AtomicBoolean(false);
         AlertDialog[] result = new AlertDialog[1];
         RuntimeException[] exception = new RuntimeException[1];
-        mActivityRule.runOnUiThread(() -> {
+        mActivityRule.getScenario().onActivity(activity -> {
             try {
                 result[0] = builder.create();
                 result[0].show();
@@ -229,20 +333,35 @@ public class AlertDialogBuilderTest {
 
         if (shouldExist) {
             onView(withText(R.string.car_ui_alert_dialog_default_button))
-                    .inRoot(new RootWithDecorMatcher(result[0].getWindow().getDecorView()))
+                    .inRoot(RootWithDecorMatcher.get(result[0]))
                     .check(matches(isDisplayed()));
         } else {
             onView(withText(R.string.car_ui_alert_dialog_default_button))
-                    .inRoot(new RootWithDecorMatcher(result[0].getWindow().getDecorView()))
+                    .inRoot(RootWithDecorMatcher.get(result[0]))
                     .check(doesNotExist());
         }
 
         return result[0];
     }
 
+    private <T> T runOnUiThread(Function<Activity, T> block) {
+        ArrayList<T> result = new ArrayList<>();
+        mActivityRule.getScenario().onActivity(activity -> result.add(block.apply(activity)));
+
+        if (result.isEmpty()) {
+            return null;
+        } else {
+            return result.get(0);
+        }
+    }
+
     private static class RootWithDecorMatcher extends TypeSafeMatcher<Root> {
 
-        private View mView;
+        private final View mView;
+
+        static RootWithDecorMatcher get(Dialog dialog) {
+            return new RootWithDecorMatcher(dialog.getWindow().getDecorView());
+        }
 
         RootWithDecorMatcher(View view) {
             mView = view;

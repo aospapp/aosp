@@ -406,10 +406,12 @@ class WifiBaseTest(BaseTestClass):
             ent_network_pwd=False,
             owe_network=False,
             sae_network=False,
+            saemixed_network=False,
             radius_conf_2g=None,
             radius_conf_5g=None,
             radius_conf_pwd=None,
-            ap_count=1):
+            ap_count=1,
+            ieee80211w=None):
         """Create, configure and start OpenWrt AP.
 
         Args:
@@ -429,10 +431,12 @@ class WifiBaseTest(BaseTestClass):
             ent_network_pwd: Boolean, to check if ent pwd network should be configured.
             owe_network: Boolean, to check if owe network should be configured.
             sae_network: Boolean, to check if sae network should be configured.
+            saemixed_network: Boolean, to check if saemixed network should be configured.
             radius_conf_2g: dictionary with enterprise radius server details.
             radius_conf_5g: dictionary with enterprise radius server details.
             radius_conf_pwd: dictionary with enterprise radiuse server details.
             ap_count: APs to configure.
+            ieee80211w:PMF to configure
         """
         if mirror_ap and ap_count == 1:
             raise ValueError("ap_count cannot be 1 if mirror_ap is True.")
@@ -458,6 +462,7 @@ class WifiBaseTest(BaseTestClass):
         self.open_network = []
         self.owe_networks = []
         self.sae_networks = []
+        self.saemixed_networks = []
         self.bssid_map = []
         for i in range(ap_count):
             network_list = []
@@ -470,6 +475,8 @@ class WifiBaseTest(BaseTestClass):
                                                  passphrase_length_5g)
                 wpa1_dict[hostapd_constants.BAND_2G]["security"] = "psk"
                 wpa1_dict[hostapd_constants.BAND_5G]["security"] = "psk"
+                wpa1_dict[hostapd_constants.BAND_2G]["ieee80211w"] = ieee80211w
+                wpa1_dict[hostapd_constants.BAND_5G]["ieee80211w"] = ieee80211w
                 self.wpa1_networks.append(wpa1_dict)
                 network_list.append(wpa1_dict)
             if wpa_network:
@@ -481,6 +488,8 @@ class WifiBaseTest(BaseTestClass):
                                                 passphrase_length_5g)
                 wpa_dict[hostapd_constants.BAND_2G]["security"] = "psk2"
                 wpa_dict[hostapd_constants.BAND_5G]["security"] = "psk2"
+                wpa_dict[hostapd_constants.BAND_2G]["ieee80211w"] = ieee80211w
+                wpa_dict[hostapd_constants.BAND_5G]["ieee80211w"] = ieee80211w
                 self.wpa_networks.append(wpa_dict)
                 network_list.append(wpa_dict)
             if wep_network:
@@ -533,6 +542,18 @@ class WifiBaseTest(BaseTestClass):
                 sae_dict[hostapd_constants.BAND_2G]["security"] = "sae"
                 sae_dict[hostapd_constants.BAND_5G]["security"] = "sae"
                 network_list.append(sae_dict)
+            if saemixed_network:
+                saemixed_dict = self.get_psk_network(mirror_ap, self.saemixed_networks,
+                                                hidden, same_ssid,
+                                                hostapd_constants.SAE_KEY_MGMT,
+                                                ssid_length_2g, ssid_length_5g,
+                                                passphrase_length_2g,
+                                                passphrase_length_5g)
+                saemixed_dict[hostapd_constants.BAND_2G]["security"] = "sae-mixed"
+                saemixed_dict[hostapd_constants.BAND_5G]["security"] = "sae-mixed"
+                saemixed_dict[hostapd_constants.BAND_2G]["ieee80211w"] = ieee80211w
+                saemixed_dict[hostapd_constants.BAND_5G]["ieee80211w"] = ieee80211w
+                network_list.append(saemixed_dict)
             self.access_points[i].configure_ap(network_list, channels_2g[i],
                                                channels_5g[i])
             self.access_points[i].start_ap()

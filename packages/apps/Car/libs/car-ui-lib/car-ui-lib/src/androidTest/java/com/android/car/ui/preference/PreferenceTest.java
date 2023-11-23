@@ -23,12 +23,14 @@ import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isChecked;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.isFocused;
 import static androidx.test.espresso.matcher.ViewMatchers.isNotChecked;
 import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static com.android.car.ui.actions.ViewActions.setProgress;
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.matchers.ViewMatchers.withIndex;
 
 import static junit.framework.Assert.assertFalse;
@@ -44,15 +46,18 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.res.Resources;
+import android.view.KeyEvent;
 import android.view.View;
 
 import androidx.preference.CheckBoxPreference;
 import androidx.preference.DropDownPreference;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.car.ui.test.R;
@@ -68,6 +73,7 @@ import java.util.function.Consumer;
 /**
  * Unit tests for {@link CarUiPreference}.
  */
+@TargetApi(MIN_TARGET_API)
 public class PreferenceTest {
 
     private PreferenceTestActivity mActivity;
@@ -154,6 +160,21 @@ public class PreferenceTest {
                 .check(matches(isChecked()));
         onView(withIndex(withId(R.id.car_ui_list_item_radio_button_widget), 2))
                 .check(matches(isNotChecked()));
+
+        // Rotary focus test
+        // Return to main screen and turn off touch mode.
+        onView(withContentDescription("Back")).perform(click());
+        InstrumentationRegistry.getInstrumentation().setInTouchMode(false);
+        // Return to list preference screen. Requires two inputs to focus and then click.
+        InstrumentationRegistry.getInstrumentation()
+                .sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER);
+        InstrumentationRegistry.getInstrumentation()
+                .sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_CENTER);
+        // Check that second option is selected and focused.
+        onView(withIndex(withId(R.id.car_ui_list_item_radio_button_widget), 1))
+                .check(matches(isChecked()));
+        onView(withIndex(withId(R.id.car_ui_list_item_touch_interceptor), 1))
+                .check(matches(isFocused()));
     }
 
     @Test
@@ -372,6 +393,39 @@ public class PreferenceTest {
         assertEquals(clickListener, preference.getOnClickWhileRestrictedListener());
 
         // Click on ux restricted preference
+        onView(withText(R.string.title_switch_preference)).perform(click());
+        verify(clickListener, times(1)).accept(preference);
+    }
+
+    @Test
+    public void testSwitchPreference_clickableWhileDisabled() {
+        // Create switch preference and add it to screen.
+        CarUiSwitchPreference preference = new CarUiSwitchPreference(mActivity);
+        preference.setOrder(0);
+        preference.setKey("switch");
+        preference.setTitle(R.string.title_switch_preference);
+        preference.setSummary(R.string.summary_compound_button_preference);
+        preference.setEnabled(false);
+        preference.setClickableWhileDisabled(true);
+        mActivity.addPreference(preference);
+
+        // Scroll until switch preference is visible
+        mActivity.runOnUiThread(() -> mActivity.scrollToPreference("switch"));
+
+        // Check title and summary are displayed as expected.
+        onView(withIndex(withId(android.R.id.title), 0)).check(matches(
+                withText(mActivity.getString(R.string.title_switch_preference))));
+        onView(withIndex(withId(android.R.id.summary), 0)).check(matches(
+                withText(mActivity.getString(R.string.summary_compound_button_preference))));
+
+        assertTrue(preference.isClickableWhileDisabled());
+
+        // Set listener
+        Consumer<Preference> clickListener = mock(Consumer.class);
+        preference.setDisabledClickListener(clickListener);
+        assertEquals(clickListener, preference.getDisabledClickListener());
+
+        // Click on disabled preference
         onView(withText(R.string.title_switch_preference)).perform(click());
         verify(clickListener, times(1)).accept(preference);
     }
@@ -651,6 +705,44 @@ public class PreferenceTest {
     }
 
     @Test
+    public void testTwoActionIconPreference_clickableWhileDisabled() {
+        // Create CarUiTwoActionIconPreference preference and add it to screen.
+        CarUiTwoActionIconPreference preference = new CarUiTwoActionIconPreference(mActivity);
+        preference.setKey("twoaction");
+        preference.setTitle(R.string.title_twoaction_preference);
+        preference.setSummary(R.string.summary_twoaction_preference);
+        preference.setOrder(0);
+        preference.setSecondaryActionIcon(R.drawable.avd_show_password);
+        Runnable clickListener = mock(Runnable.class);
+        preference.setOnSecondaryActionClickListener(clickListener);
+        preference.setEnabled(false);
+        preference.setSecondaryActionEnabled(false);
+        preference.setClickableWhileDisabled(true);
+        mActivity.addPreference(preference);
+
+        // Scroll until CarUiTwoActionIconPreference preference button preference is visible
+        mActivity.runOnUiThread(() -> mActivity.scrollToPreference("twoaction"));
+
+        // Check title is displayed as expected.
+        onView(withText(R.string.title_twoaction_preference)).check(matches(isDisplayed()));
+        onView(withText(R.string.summary_twoaction_preference)).check(matches(isDisplayed()));
+
+        assertTrue(preference.isClickableWhileDisabled());
+
+        // Set listener
+        Consumer<Preference> disabledClickListener = mock(Consumer.class);
+        preference.setDisabledClickListener(disabledClickListener);
+        assertEquals(disabledClickListener, preference.getDisabledClickListener());
+
+        // Click on disabled preference
+        onView(withText(R.string.title_twoaction_preference)).perform(click());
+        // Click on disabled icon.
+        onView(withIndex(withId(com.android.car.ui.R.id.car_ui_second_action_container),
+                0)).perform(click());
+        verify(disabledClickListener, times(2)).accept(preference);
+    }
+
+    @Test
     public void testTwoActionTextPreference() {
         // Create CarUiTwoActionTextPreference preference and add it to screen.
         CarUiTwoActionTextPreference preference = new CarUiTwoActionTextPreference(mActivity);
@@ -730,6 +822,44 @@ public class PreferenceTest {
     }
 
     @Test
+    public void testTwoActionTextPreference_clickableWhileDisabled() {
+        // Create CarUiTwoActionTextPreference preference and add it to screen.
+        CarUiTwoActionTextPreference preference = new CarUiTwoActionTextPreference(mActivity);
+        preference.setKey("twoaction");
+        preference.setTitle(R.string.title_twoaction_preference);
+        preference.setSummary(R.string.summary_twoaction_preference);
+        preference.setOrder(0);
+        preference.setSecondaryActionText(R.string.twoaction_secondary_text);
+        Runnable clickListener = mock(Runnable.class);
+        preference.setOnSecondaryActionClickListener(clickListener);
+        preference.setEnabled(false);
+        preference.setSecondaryActionEnabled(false);
+        preference.setClickableWhileDisabled(true);
+        mActivity.addPreference(preference);
+
+        // Scroll until CarUiTwoActionTextPreference preference button preference is visible
+        mActivity.runOnUiThread(() -> mActivity.scrollToPreference("twoaction"));
+
+        // Check title is displayed as expected.
+        onView(withText(R.string.title_twoaction_preference)).check(matches(isDisplayed()));
+        onView(withText(R.string.summary_twoaction_preference)).check(matches(isDisplayed()));
+
+        assertTrue(preference.isClickableWhileDisabled());
+
+        // Set listener
+        Consumer<Preference> disabledClickListener = mock(Consumer.class);
+        preference.setDisabledClickListener(disabledClickListener);
+        assertEquals(disabledClickListener, preference.getDisabledClickListener());
+
+        // Click on disabled preference
+        onView(withText(R.string.title_twoaction_preference)).perform(click());
+        // Click on disabled icon.
+        onView(withIndex(withId(com.android.car.ui.R.id.car_ui_second_action_container),
+                0)).perform(click());
+        verify(disabledClickListener, times(2)).accept(preference);
+    }
+
+    @Test
     public void testTwoActionSwitchPreference() {
         // Create CarUiTwoActionSwitchPreference preference and add it to screen.
         CarUiTwoActionSwitchPreference preference = new CarUiTwoActionSwitchPreference(mActivity);
@@ -785,6 +915,43 @@ public class PreferenceTest {
         // Click on ux restricted preference
         onView(withText(R.string.title_twoaction_preference)).perform(click());
         verify(restrictedClickListener, times(1)).accept(preference);
+    }
+
+    @Test
+    public void testTwoActionSwitchPreference_clickableWhileDisabled() {
+        // Create CarUiTwoActionSwitchPreference preference and add it to screen.
+        CarUiTwoActionSwitchPreference preference = new CarUiTwoActionSwitchPreference(mActivity);
+        preference.setKey("twoaction");
+        preference.setTitle(R.string.title_twoaction_preference);
+        preference.setSummary(R.string.summary_twoaction_preference);
+        preference.setOrder(0);
+        Consumer<Boolean> clickListener = mock(Consumer.class);
+        preference.setOnSecondaryActionClickListener(clickListener);
+        preference.setEnabled(false);
+        preference.setSecondaryActionEnabled(false);
+        preference.setClickableWhileDisabled(true);
+        mActivity.addPreference(preference);
+
+        // Scroll until CarUiTwoActionSwitchPreference preference button preference is visible
+        mActivity.runOnUiThread(() -> mActivity.scrollToPreference("twoaction"));
+
+        // Check title is displayed as expected.
+        onView(withText(R.string.title_twoaction_preference)).check(matches(isDisplayed()));
+        onView(withText(R.string.summary_twoaction_preference)).check(matches(isDisplayed()));
+
+        assertTrue(preference.isClickableWhileDisabled());
+
+        // Set listener
+        Consumer<Preference> disabledClickListener = mock(Consumer.class);
+        preference.setDisabledClickListener(disabledClickListener);
+        assertEquals(disabledClickListener, preference.getDisabledClickListener());
+
+        // Click on disabled preference
+        onView(withText(R.string.title_twoaction_preference)).perform(click());
+        // Click on disabled icon.
+        onView(withIndex(withId(com.android.car.ui.R.id.car_ui_second_action_container),
+                0)).perform(click());
+        verify(disabledClickListener, times(2)).accept(preference);
     }
 
     @Test

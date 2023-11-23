@@ -169,6 +169,25 @@ public final class ImeEventStreamTestUtils {
     }
 
     /**
+     * Checks if {@code eventName} has occurred on the EditText(or TextView) of the current
+     * activity mainly for onStartInput restarting check.
+     * @param eventName event name to check
+     * @param marker Test marker set to {@link android.widget.EditText#setPrivateImeOptions(String)}
+     * @return true if event occurred and restarting is false.
+     */
+    public static Predicate<ImeEvent> editorMatcherRestartingFalse(
+            @NonNull String eventName, @NonNull String marker) {
+        return event -> {
+            if (!TextUtils.equals(eventName, event.getEventName())) {
+                return false;
+            }
+            final EditorInfo editorInfo = event.getArguments().getParcelable("editorInfo");
+            final boolean restarting = event.getArguments().getBoolean("restarting");
+            return (TextUtils.equals(marker, editorInfo.privateImeOptions) && !restarting );
+        };
+    }
+
+    /**
     * Checks if {@code eventName} has occurred on the EditText(or TextView) of the current
     * activity.
     * @param eventName event name to check

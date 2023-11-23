@@ -122,7 +122,8 @@ public:
     android::binder::Status notifyCarServiceReady(
             android::frameworks::automotive::powerpolicy::internal::PolicyState* policyState)
             override;
-    android::binder::Status notifyPowerPolicyChange(const std::string& policyId) override;
+    android::binder::Status notifyPowerPolicyChange(const std::string& policyId,
+                                                    bool force) override;
     android::binder::Status notifyPowerPolicyDefinition(
             const std::string& policyId, const std::vector<std::string>& enabledComponents,
             const std::vector<std::string>& disabledComponents) override;
@@ -169,7 +170,7 @@ public:
     // Implements ICarPowerPolicySystemNotification.aidl.
     android::binder::Status notifyCarServiceReady(
             android::frameworks::automotive::powerpolicy::internal::PolicyState* policyState);
-    android::binder::Status notifyPowerPolicyChange(const std::string& policyId);
+    android::binder::Status notifyPowerPolicyChange(const std::string& policyId, bool force);
     android::binder::Status notifyPowerPolicyDefinition(
             const std::string& policyId, const std::vector<std::string>& enabledComponents,
             const std::vector<std::string>& disabledComponents);
@@ -178,11 +179,12 @@ public:
      * Applies the given power policy.
      *
      * @param carServiceInOperation expected Car Service running state.
-     * @param overridePreemptive whether to override a preemptive power policy.
+     * @param force whether to apply the policy even when the current policy is a system
+     *        power policy.
      */
     android::base::Result<void> applyPowerPolicy(const std::string& policyId,
                                                  const bool carServiceInOperation,
-                                                 const bool overridePreemptive);
+                                                 const bool force);
     /**
      * Sets the power policy group which contains rules to map a power state to a default power
      * policy to apply.

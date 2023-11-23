@@ -1,0 +1,17 @@
+allow hal_health_default mnt_vendor_file:dir search;
+allow hal_health_default persist_file:dir search;
+allow hal_health_default persist_battery_file:file create_file_perms;
+allow hal_health_default persist_battery_file:dir rw_dir_perms;
+
+set_prop(hal_health_default, vendor_battery_defender_prop)
+r_dir_file(hal_health_default, sysfs_scsi_devices_0000)
+
+allow hal_health_default fwk_stats_service:service_manager find;
+binder_use(hal_health_default)
+
+allow hal_health_default sysfs_wlc:dir search;
+allow hal_health_default sysfs_batteryinfo:file w_file_perms;
+allow hal_health_default sysfs_thermal:dir search;
+allow hal_health_default sysfs_thermal:file w_file_perms;
+allow hal_health_default sysfs_thermal:lnk_file read;
+allow hal_health_default thermal_link_device:dir search;

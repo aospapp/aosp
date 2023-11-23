@@ -128,8 +128,8 @@ class RamdiskImage:
                 ['toybox', 'cpio', '-idu'], check=True,
                 input=decompressed_result.stdout, cwd=self._ramdisk_dir)
 
-            print("=== Unpacked ramdisk: '{}' ===".format(
-                self._ramdisk_img))
+            print(f"=== Unpacked ramdisk: '{self._ramdisk_img}' at "
+                  f"'{self._ramdisk_dir}' ===")
         else:
             raise RuntimeError('Failed to decompress ramdisk.')
 
@@ -259,30 +259,22 @@ class BootImage:
         subprocess.check_call(mkbootimg_cmd)
         print("=== Repacked boot image: '{}' ===".format(self._bootimg))
 
-    def add_files(self, src_dir, files):
-        """Copy files from the src_dir into current ramdisk.
+    def add_files(self, copy_pairs):
+        """Copy files specified by copy_pairs into current ramdisk.
 
         Args:
-            src_dir: a source dir containing the files to copy from.
-            files: a list of files or src_file:dst_file pairs to copy from
-              src_dir to the current ramdisk.
+            copy_pairs: a list of (src_pathname, dst_file) pairs.
         """
         # Creates missing parent dirs with 0o755.
         original_mask = os.umask(0o022)
-        for f in files:
-            if ':' in f:
-                src_file = os.path.join(src_dir, f.split(':')[0])
-                dst_file = os.path.join(self.ramdisk_dir, f.split(':')[1])
-            else:
-                src_file = os.path.join(src_dir, f)
-                dst_file = os.path.join(self.ramdisk_dir, f)
-
-            dst_dir = os.path.dirname(dst_file)
+        for src_pathname, dst_file in copy_pairs:
+            dst_pathname = os.path.join(self.ramdisk_dir, dst_file)
+            dst_dir = os.path.dirname(dst_pathname)
             if not os.path.exists(dst_dir):
                 print("Creating dir '{}'".format(dst_dir))
                 os.makedirs(dst_dir, 0o755)
-            print("Copying file '{}' into '{}'".format(src_file, dst_file))
-            shutil.copy2(src_file, dst_file)
+            print(f"Copying file '{src_pathname}' to '{dst_pathname}'")
+            shutil.copy2(src_pathname, dst_pathname, follow_symlinks=False)
         os.umask(original_mask)
 
     @property
@@ -294,33 +286,34 @@ class BootImage:
 def _get_repack_usage():
     return """Usage examples:
 
-  * --ramdisk_add
+  * --ramdisk_add SRC_FILE:DST_FILE
 
-    Specifies a list of files or src_file:dst_file pairs to copy from
-    --src_bootimg's ramdisk into --dst_bootimg's ramdisk.
+    If --local is given, copy SRC_FILE from the local filesystem to DST_FILE in
+    the ramdisk of --dst_bootimg.
+    If --src_bootimg is specified, copy SRC_FILE from the ramdisk of
+    --src_bootimg to DST_FILE in the ramdisk of --dst_bootimg.
 
-    $ repack_bootimg \\
+    Copies a local file 'userdebug_plat_sepolicy.cil' into the ramdisk of
+    --dst_bootimg, and then rebuild --dst_bootimg:
+
+    $ %(prog)s \\
+        --local --dst_bootimg vendor_boot-debug.img \\
+        --ramdisk_add userdebug_plat_sepolicy.cil:userdebug_plat_sepolicy.cil
+
+    Copies 'first_stage_ramdisk/userdebug_plat_sepolicy.cil' from the ramdisk
+    of --src_bootimg to 'userdebug_plat_sepolicy.cil' in the ramdisk of
+    --dst_bootimg, and then rebuild --dst_bootimg:
+
+    $ %(prog)s \\
         --src_bootimg boot-debug-5.4.img --dst_bootimg vendor_boot-debug.img \\
         --ramdisk_add first_stage_ramdisk/userdebug_plat_sepolicy.cil:userdebug_plat_sepolicy.cil
 
-    The above command copies '/first_stage_ramdisk/userdebug_plat_sepolicy.cil'
-    from --src_bootimg's ramdisk to '/userdebug_plat_sepolicy.cil' of
-    --dst_bootimg's ramdisk, then repacks the --dst_bootimg.
+    This option can be specified multiple times to copy multiple files:
 
-    $ repack_bootimg \\
-        --src_bootimg boot-debug-5.4.img --dst_bootimg vendor_boot-debug.img \\
-        --ramdisk_add first_stage_ramdisk/userdebug_plat_sepolicy.cil
-
-    This is similar to the previous example, but the source file path and
-    destination file path are the same:
-        '/first_stage_ramdisk/userdebug_plat_sepolicy.cil'.
-
-    We can also combine both usage together with a list of copy instructions.
-    For example:
-
-    $ repack_bootimg \\
-        --src_bootimg boot-debug-5.4.img --dst_bootimg vendor_boot-debug.img \\
-        --ramdisk_add file1 file2:/subdir/file2 file3
+    $ %(prog)s \\
+        --local --dst_bootimg vendor_boot-debug.img \\
+        --ramdisk_add file1:path/in/dst_bootimg/file1 \\
+        --ramdisk_add file2:path/in/dst_bootimg/file2
 """
 
 
@@ -328,34 +321,73 @@ def _parse_args():
     """Parse command-line options."""
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description='Repacks boot, recovery or vendor_boot image by importing'
+        description='Repacks boot, recovery or vendor_boot image by importing '
                     'ramdisk files from --src_bootimg to --dst_bootimg.',
         epilog=_get_repack_usage(),
     )
 
-    parser.add_argument(
+    src_group = parser.add_mutually_exclusive_group(required=True)
+    src_group.add_argument(
         '--src_bootimg', help='filename to source boot image',
-        type=str, required=True)
+        type=BootImage)
+    src_group.add_argument(
+        '--local', help='use local files as repack source',
+        action='store_true')
+
     parser.add_argument(
         '--dst_bootimg', help='filename to destination boot image',
-        type=str, required=True)
+        type=BootImage, required=True)
     parser.add_argument(
-        '--ramdisk_add', nargs='+',
-        help='a list of files or src_file:dst_file pairs to add into '
-             'the ramdisk',
-        default=['userdebug_plat_sepolicy.cil']
-    )
+        '--ramdisk_add', metavar='SRC_FILE:DST_FILE',
+        help='a copy pair to copy into the ramdisk of --dst_bootimg',
+        action='extend', nargs='+', required=True)
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # Parse args.ramdisk_add to a list of copy pairs.
+    if args.src_bootimg:
+        args.ramdisk_add = [
+            _parse_ramdisk_copy_pair(p, args.src_bootimg.ramdisk_dir)
+            for p in args.ramdisk_add
+        ]
+    else:
+        # Repack from local files.
+        args.ramdisk_add = [
+            _parse_ramdisk_copy_pair(p) for p in args.ramdisk_add
+        ]
+
+    return args
+
+
+def _parse_ramdisk_copy_pair(pair, src_ramdisk_dir=None):
+    """Parse a ramdisk copy pair argument."""
+    if ':' in pair:
+        src_file, dst_file = pair.split(':', maxsplit=1)
+    else:
+        src_file = dst_file = pair
+
+    # os.path.join() only works on relative path components.
+    # If a component is an absolute path, all previous components are thrown
+    # away and joining continues from the absolute path component.
+    # So make sure the file name is not absolute before calling os.path.join().
+    if src_ramdisk_dir:
+        if os.path.isabs(src_file):
+            raise ValueError('file name cannot be absolute when repacking from '
+                             'a ramdisk: ' + src_file)
+        src_pathname = os.path.join(src_ramdisk_dir, src_file)
+    else:
+        src_pathname = src_file
+    if os.path.isabs(dst_file):
+        raise ValueError('destination file name cannot be absolute: ' +
+                         dst_file)
+    return (src_pathname, dst_file)
 
 
 def main():
     """Parse arguments and repack boot image."""
     args = _parse_args()
-    src_bootimg = BootImage(args.src_bootimg)
-    dst_bootimg = BootImage(args.dst_bootimg)
-    dst_bootimg.add_files(src_bootimg.ramdisk_dir, args.ramdisk_add)
-    dst_bootimg.repack_bootimg()
+    args.dst_bootimg.add_files(args.ramdisk_add)
+    args.dst_bootimg.repack_bootimg()
 
 
 if __name__ == '__main__':

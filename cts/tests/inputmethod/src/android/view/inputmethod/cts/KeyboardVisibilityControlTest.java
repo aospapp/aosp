@@ -16,7 +16,6 @@
 
 package android.view.inputmethod.cts;
 
-import static android.content.Intent.FLAG_RECEIVER_VISIBLE_TO_INSTANT_APPS;
 import static android.inputmethodservice.InputMethodService.FINISH_INPUT_NO_FALLBACK_CONNECTION;
 import static android.view.View.VISIBLE;
 import static android.view.WindowInsets.Type.ime;
@@ -31,8 +30,6 @@ import static android.view.inputmethod.cts.util.InputMethodVisibilityVerifier.ex
 import static android.view.inputmethod.cts.util.TestUtils.getOnMainSync;
 import static android.view.inputmethod.cts.util.TestUtils.runOnMainSync;
 
-import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
-import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEventWithKeyValue;
 import static com.android.cts.mockime.ImeEventStreamTestUtils.notExpectEvent;
@@ -45,13 +42,9 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.app.Instrumentation;
-import android.content.ComponentName;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.net.Uri;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AppModeInstant;
@@ -69,6 +62,7 @@ import android.view.inputmethod.InputMethod;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.cts.util.AutoCloseableWrapper;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
+import android.view.inputmethod.cts.util.MockTestActivityUtil;
 import android.view.inputmethod.cts.util.RequireImeCompatFlagRule;
 import android.view.inputmethod.cts.util.TestActivity;
 import android.view.inputmethod.cts.util.TestUtils;
@@ -82,10 +76,6 @@ import androidx.annotation.NonNull;
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
-import androidx.test.uiautomator.By;
-import androidx.test.uiautomator.BySelector;
-import androidx.test.uiautomator.UiDevice;
-import androidx.test.uiautomator.Until;
 
 import com.android.cts.mockime.ImeEvent;
 import com.android.cts.mockime.ImeEventStream;
@@ -111,19 +101,6 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
     private static final long NOT_EXPECT_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
     private static final long LAYOUT_STABLE_THRESHOLD = TimeUnit.SECONDS.toMillis(3);
 
-    private static final ComponentName TEST_ACTIVITY = new ComponentName(
-            "android.view.inputmethod.ctstestapp",
-            "android.view.inputmethod.ctstestapp.MainActivity");
-    private static final Uri TEST_ACTIVITY_URI =
-            Uri.parse("https://example.com/android/view/inputmethod/ctstestapp");
-    private static final String EXTRA_KEY_SHOW_DIALOG =
-            "android.view.inputmethod.ctstestapp.EXTRA_KEY_SHOW_DIALOG";
-    private static final String EXTRA_KEY_PRIVATE_IME_OPTIONS =
-            "android.view.inputmethod.ctstestapp.EXTRA_KEY_PRIVATE_IME_OPTIONS";
-
-    private static final String ACTION_TRIGGER = "broadcast_action_trigger";
-    private static final String EXTRA_DISMISS_DIALOG = "extra_dismiss_dialog";
-    private static final String EXTRA_SHOW_SOFT_INPUT = "extra_show_soft_input";
     private static final int NEW_KEYBOARD_HEIGHT = 400;
 
     @Rule
@@ -527,7 +504,7 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
             });
 
             try (AutoCloseableWrapper dialogCloseWrapper = AutoCloseableWrapper.create(
-                    dialogRef.get(), Dialog::dismiss)) {
+                    dialogRef.get(), dialog -> TestUtils.runOnMainSync(dialog::dismiss))) {
                 TestUtils.waitOnMainUntil(() -> dialogRef.get().isShowing()
                         && editTextRef.get().hasFocus(), TIMEOUT);
                 expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
@@ -742,11 +719,10 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
             expectImeVisible(TIMEOUT);
 
             // Launcher another test activity from another process with popup dialog.
-            launchRemoteActivitySync(TEST_ACTIVITY, instant, TIMEOUT,
-                    Map.of(EXTRA_KEY_SHOW_DIALOG, "true"));
+            MockTestActivityUtil.launchSync(instant, TIMEOUT,
+                    Map.of(MockTestActivityUtil.EXTRA_KEY_SHOW_DIALOG, "true"));
             // Dismiss dialog and back to original test activity
-            triggerActionWithBroadcast(ACTION_TRIGGER, TEST_ACTIVITY.getPackageName(),
-                    EXTRA_DISMISS_DIALOG);
+            MockTestActivityUtil.sendBroadcastAction(MockTestActivityUtil.EXTRA_DISMISS_DIALOG);
 
             // Verify keyboard visibility should aligned with IME insets visibility.
             TestUtils.waitOnMainUntil(
@@ -783,14 +759,15 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
 
             // Launch test activity with focusing an editor from remote process and expect the
             // IME is visible.
-            try (AutoCloseable closable = launchRemoteActivitySync(TEST_ACTIVITY, instant, TIMEOUT,
-                    Map.of(EXTRA_KEY_PRIVATE_IME_OPTIONS, marker))) {
+            try (AutoCloseable closable = MockTestActivityUtil.launchSync(
+                    instant, TIMEOUT,
+                    Map.of(MockTestActivityUtil.EXTRA_KEY_PRIVATE_IME_OPTIONS, marker))) {
                 expectEvent(stream, editorMatcher("onStartInput", marker), START_INPUT_TIMEOUT);
                 expectImeInvisible(TIMEOUT);
 
                 // Request showSoftInput, expect the request is valid and soft-keyboard visible.
-                triggerActionWithBroadcast(ACTION_TRIGGER, TEST_ACTIVITY.getPackageName(),
-                        EXTRA_SHOW_SOFT_INPUT);
+                MockTestActivityUtil.sendBroadcastAction(
+                        MockTestActivityUtil.EXTRA_SHOW_SOFT_INPUT);
                 expectEvent(stream, event -> "showSoftInput".equals(event.getEventName()), TIMEOUT);
                 expectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
                 expectEventWithKeyValue(stream, "onWindowVisibilityChanged", "visible",
@@ -799,63 +776,11 @@ public class KeyboardVisibilityControlTest extends EndToEndImeTestBase {
 
                 // Force stop test app package, and then expect IME should be invisible after the
                 // remote process stopped by forceStopPackage.
-                TestUtils.forceStopPackage(TEST_ACTIVITY.getPackageName());
+                MockTestActivityUtil.forceStopPackage();
                 expectEvent(stream, onFinishInputViewMatcher(false), TIMEOUT);
                 expectImeInvisible(TIMEOUT);
             }
         }
-    }
-
-    private AutoCloseable launchRemoteActivitySync(ComponentName componentName, boolean instant,
-             long timeout, Map<String, String> extras) {
-        final StringBuilder commandBuilder = new StringBuilder();
-        if (instant) {
-            // Override app-links domain verification.
-            runShellCommand(
-                    String.format("pm set-app-links-user-selection --user cur --package %s true %s",
-                            componentName.getPackageName(), TEST_ACTIVITY_URI.getHost()));
-            final Uri uri = formatStringIntentParam(TEST_ACTIVITY_URI, extras);
-            commandBuilder.append(String.format("am start -a %s -c %s %s",
-                    Intent.ACTION_VIEW, Intent.CATEGORY_BROWSABLE, uri.toString()));
-        } else {
-            commandBuilder.append("am start -n ").append(componentName.flattenToShortString());
-            if (extras != null) {
-                extras.forEach((key, value) -> commandBuilder.append(" --es ")
-                        .append(key).append(" ").append(value));
-            }
-        }
-
-        runWithShellPermissionIdentity(() -> {
-            runShellCommand(commandBuilder.toString());
-        });
-        UiDevice uiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        BySelector activitySelector = By.pkg(componentName.getPackageName()).depth(0);
-        uiDevice.wait(Until.hasObject(activitySelector), timeout);
-
-        // Make sure to stop package after test finished for resource reclaim.
-        return () -> TestUtils.forceStopPackage(componentName.getPackageName());
-    }
-
-    @NonNull
-    private static Uri formatStringIntentParam(@NonNull Uri uri, Map<String, String> extras) {
-        if (extras == null) {
-            return uri;
-        }
-        final Uri.Builder builder = uri.buildUpon();
-        extras.forEach(builder::appendQueryParameter);
-        return builder.build();
-    }
-
-    private void triggerActionWithBroadcast(String action, String receiverPackage, String extra) {
-        final StringBuilder commandBuilder = new StringBuilder();
-        commandBuilder.append("am broadcast -a ").append(action).append(" -p ").append(
-                receiverPackage);
-        commandBuilder.append(" -f 0x").append(
-                Integer.toHexString(FLAG_RECEIVER_VISIBLE_TO_INSTANT_APPS));
-        commandBuilder.append(" --ez " + extra + " true");
-        runWithShellPermissionIdentity(() -> {
-            runShellCommand(commandBuilder.toString());
-        });
     }
 
     private static ImeSettings.Builder getFloatingImeSettings(@ColorInt int navigationBarColor) {

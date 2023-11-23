@@ -482,6 +482,10 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     vendor.media.omx=0 \
 
+# Media Performance Class 11
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.odm.build.media_performance_class=30
+
 # Enable ECO service
 QC2_HAVE_ECO_SERVICE := true
 
@@ -835,7 +839,7 @@ PRODUCT_PACKAGES += $(HIDL_WRAPPER)
 # Increment the SVN for any official public releases
 ifeq ($(PRODUCT_DEVICE_SVN_OVERRIDE),)
 PRODUCT_PROPERTY_OVERRIDES += \
-	ro.vendor.build.svn=35
+	ro.vendor.build.svn=44
 endif
 
 # Enable iwlan service logging for debug

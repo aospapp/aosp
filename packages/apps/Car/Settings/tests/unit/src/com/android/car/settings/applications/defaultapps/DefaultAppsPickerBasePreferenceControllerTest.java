@@ -85,6 +85,7 @@ public class DefaultAppsPickerBasePreferenceControllerTest {
     }
 
     @Test
+    @UiThreadTest
     public void refreshUi_noCandidates_hasSingleNoneElement() {
         mController.setCurrentDefault("");
         mController.onCreate(mLifecycleOwner);
@@ -100,6 +101,7 @@ public class DefaultAppsPickerBasePreferenceControllerTest {
     }
 
     @Test
+    @UiThreadTest
     public void refreshUi_noCandidates_noNoneElement() {
         mController.setCurrentDefault("");
         mController.setIncludeNonePreference(false);
@@ -111,6 +113,7 @@ public class DefaultAppsPickerBasePreferenceControllerTest {
     }
 
     @Test
+    @UiThreadTest
     public void refreshUi_hasAdditionalCandidate_hasTwoElements() {
         String testKey = "testKey";
 
@@ -125,6 +128,7 @@ public class DefaultAppsPickerBasePreferenceControllerTest {
     }
 
     @Test
+    @UiThreadTest
     public void refreshUi_hasAdditionalCandidateAsDefault_secondElementIsSelected() {
         String testKey = "testKey";
 
@@ -141,6 +145,7 @@ public class DefaultAppsPickerBasePreferenceControllerTest {
     }
 
     @Test
+    @UiThreadTest
     public void performClick_currentDefaultApp_nothingHappened() {
         String testKey = "testKey";
 
@@ -169,6 +174,7 @@ public class DefaultAppsPickerBasePreferenceControllerTest {
     }
 
     @Test
+    @UiThreadTest
     public void performClick_otherOptionNoMessage_otherOptionSelected() {
         String testKey = "testKey";
 
@@ -198,6 +204,7 @@ public class DefaultAppsPickerBasePreferenceControllerTest {
     }
 
     @Test
+    @UiThreadTest
     public void performClick_otherOptionHasMessage_dialogOpened() {
         String testKey = "testKey";
 
@@ -225,6 +232,7 @@ public class DefaultAppsPickerBasePreferenceControllerTest {
     }
 
     @Test
+    @UiThreadTest
     public void performClick_otherOptionNoMessage_newKeySet() {
         String testKey = "testKey";
 

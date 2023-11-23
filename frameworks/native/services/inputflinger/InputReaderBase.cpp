@@ -19,9 +19,9 @@
 //#define LOG_NDEBUG 0
 
 #include "InputReaderBase.h"
+#include <ftl/NamedEnum.h>
 #include "input/DisplayViewport.h"
 #include "input/Input.h"
-#include "input/NamedEnum.h"
 
 #include <android/log.h>
 #include <android-base/stringprintf.h>
@@ -66,6 +66,9 @@ std::string InputReaderConfiguration::changesToString(uint32_t changes) {
     }
     if (changes & CHANGE_EXTERNAL_STYLUS_PRESENCE) {
         result += "EXTERNAL_STYLUS_PRESENCE | ";
+    }
+    if (changes & CHANGE_POINTER_CAPTURE) {
+        result += "POINTER_CAPTURE | ";
     }
     if (changes & CHANGE_ENABLED_STATE) {
         result += "ENABLED_STATE | ";

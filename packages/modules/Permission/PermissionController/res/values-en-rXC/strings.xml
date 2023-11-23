@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‏‏‏‏‏‏‎‏‎‏‏‏‎‏‏‎‎‎‏‎‎‎‏‎‏‏‎‏‎‎‏‎‏‎‎‏‏‏‎‏‎‏‏‎‎‏‏‎‎‏‏‏‎‎‎‎‏‎‎‎‎‎‏‎‎‏‏‎‏‎App permissions‎‏‎‎‏‎"</string>
     <string name="unused_apps" msgid="2058057455175955094">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‏‏‏‏‏‎‏‏‏‏‎‎‏‎‎‎‏‏‏‏‏‎‏‏‎‎‎‎‎‏‎‏‏‎‎‏‏‏‏‏‎‏‏‏‎‎‎‏‏‎‏‏‎‏‏‏‎‎‏‎‏‎‎‏‎‏‏‎‎Unused apps‎‏‎‎‏‎"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‏‏‏‎‏‏‎‏‎‏‏‎‏‏‎‎‎‎‎‏‎‎‎‎‏‎‎‎‏‏‏‏‏‏‎‎‏‏‏‏‎‎‎‏‎‏‎‏‎‎‏‏‏‏‎‏‏‏‏‏‏‎No unused apps‎‏‎‎‏‎"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‏‏‏‏‏‏‏‏‏‏‏‏‎‏‎‎‏‏‏‏‎‏‎‏‎‎‏‎‎‎‎‎‏‎‎‏‎‏‎‏‏‏‏‏‎‎‎‏‎‏‏‎‎‎‎‏‏‎‎‏‎‏‎‏‏‎‎‏‎‎‎0 unused apps‎‏‎‎‏‎"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‏‏‏‏‏‏‏‏‏‎‎‏‏‎‏‏‏‏‎‎‏‏‏‎‎‏‏‎‏‏‏‎‏‎‎‏‏‎‎‏‎‏‏‎‎‏‏‎‏‏‏‏‏‏‎‎‎‎‎‎‎‎‎‎‏‎‏‏‎‎‎Disable app‎‏‎‎‏‎"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‏‏‏‏‏‏‎‏‎‏‎‏‏‎‏‏‎‎‏‎‏‎‎‏‎‎‎‏‎‎‏‎‎‏‎‎‏‏‏‏‎‏‎‏‎‏‏‎‎‏‏‏‏‏‏‎‎‏‎‎‎‎‎‏‏‎‎‎‎‎If you disable this app, Android and other apps may no longer function as intended. Keep in mind, you can’t delete this app since it came pre-installed on your device. By disabling, you turn this app off and hide it on your device.‎‏‎‎‏‎"</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‎‏‏‏‏‏‏‎‏‏‎‏‏‎‎‎‏‎‏‏‎‏‎‎‎‏‏‏‏‏‏‎‎‎‏‎‏‏‏‏‏‎‎‎‎‎‏‎‏‏‎‏‎‎‎‎‏‏‎‏‎‎‎‏‏‎‏‏‏‎‎Permission manager‎‏‎‎‏‎"</string>

@@ -15,10 +15,12 @@
  */
 package com.android.car.ui.core;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+import static com.android.car.ui.utils.CarUiUtils.getThemeBoolean;
 import static com.android.car.ui.utils.CarUiUtils.requireViewByRefId;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
-import android.content.res.TypedArray;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -29,7 +31,7 @@ import androidx.fragment.app.FragmentActivity;
 import com.android.car.ui.R;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.baselayout.InsetsChangedListener;
-import com.android.car.ui.sharedlibrarysupport.SharedLibraryFactorySingleton;
+import com.android.car.ui.pluginsupport.PluginFactorySingleton;
 import com.android.car.ui.toolbar.ToolbarController;
 
 import java.util.Map;
@@ -40,6 +42,7 @@ import java.util.WeakHashMap;
  * It also exposes a {@link ToolbarController} to access the toolbar. This may be null if
  * used with a base layout without a Toolbar.
  */
+@TargetApi(MIN_TARGET_API)
 public final class BaseLayoutController {
 
     private static final Map<Activity, BaseLayoutController> sBaseLayoutMap = new WeakHashMap<>();
@@ -117,26 +120,12 @@ public final class BaseLayoutController {
                 requireViewByRefId(activity.getWindow().getDecorView(), android.R.id.content);
 
         mInsetsUpdater = new InsetsUpdater(activity, contentView);
-        mToolbarController = SharedLibraryFactorySingleton.get(activity)
+        mToolbarController = PluginFactorySingleton.get(activity)
                 .installBaseLayoutAround(
                         contentView,
                         mInsetsUpdater,
                         toolbarEnabled,
                         true);
-    }
-
-    /**
-     * Gets the boolean value of an Attribute from an {@link Activity Activity's}
-     * {@link android.content.res.Resources.Theme}.
-     */
-    private static boolean getThemeBoolean(Activity activity, int attr) {
-        TypedArray a = activity.getTheme().obtainStyledAttributes(new int[]{attr});
-
-        try {
-            return a.getBoolean(0, false);
-        } finally {
-            a.recycle();
-        }
     }
 
     /**

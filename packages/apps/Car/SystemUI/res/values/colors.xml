@@ -37,9 +37,15 @@
     <color name="mic_privacy_chip_light_icon_color">#FFFFFF</color>
     <color name="mic_privacy_chip_dark_icon_color">#000000</color>
     <color name="system_bar_icon_color">#FFFFFF</color>
+    <color name="system_bar_icon_selected_color">#000000</color>
     <color name="system_bar_text_color">#FFFFFF</color>
+    <color name="system_bar_text_selected_color">#000000</color>
+    <color name="system_bar_text_unavailable_color">#B0B0B0</color>
     <color name="status_bar_background_color">#33000000</color>
     <drawable name="system_bar_background">@color/status_bar_background_color</drawable>
+
+    <!-- colors for quick controls entry points icon   -->
+    <color name="car_quick_controls_icon_drawable_color">#FFFFFF</color>
 
     <!-- colors for hvac temperature view -->
     <color name="hvac_temperature_adjust_button_color">#3C4043</color>
@@ -61,7 +67,7 @@
     <!-- The color of the ripples on the untinted notifications -->
     <color name="notification_ripple_untinted_color">?android:attr/colorControlHighlight</color>
 
-    <color name="keyguard_button_text_color">@android:color/black</color>
+    <color name="keyguard_keypad_image_color">@android:color/white</color>
 
     <color name="list_divider_color">@*android:color/car_list_divider_light</color>
     <color name="car_volume_item_divider_color">@*android:color/car_list_divider</color>
@@ -69,4 +75,60 @@
 
     <color name="car_user_switching_dialog_background_color">@android:color/black</color>
     <color name="car_user_switching_dialog_loading_text_color">@*android:color/car_body1</color>
+
+    <color name="rear_view_camera_button_background">@*android:color/car_card_dark</color>
+
+    <!-- colors for the HVAC application. -->
+
+    <color name="hvac_panel_handle_bar_color">@*android:color/white</color>
+
+    <!-- Different colors to indicate different temperature levels. The upper bound for each color
+    is defined in integers.xml (see hvac_temperature_control_levels). -->
+    <string-array name="hvac_temperature_level_backgrounds">
+        <item>#00AFFF</item>
+        <item>#7AA9F6</item>
+        <item>#F4F4F4</item>
+        <item>#FFD63F</item>
+        <item>#FF5151</item>
+    </string-array>
+
+    <color name="hvac_module_background_color">#99222B31</color>
+
+    <color name="hvac_icon_color">#F5F5F5</color>
+    <color name="hvac_master_switch_color">#000000</color>
+    <color name="hvac_background_color">#FF172026</color>
+    <color name="hvac_temperature_floating_text_color">#9FA2A5</color>
+    <color name="hvac_temperature_off_text_bg_color">#9FA2A5</color>
+    <color name="hvac_fanspeed_bg_color">#141C21</color>
+    <color name="hvac_fanspeed_segment_color">#7FCAC3</color>
+    <color name="hvac_seat_heat_level_drawable_fill_color">#222B31</color>
+    <color name="hvac_temperature_control_icon_fill_color">#000000</color>
+    <color name="hvac_fanspeed_off_enabled_bg">#F5F6F5</color>
+    <color name="hvac_fanspeed_off_enabled_text_color">#13181C</color>
+    <color name="hvac_fanspeed_off_disabled_text_color">#89F5F5F5</color>
+    <color name="hvac_fan_drawable_fill_color">#F5F5F5</color>
+    <color name="hvac_fanspeed_off_active_bg">#F5F6F5</color>
+    <color name="hvac_fanspeed_off_active_text_color">#13181C</color>
+    <color name="hvac_fanspeed_off_inactive_text_color">#89F5F5F5</color>
+    <color name="hvac_scrim_color">#3F000000</color>
+
+    <!-- Semi-transparent background color of blocking activity. -->
+    <color name="activity_blocking_activity_background">#c7000000</color>
+    <color name="activity_blocking_action_button_background_color">
+        @*android:color/car_grey_868
+    </color>
+
+    <!-- Color of text in blocking activity. -->
+    <color name="blocking_text">@android:color/white</color>
+    <color name="ic_ux_restricted_color">@android:color/white</color>
+
+    <!-- Color for status icon panel background. -->
+    <color name="status_icon_panel_bg_color">#282A2D</color>
+
+    <!-- Color for highlighting the status icon button that is currently selected. -->
+    <color name="status_icon_selected_button_color">#66B5FF</color>
+    <!-- Color for status icon that is currently highlighted. -->
+    <color name="status_icon_highlighted_color">#000000</color>
+    <!-- Color for status icon that is not highlighted. -->
+    <color name="status_icon_not_highlighted_color">#FFFFFF</color>
 </resources>

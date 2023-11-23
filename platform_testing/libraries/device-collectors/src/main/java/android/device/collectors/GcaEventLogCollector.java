@@ -96,7 +96,6 @@ public class GcaEventLogCollector extends BaseMetricListener {
 
     @Override
     public void onTestRunStart(DataRecord runData, Description description) {
-        setupAdditionalArgs();
         mDestDir = createAndEmptyDirectory(DEST_DIR);
         mEventLogPath = String.format(CAMERA_EVENT_LOG_PATTERN, mGcaPkg);
         cleanUpEventLog();
@@ -148,7 +147,8 @@ public class GcaEventLogCollector extends BaseMetricListener {
         mIsTestFailed = true;
     }
 
-    private void setupAdditionalArgs() {
+    @Override
+    public void setupAdditionalArgs() {
         Bundle args = getArgsBundle();
         if (!Strings.isNullOrEmpty(args.getString(GOOGLE_CAMERA_APP_PACKAGE))) {
             mGcaPkg = args.getString(GOOGLE_CAMERA_APP_PACKAGE);

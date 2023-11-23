@@ -16,15 +16,17 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.google.android.car.userswitchmonitor">
+    package="com.google.android.car.userswitchmonitor"
+    android:sharedUserId="com.google.android.car.userswitchmonitor">
 
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
-    <application android:label="User Switch Monitor">
-        <service android:name=".UserSwitchMonitorService"/>
-        <receiver android:name=".BootCompletedReceiver" android:exported="true">
+    <application android:icon="@drawable/ic_launcher" android:label="User Switch Monitor">
+        <service android:name="com.google.android.car.userswitchmonitor.UserSwitchMonitorService"/>
+        <receiver android:name="com.google.android.car.userswitchmonitor.BootCompletedReceiver"
+                  android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>

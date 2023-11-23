@@ -302,6 +302,25 @@ static bool forEachLine(base::borrowed_fd fd, Callback&& cb) {
     return true;
 }
 
+static std::string fixBackingDir(std::string_view dir, std::string_view mountDir) {
+    if (!dir.starts_with("/proc/"sv)) {
+        return std::string(dir);
+    }
+
+    // HACK:
+    // Vold uses a secure way of mounting incremental storages, where it passes in
+    // a virtual symlink in /proc/self/fd/... instead of the original path. Unfortunately,
+    // this symlink string gets preserved by the system and we can't resolve it later.
+    // But it's the only place that uses this symlink, and we know exactly how the
+    // mount and backing directory paths look in that case - so can recover one from
+    // another.
+    if (path::endsWith(mountDir, "mount"sv)) {
+        return path::join(path::dirName(mountDir), "backing_store"sv);
+    }
+    // Well, hack didn't work. Still may not return a /proc/ path
+    return {};
+}
+
 bool MountRegistry::Mounts::loadFrom(base::borrowed_fd fd, std::string_view filesystem) {
     struct MountInfo {
         std::string backing;
@@ -327,19 +346,21 @@ bool MountRegistry::Mounts::loadFrom(base::borrowed_fd fd, std::string_view file
         }
         const auto groupId = items[2];
         auto subdir = items[3];
-        auto backingDir = items.rbegin()[1];
         auto mountPoint = std::string(items[4]);
         fixProcPath(mountPoint);
         mountPoint = path::normalize(mountPoint);
         auto& mount = mountsByGroup[std::string(groupId)];
-        if (mount.backing.empty()) {
-            mount.backing.assign(backingDir);
-        } else if (mount.backing != backingDir) {
-            LOG(WARNING) << "[incfs] root '" << *mount.roots.begin()
-                         << "' mounted in multiple places with different backing dirs, '"
-                         << mount.backing << "' vs new '" << backingDir
-                         << "'; updating to the new one";
-            mount.backing.assign(backingDir);
+        auto backingDir = fixBackingDir(items.rbegin()[1], mountPoint);
+        if (!backingDir.empty()) {
+            if (mount.backing.empty()) {
+                mount.backing = std::move(backingDir);
+            } else if (mount.backing != backingDir) {
+                LOG(WARNING) << "[incfs] root '" << *mount.roots.begin()
+                             << "' mounted in multiple places with different backing dirs, '"
+                             << mount.backing << "' vs new '" << backingDir
+                             << "'; updating to the new one";
+                mount.backing = std::move(backingDir);
+            }
         }
         if (subdir == "/"sv) {
             mount.roots.emplace(mountPoint);
@@ -366,6 +387,12 @@ bool MountRegistry::Mounts::loadFrom(base::borrowed_fd fd, std::string_view file
             // control files - so the only valid reaction here is to ignore it
             LOG(WARNING) << "[incfs] mount '" << mount.backing << "' has no root, but "
                          << mount.bindPoints.size() << " bind(s), ignoring";
+            continue;
+        }
+        if (mount.backing.empty()) {
+            LOG(WARNING) << "[incfs] mount '" << *mount.roots.begin()
+                         << "' has no backing dir, but " << mount.bindPoints.size()
+                         << " bind(s), ignoring";
             continue;
         }
 

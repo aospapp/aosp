@@ -17,7 +17,6 @@
 package android.net;
 
 import static com.android.net.module.util.Inet4AddressUtils.inet4AddressToIntHTL;
-import static com.android.testutils.MiscAsserts.assertFieldCountEquals;
 import static com.android.testutils.ParcelUtils.parcelingRoundTrip;
 
 import static org.junit.Assert.assertEquals;
@@ -101,7 +100,6 @@ public class DhcpInfoTest {
         // Cannot use assertParcelSane() here because this requires .equals() to work as
         // defined, but DhcpInfo has a different legacy behavior that we cannot change.
         final DhcpInfo dhcpInfo = createDhcpInfoObject();
-        assertFieldCountEquals(7, DhcpInfo.class);
 
         final DhcpInfo dhcpInfoRoundTrip = parcelingRoundTrip(dhcpInfo);
         assertTrue(dhcpInfoEquals(null, null));

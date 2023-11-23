@@ -16,11 +16,18 @@
 
 package com.android.car.settings.bluetooth;
 
+import android.annotation.Nullable;
+import android.app.ActivityManager;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothDevicePicker;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
+import android.os.IBinder;
+import android.os.RemoteException;
+import android.text.TextUtils;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
@@ -53,6 +60,7 @@ public class BluetoothDevicePickerPreferenceController extends
     private boolean mNeedAuth;
     private String mLaunchPackage;
     private String mLaunchClass;
+    private String mCallingAppPackageName;
 
     private CachedBluetoothDevice mSelectedDevice;
 
@@ -73,6 +81,11 @@ public class BluetoothDevicePickerPreferenceController extends
                         BluetoothDevicePicker.FILTER_TYPE_ALL));
         mLaunchPackage = intent.getStringExtra(BluetoothDevicePicker.EXTRA_LAUNCH_PACKAGE);
         mLaunchClass = intent.getStringExtra(BluetoothDevicePicker.EXTRA_LAUNCH_CLASS);
+        mCallingAppPackageName = getCallingAppPackageName(getContext().getActivityToken());
+        if (!TextUtils.equals(mCallingAppPackageName, mLaunchPackage)) {
+            LOG.w("launch package " + mLaunchPackage + " is not equivalent to"
+                    + " calling package " + mCallingAppPackageName);
+        }
     }
 
     @Override
@@ -103,7 +116,7 @@ public class BluetoothDevicePickerPreferenceController extends
         } else {
             BluetoothUtils.showError(getContext(), cachedDevice.getName(),
                     R.string.bluetooth_pairing_error_message);
-            refreshUi();
+            reenableScanning();
         }
     }
 
@@ -137,8 +150,28 @@ public class BluetoothDevicePickerPreferenceController extends
         Intent intent = new Intent(BluetoothDevicePicker.ACTION_DEVICE_SELECTED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         if (mLaunchPackage != null && mLaunchClass != null) {
-            intent.setClassName(mLaunchPackage, mLaunchClass);
+            if (TextUtils.equals(mCallingAppPackageName, mLaunchPackage)) {
+                intent.setClassName(mLaunchPackage, mLaunchClass);
+            }
         }
         getContext().sendBroadcast(intent);
+    }
+
+    /**
+     * Returns the package name which the activity with {@code activityToken} is launched from.
+     */
+    @VisibleForTesting
+    @Nullable
+    String getCallingAppPackageName(IBinder activityToken) {
+        if (activityToken == null) {
+            return null;
+        }
+        String pkg = null;
+        try {
+            pkg = ActivityManager.getService().getLaunchedFromPackage(activityToken);
+        } catch (RemoteException e) {
+            LOG.v("Unable to get launched from package", e);
+        }
+        return pkg;
     }
 }

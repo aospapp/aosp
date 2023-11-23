@@ -187,6 +187,7 @@
         <attr name="android:summary" />
         <attr name="android:title" />
         <attr name="android:visible" />
+        <attr name="android:contentDescription" />
         <attr name="sudIconTint" />
         <attr name="sudIconGravity" />
     </declare-styleable>
@@ -259,4 +260,10 @@
     </declare-styleable>
 
     <attr name="sudLoadingHeaderHeight" format="dimension|reference" />
+
+    <!-- Glif Switch Bar style -->
+    <attr name="sudSwitchBarThumbOnColor" format="color|reference" />
+    <attr name="sudSwitchBarThumbOffColor" format="color|reference" />
+    <attr name="sudSwitchBarTrackOnColor" format="color|reference" />
+    <attr name="sudSwitchBarTrackOffColor" format="color|reference" />
 </resources>

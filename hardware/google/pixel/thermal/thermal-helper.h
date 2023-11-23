@@ -112,7 +112,7 @@ class ThermalHelper {
     ~ThermalHelper() = default;
 
     bool fillTemperatures(hidl_vec<Temperature_1_0> *temperatures) const;
-    bool fillCurrentTemperatures(bool filterType, TemperatureType_2_0 type,
+    bool fillCurrentTemperatures(bool filterType, bool filterCallback, TemperatureType_2_0 type,
                                  hidl_vec<Temperature_2_0> *temperatures) const;
     bool fillTemperatureThresholds(bool filterType, TemperatureType_2_0 type,
                                    hidl_vec<TemperatureThreshold> *thresholds) const;

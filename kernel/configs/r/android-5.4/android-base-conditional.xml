@@ -52,6 +52,10 @@
 		<value type="bool">y</value>
 	</config>
 	<config>
+		<key>CONFIG_CFI_CLANG</key>
+		<value type="bool">y</value>
+	</config>
+	<config>
 		<key>CONFIG_CP15_BARRIER_EMULATION</key>
 		<value type="bool">y</value>
 	</config>
@@ -95,6 +99,20 @@
 	</config>
 	<config>
 		<key>CONFIG_BPF_JIT_ALWAYS_ON</key>
+		<value type="bool">y</value>
+	</config>
+</group>
+
+<!-- x86_64 base requirements -->
+<group>
+	<conditions>
+		<config>
+			<key>CONFIG_X86_64</key>
+			<value type="bool">y</value>
+		</config>
+	</conditions>
+	<config>
+		<key>CONFIG_CFI_CLANG</key>
 		<value type="bool">y</value>
 	</config>
 </group>

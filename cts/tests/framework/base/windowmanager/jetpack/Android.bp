@@ -53,8 +53,6 @@ java_library {
     ],
     static_libs: [
         "compatibility-device-util-axt",
-    ],
-    libs: [
         "cts_window-extensions",
         "cts_window-sidecar",
     ],
@@ -71,11 +69,11 @@ android_test {
         "compatibility-device-util-axt",
         "cts-wm-util",
         "platform-test-annotations",
+        "cts_window-sidecar",
+        "cts_window-extensions",
     ],
     libs: [
         "android.test.base",
-        "cts_window-extensions",
-        "cts_window-sidecar",
     ],
     test_suites: [
         "cts",

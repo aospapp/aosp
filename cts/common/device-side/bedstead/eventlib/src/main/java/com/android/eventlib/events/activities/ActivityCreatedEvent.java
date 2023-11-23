@@ -39,7 +39,9 @@ import com.android.queryable.util.SerializableParcelWrapper;
  */
 public final class ActivityCreatedEvent extends Event {
 
-    /** Begin a query for {@link ActivityCreatedEvent} events. */
+    private static final long serialVersionUID = 1;
+
+    /** Begins a query for {@link ActivityCreatedEvent} events. */
     public static ActivityCreatedEventQuery queryPackage(String packageName) {
         return new ActivityCreatedEventQuery(packageName);
     }
@@ -47,6 +49,9 @@ public final class ActivityCreatedEvent extends Event {
     /** {@link EventLogsQuery} for {@link ActivityCreatedEvent}. */
     public static final class ActivityCreatedEventQuery
             extends EventLogsQuery<ActivityCreatedEvent, ActivityCreatedEventQuery> {
+
+        private static final long serialVersionUID = 1;
+
         ActivityQueryHelper<ActivityCreatedEventQuery> mActivity = new ActivityQueryHelper<>(this);
         BundleQueryHelper<ActivityCreatedEventQuery> mSavedInstanceState =
                 new BundleQueryHelper<>(this);
@@ -95,9 +100,18 @@ public final class ActivityCreatedEvent extends Event {
             }
             return true;
         }
+
+        @Override
+        public String describeQuery(String fieldName) {
+            return toStringBuilder(ActivityCreatedEvent.class, this)
+                    .field("savedInstanceState", mSavedInstanceState)
+                    .field("persistentState", mPersistentState)
+                    .field("activity", mActivity)
+                    .toString();
+        }
     }
 
-    /** Begin logging a {@link ActivityCreatedEvent}. */
+    /** Begins logging a {@link ActivityCreatedEvent}. */
     public static ActivityCreatedEventLogger logger(Activity activity, android.content.pm.ActivityInfo activityInfo, Bundle savedInstanceState) {
         return new ActivityCreatedEventLogger(activity, activityInfo, savedInstanceState);
     }

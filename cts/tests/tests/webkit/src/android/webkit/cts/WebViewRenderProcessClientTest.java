@@ -23,12 +23,13 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewRenderProcess;
 import android.webkit.WebViewRenderProcessClient;
+
 import com.android.compatibility.common.util.NullWebViewUtils;
+
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @AppModeFull
@@ -92,17 +93,21 @@ public class WebViewRenderProcessClientTest extends ActivityInstrumentationTestC
     }
 
     private void blockRenderProcess(final JSBlocker blocker) {
-        WebkitUtils.onMainThreadSync(new Runnable() {
-            @Override
-            public void run() {
-                WebView webView = mOnUiThread.getWebView();
-                webView.evaluateJavascript("blocker.block();", null);
-                blocker.waitForBlocked();
-                // Sending an input event that does not get acknowledged will cause
-                // the unresponsive renderer event to fire.
-                webView.dispatchKeyEvent(
-                        new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER));
-            }
+        WebkitUtils.onMainThreadSync(() -> {
+            WebView webView = mOnUiThread.getWebView();
+            webView.evaluateJavascript("blocker.block();", null);
+        });
+        // Wait on the test instrumentation thread not the main thread. Blocking the main thread
+        // may block other async calls such as initializing the GPU service channel that happens on
+        // the UI thread and has to finish before the renderer can execute any javascript,
+        // see https://crbug.com/1269552.
+        blocker.waitForBlocked();
+        WebkitUtils.onMainThreadSync(() -> {
+            WebView webView = mOnUiThread.getWebView();
+            // Sending an input event that does not get acknowledged will cause
+            // the unresponsive renderer event to fire.
+            webView.dispatchKeyEvent(
+                    new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER));
         });
     }
 

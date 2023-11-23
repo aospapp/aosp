@@ -25,14 +25,8 @@
     <TextView
         android:id="@+id/header_text"
         android:layout_width="wrap_content"
-        android:layout_height="@dimen/notification_card_header_height"
+        android:layout_height="wrap_content"
         android:paddingStart="@dimen/header_small_icon_padding"
-        style="@style/NotificationHeaderText"/>
-
-    <DateTimeView
-        android:id="@+id/time"
-        android:layout_width="wrap_content"
-        android:layout_height="@dimen/notification_card_header_height"
         style="@style/NotificationHeaderText"/>
 </merge>
 

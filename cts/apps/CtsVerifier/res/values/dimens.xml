@@ -36,6 +36,8 @@
     <dimen name="snsr_view_padding_left">8dp</dimen>
     <dimen name="snsr_view_padding_right">8dp</dimen>
 
+    <dimen name="snsr_glview_size">0dp</dimen>
+
     <dimen name="js_padding">10dp</dimen>
 
     <!-- Default screen margins, per the Android Design guidelines. -->

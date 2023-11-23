@@ -58,6 +58,7 @@ public class AlmostFullTest {
 
     @Before
     public void setUp() throws Exception {
+        CarTestUtil.getInstance().setUp();
         if (mDiskFilled.compareAndSet(false, true)) {
             Log.i(TAG, "Filling disk");
             // initial fill done in two stage as disk can be filled by other
@@ -90,6 +91,7 @@ public class AlmostFullTest {
 
     @After
     public void tearDown() throws Exception {
+        CarTestUtil.getInstance().tearDown();
         Log.i(TAG, "tearDown free disk " + SystemUtil.getFreeDiskSize(getContext()));
         int currentCounter = mRefCounter.decrementAndGet();
         Log.i(TAG, "--currentCounter: " + currentCounter);

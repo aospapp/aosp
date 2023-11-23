@@ -39,6 +39,7 @@ import com.google.protobuf.Parser;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -626,6 +627,7 @@ public class ExternalStorageHostTest extends BaseHostJUnit4Test {
     }
 
     @Test
+    @Ignore("Enable after b/197701722 is fixed")
     public void testMediaEscalation_RequestWriteFilePathSupport() throws Exception {
         // Not adding tests for MEDIA_28 and MEDIA_29 as they need W_E_S for write access via file
         // path for shared files, and will always have access as they have W_E_S.

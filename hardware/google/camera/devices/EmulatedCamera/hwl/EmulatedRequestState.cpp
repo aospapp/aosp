@@ -969,8 +969,11 @@ std::unique_ptr<HwlPipelineResult> EmulatedRequestState::InitializeResult(
   }
   if (zoom_ratio_supported_) {
     result->result_metadata->Set(ANDROID_CONTROL_ZOOM_RATIO, &zoom_ratio_, 1);
-    result->result_metadata->Set(ANDROID_SCALER_CROP_REGION,
-                                 scaler_crop_region_default_,
+    int32_t* chosen_crop_region = scaler_crop_region_default_;
+    if (sensor_pixel_mode_ == ANDROID_SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION) {
+      chosen_crop_region = scaler_crop_region_max_resolution_;
+    }
+    result->result_metadata->Set(ANDROID_SCALER_CROP_REGION, chosen_crop_region,
                                  ARRAY_SIZE(scaler_crop_region_default_));
   }
   if (report_extended_scene_mode_) {
@@ -2283,6 +2286,23 @@ status_t EmulatedRequestState::InitializeScalerDefaults() {
     } else {
       ALOGE("%s: Sensor pixel array size is not available!", __FUNCTION__);
       return BAD_VALUE;
+    }
+
+    if (SupportsCapability(
+            ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR)) {
+      ret = static_metadata_->Get(
+          ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION, &entry);
+      if ((ret == OK) && (entry.count == 4)) {
+        scaler_crop_region_max_resolution_[0] = entry.data.i32[0];
+        scaler_crop_region_max_resolution_[1] = entry.data.i32[1];
+        scaler_crop_region_max_resolution_[2] = entry.data.i32[2];
+        scaler_crop_region_max_resolution_[3] = entry.data.i32[3];
+      } else {
+        ALOGE(
+            "%s: Sensor pixel array size maximum resolution is not available!",
+            __FUNCTION__);
+        return BAD_VALUE;
+      }
     }
 
     if (available_requests_.find(ANDROID_SCALER_CROP_REGION) ==

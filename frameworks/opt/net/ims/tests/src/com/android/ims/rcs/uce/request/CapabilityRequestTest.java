@@ -95,7 +95,8 @@ public class CapabilityRequestTest extends ImsTestBase {
         eabResultList.add(eabResult2);
 
         doReturn(false).when(mDeviceStateResult).isRequestForbidden();
-        doReturn(eabResultList).when(mReqMgrCallback).getCapabilitiesFromCache(any());
+        doReturn(eabResultList).when(mReqMgrCallback)
+                .getCapabilitiesFromCacheIncludingExpired(any());
 
         // Execute the request.
         request.executeRequest();
@@ -161,7 +162,8 @@ public class CapabilityRequestTest extends ImsTestBase {
         eabResultList.add(eabResult);
 
         doReturn(false).when(mDeviceStateResult).isRequestForbidden();
-        doReturn(eabResultList).when(mReqMgrCallback).getCapabilitiesFromCache(any());
+        doReturn(eabResultList).when(mReqMgrCallback)
+                .getCapabilitiesFromCacheIncludingExpired(any());
 
         // Execute the request.
         request.executeRequest();

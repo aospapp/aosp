@@ -618,14 +618,16 @@ public class ConnectedNetworkScorerTest extends WifiJUnit4TestBase {
 
             // Restart wifi subsystem.
             mWifiManager.restartWifiSubsystem();
+
+            // wait for scorer to stop session due to network disconnection.
+            assertThat(countDownLatchScorer.await(TIMEOUT, TimeUnit.MILLISECONDS)).isTrue();
+            assertThat(connectedNetworkScorer.stopSessionId).isEqualTo(prevSessionId);
+
             // Wait for the device to connect back.
             PollingCheck.check(
                     "Wifi not connected",
                     WIFI_CONNECT_TIMEOUT_MILLIS * 2,
                     () -> mWifiManager.getConnectionInfo().getNetworkId() != -1);
-
-            assertThat(countDownLatchScorer.await(TIMEOUT, TimeUnit.MILLISECONDS)).isTrue();
-            assertThat(connectedNetworkScorer.stopSessionId).isEqualTo(prevSessionId);
 
             // Followed by a new onStart() after the connection.
             // Note: There is a 5 second delay between stop/start when restartWifiSubsystem() is

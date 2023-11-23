@@ -48,6 +48,7 @@ import static android.view.Surface.ROTATION_90;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.fail;
@@ -119,8 +120,11 @@ public class AppConfigurationTests extends MultiDisplayTestBase {
 
         separateTestJournal();
         launchActivitiesInSplitScreen(
-                getLaunchActivityBuilder().setTargetActivity(RESIZEABLE_ACTIVITY),
-                getLaunchActivityBuilder().setTargetActivity(TEST_ACTIVITY));
+                getLaunchActivityBuilder().setTargetActivity(RESIZEABLE_ACTIVITY)
+                                        .setWindowingMode(WINDOWING_MODE_FULLSCREEN),
+                getLaunchActivityBuilder().setTargetActivity(TEST_ACTIVITY)
+                                        .setWindowingMode(WINDOWING_MODE_FULLSCREEN));
+
         final SizeInfo dockedSizes = getLastReportedSizesForActivity(RESIZEABLE_ACTIVITY);
 
         separateTestJournal();
@@ -203,7 +207,7 @@ public class AppConfigurationTests extends MultiDisplayTestBase {
             ActivitySessionClient noRelaunchActivityClient, SizeInfo prevSizes) {
         final ActivitySession activitySession = noRelaunchActivityClient.getLastStartedSession();
         final ComponentName activityName = activitySession.getName();
-        final WindowManagerState.ActivityTask task = mWmState.getTaskByActivity(activityName);
+        final WindowManagerState.Task task = mWmState.getTaskByActivity(activityName);
         final int displayId = mWmState.getRootTask(task.mRootTaskId).mDisplayId;
 
         assumeTrue(supportsLockedUserRotation(rotationSession, displayId));
@@ -330,6 +334,8 @@ public class AppConfigurationTests extends MultiDisplayTestBase {
         SizeInfo reportedSizes = getLastReportedSizesForActivity(PORTRAIT_ORIENTATION_ACTIVITY);
         assertEquals("portrait activity should be in portrait",
                 ORIENTATION_PORTRAIT, reportedSizes.orientation);
+        assertTrue("portrait activity should have height >= width",
+                reportedSizes.heightDp >= reportedSizes.widthDp);
         separateTestJournal();
 
         launchActivity(LANDSCAPE_ORIENTATION_ACTIVITY);
@@ -337,6 +343,8 @@ public class AppConfigurationTests extends MultiDisplayTestBase {
         reportedSizes = getLastReportedSizesForActivity(LANDSCAPE_ORIENTATION_ACTIVITY);
         assertEquals("landscape activity should be in landscape",
                 ORIENTATION_LANDSCAPE, reportedSizes.orientation);
+        assertTrue("landscape activity should have height < width",
+                reportedSizes.heightDp < reportedSizes.widthDp);
         separateTestJournal();
 
         launchActivity(PORTRAIT_ORIENTATION_ACTIVITY);
@@ -347,7 +355,7 @@ public class AppConfigurationTests extends MultiDisplayTestBase {
     }
 
     @Test
-    public void testNonfullscreenAppOrientationRequests() {
+    public void testTranslucentAppOrientationRequests() {
         assumeTrue("Skipping test: no orientation request support", supportsOrientationRequest());
 
         separateTestJournal();
@@ -356,10 +364,12 @@ public class AppConfigurationTests extends MultiDisplayTestBase {
                 getLastReportedSizesForActivity(PORTRAIT_ORIENTATION_ACTIVITY);
         assertEquals("portrait activity should be in portrait",
                 ORIENTATION_PORTRAIT, initialReportedSizes.orientation);
+        assertTrue("portrait activity should have height >= width",
+                initialReportedSizes.heightDp >= initialReportedSizes.widthDp);
         separateTestJournal();
 
         launchActivity(SDK26_TRANSLUCENT_LANDSCAPE_ACTIVITY, WINDOWING_MODE_FULLSCREEN);
-        assertEquals("Legacy non-fullscreen activity requested landscape orientation",
+        assertEquals("Legacy translucent activity requested landscape orientation",
                 SCREEN_ORIENTATION_LANDSCAPE, mWmState.getLastOrientation());
 
         // TODO(b/36897968): uncomment once we can suppress unsupported configurations
@@ -515,17 +525,17 @@ public class AppConfigurationTests extends MultiDisplayTestBase {
     }
 
     @Test
-    public void testNonFullscreenActivityPermitted() throws Exception {
+    public void testTranslucentActivityPermitted() throws Exception {
         assumeTrue("Skipping test: no orientation request support", supportsOrientationRequest());
 
         final RotationSession rotationSession = createManagedRotationSession();
         rotationSession.set(ROTATION_0);
 
-        launchActivity(SDK26_TRANSLUCENT_LANDSCAPE_ACTIVITY);
+        launchActivity(SDK26_TRANSLUCENT_LANDSCAPE_ACTIVITY, WINDOWING_MODE_FULLSCREEN);
         mWmState.assertResumedActivity(
-                "target SDK <= 26 non-fullscreen activity should be allowed to launch",
+                "target SDK <= 26 translucent activity should be allowed to launch",
                 SDK26_TRANSLUCENT_LANDSCAPE_ACTIVITY);
-        assertEquals("non-fullscreen activity requested landscape orientation",
+        assertEquals("translucent activity requested landscape orientation",
                 SCREEN_ORIENTATION_LANDSCAPE, mWmState.getLastOrientation());
     }
 
@@ -806,11 +816,8 @@ public class AppConfigurationTests extends MultiDisplayTestBase {
      */
     @Test
     public void testSplitscreenPortraitAppOrientationRequests() throws Exception {
-        assumeTrue("Skipping test: no rotation support", supportsRotation());
-        assumeTrue("Skipping test: no multi-window support", supportsSplitScreenMultiWindow());
-
         requestOrientationInSplitScreen(createManagedRotationSession(),
-                ROTATION_90 /* portrait */, LANDSCAPE_ORIENTATION_ACTIVITY);
+                isDisplayPortrait() ? ROTATION_0 : ROTATION_90, LANDSCAPE_ORIENTATION_ACTIVITY);
     }
 
     /**
@@ -818,37 +825,37 @@ public class AppConfigurationTests extends MultiDisplayTestBase {
      */
     @Test
     public void testSplitscreenLandscapeAppOrientationRequests() throws Exception {
-        assumeTrue("Skipping test: no multi-window support", supportsSplitScreenMultiWindow());
-
         requestOrientationInSplitScreen(createManagedRotationSession(),
-                ROTATION_0 /* landscape */, PORTRAIT_ORIENTATION_ACTIVITY);
+                isDisplayPortrait() ? ROTATION_90 : ROTATION_0, PORTRAIT_ORIENTATION_ACTIVITY);
     }
 
     /**
-     * Rotate the device and launch specified activity in split-screen, checking if orientation
-     * didn't change.
+     * Launch specified activity in split-screen then rotate the divice, checking orientation
+     * should always change by the device rotation.
      */
-    private void requestOrientationInSplitScreen(RotationSession rotationSession, int orientation,
+    private void requestOrientationInSplitScreen(RotationSession rotationSession, int rotation,
             ComponentName activity) throws Exception {
+        assumeTrue("Skipping test: no rotation support", supportsRotation());
         assumeTrue("Skipping test: no multi-window support", supportsSplitScreenMultiWindow());
 
-        // Set initial orientation.
-        rotationSession.set(orientation);
-
-        // Launch activities that request orientations and check that device doesn't rotate.
+        // Launch activities in split screen.
         launchActivitiesInSplitScreen(
                 getLaunchActivityBuilder().setTargetActivity(LAUNCHING_ACTIVITY),
-                getLaunchActivityBuilder().setTargetActivity(activity).setMultipleTask(true));
-
+                getLaunchActivityBuilder().setTargetActivity(activity));
         mWmState.assertVisibility(activity, true /* visible */);
-        assertEquals("Split-screen apps shouldn't influence device orientation",
-                orientation, mWmState.getRotation());
 
+        // Rotate the device and it should always rotate regardless orientation app requested.
+        rotationSession.set(rotation);
+        assertEquals("Split-screen apps shouldn't influence device orientation",
+                rotation, mWmState.getRotation());
+
+        // Launch target activity during split-screen again and check orientation still not change.
+        mTaskOrganizer.setLaunchRoot(mTaskOrganizer.getSecondarySplitTaskId());
         getLaunchActivityBuilder().setMultipleTask(true).setTargetActivity(activity).execute();
         mWmState.computeState(activity);
         mWmState.assertVisibility(activity, true /* visible */);
         assertEquals("Split-screen apps shouldn't influence device orientation",
-                orientation, mWmState.getRotation());
+                rotation, mWmState.getRotation());
     }
 
     /**
@@ -938,7 +945,8 @@ public class AppConfigurationTests extends MultiDisplayTestBase {
         final ActivitySession activitySession = createManagedActivityClientSession()
                 .startActivity(getLaunchActivityBuilder()
                         .setUseInstrumentation()
-                        .setTargetActivity(RESIZEABLE_ACTIVITY));
+                        .setTargetActivity(RESIZEABLE_ACTIVITY)
+                        .setWindowingMode(WINDOWING_MODE_FULLSCREEN));
         putActivityInPrimarySplit(RESIZEABLE_ACTIVITY);
         SizeInfo dockedActivitySizes = getActivitySizeInfo(activitySession);
         SizeInfo applicationSizes = getAppSizeInfo(activitySession);

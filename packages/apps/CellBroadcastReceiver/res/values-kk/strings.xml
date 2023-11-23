@@ -84,7 +84,7 @@
     <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"Қоғамдық қауіпсіздік хабарларын тек SMS қолданбасы арқылы алу үшін өшіріңіз."</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"Мемлекеттік және жергілікті тексерулер"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"Мемлекеттік және жергілікті органдардан тексеру хабарларын алу"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Төтенше жағдай туралы хабарламалар"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"Төтенше жағдай хабарландырулары"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"Өмірге қауіп төндіретін жағдайлар туралы ескерту"</string>
     <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"Сынақ хабарландырулары"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"Байланыс операторының және қауіпсіздік жөнінде хабарлау жүйесінің ай сайынғы сынақ хабарландыруларын алып отыру"</string>

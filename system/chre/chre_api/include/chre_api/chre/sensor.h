@@ -751,6 +751,12 @@ bool chreSensorFindDefault(uint8_t sensorType, uint32_t *handle);
  * sensorIndex value of 0 will be equivalent to using chreSensorFindDefault, and
  * if sensorIndex is non-zero will return false.
  *
+ * In cases where multiple sensors are supported in both the Android sensors
+ * framework and CHRE, the sensorName of the chreSensorInfo struct for a given
+ * sensor instance must match exactly with that of the
+ * android.hardware.Sensor#getName() return value. This can be used to match a
+ * sensor instance between the Android and CHRE sensors APIs.
+ *
  * @param sensorType One of the CHRE_SENSOR_TYPE_* constants.
  * @param sensorIndex The index of the desired sensor.
  * @param handle  If a sensor is found, then the memory will be filled with

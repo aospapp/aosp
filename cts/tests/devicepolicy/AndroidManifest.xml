@@ -18,10 +18,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.devicepolicy.cts"
           android:targetSandboxVersion="2">
-
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
 
-    <application android:testOnly="true">
+    <!-- Add a network security config that trusts user added CAs for tests -->
+    <application android:testOnly="true"
+                 android:networkSecurityConfig="@xml/network_security_config">
         <uses-library android:name="android.test.runner" />
 
         <activity android:name=".MainActivity"

@@ -50,7 +50,6 @@ import com.google.android.setupdesign.template.RequireScrollMixin;
 import com.google.android.setupdesign.template.ScrollViewScrollHandlingDelegate;
 import com.google.android.setupdesign.util.DescriptionStyler;
 import com.google.android.setupdesign.util.LayoutStyler;
-import com.google.android.setupdesign.util.PartnerStyleHelper;
 
 /**
  * Layout for the GLIF theme used in Setup Wizard for N.
@@ -137,12 +136,13 @@ public class GlifLayout extends PartnerCustomizationLayout {
     if (primaryColor != null) {
       setPrimaryColor(primaryColor);
     }
-
-    if (applyPartnerHeavyThemeResource) {
+    if (shouldApplyPartnerHeavyThemeResource()) {
       updateContentBackgroundColorWithPartnerConfig();
+    }
 
-      View view = findManagedViewById(R.id.sud_layout_content);
-      if (view != null) {
+    View view = findManagedViewById(R.id.sud_layout_content);
+    if (view != null) {
+      if (shouldApplyPartnerResource()) {
         // The margin of content is defined by @style/SudContentFrame. The Setupdesign library
         // cannot obtain the content resource ID of the client, so the value of the content margin
         // cannot be adjusted through GlifLayout. If the margin sides are changed through the
@@ -150,10 +150,16 @@ public class GlifLayout extends PartnerCustomizationLayout {
         // value of pading. In this way, the value of content margin plus padding will be equal to
         // the value of partner config.
         LayoutStyler.applyPartnerCustomizationExtraPaddingStyle(view);
+      }
 
-        applyPartnerCustomizationContentPaddingTopStyle(view);
+      // {@class GlifPreferenceLayout} Inherited from {@class GlifRecyclerLayout}. The API would
+      // be called twice from GlifRecyclerLayout and GlifLayout, so it should skip the API here
+      // when the instance is GlifPreferenceLayout.
+      if (!(this instanceof GlifPreferenceLayout)) {
+        tryApplyPartnerCustomizationContentPaddingTopStyle(view);
       }
     }
+
     updateLandscapeMiddleHorizontalSpacing();
 
     ColorStateList backgroundColor =
@@ -177,6 +183,7 @@ public class GlifLayout extends PartnerCustomizationLayout {
     getMixin(IconMixin.class).tryApplyPartnerCustomizationStyle();
     getMixin(HeaderMixin.class).tryApplyPartnerCustomizationStyle();
     getMixin(DescriptionMixin.class).tryApplyPartnerCustomizationStyle();
+    getMixin(ProgressBarMixin.class).tryApplyPartnerCustomizationStyle();
     tryApplyPartnerCustomizationStyleToShortDescription();
   }
 
@@ -196,59 +203,77 @@ public class GlifLayout extends PartnerCustomizationLayout {
   protected void updateLandscapeMiddleHorizontalSpacing() {
     int horizontalSpacing =
         getResources().getDimensionPixelSize(R.dimen.sud_glif_land_middle_horizontal_spacing);
+    if (shouldApplyPartnerResource()
+        && PartnerConfigHelper.get(getContext())
+            .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAND_MIDDLE_HORIZONTAL_SPACING)) {
+      horizontalSpacing =
+          (int)
+              PartnerConfigHelper.get(getContext())
+                  .getDimension(getContext(), PartnerConfig.CONFIG_LAND_MIDDLE_HORIZONTAL_SPACING);
+    }
 
     View headerView = this.findManagedViewById(R.id.sud_landscape_header_area);
     if (headerView != null) {
-      if (PartnerConfigHelper.get(getContext())
-          .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_END)) {
-        int layoutMarginEnd =
+      int layoutMarginEnd;
+      if (shouldApplyPartnerResource()
+          && PartnerConfigHelper.get(getContext())
+              .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_END)) {
+        layoutMarginEnd =
             (int)
                 PartnerConfigHelper.get(getContext())
                     .getDimension(getContext(), PartnerConfig.CONFIG_LAYOUT_MARGIN_END);
-
-        int paddingEnd = (horizontalSpacing / 2) - layoutMarginEnd;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-          headerView.setPadding(
-              headerView.getPaddingStart(),
-              headerView.getPaddingTop(),
-              paddingEnd,
-              headerView.getPaddingBottom());
-        } else {
-          headerView.setPadding(
-              headerView.getPaddingLeft(),
-              headerView.getPaddingTop(),
-              paddingEnd,
-              headerView.getPaddingBottom());
-        }
+      } else {
+        TypedArray a = getContext().obtainStyledAttributes(new int[] {R.attr.sudMarginEnd});
+        layoutMarginEnd = a.getDimensionPixelSize(0, 0);
+        a.recycle();
+      }
+      int paddingEnd = (horizontalSpacing / 2) - layoutMarginEnd;
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+        headerView.setPadding(
+            headerView.getPaddingStart(),
+            headerView.getPaddingTop(),
+            paddingEnd,
+            headerView.getPaddingBottom());
+      } else {
+        headerView.setPadding(
+            headerView.getPaddingLeft(),
+            headerView.getPaddingTop(),
+            paddingEnd,
+            headerView.getPaddingBottom());
       }
     }
 
     View contentView = this.findManagedViewById(R.id.sud_landscape_content_area);
     if (contentView != null) {
-      if (PartnerConfigHelper.get(getContext())
-          .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_START)) {
-        int layoutMarginStart =
+      int layoutMarginStart;
+      if (shouldApplyPartnerResource()
+          && PartnerConfigHelper.get(getContext())
+              .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_START)) {
+        layoutMarginStart =
             (int)
                 PartnerConfigHelper.get(getContext())
                     .getDimension(getContext(), PartnerConfig.CONFIG_LAYOUT_MARGIN_START);
-
-        int paddingStart = 0;
-        if (headerView != null) {
-          paddingStart = (horizontalSpacing / 2) - layoutMarginStart;
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-          contentView.setPadding(
-              paddingStart,
-              contentView.getPaddingTop(),
-              contentView.getPaddingEnd(),
-              contentView.getPaddingBottom());
-        } else {
-          contentView.setPadding(
-              paddingStart,
-              contentView.getPaddingTop(),
-              contentView.getPaddingRight(),
-              contentView.getPaddingBottom());
-        }
+      } else {
+        TypedArray a = getContext().obtainStyledAttributes(new int[] {R.attr.sudMarginStart});
+        layoutMarginStart = a.getDimensionPixelSize(0, 0);
+        a.recycle();
+      }
+      int paddingStart = 0;
+      if (headerView != null) {
+        paddingStart = (horizontalSpacing / 2) - layoutMarginStart;
+      }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+        contentView.setPadding(
+            paddingStart,
+            contentView.getPaddingTop(),
+            contentView.getPaddingEnd(),
+            contentView.getPaddingBottom());
+      } else {
+        contentView.setPadding(
+            paddingStart,
+            contentView.getPaddingTop(),
+            contentView.getPaddingRight(),
+            contentView.getPaddingBottom());
       }
     }
   }
@@ -472,14 +497,13 @@ public class GlifLayout extends PartnerCustomizationLayout {
   }
 
   @TargetApi(VERSION_CODES.JELLY_BEAN_MR1)
-  protected static void applyPartnerCustomizationContentPaddingTopStyle(View view) {
+  protected void tryApplyPartnerCustomizationContentPaddingTopStyle(View view) {
     Context context = view.getContext();
     boolean partnerPaddingTopAvailable =
         PartnerConfigHelper.get(context)
             .isPartnerConfigAvailable(PartnerConfig.CONFIG_CONTENT_PADDING_TOP);
 
-    if (PartnerStyleHelper.shouldApplyPartnerHeavyThemeResource(view)
-        && partnerPaddingTopAvailable) {
+    if (shouldApplyPartnerResource() && partnerPaddingTopAvailable) {
       int paddingTop =
           (int)
               PartnerConfigHelper.get(context)

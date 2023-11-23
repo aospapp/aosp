@@ -53,6 +53,9 @@ public:
             (override));
     MOCK_METHOD(android::binder::Status, resetResourceOveruseStats,
                 (const std::vector<std::string>&), (override));
+    MOCK_METHOD(android::binder::Status, getTodayIoUsageStats,
+                (std::vector<android::automotive::watchdog::internal::UserPackageIoUsageStats>*),
+                (override));
 
 private:
     android::sp<MockBinder> mBinder;

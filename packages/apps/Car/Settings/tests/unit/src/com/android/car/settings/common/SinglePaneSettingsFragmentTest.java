@@ -24,7 +24,7 @@ import androidx.test.rule.ActivityTestRule;
 
 import com.android.car.settings.testutils.RootTestSettingsFragment;
 import com.android.car.settings.testutils.SinglePaneTestActivity;
-import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.NavButtonMode;
 import com.android.car.ui.toolbar.ToolbarController;
 
 import org.junit.Rule;
@@ -56,7 +56,7 @@ public class SinglePaneSettingsFragmentTest
         ToolbarController toolbar = mActivity.getToolbar();
 
         assertThat(toolbar.getNavButtonMode()).isEquivalentAccordingToCompareTo(
-                Toolbar.NavButtonMode.DISABLED);
+                NavButtonMode.DISABLED);
     }
 
     @Test
@@ -64,6 +64,6 @@ public class SinglePaneSettingsFragmentTest
         ToolbarController toolbar = mActivity.getToolbar();
 
         assertThat(toolbar.getNavButtonMode()).isEquivalentAccordingToCompareTo(
-                Toolbar.NavButtonMode.BACK);
+                NavButtonMode.BACK);
     }
 }

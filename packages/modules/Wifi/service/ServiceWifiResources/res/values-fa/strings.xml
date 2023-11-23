@@ -65,7 +65,7 @@
     <string name="wifi_cannot_connect_with_randomized_mac_title" msgid="2344570489693915253">"اتصال به <xliff:g id="SSID">%1$s</xliff:g> امکان‌پذیر نیست"</string>
     <string name="wifi_cannot_connect_with_randomized_mac_message" msgid="4834133226521813352">"برای تغییر تنظیم حریم‌خصوصی ضربه بزنید و دوباره امتحان کنید"</string>
     <string name="wifi_disable_mac_randomization_dialog_title" msgid="2054540994993681606">"تنظیم حریم‌خصوصی تغییر کند؟"</string>
-    <string name="wifi_disable_mac_randomization_dialog_message" msgid="8874064864332248988">"‏برای اتصال، <xliff:g id="SSID">%1$s</xliff:g> باید از نشانی MAC دستگاهتان که شناسه‌ای منحصربه‌فرد است استفاده کند. درحال‌حاضر، تنظیم حریم‌خصوصی شما برای این شبکه از شناسه تصادفی استفاده می‌کند. \n\nاین تغییر ممکن است به دستگاه‌های اطراف امکان دهد مکان دستگاهتان را ردیابی کنند."</string>
+    <string name="wifi_disable_mac_randomization_dialog_message" msgid="8874064864332248988">"برای اتصال، <xliff:g id="SSID">%1$s</xliff:g> باید از «نشانی واد» دستگاهتان که شناسه‌ای منحصربه‌فرد است استفاده کند. درحال‌حاضر، تنظیم حریم‌خصوصی شما برای این شبکه از شناسه تصادفی استفاده می‌کند. \n\nاین تغییر ممکن است به دستگاه‌های اطراف امکان دهد مکان دستگاهتان را ردیابی کنند."</string>
     <string name="wifi_disable_mac_randomization_dialog_confirm_text" msgid="6954419863076751626">"تغییر تنظیم"</string>
     <string name="wifi_disable_mac_randomization_dialog_success" msgid="5849155828154391387">"تنظیم به‌روزرسانی شد. دوباره متصل شوید."</string>
     <string name="wifi_disable_mac_randomization_dialog_failure" msgid="2894643619143813096">"تنظیم حریم‌خصوصی تغییر نکرد"</string>

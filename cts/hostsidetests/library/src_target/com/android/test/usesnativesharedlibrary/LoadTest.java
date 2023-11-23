@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThat;
 import static org.hamcrest.core.Is.is;
 
 import android.os.Build;
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.PropertyUtil;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -84,6 +85,7 @@ public class LoadTest {
     /**
      * Tests if libs listed in available.txt are all loadable
      */
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testAvailableLibrariesAreLoaded() {
         List<String> unexpected = new ArrayList<>();
@@ -111,6 +113,7 @@ public class LoadTest {
     /**
      * Tests if libs listed in unavailable.txt are all non-loadable
      */
+    @CddTest(requirement="3.6/C-1-1,C-1-2")
     @Test
     public void testUnavailableLibrariesAreNotLoaded() {
         List<String> loadedLibs = new ArrayList<>();

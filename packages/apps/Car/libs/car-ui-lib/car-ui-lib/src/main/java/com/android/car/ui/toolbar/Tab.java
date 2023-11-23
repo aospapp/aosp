@@ -35,11 +35,13 @@ public final class Tab {
     private final Drawable mIcon;
     @Nullable
     private final Consumer<Tab> mSelectedListener;
+    private final boolean mTinted;
 
     private Tab(@NonNull Builder builder) {
         mText = builder.mText;
         mIcon = builder.mIcon;
         mSelectedListener = builder.mSelectedListener;
+        mTinted = builder.mTinted;
     }
 
     /** Gets the tab's text */
@@ -60,9 +62,19 @@ public final class Tab {
         return mSelectedListener;
     }
 
+    /** Gets if the icon should be tinted to match the style of the toolbar. Default true. */
+    public boolean isTinted() {
+        return mTinted;
+    }
+
     /** Creates a new {@link Builder} */
     public static Builder builder() {
         return new Builder();
+    }
+
+    /** Creates a new {@link Builder} that is initialized as a copy of this tab. */
+    public Builder copy() {
+        return new Builder(this);
     }
 
     /** Builder for {@link Tab} */
@@ -73,8 +85,16 @@ public final class Tab {
         private Drawable mIcon = null;
         @Nullable
         private Consumer<Tab> mSelectedListener = null;
+        private boolean mTinted = true;
 
         private Builder() {
+        }
+
+        private Builder(Tab tab) {
+            mText = tab.mText;
+            mIcon = tab.mIcon;
+            mSelectedListener = tab.mSelectedListener;
+            mTinted  = tab.mTinted;
         }
 
         /** Sets the tab's text */
@@ -92,6 +112,13 @@ public final class Tab {
         /** Sets a listener that is called when the tab is selected */
         public Builder setSelectedListener(Consumer<Tab> callback) {
             mSelectedListener = callback;
+            return this;
+        }
+
+
+        /** Sets if the icon should be tinted to match the style of the toolbar. Default true. */
+        public Builder setTinted(boolean tinted) {
+            mTinted = tinted;
             return this;
         }
 

@@ -24,7 +24,7 @@
     <uses-permission android:name="android.permission.STORAGE_INTERNAL"/>
 
     <application>
-        <activity android:name=".PowerPolicyTestActivity"
+        <activity android:name="android.car.cts.app.PowerPolicyTestActivity"
             android:launchMode="singleTask"
             android:exported="true">
             <intent-filter>
@@ -33,7 +33,16 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".SimpleActivity" android:exported="true">
+        <activity android:name="android.car.cts.app.CarWatchdogTestActivity"
+                  android:launchMode="singleTask"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.car.cts.app.SimpleActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

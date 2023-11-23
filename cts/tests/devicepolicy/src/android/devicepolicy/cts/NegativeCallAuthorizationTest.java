@@ -43,7 +43,7 @@ import org.junit.runner.RunWith;
  */
 @SmallTest
 @RunWith(BedsteadJUnit4.class)
-public class NegativeCallAuthorizationTest {
+public final class NegativeCallAuthorizationTest {
     private static final String ALIAS = "some-alias";
     private static final Context sContext = ApplicationProvider.getApplicationContext();
     private static final DevicePolicyManager sDpm =

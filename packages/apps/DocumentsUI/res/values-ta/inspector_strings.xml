@@ -17,11 +17,11 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="inspector_title" msgid="1924760928091740238">"தகவல்"</string>
-    <string name="inspector_load_error" msgid="7522190243413249291">"கோப்புத் தகவலை ஏற்ற முடியவில்லை"</string>
+    <string name="inspector_load_error" msgid="7522190243413249291">"ஃபைல் தகவலை ஏற்ற முடியவில்லை"</string>
     <string name="inspector_debug_section" msgid="2576052661505700421">"பிழைத்திருத்தத் தகவல் (டெவெலப்பர்கள் மட்டும்)"</string>
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"அசல் மீத்தரவு: <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
     <string name="inspector_metadata_section" msgid="6077622515328240575">"மீடியா விவரங்கள்"</string>
-    <string name="handler_app_file_opens_with" msgid="5272329600389613550">"இந்தக் கோப்பு வகையை, பின்வரும் பயன்பாடு திறக்கும்:"</string>
+    <string name="handler_app_file_opens_with" msgid="5272329600389613550">"இந்த ஃபைல் வகையை, பின்வரும் பயன்பாடு திறக்கும்:"</string>
     <string name="handler_app_belongs_to" msgid="5444507329303253553">"இந்த ஃபைலை வழங்குவது:"</string>
     <string name="handler_app_not_selected" msgid="1294439257183908786">"தேர்ந்தெடுக்கவில்லை"</string>
     <string name="handler_app_unknown" msgid="5911661530593229287">"தெரியாதது"</string>

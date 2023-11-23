@@ -27,6 +27,7 @@ import android.os.Looper;
 import android.provider.Settings;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.applications.defaultapps.DefaultAppsPickerEntryBasePreferenceController;
 import com.android.car.settings.common.FragmentController;
@@ -44,7 +45,8 @@ public class DefaultVoiceInputPickerEntryPreferenceController extends
 
     private static final Uri ASSIST_URI = Settings.Secure.getUriFor(Settings.Secure.ASSISTANT);
 
-    private final ContentObserver mSettingObserver = new ContentObserver(
+    @VisibleForTesting
+    final ContentObserver mSettingObserver = new ContentObserver(
             new Handler(Looper.getMainLooper())) {
         @Override
         public void onChange(boolean selfChange, Uri uri) {
@@ -61,9 +63,17 @@ public class DefaultVoiceInputPickerEntryPreferenceController extends
 
     public DefaultVoiceInputPickerEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                new VoiceInputInfoProvider(context), new AssistUtils(context));
+    }
+
+    @VisibleForTesting
+    DefaultVoiceInputPickerEntryPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            VoiceInputInfoProvider voiceInputInfoProvider, AssistUtils assistUtils) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mVoiceInputInfoProvider = new VoiceInputInfoProvider(context);
-        mAssistUtils = new AssistUtils(context);
+        mVoiceInputInfoProvider = voiceInputInfoProvider;
+        mAssistUtils = assistUtils;
     }
 
     @Override

@@ -86,6 +86,8 @@ struct HostMemAlloc {
     int fd = -1;
     uint64_t memoryAddr = 0;
     size_t memorySize = 0;
+    bool isDeviceAddressMemoryAllocation = false;
+    bool isDedicated = false;
 };
 
 VkResult finishHostMemAllocInit(
@@ -113,6 +115,8 @@ struct SubAlloc {
     VkDeviceSize baseOffset = 0;
     android::base::guest::SubAllocator* subAlloc = nullptr;
     VkDeviceMemory subMemory = VK_NULL_HANDLE;
+    bool isDeviceAddressMemoryAllocation = false;
+    uint32_t memoryTypeIndex = 0;
 };
 
 void subAllocHostMemory(
@@ -120,7 +124,9 @@ void subAllocHostMemory(
     const VkMemoryAllocateInfo* pAllocateInfo,
     SubAlloc* out);
 
-void subFreeHostMemory(SubAlloc* toFree);
+// Returns true if the block would have been emptied.
+// In that case, we can then go back and tear down the block itself.
+bool subFreeHostMemory(SubAlloc* toFree);
 
 bool canSubAlloc(android::base::guest::SubAllocator* subAlloc, VkDeviceSize size);
 

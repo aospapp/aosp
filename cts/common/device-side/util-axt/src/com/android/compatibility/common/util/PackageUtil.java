@@ -19,10 +19,15 @@ package com.android.compatibility.common.util;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
@@ -36,6 +41,7 @@ public class PackageUtil {
     private static final int SYSTEM_APP_MASK =
             ApplicationInfo.FLAG_SYSTEM | ApplicationInfo.FLAG_UPDATED_SYSTEM_APP;
     private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+    private static final int READ_BLOCK_SIZE = 1024;
 
     /** Returns true if a package with the given name exists on the device */
     public static boolean exists(String packageName) {
@@ -145,6 +151,47 @@ public class PackageUtil {
 
     private static PackageManager getPackageManager() {
         return InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageManager();
+    }
+
+
+    /**
+     * Compute the file SHA digest for a package.
+     * @param packageInfo the info of the package for which the file SHA digest is requested
+     * @return the file SHA digest
+     */
+    public static String computePackageFileDigest(PackageInfo pkgInfo) {
+        ApplicationInfo applicationInfo;
+        try {
+            applicationInfo = getPackageManager().getApplicationInfo(pkgInfo.packageName, 0);
+        } catch (NameNotFoundException e) {
+            Log.e(TAG, "Exception: " + e);
+            return null;
+        }
+        File apkFile = new File(applicationInfo.publicSourceDir);
+        return computeFileHash(apkFile);
+    }
+
+    private static String computeFileHash(File srcFile) {
+        MessageDigest md;
+        try {
+            md = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            Log.e(TAG, "NoSuchAlgorithmException:" + e.getMessage());
+            return null;
+        }
+        String result =  null;
+        try (FileInputStream fis = new FileInputStream(srcFile)) {
+            byte[] dataBytes = new byte[READ_BLOCK_SIZE];
+            int nread = 0;
+            while ((nread = fis.read(dataBytes)) != -1) {
+                md.update(dataBytes, 0, nread);
+            }
+            BigInteger bigInt = new BigInteger(1, md.digest());
+            result = String.format("%32s", bigInt.toString(16)).replace(' ', '0');
+        } catch (IOException e) {
+            Log.e(TAG, "IOException:" + e.getMessage());
+        }
+        return result;
     }
 
     private static boolean hasDeviceFeature(final String requiredFeature) {

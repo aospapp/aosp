@@ -58,8 +58,8 @@
             <Limit name="bitrate" range="1-120000000" />
             <Limit name="frame-rate" range="1-480" />
             <Limit name="performance-point-3840x2160" value="30" />
-            <Limit name="measured-frame-rate-320x240" range="1000-1500" />
-            <Limit name="measured-frame-rate-720x480" range="400-800" />
+            <Limit name="measured-frame-rate-320x240" range="257-266" />
+            <Limit name="measured-frame-rate-720x480" range="262-264" />
             <Limit name="measured-frame-rate-1280x720" range="227-251" />
             <Limit name="measured-frame-rate-1920x1080" range="235-247" />
             <Limit name="measured-frame-rate-3840x2160" range="235-247" />
@@ -122,18 +122,17 @@
             <Feature name="adaptive-playback" />
         </MediaCodec>
         <MediaCodec name="c2.goldfish.vp8.decoder" type="video/x-vnd.on2.vp8">
-            <Limit name="size" min="96x96" max="3840x2160" />
+            <Limit name="size" min="96x96" max="2560x2560" />
             <Limit name="alignment" value="2x2" />
             <Limit name="block-size" value="16x16" />
             <Limit name="blocks-per-second" min="24" max="2073600" />
             <Limit name="bitrate" range="1-120000000" />
             <Limit name="frame-rate" range="1-480" />
-            <Limit name="performance-point-3840x2160" value="30" />
+            <Limit name="performance-point-1920x1080" value="30" />
             <Limit name="measured-frame-rate-320x180" range="743-817" />
             <Limit name="measured-frame-rate-640x360" range="237-258" />
             <Limit name="measured-frame-rate-1280x720" range="60-160" />
             <Limit name="measured-frame-rate-1920x1080" range="30-160" />
-            <Limit name="measured-frame-rate-3840x2160" range="30-90" />
             <Feature name="adaptive-playback" />
         </MediaCodec>
         <MediaCodec name="c2.goldfish.vp9.decoder" type="video/x-vnd.on2.vp9">
@@ -144,10 +143,10 @@
             <Limit name="bitrate" range="1-120000000" />
             <Limit name="frame-rate" range="1-480" />
             <Limit name="performance-point-3840x2160" value="30" />
-            <Limit name="measured-frame-rate-320x180" range="237-258" />
+            <Limit name="measured-frame-rate-320x180" range="950-970" />
             <Limit name="measured-frame-rate-640x360" range="237-258" />
             <Limit name="measured-frame-rate-1280x720" range="237-258" />
-            <Limit name="measured-frame-rate-1920x1080" range="293-302" />
+            <Limit name="measured-frame-rate-1920x1080" range="100-120" />
             <Limit name="measured-frame-rate-3840x2160" range="30-90" />
             <Feature name="adaptive-playback" />
         </MediaCodec>

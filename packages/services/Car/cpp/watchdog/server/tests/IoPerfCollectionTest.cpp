@@ -15,101 +15,182 @@
  */
 
 #include "IoPerfCollection.h"
-#include "MockPackageInfoResolver.h"
-#include "MockProcPidStat.h"
 #include "MockProcStat.h"
-#include "MockUidIoStats.h"
+#include "MockUidStatsCollector.h"
 #include "MockWatchdogServiceHelper.h"
-#include "PackageInfoResolver.h"
+#include "PackageInfoTestUtils.h"
 
 #include <WatchdogProperties.sysprop.h>
 #include <android-base/file.h>
 #include <gmock/gmock.h>
+#include <utils/RefBase.h>
 
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace android {
 namespace automotive {
 namespace watchdog {
 
+using ::android::RefBase;
 using ::android::sp;
-using ::android::base::Error;
+using ::android::automotive::watchdog::internal::PackageInfo;
 using ::android::base::ReadFdToString;
 using ::android::base::Result;
 using ::testing::_;
+using ::testing::AllOf;
+using ::testing::ElementsAreArray;
+using ::testing::Eq;
+using ::testing::ExplainMatchResult;
+using ::testing::Field;
+using ::testing::IsSubsetOf;
+using ::testing::Matcher;
 using ::testing::Return;
+using ::testing::Test;
+using ::testing::UnorderedElementsAreArray;
+using ::testing::VariantWith;
 
 namespace {
 
-bool isEqual(const UidIoPerfData& lhs, const UidIoPerfData& rhs) {
-    if (lhs.topNReads.size() != rhs.topNReads.size() ||
-        lhs.topNWrites.size() != rhs.topNWrites.size()) {
-        return false;
+MATCHER_P(IoStatsEq, expected, "") {
+    return ExplainMatchResult(AllOf(Field("bytes", &UserPackageStats::IoStats::bytes,
+                                          ElementsAreArray(expected.bytes)),
+                                    Field("fsync", &UserPackageStats::IoStats::fsync,
+                                          ElementsAreArray(expected.fsync))),
+                              arg, result_listener);
+}
+
+MATCHER_P(ProcessCountEq, expected, "") {
+    return ExplainMatchResult(AllOf(Field("comm", &UserPackageStats::ProcStats::ProcessCount::comm,
+                                          Eq(expected.comm)),
+                                    Field("count",
+                                          &UserPackageStats::ProcStats::ProcessCount::count,
+                                          Eq(expected.count))),
+                              arg, result_listener);
+}
+
+MATCHER_P(ProcStatsEq, expected, "") {
+    std::vector<Matcher<const UserPackageStats::ProcStats::ProcessCount&>> processCountMatchers;
+    for (const auto& processCount : expected.topNProcesses) {
+        processCountMatchers.push_back(ProcessCountEq(processCount));
     }
-    for (int i = 0; i < METRIC_TYPES; ++i) {
-        for (int j = 0; j < UID_STATES; ++j) {
-            if (lhs.total[i][j] != rhs.total[i][j]) {
+    return ExplainMatchResult(AllOf(Field("count", &UserPackageStats::ProcStats::count,
+                                          Eq(expected.count)),
+                                    Field("topNProcesses",
+                                          &UserPackageStats::ProcStats::topNProcesses,
+                                          ElementsAreArray(processCountMatchers))),
+                              arg, result_listener);
+}
+
+MATCHER_P(UserPackageStatsEq, expected, "") {
+    const auto uidMatcher = Field("uid", &UserPackageStats::uid, Eq(expected.uid));
+    const auto packageNameMatcher =
+            Field("genericPackageName", &UserPackageStats::genericPackageName,
+                  Eq(expected.genericPackageName));
+    return std::visit(
+            [&](const auto& stats) -> bool {
+                using T = std::decay_t<decltype(stats)>;
+                if constexpr (std::is_same_v<T, UserPackageStats::IoStats>) {
+                    return ExplainMatchResult(AllOf(uidMatcher, packageNameMatcher,
+                                                    Field("stats:IoStats", &UserPackageStats::stats,
+                                                          VariantWith<UserPackageStats::IoStats>(
+                                                                  IoStatsEq(stats)))),
+                                              arg, result_listener);
+                } else if constexpr (std::is_same_v<T, UserPackageStats::ProcStats>) {
+                    return ExplainMatchResult(AllOf(uidMatcher, packageNameMatcher,
+                                                    Field("stats:ProcStats",
+                                                          &UserPackageStats::stats,
+                                                          VariantWith<UserPackageStats::ProcStats>(
+                                                                  ProcStatsEq(stats)))),
+                                              arg, result_listener);
+                }
+                *result_listener << "Unexpected variant in UserPackageStats::stats";
                 return false;
-            }
+            },
+            expected.stats);
+}
+
+MATCHER_P(UserPackageSummaryStatsEq, expected, "") {
+    const auto& userPackageStatsMatchers = [&](const std::vector<UserPackageStats>& stats) {
+        std::vector<Matcher<const UserPackageStats&>> matchers;
+        for (const auto& curStats : stats) {
+            matchers.push_back(UserPackageStatsEq(curStats));
         }
-    }
-    auto comp = [&](const UidIoPerfData::Stats& l, const UidIoPerfData::Stats& r) -> bool {
-        bool isEqual = l.userId == r.userId && l.packageName == r.packageName;
-        for (int i = 0; i < UID_STATES; ++i) {
-            isEqual &= l.bytes[i] == r.bytes[i] && l.fsync[i] == r.fsync[i];
+        return ElementsAreArray(matchers);
+    };
+    const auto& totalIoStatsArrayMatcher = [&](const int64_t expected[][UID_STATES]) {
+        std::vector<Matcher<const int64_t[UID_STATES]>> matchers;
+        for (int i = 0; i < METRIC_TYPES; ++i) {
+            matchers.push_back(ElementsAreArray(expected[i], UID_STATES));
         }
-        return isEqual;
+        return ElementsAreArray(matchers);
     };
-    return lhs.topNReads.size() == rhs.topNReads.size() &&
-            std::equal(lhs.topNReads.begin(), lhs.topNReads.end(), rhs.topNReads.begin(), comp) &&
-            lhs.topNWrites.size() == rhs.topNWrites.size() &&
-            std::equal(lhs.topNWrites.begin(), lhs.topNWrites.end(), rhs.topNWrites.begin(), comp);
+    return ExplainMatchResult(AllOf(Field("topNIoReads", &UserPackageSummaryStats::topNIoReads,
+                                          userPackageStatsMatchers(expected.topNIoReads)),
+                                    Field("topNIoWrites", &UserPackageSummaryStats::topNIoWrites,
+                                          userPackageStatsMatchers(expected.topNIoWrites)),
+                                    Field("topNIoBlocked", &UserPackageSummaryStats::topNIoBlocked,
+                                          userPackageStatsMatchers(expected.topNIoBlocked)),
+                                    Field("topNMajorFaults",
+                                          &UserPackageSummaryStats::topNMajorFaults,
+                                          userPackageStatsMatchers(expected.topNMajorFaults)),
+                                    Field("totalIoStats", &UserPackageSummaryStats::totalIoStats,
+                                          totalIoStatsArrayMatcher(expected.totalIoStats)),
+                                    Field("taskCountByUid",
+                                          &UserPackageSummaryStats::taskCountByUid,
+                                          IsSubsetOf(expected.taskCountByUid)),
+                                    Field("totalMajorFaults",
+                                          &UserPackageSummaryStats::totalMajorFaults,
+                                          Eq(expected.totalMajorFaults)),
+                                    Field("majorFaultsPercentChange",
+                                          &UserPackageSummaryStats::majorFaultsPercentChange,
+                                          Eq(expected.majorFaultsPercentChange))),
+                              arg, result_listener);
 }
 
-bool isEqual(const SystemIoPerfData& lhs, const SystemIoPerfData& rhs) {
-    return lhs.cpuIoWaitTime == rhs.cpuIoWaitTime && lhs.totalCpuTime == rhs.totalCpuTime &&
-            lhs.ioBlockedProcessesCnt == rhs.ioBlockedProcessesCnt &&
-            lhs.totalProcessesCnt == rhs.totalProcessesCnt;
+MATCHER_P(SystemSummaryStatsEq, expected, "") {
+    return ExplainMatchResult(AllOf(Field("cpuIoWaitTime", &SystemSummaryStats::cpuIoWaitTime,
+                                          Eq(expected.cpuIoWaitTime)),
+                                    Field("totalCpuTime", &SystemSummaryStats::totalCpuTime,
+                                          Eq(expected.totalCpuTime)),
+                                    Field("ioBlockedProcessCount",
+                                          &SystemSummaryStats::ioBlockedProcessCount,
+                                          Eq(expected.ioBlockedProcessCount)),
+                                    Field("totalProcessCount",
+                                          &SystemSummaryStats::totalProcessCount,
+                                          Eq(expected.totalProcessCount))),
+                              arg, result_listener);
 }
 
-bool isEqual(const ProcessIoPerfData& lhs, const ProcessIoPerfData& rhs) {
-    if (lhs.topNIoBlockedUids.size() != rhs.topNIoBlockedUids.size() ||
-        lhs.topNMajorFaultUids.size() != rhs.topNMajorFaultUids.size() ||
-        lhs.totalMajorFaults != rhs.totalMajorFaults ||
-        lhs.majorFaultsPercentChange != rhs.majorFaultsPercentChange) {
-        return false;
+MATCHER_P(PerfStatsRecordEq, expected, "") {
+    return ExplainMatchResult(AllOf(Field(&PerfStatsRecord::systemSummaryStats,
+                                          SystemSummaryStatsEq(expected.systemSummaryStats)),
+                                    Field(&PerfStatsRecord::userPackageSummaryStats,
+                                          UserPackageSummaryStatsEq(
+                                                  expected.userPackageSummaryStats))),
+                              arg, result_listener);
+}
+
+const std::vector<Matcher<const PerfStatsRecord&>> constructPerfStatsRecordMatchers(
+        const std::vector<PerfStatsRecord>& records) {
+    std::vector<Matcher<const PerfStatsRecord&>> matchers;
+    for (const auto& record : records) {
+        matchers.push_back(PerfStatsRecordEq(record));
     }
-    auto comp = [&](const ProcessIoPerfData::UidStats& l,
-                    const ProcessIoPerfData::UidStats& r) -> bool {
-        auto comp = [&](const ProcessIoPerfData::UidStats::ProcessStats& l,
-                        const ProcessIoPerfData::UidStats::ProcessStats& r) -> bool {
-            return l.comm == r.comm && l.count == r.count;
-        };
-        return l.userId == r.userId && l.packageName == r.packageName && l.count == r.count &&
-                l.topNProcesses.size() == r.topNProcesses.size() &&
-                std::equal(l.topNProcesses.begin(), l.topNProcesses.end(), r.topNProcesses.begin(),
-                           comp);
-    };
-    return lhs.topNIoBlockedUids.size() == lhs.topNIoBlockedUids.size() &&
-            std::equal(lhs.topNIoBlockedUids.begin(), lhs.topNIoBlockedUids.end(),
-                       rhs.topNIoBlockedUids.begin(), comp) &&
-            lhs.topNIoBlockedUidsTotalTaskCnt.size() == rhs.topNIoBlockedUidsTotalTaskCnt.size() &&
-            std::equal(lhs.topNIoBlockedUidsTotalTaskCnt.begin(),
-                       lhs.topNIoBlockedUidsTotalTaskCnt.end(),
-                       rhs.topNIoBlockedUidsTotalTaskCnt.begin()) &&
-            lhs.topNMajorFaultUids.size() == rhs.topNMajorFaultUids.size() &&
-            std::equal(lhs.topNMajorFaultUids.begin(), lhs.topNMajorFaultUids.end(),
-                       rhs.topNMajorFaultUids.begin(), comp);
+    return matchers;
 }
 
-bool isEqual(const IoPerfRecord& lhs, const IoPerfRecord& rhs) {
-    return isEqual(lhs.uidIoPerfData, rhs.uidIoPerfData) &&
-            isEqual(lhs.systemIoPerfData, rhs.systemIoPerfData) &&
-            isEqual(lhs.processIoPerfData, rhs.processIoPerfData);
+MATCHER_P(CollectionInfoEq, expected, "") {
+    return ExplainMatchResult(AllOf(Field("maxCacheSize", &CollectionInfo::maxCacheSize,
+                                          Eq(expected.maxCacheSize)),
+                                    Field("records", &CollectionInfo::records,
+                                          ElementsAreArray(constructPerfStatsRecordMatchers(
+                                                  expected.records)))),
+                              arg, result_listener);
 }
 
 int countOccurrences(std::string str, std::string subStr) {
@@ -122,23 +203,167 @@ int countOccurrences(std::string str, std::string subStr) {
     return occurrences;
 }
 
+std::tuple<std::vector<UidStats>, UserPackageSummaryStats> sampleUidStats(int multiplier = 1) {
+    /* The number of returned sample stats are less that the top N stats per category/sub-category.
+     * The top N stats per category/sub-category is set to % during test setup. Thus, the default
+     * testing behavior is # reported stats < top N stats.
+     */
+    const auto int64Multiplier = [&](int64_t bytes) -> int64_t {
+        return static_cast<int64_t>(bytes * multiplier);
+    };
+    const auto uint64Multiplier = [&](uint64_t count) -> uint64_t {
+        return static_cast<uint64_t>(count * multiplier);
+    };
+    std::vector<UidStats>
+            uidStats{{.packageInfo = constructPackageInfo("mount", 1009),
+                      .ioStats = {/*fgRdBytes=*/0,
+                                  /*bgRdBytes=*/int64Multiplier(14'000),
+                                  /*fgWrBytes=*/0,
+                                  /*bgWrBytes=*/int64Multiplier(16'000),
+                                  /*fgFsync=*/0, /*bgFsync=*/int64Multiplier(100)},
+                      .procStats = {.totalMajorFaults = uint64Multiplier(11'000),
+                                    .totalTasksCount = 1,
+                                    .ioBlockedTasksCount = 1,
+                                    .processStatsByPid =
+                                            {{/*pid=*/100,
+                                              {/*comm=*/"disk I/O", /*startTime=*/234,
+                                               /*totalMajorFaults=*/uint64Multiplier(11'000),
+                                               /*totalTasksCount=*/1,
+                                               /*ioBlockedTasksCount=*/1}}}}},
+                     {.packageInfo =
+                              constructPackageInfo("com.google.android.car.kitchensink", 1002001),
+                      .ioStats = {/*fgRdBytes=*/0,
+                                  /*bgRdBytes=*/int64Multiplier(3'400),
+                                  /*fgWrBytes=*/0,
+                                  /*bgWrBytes=*/int64Multiplier(6'700),
+                                  /*fgFsync=*/0,
+                                  /*bgFsync=*/int64Multiplier(200)},
+                      .procStats = {.totalMajorFaults = uint64Multiplier(22'445),
+                                    .totalTasksCount = 5,
+                                    .ioBlockedTasksCount = 3,
+                                    .processStatsByPid =
+                                            {{/*pid=*/1000,
+                                              {/*comm=*/"KitchenSinkApp", /*startTime=*/467,
+                                               /*totalMajorFaults=*/uint64Multiplier(12'345),
+                                               /*totalTasksCount=*/2,
+                                               /*ioBlockedTasksCount=*/1}},
+                                             {/*pid=*/1001,
+                                              {/*comm=*/"CTS", /*startTime=*/789,
+                                               /*totalMajorFaults=*/uint64Multiplier(10'100),
+                                               /*totalTasksCount=*/3,
+                                               /*ioBlockedTasksCount=*/2}}}}},
+                     {.packageInfo = constructPackageInfo("", 1012345),
+                      .ioStats = {/*fgRdBytes=*/int64Multiplier(1'000),
+                                  /*bgRdBytes=*/int64Multiplier(4'200),
+                                  /*fgWrBytes=*/int64Multiplier(300),
+                                  /*bgWrBytes=*/int64Multiplier(5'600),
+                                  /*fgFsync=*/int64Multiplier(600),
+                                  /*bgFsync=*/int64Multiplier(300)},
+                      .procStats = {.totalMajorFaults = uint64Multiplier(50'900),
+                                    .totalTasksCount = 4,
+                                    .ioBlockedTasksCount = 2,
+                                    .processStatsByPid =
+                                            {{/*pid=*/2345,
+                                              {/*comm=*/"MapsApp", /*startTime=*/6789,
+                                               /*totalMajorFaults=*/uint64Multiplier(50'900),
+                                               /*totalTasksCount=*/4,
+                                               /*ioBlockedTasksCount=*/2}}}}},
+                     {.packageInfo = constructPackageInfo("com.google.radio", 1015678),
+                      .ioStats = {/*fgRdBytes=*/0,
+                                  /*bgRdBytes=*/0,
+                                  /*fgWrBytes=*/0,
+                                  /*bgWrBytes=*/0,
+                                  /*fgFsync=*/0, /*bgFsync=*/0},
+                      .procStats = {.totalMajorFaults = 0,
+                                    .totalTasksCount = 4,
+                                    .ioBlockedTasksCount = 0,
+                                    .processStatsByPid = {
+                                            {/*pid=*/2345,
+                                             {/*comm=*/"RadioApp", /*startTime=*/19789,
+                                              /*totalMajorFaults=*/0,
+                                              /*totalTasksCount=*/4,
+                                              /*ioBlockedTasksCount=*/0}}}}}};
+
+    UserPackageSummaryStats userPackageSummaryStats{
+            .topNIoReads =
+                    {{1009, "mount",
+                      UserPackageStats::IoStats{{0, int64Multiplier(14'000)},
+                                                {0, int64Multiplier(100)}}},
+                     {1012345, "1012345",
+                      UserPackageStats::IoStats{{int64Multiplier(1'000), int64Multiplier(4'200)},
+                                                {int64Multiplier(600), int64Multiplier(300)}}},
+                     {1002001, "com.google.android.car.kitchensink",
+                      UserPackageStats::IoStats{{0, int64Multiplier(3'400)},
+                                                {0, int64Multiplier(200)}}}},
+            .topNIoWrites =
+                    {{1009, "mount",
+                      UserPackageStats::IoStats{{0, int64Multiplier(16'000)},
+                                                {0, int64Multiplier(100)}}},
+                     {1002001, "com.google.android.car.kitchensink",
+                      UserPackageStats::IoStats{{0, int64Multiplier(6'700)},
+                                                {0, int64Multiplier(200)}}},
+                     {1012345, "1012345",
+                      UserPackageStats::IoStats{{int64Multiplier(300), int64Multiplier(5'600)},
+                                                {int64Multiplier(600), int64Multiplier(300)}}}},
+            .topNIoBlocked = {{1002001, "com.google.android.car.kitchensink",
+                               UserPackageStats::ProcStats{3, {{"CTS", 2}, {"KitchenSinkApp", 1}}}},
+                              {1012345, "1012345",
+                               UserPackageStats::ProcStats{2, {{"MapsApp", 2}}}},
+                              {1009, "mount", UserPackageStats::ProcStats{1, {{"disk I/O", 1}}}}},
+            .topNMajorFaults =
+                    {{1012345, "1012345",
+                      UserPackageStats::ProcStats{uint64Multiplier(50'900),
+                                                  {{"MapsApp", uint64Multiplier(50'900)}}}},
+                     {1002001, "com.google.android.car.kitchensink",
+                      UserPackageStats::ProcStats{uint64Multiplier(22'445),
+                                                  {{"KitchenSinkApp", uint64Multiplier(12'345)},
+                                                   {"CTS", uint64Multiplier(10'100)}}}},
+                     {1009, "mount",
+                      UserPackageStats::ProcStats{uint64Multiplier(11'000),
+                                                  {{"disk I/O", uint64Multiplier(11'000)}}}}},
+            .totalIoStats = {{int64Multiplier(1'000), int64Multiplier(21'600)},
+                             {int64Multiplier(300), int64Multiplier(28'300)},
+                             {int64Multiplier(600), int64Multiplier(600)}},
+            .taskCountByUid = {{1009, 1}, {1002001, 5}, {1012345, 4}},
+            .totalMajorFaults = uint64Multiplier(84'345),
+            .majorFaultsPercentChange = 0.0,
+    };
+    return std::make_tuple(uidStats, userPackageSummaryStats);
+}
+
+std::tuple<ProcStatInfo, SystemSummaryStats> sampleProcStat(int multiplier = 1) {
+    const auto uint64Multiplier = [&](uint64_t bytes) -> uint64_t {
+        return static_cast<uint64_t>(bytes * multiplier);
+    };
+    const auto uint32Multiplier = [&](uint32_t bytes) -> uint32_t {
+        return static_cast<uint32_t>(bytes * multiplier);
+    };
+    ProcStatInfo procStatInfo{/*cpuStats=*/{uint64Multiplier(2'900), uint64Multiplier(7'900),
+                                            uint64Multiplier(4'900), uint64Multiplier(8'900),
+                                            /*ioWaitTime=*/uint64Multiplier(5'900),
+                                            uint64Multiplier(6'966), uint64Multiplier(7'980), 0, 0,
+                                            uint64Multiplier(2'930)},
+                              /*runnableProcessCount=*/uint32Multiplier(100),
+                              /*ioBlockedProcessCount=*/uint32Multiplier(57)};
+    SystemSummaryStats systemSummaryStats{/*cpuIoWaitTime=*/uint64Multiplier(5'900),
+                                          /*totalCpuTime=*/uint64Multiplier(48'376),
+                                          /*ioBlockedProcessCount=*/uint32Multiplier(57),
+                                          /*totalProcessCount=*/uint32Multiplier(157)};
+    return std::make_tuple(procStatInfo, systemSummaryStats);
+}
+
 }  // namespace
 
 namespace internal {
 
-class IoPerfCollectionPeer {
+class IoPerfCollectionPeer : public RefBase {
 public:
-    explicit IoPerfCollectionPeer(sp<IoPerfCollection> collector) :
-          mCollector(collector),
-          mMockPackageInfoResolver(new MockPackageInfoResolver()) {
-        mCollector->mPackageInfoResolver = mMockPackageInfoResolver;
-    }
+    explicit IoPerfCollectionPeer(sp<IoPerfCollection> collector) : mCollector(collector) {}
 
     IoPerfCollectionPeer() = delete;
     ~IoPerfCollectionPeer() {
         mCollector->terminate();
         mCollector.clear();
-        mMockPackageInfoResolver.clear();
     }
 
     Result<void> init() { return mCollector->init(); }
@@ -146,11 +371,6 @@ public:
     void setTopNStatsPerCategory(int value) { mCollector->mTopNStatsPerCategory = value; }
 
     void setTopNStatsPerSubcategory(int value) { mCollector->mTopNStatsPerSubcategory = value; }
-
-    void injectUidToPackageNameMapping(std::unordered_map<uid_t, std::string> mapping) {
-        EXPECT_CALL(*mMockPackageInfoResolver, getPackageNamesForUids(_))
-                .WillRepeatedly(Return(mapping));
-    }
 
     const CollectionInfo& getBoottimeCollectionInfo() {
         Mutex::Autolock lock(mCollector->mMutex);
@@ -169,548 +389,319 @@ public:
 
 private:
     sp<IoPerfCollection> mCollector;
-    sp<MockPackageInfoResolver> mMockPackageInfoResolver;
 };
 
 }  // namespace internal
 
-TEST(IoPerfCollectionTest, TestBoottimeCollection) {
-    sp<MockUidIoStats> mockUidIoStats = new MockUidIoStats();
-    sp<MockProcStat> mockProcStat = new MockProcStat();
-    sp<MockProcPidStat> mockProcPidStat = new MockProcPidStat();
+class IoPerfCollectionTest : public Test {
+protected:
+    void SetUp() override {
+        mMockUidStatsCollector = sp<MockUidStatsCollector>::make();
+        mMockProcStat = sp<MockProcStat>::make();
+        mCollector = sp<IoPerfCollection>::make();
+        mCollectorPeer = sp<internal::IoPerfCollectionPeer>::make(mCollector);
+        ASSERT_RESULT_OK(mCollectorPeer->init());
+        mCollectorPeer->setTopNStatsPerCategory(5);
+        mCollectorPeer->setTopNStatsPerSubcategory(5);
+    }
 
-    sp<IoPerfCollection> collector = new IoPerfCollection();
-    internal::IoPerfCollectionPeer collectorPeer(collector);
+    void TearDown() override {
+        mMockUidStatsCollector.clear();
+        mMockProcStat.clear();
+        mCollector.clear();
+        mCollectorPeer.clear();
+    }
 
-    ASSERT_RESULT_OK(collectorPeer.init());
+    void checkDumpContents(int wantedEmptyCollectionInstances) {
+        TemporaryFile dump;
+        ASSERT_RESULT_OK(mCollector->onDump(dump.fd));
 
-    const std::unordered_map<uid_t, UidIoUsage> uidIoUsages({
-            {1009, {.uid = 1009, .ios = {0, 14000, 0, 16000, 0, 100}}},
-    });
-    const ProcStatInfo procStatInfo{
-            /*stats=*/{2900, 7900, 4900, 8900, /*ioWaitTime=*/5900, 6966, 7980, 0, 0, 2930},
-            /*runnableCnt=*/100,
-            /*ioBlockedCnt=*/57,
-    };
-    const std::vector<ProcessStats> processStats({
-            {.tgid = 100,
-             .uid = 1009,
-             .process = {100, "disk I/O", "D", 1, 11000, 1, 234},
-             .threads = {{100, {100, "mount", "D", 1, 11000, 1, 234}}}},
-    });
+        checkDumpFd(wantedEmptyCollectionInstances, dump.fd);
+    }
 
-    EXPECT_CALL(*mockUidIoStats, deltaStats()).WillOnce(Return(uidIoUsages));
-    EXPECT_CALL(*mockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
-    EXPECT_CALL(*mockProcPidStat, deltaStats()).WillOnce(Return(processStats));
+    void checkCustomDumpContents() {
+        TemporaryFile dump;
+        ASSERT_RESULT_OK(mCollector->onCustomCollectionDump(dump.fd));
 
-    const IoPerfRecord expected = {
-            .uidIoPerfData = {.topNReads = {{0, "mount", {0, 14000}, {0, 100}}},
-                              .topNWrites = {{0, "mount", {0, 16000}, {0, 100}}},
-                              .total = {{0, 14000}, {0, 16000}, {0, 100}}},
-            .systemIoPerfData = {5900, 48376, 57, 157},
-            .processIoPerfData =
-                    {.topNIoBlockedUids = {{0, "mount", 1, {{"disk I/O", 1}}}},
-                     .topNIoBlockedUidsTotalTaskCnt = {1},
-                     .topNMajorFaultUids = {{0, "mount", 11000, {{"disk I/O", 11000}}}},
-                     .totalMajorFaults = 11000,
-                     .majorFaultsPercentChange = 0},
-    };
-    collectorPeer.injectUidToPackageNameMapping({{1009, "mount"}});
+        checkDumpFd(/*wantedEmptyCollectionInstances=*/0, dump.fd);
+    }
+
+private:
+    void checkDumpFd(int wantedEmptyCollectionInstances, int fd) {
+        lseek(fd, 0, SEEK_SET);
+        std::string dumpContents;
+        ASSERT_TRUE(ReadFdToString(fd, &dumpContents));
+        ASSERT_FALSE(dumpContents.empty());
+
+        ASSERT_EQ(countOccurrences(dumpContents, kEmptyCollectionMessage),
+                  wantedEmptyCollectionInstances)
+                << "Dump contents: " << dumpContents;
+    }
+
+protected:
+    sp<MockUidStatsCollector> mMockUidStatsCollector;
+    sp<MockProcStat> mMockProcStat;
+    sp<IoPerfCollection> mCollector;
+    sp<internal::IoPerfCollectionPeer> mCollectorPeer;
+};
+
+TEST_F(IoPerfCollectionTest, TestOnBoottimeCollection) {
+    const auto [uidStats, userPackageSummaryStats] = sampleUidStats();
+    const auto [procStatInfo, systemSummaryStats] = sampleProcStat();
+
+    EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(uidStats));
+    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
 
     time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    ASSERT_RESULT_OK(
-            collector->onBoottimeCollection(now, mockUidIoStats, mockProcStat, mockProcPidStat));
+    ASSERT_RESULT_OK(mCollector->onBoottimeCollection(now, mMockUidStatsCollector, mMockProcStat));
 
-    const CollectionInfo& collectionInfo = collectorPeer.getBoottimeCollectionInfo();
+    const auto actual = mCollectorPeer->getBoottimeCollectionInfo();
 
-    ASSERT_EQ(collectionInfo.maxCacheSize, std::numeric_limits<std::size_t>::max());
-    ASSERT_EQ(collectionInfo.records.size(), 1);
-    ASSERT_TRUE(isEqual(collectionInfo.records[0], expected))
-            << "Boottime collection record doesn't match.\nExpected:\n"
-            << toString(expected) << "\nActual:\n"
-            << toString(collectionInfo.records[0]);
+    const CollectionInfo expected{
+            .maxCacheSize = std::numeric_limits<std::size_t>::max(),
+            .records = {{
+                    .systemSummaryStats = systemSummaryStats,
+                    .userPackageSummaryStats = userPackageSummaryStats,
+            }},
+    };
 
-    TemporaryFile dump;
-    ASSERT_RESULT_OK(collector->onDump(dump.fd));
+    EXPECT_THAT(actual, CollectionInfoEq(expected))
+            << "Boottime collection info doesn't match.\nExpected:\n"
+            << expected.toString() << "\nActual:\n"
+            << actual.toString();
 
-    lseek(dump.fd, 0, SEEK_SET);
-    std::string dumpContents;
-    ASSERT_TRUE(ReadFdToString(dump.fd, &dumpContents));
-    ASSERT_FALSE(dumpContents.empty());
-
-    ASSERT_EQ(countOccurrences(dumpContents, kEmptyCollectionMessage), 1)
-            << "Only periodic collection should be not collected. Dump contents: " << dumpContents;
+    ASSERT_NO_FATAL_FAILURE(checkDumpContents(/*wantedEmptyCollectionInstances=*/1))
+            << "Periodic collection shouldn't be reported";
 }
 
-TEST(IoPerfCollectionTest, TestPeriodicCollection) {
-    sp<MockUidIoStats> mockUidIoStats = new MockUidIoStats();
-    sp<MockProcStat> mockProcStat = new MockProcStat();
-    sp<MockProcPidStat> mockProcPidStat = new MockProcPidStat();
+TEST_F(IoPerfCollectionTest, TestOnPeriodicCollection) {
+    const auto [uidStats, userPackageSummaryStats] = sampleUidStats();
+    const auto [procStatInfo, systemSummaryStats] = sampleProcStat();
 
-    sp<IoPerfCollection> collector = new IoPerfCollection();
-    internal::IoPerfCollectionPeer collectorPeer(collector);
-
-    ASSERT_RESULT_OK(collectorPeer.init());
-
-    const std::unordered_map<uid_t, UidIoUsage> uidIoUsages({
-            {1009, {.uid = 1009, .ios = {0, 14000, 0, 16000, 0, 100}}},
-    });
-    const ProcStatInfo procStatInfo{
-            /*stats=*/{2900, 7900, 4900, 8900, /*ioWaitTime=*/5900, 6966, 7980, 0, 0, 2930},
-            /*runnableCnt=*/100,
-            /*ioBlockedCnt=*/57,
-    };
-    const std::vector<ProcessStats> processStats({
-            {.tgid = 100,
-             .uid = 1009,
-             .process = {100, "disk I/O", "D", 1, 11000, 1, 234},
-             .threads = {{100, {100, "mount", "D", 1, 11000, 1, 234}}}},
-    });
-
-    EXPECT_CALL(*mockUidIoStats, deltaStats()).WillOnce(Return(uidIoUsages));
-    EXPECT_CALL(*mockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
-    EXPECT_CALL(*mockProcPidStat, deltaStats()).WillOnce(Return(processStats));
-
-    const IoPerfRecord expected = {
-            .uidIoPerfData = {.topNReads = {{0, "mount", {0, 14000}, {0, 100}}},
-                              .topNWrites = {{0, "mount", {0, 16000}, {0, 100}}},
-                              .total = {{0, 14000}, {0, 16000}, {0, 100}}},
-            .systemIoPerfData = {5900, 48376, 57, 157},
-            .processIoPerfData =
-                    {.topNIoBlockedUids = {{0, "mount", 1, {{"disk I/O", 1}}}},
-                     .topNIoBlockedUidsTotalTaskCnt = {1},
-                     .topNMajorFaultUids = {{0, "mount", 11000, {{"disk I/O", 11000}}}},
-                     .totalMajorFaults = 11000,
-                     .majorFaultsPercentChange = 0},
-    };
-
-    collectorPeer.injectUidToPackageNameMapping({{1009, "mount"}});
+    EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(uidStats));
+    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
 
     time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    ASSERT_RESULT_OK(collector->onPeriodicCollection(now, SystemState::NORMAL_MODE, mockUidIoStats,
-                                                     mockProcStat, mockProcPidStat));
+    ASSERT_RESULT_OK(mCollector->onPeriodicCollection(now, SystemState::NORMAL_MODE,
+                                                      mMockUidStatsCollector, mMockProcStat));
 
-    const CollectionInfo& collectionInfo = collectorPeer.getPeriodicCollectionInfo();
+    const auto actual = mCollectorPeer->getPeriodicCollectionInfo();
 
-    ASSERT_EQ(collectionInfo.maxCacheSize,
-              static_cast<size_t>(sysprop::periodicCollectionBufferSize().value_or(
-                      kDefaultPeriodicCollectionBufferSize)));
-    ASSERT_EQ(collectionInfo.records.size(), 1);
-    ASSERT_TRUE(isEqual(collectionInfo.records[0], expected))
-            << "Periodic collection record doesn't match.\nExpected:\n"
-            << toString(expected) << "\nActual:\n"
-            << toString(collectionInfo.records[0]);
+    const CollectionInfo expected{
+            .maxCacheSize = static_cast<size_t>(sysprop::periodicCollectionBufferSize().value_or(
+                    kDefaultPeriodicCollectionBufferSize)),
+            .records = {{
+                    .systemSummaryStats = systemSummaryStats,
+                    .userPackageSummaryStats = userPackageSummaryStats,
+            }},
+    };
 
-    TemporaryFile dump;
-    ASSERT_RESULT_OK(collector->onDump(dump.fd));
+    EXPECT_THAT(actual, CollectionInfoEq(expected))
+            << "Periodic collection info doesn't match.\nExpected:\n"
+            << expected.toString() << "\nActual:\n"
+            << actual.toString();
 
-    lseek(dump.fd, 0, SEEK_SET);
-    std::string dumpContents;
-    ASSERT_TRUE(ReadFdToString(dump.fd, &dumpContents));
-    ASSERT_FALSE(dumpContents.empty());
-
-    ASSERT_EQ(countOccurrences(dumpContents, kEmptyCollectionMessage), 1)
-            << "Only boot-time collection should be not collected. Dump contents: " << dumpContents;
+    ASSERT_NO_FATAL_FAILURE(checkDumpContents(/*wantedEmptyCollectionInstances=*/1))
+            << "Boot-time collection shouldn't be reported";
 }
 
-TEST(IoPerfCollectionTest, TestCustomCollection) {
-    sp<MockUidIoStats> mockUidIoStats = new MockUidIoStats();
-    sp<MockProcStat> mockProcStat = new MockProcStat();
-    sp<MockProcPidStat> mockProcPidStat = new MockProcPidStat();
+TEST_F(IoPerfCollectionTest, TestOnCustomCollectionWithoutPackageFilter) {
+    const auto [uidStats, userPackageSummaryStats] = sampleUidStats();
+    const auto [procStatInfo, systemSummaryStats] = sampleProcStat();
 
-    sp<IoPerfCollection> collector = new IoPerfCollection();
-    internal::IoPerfCollectionPeer collectorPeer(collector);
-
-    ASSERT_RESULT_OK(collectorPeer.init());
-
-    // Filter by package name should ignore this limit.
-    collectorPeer.setTopNStatsPerCategory(1);
-
-    const std::unordered_map<uid_t, UidIoUsage> uidIoUsages({
-            {1009, {.uid = 1009, .ios = {0, 14000, 0, 16000, 0, 100}}},
-            {2001, {.uid = 2001, .ios = {0, 3400, 0, 6700, 0, 200}}},
-            {3456, {.uid = 3456, .ios = {0, 4200, 0, 5600, 0, 300}}},
-    });
-    const ProcStatInfo procStatInfo{
-            /*stats=*/{2900, 7900, 4900, 8900, /*ioWaitTime=*/5900, 6966, 7980, 0, 0, 2930},
-            /*runnableCnt=*/100,
-            /*ioBlockedCnt=*/57,
-    };
-    const std::vector<ProcessStats> processStats({
-            {.tgid = 100,
-             .uid = 1009,
-             .process = {100, "cts_test", "D", 1, 50900, 2, 234},
-             .threads = {{100, {100, "cts_test", "D", 1, 50900, 1, 234}},
-                         {200, {200, "cts_test_2", "D", 1, 0, 1, 290}}}},
-            {.tgid = 1000,
-             .uid = 2001,
-             .process = {1000, "system_server", "D", 1, 1234, 1, 345},
-             .threads = {{1000, {1000, "system_server", "D", 1, 1234, 1, 345}}}},
-            {.tgid = 4000,
-             .uid = 3456,
-             .process = {4000, "random_process", "D", 1, 3456, 1, 890},
-             .threads = {{4000, {4000, "random_process", "D", 1, 50900, 1, 890}}}},
-    });
-
-    EXPECT_CALL(*mockUidIoStats, deltaStats()).WillOnce(Return(uidIoUsages));
-    EXPECT_CALL(*mockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
-    EXPECT_CALL(*mockProcPidStat, deltaStats()).WillOnce(Return(processStats));
-    const IoPerfRecord expected = {
-            .uidIoPerfData = {.topNReads = {{.userId = 0,
-                                             .packageName = "android.car.cts",
-                                             .bytes = {0, 14000},
-                                             .fsync = {0, 100}},
-                                            {.userId = 0,
-                                             .packageName = "system_server",
-                                             .bytes = {0, 3400},
-                                             .fsync = {0, 200}}},
-                              .topNWrites = {{.userId = 0,
-                                              .packageName = "android.car.cts",
-                                              .bytes = {0, 16000},
-                                              .fsync = {0, 100}},
-                                             {.userId = 0,
-                                              .packageName = "system_server",
-                                              .bytes = {0, 6700},
-                                              .fsync = {0, 200}}},
-                              .total = {{0, 21600}, {0, 28300}, {0, 600}}},
-            .systemIoPerfData = {.cpuIoWaitTime = 5900,
-                                 .totalCpuTime = 48376,
-                                 .ioBlockedProcessesCnt = 57,
-                                 .totalProcessesCnt = 157},
-            .processIoPerfData =
-                    {.topNIoBlockedUids = {{0, "android.car.cts", 2, {{"cts_test", 2}}},
-                                           {0, "system_server", 1, {{"system_server", 1}}}},
-                     .topNIoBlockedUidsTotalTaskCnt = {2, 1},
-                     .topNMajorFaultUids = {{0, "android.car.cts", 50900, {{"cts_test", 50900}}},
-                                            {0, "system_server", 1234, {{"system_server", 1234}}}},
-                     .totalMajorFaults = 55590,
-                     .majorFaultsPercentChange = 0},
-    };
-    collectorPeer.injectUidToPackageNameMapping({
-            {1009, "android.car.cts"},
-            {2001, "system_server"},
-            {3456, "random_process"},
-    });
+    EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(uidStats));
+    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
 
     time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    ASSERT_RESULT_OK(collector->onCustomCollection(now, SystemState::NORMAL_MODE,
-                                                   {"android.car.cts", "system_server"},
-                                                   mockUidIoStats, mockProcStat, mockProcPidStat));
+    ASSERT_RESULT_OK(mCollector->onCustomCollection(now, SystemState::NORMAL_MODE, {},
+                                                    mMockUidStatsCollector, mMockProcStat));
 
-    const CollectionInfo& collectionInfo = collectorPeer.getCustomCollectionInfo();
+    const auto actual = mCollectorPeer->getCustomCollectionInfo();
 
-    EXPECT_EQ(collectionInfo.maxCacheSize, std::numeric_limits<std::size_t>::max());
-    ASSERT_EQ(collectionInfo.records.size(), 1);
-    ASSERT_TRUE(isEqual(collectionInfo.records[0], expected))
-            << "Custom collection record doesn't match.\nExpected:\n"
-            << toString(expected) << "\nActual:\n"
-            << toString(collectionInfo.records[0]);
+    CollectionInfo expected{
+            .maxCacheSize = std::numeric_limits<std::size_t>::max(),
+            .records = {{
+                    .systemSummaryStats = systemSummaryStats,
+                    .userPackageSummaryStats = userPackageSummaryStats,
+            }},
+    };
+
+    EXPECT_THAT(actual, CollectionInfoEq(expected))
+            << "Custom collection info doesn't match.\nExpected:\n"
+            << expected.toString() << "\nActual:\n"
+            << actual.toString();
+
+    ASSERT_NO_FATAL_FAILURE(checkCustomDumpContents()) << "Custom collection should be reported";
 
     TemporaryFile customDump;
-    ASSERT_RESULT_OK(collector->onCustomCollectionDump(customDump.fd));
-
-    lseek(customDump.fd, 0, SEEK_SET);
-    std::string customDumpContents;
-    ASSERT_TRUE(ReadFdToString(customDump.fd, &customDumpContents));
-    ASSERT_FALSE(customDumpContents.empty());
-    ASSERT_EQ(countOccurrences(customDumpContents, kEmptyCollectionMessage), 0)
-            << "Custom collection should be reported. Dump contents: " << customDumpContents;
+    ASSERT_RESULT_OK(mCollector->onCustomCollectionDump(customDump.fd));
 
     // Should clear the cache.
-    ASSERT_RESULT_OK(collector->onCustomCollectionDump(-1));
+    ASSERT_RESULT_OK(mCollector->onCustomCollectionDump(-1));
 
-    const CollectionInfo& emptyCollectionInfo = collectorPeer.getCustomCollectionInfo();
-    EXPECT_TRUE(emptyCollectionInfo.records.empty());
-    EXPECT_EQ(emptyCollectionInfo.maxCacheSize, std::numeric_limits<std::size_t>::max());
+    expected.records.clear();
+    const CollectionInfo& emptyCollectionInfo = mCollectorPeer->getCustomCollectionInfo();
+    EXPECT_THAT(emptyCollectionInfo, CollectionInfoEq(expected))
+            << "Custom collection should be cleared.";
 }
 
-TEST(IoPerfCollectionTest, TestUidIoStatsGreaterThanTopNStatsLimit) {
-    std::unordered_map<uid_t, UidIoUsage> uidIoUsages({
-            {1001234, {.uid = 1001234, .ios = {3000, 0, 500, 0, 20, 0}}},
-            {1005678, {.uid = 1005678, .ios = {30, 100, 50, 200, 45, 60}}},
-            {1009, {.uid = 1009, .ios = {0, 20000, 0, 30000, 0, 300}}},
-            {1001000, {.uid = 1001000, .ios = {2000, 200, 1000, 100, 50, 10}}},
-    });
-    sp<MockUidIoStats> mockUidIoStats = new MockUidIoStats();
-    EXPECT_CALL(*mockUidIoStats, deltaStats()).WillOnce(Return(uidIoUsages));
+TEST_F(IoPerfCollectionTest, TestOnCustomCollectionWithPackageFilter) {
+    // Filter by package name should ignore this limit with package filter.
+    mCollectorPeer->setTopNStatsPerCategory(1);
 
-    struct UidIoPerfData expectedUidIoPerfData = {
-            .topNReads = {{.userId = 0,  // uid: 1009
-                           .packageName = "mount",
-                           .bytes = {0, 20000},
-                           .fsync = {0, 300}},
-                          {.userId = 10,  // uid: 1001234
-                           .packageName = "1001234",
-                           .bytes = {3000, 0},
-                           .fsync = {20, 0}}},
-            .topNWrites = {{.userId = 0,  // uid: 1009
-                            .packageName = "mount",
-                            .bytes = {0, 30000},
-                            .fsync = {0, 300}},
-                           {.userId = 10,  // uid: 1001000
-                            .packageName = "shared:android.uid.system",
-                            .bytes = {1000, 100},
-                            .fsync = {50, 10}}},
-            .total = {{5030, 20300}, {1550, 30300}, {115, 370}},
-    };
+    const auto [uidStats, _] = sampleUidStats();
+    const auto [procStatInfo, systemSummaryStats] = sampleProcStat();
 
-    IoPerfCollection collector;
-    collector.mTopNStatsPerCategory = 2;
+    EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(uidStats));
+    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
 
-    sp<MockPackageInfoResolver> mockPackageInfoResolver = new MockPackageInfoResolver();
-    collector.mPackageInfoResolver = mockPackageInfoResolver;
-    EXPECT_CALL(*mockPackageInfoResolver, getPackageNamesForUids(_))
-            .WillRepeatedly(Return<std::unordered_map<uid_t, std::string>>(
-                    {{1009, "mount"}, {1001000, "shared:android.uid.system"}}));
+    time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    ASSERT_RESULT_OK(mCollector->onCustomCollection(now, SystemState::NORMAL_MODE,
+                                                    {"mount", "com.google.android.car.kitchensink"},
+                                                    mMockUidStatsCollector, mMockProcStat));
 
-    struct UidIoPerfData actualUidIoPerfData = {};
-    collector.processUidIoPerfData({}, mockUidIoStats, &actualUidIoPerfData);
+    const auto actual = mCollectorPeer->getCustomCollectionInfo();
 
-    EXPECT_TRUE(isEqual(expectedUidIoPerfData, actualUidIoPerfData))
-        << "First snapshot doesn't match.\nExpected:\n"
-        << toString(expectedUidIoPerfData) << "\nActual:\n"
-        << toString(actualUidIoPerfData);
-
-    uidIoUsages = {
-            {1001234, {.uid = 1001234, .ios = {4000, 0, 450, 0, 25, 0}}},
-            {1005678, {.uid = 1005678, .ios = {10, 900, 0, 400, 5, 10}}},
-            {1003456, {.uid = 1003456, .ios = {200, 0, 300, 0, 50, 0}}},
-            {1001000, {.uid = 1001000, .ios = {0, 0, 0, 0, 0, 0}}},
-    };
-    EXPECT_CALL(*mockUidIoStats, deltaStats()).WillOnce(Return(uidIoUsages));
-
-    expectedUidIoPerfData = {
-            .topNReads = {{.userId = 10,  // uid: 1001234
-                           .packageName = "1001234",
-                           .bytes = {4000, 0},
-                           .fsync = {25, 0}},
-                          {.userId = 10,  // uid: 1005678
-                           .packageName = "1005678",
-                           .bytes = {10, 900},
-                           .fsync = {5, 10}}},
-            .topNWrites = {{.userId = 10,  // uid: 1001234
-                            .packageName = "1001234",
-                            .bytes = {450, 0},
-                            .fsync = {25, 0}},
-                           {.userId = 10,  // uid: 1005678
-                            .packageName = "1005678",
-                            .bytes = {0, 400},
-                            .fsync = {5, 10}}},
-            .total = {{4210, 900}, {750, 400}, {80, 10}},
-    };
-    actualUidIoPerfData = {};
-    collector.processUidIoPerfData({}, mockUidIoStats, &actualUidIoPerfData);
-
-    EXPECT_TRUE(isEqual(expectedUidIoPerfData, actualUidIoPerfData))
-        << "Second snapshot doesn't match.\nExpected:\n"
-        << toString(expectedUidIoPerfData) << "\nActual:\n"
-        << toString(actualUidIoPerfData);
-}
-
-TEST(IoPerfCollectionTest, TestUidIOStatsLessThanTopNStatsLimit) {
-    const std::unordered_map<uid_t, UidIoUsage> uidIoUsages(
-            {{1001234, {.uid = 1001234, .ios = {3000, 0, 500, 0, 20, 0}}}});
-
-    const struct UidIoPerfData expectedUidIoPerfData = {
-            .topNReads = {{.userId = 10,
-                           .packageName = "1001234",
-                           .bytes = {3000, 0},
-                           .fsync = {20, 0}}},
-            .topNWrites =
-                    {{.userId = 10, .packageName = "1001234", .bytes = {500, 0}, .fsync = {20, 0}}},
-            .total = {{3000, 0}, {500, 0}, {20, 0}},
-    };
-
-    sp<MockUidIoStats> mockUidIoStats = new MockUidIoStats();
-    EXPECT_CALL(*mockUidIoStats, deltaStats()).WillOnce(Return(uidIoUsages));
-
-    IoPerfCollection collector;
-    collector.mTopNStatsPerCategory = 10;
-
-    struct UidIoPerfData actualUidIoPerfData = {};
-    collector.processUidIoPerfData({}, mockUidIoStats, &actualUidIoPerfData);
-
-    EXPECT_TRUE(isEqual(expectedUidIoPerfData, actualUidIoPerfData))
-        << "Collected data doesn't match.\nExpected:\n"
-        << toString(expectedUidIoPerfData) << "\nActual:\n"
-        << toString(actualUidIoPerfData);
-}
-
-TEST(IoPerfCollectionTest, TestProcessSystemIoPerfData) {
-    const ProcStatInfo procStatInfo(
-            /*stats=*/{6200, 5700, 1700, 3100, 1100, 5200, 3900, 0, 0, 0},
-            /*runnableCnt=*/17,
-            /*ioBlockedCnt=*/5);
-    struct SystemIoPerfData expectedSystemIoPerfData = {
-            .cpuIoWaitTime = 1100,
-            .totalCpuTime = 26900,
-            .ioBlockedProcessesCnt = 5,
-            .totalProcessesCnt = 22,
-    };
-
-    sp<MockProcStat> mockProcStat = new MockProcStat();
-    EXPECT_CALL(*mockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
-
-    IoPerfCollection collector;
-    struct SystemIoPerfData actualSystemIoPerfData = {};
-    collector.processSystemIoPerfData(mockProcStat, &actualSystemIoPerfData);
-
-    EXPECT_TRUE(isEqual(expectedSystemIoPerfData, actualSystemIoPerfData))
-            << "Expected:\n"
-            << toString(expectedSystemIoPerfData) << "\nActual:\n"
-            << toString(actualSystemIoPerfData);
-}
-
-TEST(IoPerfCollectionTest, TestProcPidContentsGreaterThanTopNStatsLimit) {
-    const std::vector<ProcessStats> firstProcessStats({
-            {.tgid = 1,
-             .uid = 0,
-             .process = {1, "init", "S", 0, 220, 2, 0},
-             .threads = {{1, {1, "init", "S", 0, 200, 2, 0}},
-                         {453, {453, "init", "S", 0, 20, 2, 275}}}},
-            {.tgid = 2456,
-             .uid = 1001000,
-             .process = {2456, "system_server", "R", 1, 6000, 3, 1000},
-             .threads = {{2456, {2456, "system_server", "R", 1, 1000, 3, 1000}},
-                         {3456, {3456, "system_server", "S", 1, 3000, 3, 2300}},
-                         {4789, {4789, "system_server", "D", 1, 2000, 3, 4500}}}},
-            {.tgid = 7890,
-             .uid = 1001000,
-             .process = {7890, "logd", "D", 1, 15000, 3, 2345},
-             .threads = {{7890, {7890, "logd", "D", 1, 10000, 3, 2345}},
-                         {8978, {8978, "logd", "D", 1, 1000, 3, 2500}},
-                         {12890, {12890, "logd", "D", 1, 500, 3, 2900}}}},
-            {.tgid = 18902,
-             .uid = 1009,
-             .process = {18902, "disk I/O", "D", 1, 45678, 3, 897654},
-             .threads = {{18902, {18902, "disk I/O", "D", 1, 30000, 3, 897654}},
-                         {21345, {21345, "disk I/O", "D", 1, 15000, 3, 904000}},
-                         {32452, {32452, "disk I/O", "D", 1, 678, 3, 1007000}}}},
-            {.tgid = 28900,
-             .uid = 1001234,
-             .process = {28900, "tombstoned", "D", 1, 89765, 1, 2345671},
-             .threads = {{28900, {28900, "tombstoned", "D", 1, 89765, 1, 2345671}}}},
-    });
-    sp<MockProcPidStat> mockProcPidStat = new MockProcPidStat();
-    EXPECT_CALL(*mockProcPidStat, deltaStats()).WillOnce(Return(firstProcessStats));
-
-    struct ProcessIoPerfData expectedProcessIoPerfData = {
-            .topNIoBlockedUids = {{.userId = 10,  // uid: 1001000
-                                   .packageName = "shared:android.uid.system",
-                                   .count = 4,
-                                   .topNProcesses = {{"logd", 3}, {"system_server", 1}}},
-                                  {.userId = 0,
-                                   .packageName = "mount",
-                                   .count = 3,
-                                   .topNProcesses = {{"disk I/O", 3}}}},
-            .topNIoBlockedUidsTotalTaskCnt = {6, 3},
-            .topNMajorFaultUids = {{.userId = 10,  // uid: 1001234
-                                    .packageName = "1001234",
-                                    .count = 89765,
-                                    .topNProcesses = {{"tombstoned", 89765}}},
-                                   {.userId = 0,  // uid: 1009
-                                    .packageName = "mount",
-                                    .count = 45678,
-                                    .topNProcesses = {{"disk I/O", 45678}}}},
-            .totalMajorFaults = 156663,
+    UserPackageSummaryStats userPackageSummaryStats{
+            .topNIoReads = {{1009, "mount", UserPackageStats::IoStats{{0, 14'000}, {0, 100}}},
+                            {1002001, "com.google.android.car.kitchensink",
+                             UserPackageStats::IoStats{{0, 3'400}, {0, 200}}}},
+            .topNIoWrites = {{1009, "mount", UserPackageStats::IoStats{{0, 16'000}, {0, 100}}},
+                             {1002001, "com.google.android.car.kitchensink",
+                              UserPackageStats::IoStats{{0, 6'700}, {0, 200}}}},
+            .topNIoBlocked = {{1009, "mount", UserPackageStats::ProcStats{1, {{"disk I/O", 1}}}},
+                              {1002001, "com.google.android.car.kitchensink",
+                               UserPackageStats::ProcStats{3,
+                                                           {{"CTS", 2}, {"KitchenSinkApp", 1}}}}},
+            .topNMajorFaults =
+                    {{1009, "mount", UserPackageStats::ProcStats{11'000, {{"disk I/O", 11'000}}}},
+                     {1002001, "com.google.android.car.kitchensink",
+                      UserPackageStats::ProcStats{22'445,
+                                                  {{"KitchenSinkApp", 12'345}, {"CTS", 10'100}}}}},
+            .totalIoStats = {{1000, 21'600}, {300, 28'300}, {600, 600}},
+            .taskCountByUid = {{1009, 1}, {1002001, 5}},
+            .totalMajorFaults = 84'345,
             .majorFaultsPercentChange = 0.0,
     };
 
-    IoPerfCollection collector;
-    collector.mTopNStatsPerCategory = 2;
-    collector.mTopNStatsPerSubcategory = 2;
-
-    sp<MockPackageInfoResolver> mockPackageInfoResolver = new MockPackageInfoResolver();
-    collector.mPackageInfoResolver = mockPackageInfoResolver;
-    EXPECT_CALL(*mockPackageInfoResolver, getPackageNamesForUids(_))
-            .WillRepeatedly(Return<std::unordered_map<uid_t, std::string>>(
-                    {{0, "root"}, {1009, "mount"}, {1001000, "shared:android.uid.system"}}));
-
-    struct ProcessIoPerfData actualProcessIoPerfData = {};
-    collector.processProcessIoPerfDataLocked({}, mockProcPidStat, &actualProcessIoPerfData);
-
-    EXPECT_TRUE(isEqual(expectedProcessIoPerfData, actualProcessIoPerfData))
-            << "First snapshot doesn't match.\nExpected:\n"
-            << toString(expectedProcessIoPerfData) << "\nActual:\n"
-            << toString(actualProcessIoPerfData);
-
-    const std::vector<ProcessStats> secondProcessStats({
-            {.tgid = 1,
-             .uid = 0,
-             .process = {1, "init", "S", 0, 660, 2, 0},
-             .threads = {{1, {1, "init", "S", 0, 600, 2, 0}},
-                         {453, {453, "init", "S", 0, 60, 2, 275}}}},
-            {.tgid = 2546,
-             .uid = 1001000,
-             .process = {2546, "system_server", "R", 1, 12000, 3, 1000},
-             .threads = {{2456, {2456, "system_server", "R", 1, 2000, 3, 1000}},
-                         {3456, {3456, "system_server", "S", 1, 6000, 3, 2300}},
-                         {4789, {4789, "system_server", "D", 1, 4000, 3, 4500}}}},
-    });
-    EXPECT_CALL(*mockProcPidStat, deltaStats()).WillOnce(Return(secondProcessStats));
-    expectedProcessIoPerfData = {
-            .topNIoBlockedUids = {{.userId = 10,  // uid: 1001000
-                                   .packageName = "shared:android.uid.system",
-                                   .count = 1,
-                                   .topNProcesses = {{"system_server", 1}}}},
-            .topNIoBlockedUidsTotalTaskCnt = {3},
-            .topNMajorFaultUids = {{.userId = 10,  // uid: 1001000
-                                    .packageName = "shared:android.uid.system",
-                                    .count = 12000,
-                                    .topNProcesses = {{"system_server", 12000}}},
-                                   {.userId = 0,  // uid: 0
-                                    .packageName = "root",
-                                    .count = 660,
-                                    .topNProcesses = {{"init", 660}}}},
-            .totalMajorFaults = 12660,
-            .majorFaultsPercentChange = ((12660.0 - 156663.0) / 156663.0) * 100,
+    CollectionInfo expected{
+            .maxCacheSize = std::numeric_limits<std::size_t>::max(),
+            .records = {{
+                    .systemSummaryStats = systemSummaryStats,
+                    .userPackageSummaryStats = userPackageSummaryStats,
+            }},
     };
 
-    actualProcessIoPerfData = {};
-    collector.processProcessIoPerfDataLocked({}, mockProcPidStat, &actualProcessIoPerfData);
+    EXPECT_THAT(actual, CollectionInfoEq(expected))
+            << "Custom collection info doesn't match.\nExpected:\n"
+            << expected.toString() << "\nActual:\n"
+            << actual.toString();
 
-    EXPECT_TRUE(isEqual(expectedProcessIoPerfData, actualProcessIoPerfData))
-            << "Second snapshot doesn't match.\nExpected:\n"
-            << toString(expectedProcessIoPerfData) << "\nActual:\n"
-            << toString(actualProcessIoPerfData);
+    ASSERT_NO_FATAL_FAILURE(checkCustomDumpContents()) << "Custom collection should be reported";
+
+    TemporaryFile customDump;
+    ASSERT_RESULT_OK(mCollector->onCustomCollectionDump(customDump.fd));
+
+    // Should clear the cache.
+    ASSERT_RESULT_OK(mCollector->onCustomCollectionDump(-1));
+
+    expected.records.clear();
+    const CollectionInfo& emptyCollectionInfo = mCollectorPeer->getCustomCollectionInfo();
+    EXPECT_THAT(emptyCollectionInfo, CollectionInfoEq(expected))
+            << "Custom collection should be cleared.";
 }
 
-TEST(IoPerfCollectionTest, TestProcPidContentsLessThanTopNStatsLimit) {
-    const std::vector<ProcessStats> processStats({
-            {.tgid = 1,
-             .uid = 0,
-             .process = {1, "init", "S", 0, 880, 2, 0},
-             .threads = {{1, {1, "init", "S", 0, 800, 2, 0}},
-                         {453, {453, "init", "S", 0, 80, 2, 275}}}},
-    });
-    sp<MockProcPidStat> mockProcPidStat = new MockProcPidStat();
-    EXPECT_CALL(*mockProcPidStat, deltaStats()).WillOnce(Return(processStats));
+TEST_F(IoPerfCollectionTest, TestOnPeriodicCollectionWithTrimmingStatsAfterTopN) {
+    mCollectorPeer->setTopNStatsPerCategory(1);
+    mCollectorPeer->setTopNStatsPerSubcategory(1);
 
-    struct ProcessIoPerfData expectedProcessIoPerfData = {
-            .topNMajorFaultUids = {{.userId = 0,  // uid: 0
-                                    .packageName = "root",
-                                    .count = 880,
-                                    .topNProcesses = {{"init", 880}}}},
-            .totalMajorFaults = 880,
+    const auto [uidStats, _] = sampleUidStats();
+    const auto [procStatInfo, systemSummaryStats] = sampleProcStat();
+
+    EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(uidStats));
+    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(procStatInfo));
+
+    time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    ASSERT_RESULT_OK(mCollector->onPeriodicCollection(now, SystemState::NORMAL_MODE,
+                                                      mMockUidStatsCollector, mMockProcStat));
+
+    const auto actual = mCollectorPeer->getPeriodicCollectionInfo();
+
+    UserPackageSummaryStats userPackageSummaryStats{
+            .topNIoReads = {{1009, "mount", UserPackageStats::IoStats{{0, 14'000}, {0, 100}}}},
+            .topNIoWrites = {{1009, "mount", UserPackageStats::IoStats{{0, 16'000}, {0, 100}}}},
+            .topNIoBlocked = {{1002001, "com.google.android.car.kitchensink",
+                               UserPackageStats::ProcStats{3, {{"CTS", 2}}}}},
+            .topNMajorFaults = {{1012345, "1012345",
+                                 UserPackageStats::ProcStats{50'900, {{"MapsApp", 50'900}}}}},
+            .totalIoStats = {{1000, 21'600}, {300, 28'300}, {600, 600}},
+            .taskCountByUid = {{1009, 1}, {1002001, 5}, {1012345, 4}},
+            .totalMajorFaults = 84'345,
             .majorFaultsPercentChange = 0.0,
     };
 
-    IoPerfCollection collector;
-    collector.mTopNStatsPerCategory = 5;
-    collector.mTopNStatsPerSubcategory = 3;
+    const CollectionInfo expected{
+            .maxCacheSize = static_cast<size_t>(sysprop::periodicCollectionBufferSize().value_or(
+                    kDefaultPeriodicCollectionBufferSize)),
+            .records = {{
+                    .systemSummaryStats = systemSummaryStats,
+                    .userPackageSummaryStats = userPackageSummaryStats,
+            }},
+    };
 
-    sp<MockPackageInfoResolver> mockPackageInfoResolver = new MockPackageInfoResolver();
-    collector.mPackageInfoResolver = mockPackageInfoResolver;
-    EXPECT_CALL(*mockPackageInfoResolver, getPackageNamesForUids(_))
-            .WillRepeatedly(Return<std::unordered_map<uid_t, std::string>>({{0, "root"}}));
+    EXPECT_THAT(actual, CollectionInfoEq(expected))
+            << "Periodic collection info doesn't match.\nExpected:\n"
+            << expected.toString() << "\nActual:\n"
+            << actual.toString();
 
-    struct ProcessIoPerfData actualProcessIoPerfData = {};
-    collector.processProcessIoPerfDataLocked({}, mockProcPidStat, &actualProcessIoPerfData);
+    ASSERT_NO_FATAL_FAILURE(checkDumpContents(/*wantedEmptyCollectionInstances=*/1))
+            << "Boot-time collection shouldn't be reported";
+}
 
-    EXPECT_TRUE(isEqual(expectedProcessIoPerfData, actualProcessIoPerfData))
-            << "proc pid contents don't match.\nExpected:\n"
-            << toString(expectedProcessIoPerfData) << "\nActual:\n"
-            << toString(actualProcessIoPerfData);
+TEST_F(IoPerfCollectionTest, TestConsecutiveOnPeriodicCollection) {
+    const auto [firstUidStats, firstUserPackageSummaryStats] = sampleUidStats();
+    const auto [firstProcStatInfo, firstSystemSummaryStats] = sampleProcStat();
+
+    EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(firstUidStats));
+    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(firstProcStatInfo));
+
+    time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    ASSERT_RESULT_OK(mCollector->onPeriodicCollection(now, SystemState::NORMAL_MODE,
+                                                      mMockUidStatsCollector, mMockProcStat));
+
+    auto [secondUidStats, secondUserPackageSummaryStats] = sampleUidStats(/*multiplier=*/2);
+    const auto [secondProcStatInfo, secondSystemSummaryStats] = sampleProcStat(/*multiplier=*/2);
+
+    secondUserPackageSummaryStats.majorFaultsPercentChange =
+            (static_cast<double>(secondUserPackageSummaryStats.totalMajorFaults -
+                                 firstUserPackageSummaryStats.totalMajorFaults) /
+             static_cast<double>(firstUserPackageSummaryStats.totalMajorFaults)) *
+            100.0;
+
+    EXPECT_CALL(*mMockUidStatsCollector, deltaStats()).WillOnce(Return(secondUidStats));
+    EXPECT_CALL(*mMockProcStat, deltaStats()).WillOnce(Return(secondProcStatInfo));
+
+    ASSERT_RESULT_OK(mCollector->onPeriodicCollection(now, SystemState::NORMAL_MODE,
+                                                      mMockUidStatsCollector, mMockProcStat));
+
+    const auto actual = mCollectorPeer->getPeriodicCollectionInfo();
+
+    const CollectionInfo expected{
+            .maxCacheSize = static_cast<size_t>(sysprop::periodicCollectionBufferSize().value_or(
+                    kDefaultPeriodicCollectionBufferSize)),
+            .records = {{.systemSummaryStats = firstSystemSummaryStats,
+                         .userPackageSummaryStats = firstUserPackageSummaryStats},
+                        {.systemSummaryStats = secondSystemSummaryStats,
+                         .userPackageSummaryStats = secondUserPackageSummaryStats}},
+    };
+
+    EXPECT_THAT(actual, CollectionInfoEq(expected))
+            << "Periodic collection info doesn't match.\nExpected:\n"
+            << expected.toString() << "\nActual:\n"
+            << actual.toString();
+
+    ASSERT_NO_FATAL_FAILURE(checkDumpContents(/*wantedEmptyCollectionInstances=*/1))
+            << "Boot-time collection shouldn't be reported";
 }
 
 }  // namespace watchdog

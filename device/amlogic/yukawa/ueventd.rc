@@ -11,6 +11,8 @@ subsystem usbmisc
 /dev/nanohub              0660   system     system
 /dev/nanohub_comms        0660   system     system
 
+/dev/bus/usb/*/*          0660   system     system
+
 /dev/video1               0660   system     camera
 /dev/video2               0660   system     camera
 /dev/video3               0660   system     camera

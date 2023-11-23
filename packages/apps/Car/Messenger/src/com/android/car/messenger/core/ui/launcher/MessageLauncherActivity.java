@@ -16,12 +16,12 @@
 
 package com.android.car.messenger.core.ui.launcher;
 
-import androidx.lifecycle.ViewModelProvider;
 import android.os.Bundle;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 
 import androidx.annotation.NonNull;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.messenger.core.interfaces.AppFactory;
 import com.android.car.messenger.core.models.UserAccount;
@@ -74,9 +74,9 @@ public class MessageLauncherActivity extends FragmentActivity implements InsetsC
 
     @Override
     protected void onResume() {
-        super.onResume();
         L.d("On Resume of Message Activity.");
-        AppFactory.get().getDataModel().refreshUserAccounts();
+        AppFactory.get().getDataModel().refresh();
+        super.onResume();
     }
 
     private void pushContentFragment(

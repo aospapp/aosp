@@ -126,6 +126,7 @@ final class CarDuckingUtils {
 
     static List<String> getAddressesToDuck(int[] usages, CarAudioZone zone) {
         Set<Integer> uniqueContexts = CarAudioContext.getUniqueContextsForUsages(usages);
+        uniqueContexts.remove(INVALID);
         Set<Integer> contextsToDuck = getContextsToDuck(uniqueContexts);
         Set<String> addressesToDuck = getAddressesForContexts(contextsToDuck, zone);
 

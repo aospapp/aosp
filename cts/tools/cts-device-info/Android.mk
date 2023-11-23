@@ -46,7 +46,7 @@ LOCAL_ENFORCE_USES_LIBRARIES := false
 LOCAL_DEX_PREOPT := false
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts general-tests sts mts vts catbox
+LOCAL_COMPATIBILITY_SUITE := cts general-tests sts mts vts catbox gcatbox
 
 include $(BUILD_CTS_DEVICE_INFO_PACKAGE)
 

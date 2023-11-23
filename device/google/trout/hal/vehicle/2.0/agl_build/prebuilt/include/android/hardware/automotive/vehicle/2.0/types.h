@@ -104,8 +104,13 @@ enum class VehiclePropertyType : int32_t;
 enum class VehicleArea : int32_t;
 enum class VehiclePropertyGroup : int32_t;
 enum class VehicleProperty : int32_t;
+enum class ElectronicTollCollectionCardType : int32_t;
+enum class ElectronicTollCollectionCardStatus : int32_t;
 enum class VehicleVendorPermission : int32_t;
 enum class VehicleSeatOccupancyState : int32_t;
+enum class EvsServiceType : int32_t;
+enum class EvsServiceState : int32_t;
+enum class EvsServiceRequestIndex : int32_t;
 enum class VehicleLightState : int32_t;
 enum class VehicleLightSwitch : int32_t;
 enum class EvConnectorType : int32_t;
@@ -180,6 +185,8 @@ struct UserIdentificationResponse;
 struct UserIdentificationAssociation;
 struct UserIdentificationSetAssociation;
 enum class RotaryInputType : int32_t;
+enum class ProcessTerminationReason : int32_t;
+enum class CustomInputType : int32_t;
 
 // Order of inner types was changed for forward reference support.
 
@@ -456,6 +463,12 @@ enum class VehicleProperty : int32_t {
     /**
      * Speed of the vehicle
      *
+     * The value must be positive when the vehicle is moving forward and negative when
+     * the vehicle is moving backward. This value is independent of gear value
+     * (CURRENT_GEAR or GEAR_SELECTION), for example, if GEAR_SELECTION is GEAR_NEUTRAL,
+     * PERF_VEHICLE_SPEED is positive when the vehicle is moving forward, negative when moving
+     * backward, and zero when not moving.
+     *
      * @change_mode VehiclePropertyChangeMode:CONTINUOUS
      * @access VehiclePropertyAccess:READ
      * @unit VehicleUnit:METER_PER_SEC
@@ -627,14 +640,43 @@ enum class VehicleProperty : int32_t {
     /**
      * Tire pressure
      *
-     * min/max value indicates tire pressure sensor range.  Each tire will have a separate min/max
-     * value denoted by its areaConfig.areaId.
+     * Each tires is identified by its areaConfig.areaId config and their
+     * minFloatValue/maxFloatValue are used to store OEM recommended pressure
+     * range.
+     * The Min value in the areaConfig data represents the lower bound of
+     * the recommended tire pressure.
+     * The Max value in the areaConfig data represents the upper bound of
+     * the recommended tire pressure.
+     * For example:
+     * The following areaConfig indicates the recommended tire pressure
+     * of left_front tire is from 200.0 KILOPASCAL to 240.0 KILOPASCAL.
+     * .areaConfigs = {
+     *      VehicleAreaConfig {
+     *          .areaId = VehicleAreaWheel::LEFT_FRONT,
+     *          .minFloatValue = 200.0,
+     *          .maxFloatValue = 240.0,
+     *      }
+     * },
      *
      * @change_mode VehiclePropertyChangeMode:CONTINUOUS
      * @access VehiclePropertyAccess:READ
      * @unit VehicleUnit:KILOPASCAL
      */
     TIRE_PRESSURE = 392168201 /* (0x0309 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:FLOAT | VehicleArea:WHEEL) */,
+    /**
+     * Critically low tire pressure
+     *
+     * This property indicates the critically low pressure threshold for each tire.
+     * It indicates when it is time for tires to be replaced or fixed. The value
+     * must be less than or equal to minFloatValue in TIRE_PRESSURE.
+     * Minimum and maximum property values (that is, minFloatValue, maxFloatValue)
+     * are not applicable to this property.
+     *
+     * @change_mode VehiclePropertyChangeMode:STATIC
+     * @access VehiclePropertyAccess:READ
+     * @unit VehicleUnit:KILOPASCAL
+     */
+    CRITICALLY_LOW_TIRE_PRESSURE = 392168202 /* (0x030A | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:FLOAT | VehicleArea:WHEEL) */,
     /**
      * Currently selected gear
      *
@@ -673,14 +715,14 @@ enum class VehicleProperty : int32_t {
      * Parking brake state.
      *
      * @change_mode VehiclePropertyChangeMode:ON_CHANGE
-     * @access VehiclePropertyAccess:READ_WRITE
+     * @access VehiclePropertyAccess:READ
      */
     PARKING_BRAKE_ON = 287310850 /* (0x0402 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:BOOLEAN | VehicleArea:GLOBAL) */,
     /**
      * Auto-apply parking brake.
      *
      * @change_mode VehiclePropertyChangeMode:ON_CHANGE
-     * @access VehiclePropertyAccess:READ_WRITE
+     * @access VehiclePropertyAccess:READ
      */
     PARKING_BRAKE_AUTO_APPLY = 287310851 /* (0x0403 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:BOOLEAN | VehicleArea:GLOBAL) */,
     /**
@@ -752,7 +794,8 @@ enum class VehicleProperty : int32_t {
     /*
      * HVAC Properties
      *
-     * Additional rules for mapping a zoned HVAC property to AreaIDs:
+     * Additional rules for mapping a zoned HVAC property (except
+     * HVAC_MAX_DEFROST_ON) to AreaIDs:
      *  - Every seat in VehicleAreaSeat that is available in the car, must be
      *    part of an AreaID in the AreaID array.
      *
@@ -809,6 +852,24 @@ enum class VehicleProperty : int32_t {
     /**
      * HVAC, target temperature set.
      *
+     * The configArray is used to indicate the valid values for HVAC in Fahrenheit and Celsius.
+     * Android might use it in the HVAC app UI.
+     * The configArray is set as follows:
+     *      configArray[0] = [the lower bound of the supported temperature in Celsius] * 10.
+     *      configArray[1] = [the upper bound of the supported temperature in Celsius] * 10.
+     *      configArray[2] = [the increment in Celsius] * 10.
+     *      configArray[3] = [the lower bound of the supported temperature in Fahrenheit] * 10.
+     *      configArray[4] = [the upper bound of the supported temperature in Fahrenheit] * 10.
+     *      configArray[5] = [the increment in Fahrenheit] * 10.
+     * For example, if the vehicle supports temperature values as:
+     *      [16.0, 16.5, 17.0 ,..., 28.0] in Celsius
+     *      [60.5, 61.5, 62.5 ,..., 85.5] in Fahrenheit.
+     * The configArray should be configArray = {160, 280, 5, 605, 825, 10}.
+     *
+     * If the vehicle supports HVAC_TEMPERATURE_VALUE_SUGGESTION, the application can use
+     * that property to get the suggested value before setting HVAC_TEMPERATURE_SET. Otherwise,
+     * the application may choose the value in HVAC_TEMPERATURE_SET configArray by itself.
+     *
      * @change_mode VehiclePropertyChangeMode:ON_CHANGE
      * @access VehiclePropertyAccess:READ_WRITE
      * @unit VehicleUnit:CELSIUS
@@ -849,6 +910,11 @@ enum class VehicleProperty : int32_t {
      * possible.  Any parameters modified as a side effect of turning on/off
      * the MAX DEFROST parameter shall generate onPropertyEvent() callbacks to
      * the VHAL.
+     * The AreaIDs for HVAC_MAX_DEFROST_ON indicate MAX DEFROST can be controlled
+     * in the area.
+     * For example:
+     * areaConfig.areaId = {ROW_1_LEFT | ROW_1_RIGHT} indicates HVAC_MAX_DEFROST_ON
+     * only can be controlled for the front rows.
      *
      * @change_mode VehiclePropertyChangeMode:ON_CHANGE
      * @access VehiclePropertyAccess:READ_WRITE
@@ -1063,6 +1129,45 @@ enum class VehicleProperty : int32_t {
      */
     HVAC_ELECTRIC_DEFROSTER_ON = 320865556 /* (0x0514 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:BOOLEAN | VehicleArea:WINDOW) */,
     /**
+     * Suggested values for setting HVAC temperature.
+     *
+     * Implement the property to help applications understand the closest supported temperature
+     * value in Celsius or Fahrenheit.
+     *
+     *      floatValues[0] = the requested value that an application wants to set a temperature to.
+     *      floatValues[1] = the unit for floatValues[0]. It should be one of
+     *                       {VehicleUnit:CELSIUS, VehicleUnit:FAHRENHEIT}.
+     *      floatValues[2] = the value OEMs suggested in CELSIUS. This value is not included
+     *                       in the request.
+     *      floatValues[3] = the value OEMs suggested in FAHRENHEIT. This value is not included
+     *                       in the request.
+     *
+     * An application calls set(VehiclePropValue propValue) with the requested value and unit for
+     * the value. OEMs need to return the suggested values in floatValues[2] and floatValues[3] by
+     * onPropertyEvent() callbacks.
+     *
+     * For example, when a user uses the voice assistant to set HVAC temperature to 66.2 in
+     * Fahrenheit.
+     * First, an application will set this property with the value
+     * [66.2, (float)VehicleUnit:FAHRENHEIT,0,0].
+     * If OEMs suggest to set 19.0 in Celsius or 66.5 in Fahrenheit for user's request, then VHAL
+     * must generate a callback with property value
+     * [66.2, (float)VehicleUnit:FAHRENHEIT, 19.0, 66.5]. After the voice assistant gets the
+     * callback, it will inform the user and set HVAC temperature to the suggested value.
+     *
+     * Another example, an application receives 21 Celsius as the current temperature value by
+     * querying HVC_TEMPERATURE_SET. But the application wants to know what value is displayed on
+     * the car's UI in Fahrenheit.
+     * For this, the application sets the property to [21, (float)VehicleUnit:CELSIUS, 0, 0]. If
+     * the suggested value by the OEM for 21 Celsius is 70 Fahrenheit, then VHAL must generate a
+     * callback with property value [21, (float)VehicleUnit:CELSIUS, 21.0, 70.0].
+     * In this case, the application can know that the value is 70.0 Fahrenheit in the car’s UI.
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ_WRITE
+     */
+    HVAC_TEMPERATURE_VALUE_SUGGESTION = 291570965 /* (0x0515 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:FLOAT_VEC | VehicleArea:GLOBAL) */,
+    /**
      * Distance units for display
      *
      * Indicates which units the car is using to display distances to the user. Eg. Mile, Meter
@@ -1150,6 +1255,38 @@ enum class VehicleProperty : int32_t {
      * @access VehiclePropertyAccess:READ_WRITE
      */
     VEHICLE_SPEED_DISPLAY_UNITS = 289408517 /* (0x0605 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT32 | VehicleArea:GLOBAL) */,
+    /**
+     * Current date and time, encoded as Unix time (in milliseconds).
+     * This value denotes the number of milliseconds seconds that have
+     * elapsed since 1/1/1970 UTC.
+     *
+     * Reading this value will give you the system’s time. This can be
+     * useful to synchronize other vehicle systems (dash clock etc).
+     *
+     * Writing this value will update the ‘ExternalTimeSuggestion’
+     * value (if enabled). This value may be consumed by the “Time
+     * Detector Service”, if other sources do not have a higher
+     * priority. For information on how to adjust time source
+     * priorities see Time Detector Service documentation.
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ_WRITE
+     * @unit VehicleUnit:MILLI_SECS
+     */
+    EPOCH_TIME = 290457094 /* (0x0606 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT64 | VehicleArea:GLOBAL) */,
+    /**
+     * External encryption binding seed.
+     *
+     * This value is mixed with the local key storage encryption key.
+     * This property holds 16 bytes, and is expected to be persisted on an ECU separate from
+     * the IVI. The property is initially set by AAOS, who generates it using a CSRNG.
+     * AAOS will then read the property on subsequent boots. The binding seed is expected to be
+     * reliably persisted. Any loss of the seed results in a factory reset of the IVI.
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ_WRITE
+     */
+    STORAGE_ENCRYPTION_BINDING_SEED = 292554247 /* (0x0607 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:BYTES | VehicleArea:GLOBAL) */,
     /**
      * Outside temperature
      *
@@ -1254,6 +1391,28 @@ enum class VehicleProperty : int32_t {
      * @access VehiclePropertyAccess:READ
      */
     HW_ROTARY_INPUT = 289475104 /* (0x0A20 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT32_VEC | VehicleArea:GLOBAL) */,
+    /**
+     * Defines a custom OEM partner input event.
+     *
+     * This input event must be used by OEM partners who wish to propagate events not supported
+     * by Android. It is composed by an array of int32 values only.
+     *
+     * The Android properties are:
+     *
+     * int32Values[0] : Input code identifying the function representing this event. Valid event
+     *                  types are defined by CustomInputType.CUSTOM_EVENT_F1 up to
+     *                  CustomInputType.CUSTOM_EVENT_F10. They represent the custom event to be
+     *                  defined by OEM partners.
+     * int32Values[1] : target display type defined in VehicleDisplay. Events not tied to specific
+     *                  display must be sent to VehicleDisplay#MAIN.
+     * int32Values[2] : repeat counter, if 0 then event is not repeated. Values 1 or above means
+     *                  how many times this event repeated.
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @data_enum CustomInputType
+     * @access VehiclePropertyAccess:READ
+     */
+    HW_CUSTOM_INPUT = 289475120 /* (0X0A30 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT32_VEC | VehicleArea:GLOBAL) */,
     /**
      * Most Car Cabin properties have both a POSition and MOVE parameter.  These
      * are used to control the various movements for seats, doors, and windows
@@ -2004,21 +2163,28 @@ enum class VehicleProperty : int32_t {
      * int32[5]: 0   // user #0  (usersInfo.existingUsers[0].userId)
      * int32[6]: 1   // flags of user #0  (usersInfo.existingUsers[0].flags)
      *
-     * And if the HAL want to respond with the creation of an admin user called "Admin", the
+     * And if the HAL want to respond with the creation of an admin user called "Owner", the
      * response would be:
      *
-     * int32[0]: 42    // must match the request id from the request
-     * int32[1]:  2    // action = InitialUserInfoResponseAction::CREATE
-     * int32[2]: -1    // userToSwitchOrCreate.userId (not used as user will be created)
-     * int32[3]:  8    // userToSwitchOrCreate.flags = ADMIN
-     * string: "Admin" // userNameToCreate
+     * int32[0]: 42      // must match the request id from the request
+     * int32[1]:  2      // action = InitialUserInfoResponseAction::CREATE
+     * int32[2]: -10000  // userToSwitchOrCreate.userId (not used as user will be created)
+     * int32[3]:  8      // userToSwitchOrCreate.flags = ADMIN
+     * string: "||Owner" // userLocales + separator + userNameToCreate
+     *
+     * Notice the string value represents multiple values, separated by ||. The first value is the
+     * (optional) system locales for the user to be created (in this case, it's empty, meaning it
+     * will use Android's default value), while the second value is the (also optional) name of the
+     * to user to be created (when the type of response is InitialUserInfoResponseAction:CREATE).
+     * For example, to create the same "Owner" user with "en-US" and "pt-BR" locales, the string
+     * value of the response would be "en-US,pt-BR||Owner". As such, neither the locale nor the
+     * name can have || on it, although a single | is fine.
      *
      * NOTE: if the HAL doesn't support user management, then it should not define this property,
      * which in turn would disable the other user-related properties (for example, the Android
      * system would never issue them and user-related requests from the HAL layer would be ignored
-     * by the Android System). But if it supports user management, then it must support all
-     * user-related properties (INITIAL_USER_INFO, SWITCH_USER, CREATE_USER, REMOVE_USER,
-     *       and USER_IDENTIFICATION_ASSOCIATION).
+     * by the Android System). But if it supports user management, then it must support all core
+     * user-related properties (INITIAL_USER_INFO, SWITCH_USER, CREATE_USER, and REMOVE_USER).
      *
      * @change_mode VehiclePropertyChangeMode:ON_CHANGE
      * @access VehiclePropertyAccess:READ_WRITE
@@ -2092,7 +2258,7 @@ enum class VehicleProperty : int32_t {
      * int32[5]:  0   // current user flags (none)
      * int32[6]:  3   // number of users
      * int32[7]:  0   // 1st user (user 0)
-     * int32[8]:  0   // 1st user flags (none)
+     * int32[8]:  1   // 1st user flags (SYSTEM)
      * int32[9]:  10  // 2nd user (user 10)
      * int32[10]: 0   // 2nd user flags (none)
      * int32[11]: 11  // 3rd user (user 11)
@@ -2126,7 +2292,7 @@ enum class VehicleProperty : int32_t {
      * identified the user as A.
      *
      * The HAL makes this request by a property change event (passing a negative request id), and
-     * the Android system will response by issuye an ANDROID_POST_SWITCH call which the same
+     * the Android system will response by issue an ANDROID_POST_SWITCH call which the same
      * request id.
      *
      * For example, if the current foreground Android user is 10 and the HAL asked it to switch to
@@ -2139,9 +2305,9 @@ enum class VehicleProperty : int32_t {
      * If the request succeeded and Android has 3 users (0, 10, 11), the response would be:
      *
      * int32[0]: -108 // request id
-     * int32[1]:  5   // messageType = SwitchUserMessageType::ANDROID_SWITCH
+     * int32[1]:  5   // messageType = SwitchUserMessageType::ANDROID_POST_SWITCH
      * int32[2]:  11  // target user id
-     * int32[3]:  11  // target user id flags (none)
+     * int32[3]:  0   // target user id flags (none)
      * int32[4]:  11  // current user
      * int32[5]:  0   // current user flags (none)
      * int32[6]:  3   // number of users
@@ -2157,17 +2323,21 @@ enum class VehicleProperty : int32_t {
      *
      * 5.ANDROID_POST_SWITCH
      * ---------------------
-     * Called by the Android System after a request to switch a user was made
+     * Called by the Android System after a request to switch a user was made.
      *
      * This property is called after switch requests of any type (i.e., LEGACY_ANDROID_SWITCH,
      * ANDROID_SWITCH, or VEHICLE_REQUEST) and can be used to determine if the request succeeded or
      * failed:
      *
-     * 1. When it succeeded, it's called when the Android user is in the boot locked state and the
-     *    value of the current and target users ids in the response are different. This would be
-     *    equivalent to receiving an Intent.ACTION_LOCKED_BOOT_COMPLETED in an Android app.
+     * 1. When it succeeded, it's called when the Android user is in the unlocked state and the
+     *    value of the current and target users ids in the response are the same. This would be
+     *    equivalent to receiving an Intent.ACTION_USER_UNLOCKED in an Android app.
      * 2. When it failed it's called right away and the value of the current and target users ids
-     *    in the response are the same.
+     *    in the response are different (as the current user didn't change to the target).
+     * 3. If a new switch request is made before the HAL responded to the previous one or before
+     *    the user was unlocked, then the ANDROID_POST_SWITCH request is not made. For example,
+     *    the driver could accidentally switch to the wrong user which has lock credentials, then
+     *    switch to the right one before entering the credentials.
      *
      * The HAL can update its internal state once it receives this request, but it doesn't need to
      * reply back to the Android System.
@@ -2202,7 +2372,7 @@ enum class VehicleProperty : int32_t {
      *
      * int32[0]: 42  // request id
      * int32[1]: 11  // Android id of the created user
-     * int32[2]: 3   // Android flags (ephemeral guest) of the created user
+     * int32[2]: 6   // Android flags (ephemeral guest) of the created user
      * int32[3]: 10  // current user
      * int32[4]: 0   // current user flags (none)
      * int32[5]: 3   // number of users
@@ -2211,7 +2381,7 @@ enum class VehicleProperty : int32_t {
      * int32[8]: 10  // 2nd user (user 10)
      * int32[9]: 0   // 2nd user flags (none)
      * int32[19]: 11 // 3rd user (user 11)
-     * int32[11]: 3  // 3rd user flags (ephemeral guest)
+     * int32[11]: 6  // 3rd user flags (ephemeral guest)
      * string: "ElGuesto" // name of the new user
      *
      * Then if the request succeeded, the HAL would return:
@@ -2223,7 +2393,7 @@ enum class VehicleProperty : int32_t {
      *
      * int32[0]: 42  // request id
      * int32[1]: 2   // CreateUserStatus::FAILURE
-     * string: "D'OH!" // The meaning is opaque - it's passed to the caller (like Settings UI),
+     * string: "D'OH!" // The meaning is a blackbox - it's passed to the caller (like Settings UI),
      *                 // which in turn can take the proper action.
      *
      * @change_mode VehiclePropertyChangeMode:ON_CHANGE
@@ -2264,9 +2434,13 @@ enum class VehicleProperty : int32_t {
      * Property used to associate (or query the association) the current user with vehicle-specific
      * identification mechanisms (such as key FOB).
      *
+     * This is an optional user management property - the OEM could still support user management
+     * without defining it. In fact, this property could be used without supporting the core
+     * user-related functions described on INITIAL_USER_INFO.
+     *
      * To query the association, the Android system gets the property, passing a VehiclePropValue
      * containing the types of associations are being queried, as defined by
-     * UserIdentificationGetRequest. The HAL must return right away, updating the VehiclePropValue
+     * UserIdentificationGetRequest. The HAL must return right away, returning a VehiclePropValue
      * with a UserIdentificationResponse. Notice that user identification should have already
      * happened while system is booting up and the VHAL implementation should only return the
      * already identified association (like the key FOB used to unlock the car), instead of starting
@@ -2281,50 +2455,286 @@ enum class VehicleProperty : int32_t {
      * For example, to query if the current user (10) is associated with the FOB that unlocked the
      * car and a custom mechanism provided by the OEM, the request would be:
      *
-     * int32[0]: 10  (Android user id)
-     * int32[1]: 0   (Android user flags)
-     * int32[2]: 2   (number of types queried)
-     * int32[3]: 1   (1st type queried, UserIdentificationAssociationType::KEY_FOB)
-     * int32[4]: 101 (2nd type queried, UserIdentificationAssociationType::CUSTOM_1)
+     * int32[0]: 42  // request id
+     * int32[1]: 10  (Android user id)
+     * int32[2]: 0   (Android user flags)
+     * int32[3]: 2   (number of types queried)
+     * int32[4]: 1   (1st type queried, UserIdentificationAssociationType::KEY_FOB)
+     * int32[5]: 101 (2nd type queried, UserIdentificationAssociationType::CUSTOM_1)
      *
      * If the user is associated with the FOB but not with the custom mechanism, the response would
      * be:
      *
-     * int32[9]: 2   (number of associations in the response)
-     * int32[1]: 1   (1st type: UserIdentificationAssociationType::KEY_FOB)
-     * int32[2]: 2   (1st value: UserIdentificationAssociationValue::ASSOCIATED_CURRENT_USER)
-     * int32[3]: 101 (2st type: UserIdentificationAssociationType::CUSTOM_1)
-     * int32[4]: 4   (2nd value: UserIdentificationAssociationValue::NOT_ASSOCIATED_ANY_USER)
+     * int32[0]: 42  // request id
+     * int32[1]: 2   (number of associations in the response)
+     * int32[2]: 1   (1st type: UserIdentificationAssociationType::KEY_FOB)
+     * int32[3]: 2   (1st value: UserIdentificationAssociationValue::ASSOCIATED_CURRENT_USER)
+     * int32[4]: 101 (2st type: UserIdentificationAssociationType::CUSTOM_1)
+     * int32[5]: 4   (2nd value: UserIdentificationAssociationValue::NOT_ASSOCIATED_ANY_USER)
      *
      * Then to associate the user with the custom mechanism, a set request would be made:
      *
-     * int32[0]: 10  (Android user id)
-     * int32[0]: 0   (Android user flags)
-     * int32[1]: 1   (number of associations being set)
-     * int32[2]: 101 (1st type: UserIdentificationAssociationType::CUSTOM_1)
-     * int32[3]: 1   (1st value: UserIdentificationAssociationSETValue::ASSOCIATE_CURRENT_USER)
+     * int32[0]: 43  // request id
+     * int32[1]: 10  (Android user id)
+     * int32[2]: 0   (Android user flags)
+     * int32[3]: 1   (number of associations being set)
+     * int32[4]: 101 (1st type: UserIdentificationAssociationType::CUSTOM_1)
+     * int32[5]: 1   (1st value: UserIdentificationAssociationSetValue::ASSOCIATE_CURRENT_USER)
      *
      * If the request succeeded, the response would be simply:
      *
-     * int32[0]: 2   (number of associations in the response)
-     * int32[1]: 101 (1st type: UserIdentificationAssociationType::CUSTOM_1)
-     * int32[2]: 1   (1st value: UserIdentificationAssociationValue::ASSOCIATED_CURRENT_USER)
+     * int32[0]: 43  // request id
+     * int32[1]: 1   (number of associations in the response)
+     * int32[2]: 101 (1st type: UserIdentificationAssociationType::CUSTOM_1)
+     * int32[3]: 1   (1st value: UserIdentificationAssociationValue::ASSOCIATED_CURRENT_USER)
      *
      * Notice that the set request adds associations, but doesn't remove the existing ones. In the
      * example above, the end state would be 2 associations (FOB and CUSTOM_1). If we wanted to
      * associate the user with just CUSTOM_1 but not FOB, then the request should have been:
      *
-     * int32[0]: 10  (Android user id)
-     * int32[1]: 2   (number of types set)
-     * int32[2]: 1   (1st type: UserIdentificationAssociationType::KEY_FOB)
-     * int32[3]: 2   (1st value: UserIdentificationAssociationValue::DISASSOCIATE_CURRENT_USER)
-     * int32[3]: 101 (2nd type: UserIdentificationAssociationType::CUSTOM_1)
-     * int32[5]: 1   (2nd value: UserIdentificationAssociationValue::ASSOCIATE_CURRENT_USER)
+     * int32[0]: 43  // request id
+     * int32[1]: 10  (Android user id)
+     * int32[2]: 2   (number of types set)
+     * int32[3]: 1   (1st type: UserIdentificationAssociationType::KEY_FOB)
+     * int32[4]: 2   (1st value: UserIdentificationAssociationValue::DISASSOCIATE_CURRENT_USER)
+     * int32[5]: 101 (2nd type: UserIdentificationAssociationType::CUSTOM_1)
+     * int32[6]: 1   (2nd value: UserIdentificationAssociationValue::ASSOCIATE_CURRENT_USER)
      *
      * @change_mode VehiclePropertyChangeMode:ON_CHANGE
      * @access VehiclePropertyAccess:READ_WRITE
      */
     USER_IDENTIFICATION_ASSOCIATION = 299896587 /* (0x0F0B | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:MIXED | VehicleArea:GLOBAL) */,
+    /**
+     * Enable/request an EVS service.
+     *
+     * The property provides a generalized way to trigger EVS services.  VHAL
+     * should use this property to request Android to start or stop EVS service.
+     *
+     *  int32Values[0] = a type of the EVS service. The value must be one of enums in
+     *                   EvsServiceType.
+     *  int32Values[1] = the state of the EVS service. The value must be one of enums in
+     *                   EvsServiceState.
+     *
+     * For example, to enable rear view EVS service, android side can set the property value as
+     * [EvsServiceType::REAR_VIEW, EvsServiceState::ON].
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ
+     */
+    EVS_SERVICE_REQUEST = 289476368 /* (0x0F10 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT32_VEC | VehicleArea:GLOBAL) */,
+    /**
+     * Defines a request to apply power policy.
+     *
+     * VHAL sets this property to change car power policy. Car power policy service subscribes to
+     * this property and actually changes the power policy.
+     * The request is made by setting the VehiclePropValue with the ID of a power policy which is
+     * defined at /vendor/etc/power_policy.xml. If the given ID is not defined, car power policy
+     * service ignores the request and the current power policy is maintained.
+     *
+     *   string: "sample_policy_id" // power policy ID
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ
+     */
+    POWER_POLICY_REQ = 286265121 /* (0x0F21 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:STRING | VehicleArea:GLOBAL) */,
+    /**
+     * Defines a request to set the power polic group used to decide a default power policy per
+     * power status transition.
+     *
+     * VHAL sets this property with the ID of a power policy group in order to set the default power
+     * policy applied at power status transition. Power policy groups are defined at
+     * /vendor/etc/power_policy.xml. If the given ID is not defined, car power policy service
+     * ignores the request.
+     * Car power policy service subscribes to this property and sets the power policy group.
+     * The actual application of power policy takes place when the system power status changes and
+     * there is a valid mapped power policy for the new power status.
+     *
+     *   string: "sample_policy_group_id" // power policy group ID
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ
+     */
+    POWER_POLICY_GROUP_REQ = 286265122 /* (0x0F22 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:STRING | VehicleArea:GLOBAL) */,
+    /**
+     * Notifies the current power policy to VHAL layer.
+     *
+     * Car power policy service sets this property when the current power policy is changed.
+     *
+     *   string: "sample_policy_id" // power policy ID
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ_WRITE
+     */
+    CURRENT_POWER_POLICY = 286265123 /* (0x0F23 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:STRING | VehicleArea:GLOBAL) */,
+    /**
+     * Defines an event that car watchdog updates to tell it's alive.
+     *
+     * Car watchdog sets this property to system uptime in milliseconds at every 3 second.
+     * During the boot, the update may take longer time.
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:WRITE
+     */
+    WATCHDOG_ALIVE = 290459441 /* (0xF31 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT64 | VehicleArea:GLOBAL) */,
+    /**
+     * Defines a process terminated by car watchdog and the reason of termination.
+     *
+     *   int32Values[0]: 1         // ProcessTerminationReason showing why a process is terminated.
+     *   string: "/system/bin/log" // Process execution command.
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:WRITE
+     */
+    WATCHDOG_TERMINATED_PROCESS = 299896626 /* (0x0F32 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:MIXED | VehicleArea:GLOBAL) */,
+    /**
+     * Defines an event that VHAL signals to car watchdog as a heartbeat.
+     *
+     * If VHAL supports this property, VHAL should write system uptime to this property at every 3
+     * second. Car watchdog subscribes to this property and checks if the property is updated at
+     * every 3 second. With the buffer time of 3 second, car watchdog waits for a heart beat to be
+     * signaled up to 6 seconds from the last heart beat. If it isn’t, car watchdog considers
+     * VHAL unhealthy and terminates it.
+     * If this property is not supported by VHAL, car watchdog doesn't check VHAL health status.
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ
+     */
+    VHAL_HEARTBEAT = 290459443 /* (0x0F33 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT64 | VehicleArea:GLOBAL) */,
+    /**
+     * Starts the ClusterUI in cluster display.
+     *
+     * int32: the type of ClusterUI to show
+     *    0 indicates ClusterHome, that is a home screen of cluster display, and provides
+     *        the default UI and a kind of launcher functionality for cluster display.
+     *    the other values are followed by OEM's definition.
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ
+     */
+    CLUSTER_SWITCH_UI = 289410868 /* (0x0F34 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT32 | VehicleArea:GLOBAL) */,
+    /**
+     * Changes the state of the cluster display.
+     *
+     * Bounds: the area to render the cluster Activity.
+     * Inset: the area which Activity should avoid from placing any important
+     *     information.
+     *
+     * int32[0]: on/off: 0 - off, 1 - on, -1 - don't care
+     * int32[1]: Bounds - left: positive number - left position in pixels
+     * -1 - don't care (should set all Bounds fields)
+     * int32[2]: Bounds - top:    same format with 'left'
+     * int32[3]: Bounds - right:  same format with 'left'
+     * int32[4]: Bounds - bottom: same format with 'left'
+     * int32[5]: Inset - left: positive number - actual left inset value in pixels
+     * -1 - don't care (should set "don't care" all Inset fields)
+     * int32[6]: Inset - top:    same format with 'left'
+     * int32[7]: Inset - right:  same format with 'left'
+     * int32[8]: Inset - bottom: same format with 'left'
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ
+     */
+    CLUSTER_DISPLAY_STATE = 289476405 /* (0x0F35 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT32_VEC | VehicleArea:GLOBAL) */,
+    /**
+     * Reports the current display state and ClusterUI state.
+     *
+     * ClusterHome will send this message when it handles CLUSTER_SWITCH_UI, CLUSTER_DISPLAY_STATE.
+     *
+     * In addition, ClusterHome should send this message when it starts for the first time.
+     * When ClusterOS receives this message and if the internal expectation is different with the
+     * received message, then it should send CLUSTER_SWITCH_UI, CLUSTER_DISPLAY_STATE again to
+     * match the state.
+     *
+     * int32[0]: on/off: 0 - off, 1 - on
+     * int32[1]: Bounds - left
+     * int32[2]: Bounds - top
+     * int32[3]: Bounds - right
+     * int32[4]: Bounds - bottom
+     * int32[5]: Inset - left
+     * int32[6]: Inset - top
+     * int32[7]: Inset - right
+     * int32[8]: Inset - bottom
+     * int32[9]: the type of ClusterUI in the fullscreen or main screen.
+     *    0 indicates ClusterHome.
+     *    the other values are followed by OEM's definition.
+     * int32[10]: the type of ClusterUI in sub screen if the currently two UIs are shown.
+     *    -1 indicates the area isn't used any more.
+     * bytes: the array to represent the availability of ClusterUI.
+     *     0 indicates non-available and 1 indicates available.
+     *     For example, let's assume a car supports 3 OEM defined ClusterUI like HOME, MAPS, CALL,
+     *     and it only supports CALL UI only when the cellular network is available. Then, if the
+     *     nework is avaibale, it'll send [1 1 1], and if it's out of network, it'll send [1 1 0].
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:WRITE
+     */
+    CLUSTER_REPORT_STATE = 299896630 /* (0x0F36 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:MIXED | VehicleArea:GLOBAL) */,
+    /**
+     * Requests to change the cluster display state to show some ClusterUI.
+     *
+     * When the current display state is off and ClusterHome sends this message to ClusterOS to
+     * request to turn the display on to show some specific ClusterUI.
+     * ClusterOS should response this with CLUSTER_DISPLAY_STATE.
+     *
+     * int32: the type of ClusterUI to show
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:WRITE
+     */
+    CLUSTER_REQUEST_DISPLAY = 289410871 /* (0x0F37 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT32 | VehicleArea:GLOBAL) */,
+    /**
+     * Informs the current navigation state.
+     *
+     * bytes: the serialized message of NavigationStateProto.
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:WRITE
+     */
+    CLUSTER_NAVIGATION_STATE = 292556600 /* (0x0F38 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:BYTES | VehicleArea:GLOBAL) */,
+    /**
+     * Electronic Toll Collection card type.
+     *
+     * This property indicates the type of ETC card in this vehicle.
+     * If the head unit is aware of an ETC card attached to the vehicle, this property should
+     * return the type of card attached; otherwise, this property should be UNAVAILABLE.
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ
+     * @data_enum ElectronicTollCollectionCardType
+     */
+    ELECTRONIC_TOLL_COLLECTION_CARD_TYPE = 289410873 /* (0x0F39 | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT32 | VehicleArea:GLOBAL) */,
+    /**
+     * Electronic Toll Collection card status.
+     *
+     * This property indicates the status of ETC card in this vehicle.
+     * If the head unit is aware of an ETC card attached to the vehicle,
+     * ELECTRONIC_TOLL_COLLECTION_CARD_TYPE gives that status of the card; otherwise,
+     * this property should be UNAVAILABLE.
+     *
+     * @change_mode VehiclePropertyChangeMode:ON_CHANGE
+     * @access VehiclePropertyAccess:READ
+     * @data_enum ElectronicTollCollectionCardStatus
+     */
+    ELECTRONIC_TOLL_COLLECTION_CARD_STATUS = 289410874 /* (0x0F3A | VehiclePropertyGroup:SYSTEM | VehiclePropertyType:INT32 | VehicleArea:GLOBAL) */,
+};
+
+/**
+ * Used by ELECTRONIC_TOLL_COLLECTION_CARD_TYPE.
+ */
+enum class ElectronicTollCollectionCardType : int32_t {
+    UNKNOWN = 0,
+    JP_ELECTRONIC_TOLL_COLLECTION_CARD = 1,
+    JP_ELECTRONIC_TOLL_COLLECTION_CARD_V2 = 2,
+};
+
+/**
+ * Used by ELECTRONIC_TOLL_COLLECTION_CARD_STATUS.
+ */
+enum class ElectronicTollCollectionCardStatus : int32_t {
+    UNKNOWN = 0,
+    ELECTRONIC_TOLL_COLLECTION_CARD_VALID = 1,
+    ELECTRONIC_TOLL_COLLECTION_CARD_INVALID = 2,
+    ELECTRONIC_TOLL_COLLECTION_CARD_NOT_INSERTED = 3,
 };
 
 /**
@@ -2378,6 +2788,30 @@ enum class VehicleSeatOccupancyState : int32_t {
     UNKNOWN = 0,
     VACANT = 1,
     OCCUPIED = 2,
+};
+
+/**
+ * Used by EVS_SERVICE_REQUEST to enumerate the service's type.
+ */
+enum class EvsServiceType : int32_t {
+    REARVIEW = 0,
+    SURROUNDVIEW = 1,
+};
+
+/**
+ * Used by EVS_SERVICE_REQUEST to enumerate the service's state.
+ */
+enum class EvsServiceState : int32_t {
+    OFF = 0,
+    ON = 1,
+};
+
+/**
+ * Index in int32VAlues for VehicleProperty#EVS_SERVICE_REQUEST property.
+ */
+enum class EvsServiceRequestIndex : int32_t {
+    TYPE = 0,
+    STATE = 1,
 };
 
 /**
@@ -2755,6 +3189,7 @@ enum class VehicleUnit : int32_t {
     US_GALLON = 66 /* 0x42 */,
     IMPERIAL_GALLON = 67 /* 0x43 */,
     NANO_SECS = 80 /* 0x50 */,
+    MILLI_SECS = 81 /* 0x51 */,
     SECS = 83 /* 0x53 */,
     YEAR = 89 /* 0x59 */,
     WATT_HOUR = 96 /* 0x60 */,
@@ -3037,7 +3472,8 @@ struct VehiclePropValue final {
 //    static_assert(__alignof(::android::hardware::automotive::vehicle::V2_0::VehiclePropValue::RawValue) == 8, "wrong alignment");
 
     /**
-     * Time is elapsed nanoseconds since boot
+     * Time is elapsed nanoseconds since boot. It's equivalent to
+     * {@code SystemClock.elapsedRealtimeNano()}.
      */
     int64_t timestamp __attribute__ ((aligned(8)));
     /**
@@ -4072,6 +4508,14 @@ enum class UserFlags : int32_t {
      * Admin users have additional privileges such as permission to create other users.
      */
     ADMIN = 8 /* 0x08 */,
+    /**
+     * Disabled users are marked for deletion.
+     */
+    DISABLED = 16 /* 0x10 */,
+    /**
+     * Profile user is a profile of another user.
+     */
+    PROFILE = 32 /* 0x20 */,
 };
 
 /**
@@ -4100,11 +4544,13 @@ struct UsersInfo final {
      */
     ::android::hardware::automotive::vehicle::V2_0::UserInfo currentUser __attribute__ ((aligned(4)));
     /**
-     * Number of existing users (includes the current user).
+     * Number of existing users; includes the current user, recently removed users (with DISABLED
+     * flag), and profile users (with PROFILE flag).
      */
     int32_t numberUsers __attribute__ ((aligned(4)));
     /**
-     * List of existing users (includes the current user).
+     * List of existing users; includes the current user, recently removed users (with DISABLED
+     * flag), and profile users (with PROFILE flag).
      */
     ::android::hardware::hidl_vec<::android::hardware::automotive::vehicle::V2_0::UserInfo> existingUsers __attribute__ ((aligned(8)));
 };
@@ -4215,6 +4661,11 @@ struct InitialUserInfoResponse final {
      */
     ::android::hardware::automotive::vehicle::V2_0::UserInfo userToSwitchOrCreate __attribute__ ((aligned(4)));
     /**
+     * System locales of the initial user (value will be passed as-is to
+     * android.provider.Settings.System.SYSTEM_LOCALES)
+     */
+    ::android::hardware::hidl_string userLocales __attribute__ ((aligned(8)));
+    /**
      * Name of the user that should be created.
      */
     ::android::hardware::hidl_string userNameToCreate __attribute__ ((aligned(8)));
@@ -4223,8 +4674,9 @@ struct InitialUserInfoResponse final {
 // static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::InitialUserInfoResponse, requestId) == 0, "wrong offset");
 // static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::InitialUserInfoResponse, action) == 4, "wrong offset");
 // static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::InitialUserInfoResponse, userToSwitchOrCreate) == 8, "wrong offset");
-// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::InitialUserInfoResponse, userNameToCreate) == 16, "wrong offset");
-// static_assert(sizeof(::android::hardware::automotive::vehicle::V2_0::InitialUserInfoResponse) == 32, "wrong size");
+// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::InitialUserInfoResponse, userLocales) == 16, "wrong offset");
+// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::InitialUserInfoResponse, userNameToCreate) == 32, "wrong offset");
+// static_assert(sizeof(::android::hardware::automotive::vehicle::V2_0::InitialUserInfoResponse) == 48, "wrong size");
 // static_assert(__alignof(::android::hardware::automotive::vehicle::V2_0::InitialUserInfoResponse) == 8, "wrong alignment");
 
 /**
@@ -4507,6 +4959,10 @@ enum class UserIdentificationAssociationSetValue : int32_t {
  */
 struct UserIdentificationGetRequest final {
     /**
+     * Id of the request being responded.
+     */
+    int32_t requestId __attribute__ ((aligned(4)));
+    /**
      * Information about the current foreground Android user.
      */
     ::android::hardware::automotive::vehicle::V2_0::UserInfo userInfo __attribute__ ((aligned(4)));
@@ -4520,8 +4976,9 @@ struct UserIdentificationGetRequest final {
     ::android::hardware::hidl_vec<::android::hardware::automotive::vehicle::V2_0::UserIdentificationAssociationType> associationTypes __attribute__ ((aligned(8)));
 };
 
-// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationGetRequest, userInfo) == 0, "wrong offset");
-// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationGetRequest, numberAssociationTypes) == 8, "wrong offset");
+// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationGetRequest, requestId) == 0, "wrong offset");
+// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationGetRequest, userInfo) == 4, "wrong offset");
+// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationGetRequest, numberAssociationTypes) == 12, "wrong offset");
 // static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationGetRequest, associationTypes) == 16, "wrong offset");
 // static_assert(sizeof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationGetRequest) == 32, "wrong size");
 // static_assert(__alignof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationGetRequest) == 8, "wrong alignment");
@@ -4534,6 +4991,10 @@ struct UserIdentificationGetRequest final {
  */
 struct UserIdentificationSetRequest final {
     /**
+     * Id of the request being responded.
+     */
+    int32_t requestId __attribute__ ((aligned(4)));
+    /**
      * Information about the current foreground Android user.
      */
     ::android::hardware::automotive::vehicle::V2_0::UserInfo userInfo __attribute__ ((aligned(4)));
@@ -4544,11 +5005,12 @@ struct UserIdentificationSetRequest final {
     /**
      * Associations being set.
      */
-    ::android::hardware::hidl_vec<::android::hardware::automotive::vehicle::V2_0::UserIdentificationAssociationSetValue> associations __attribute__ ((aligned(8)));
+    ::android::hardware::hidl_vec<::android::hardware::automotive::vehicle::V2_0::UserIdentificationSetAssociation> associations __attribute__ ((aligned(8)));
 };
 
-// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationSetRequest, userInfo) == 0, "wrong offset");
-// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationSetRequest, numberAssociations) == 8, "wrong offset");
+// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationSetRequest, requestId) == 0, "wrong offset");
+// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationSetRequest, userInfo) == 4, "wrong offset");
+// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationSetRequest, numberAssociations) == 12, "wrong offset");
 // static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationSetRequest, associations) == 16, "wrong offset");
 // static_assert(sizeof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationSetRequest) == 32, "wrong size");
 // static_assert(__alignof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationSetRequest) == 8, "wrong alignment");
@@ -4560,6 +5022,10 @@ struct UserIdentificationSetRequest final {
  * VehiclePropValue.RawValue through libraries provided by the default Vehicle HAL implementation.
  */
 struct UserIdentificationResponse final {
+    /**
+     * Id of the request being responded.
+     */
+    int32_t requestId __attribute__ ((aligned(4)));
     /**
      * Number of associations being returned.
      */
@@ -4577,7 +5043,8 @@ struct UserIdentificationResponse final {
     ::android::hardware::hidl_string errorMessage __attribute__ ((aligned(8)));
 };
 
-// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationResponse, numberAssociation) == 0, "wrong offset");
+// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationResponse, requestId) == 0, "wrong offset");
+// static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationResponse, numberAssociation) == 4, "wrong offset");
 // static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationResponse, associations) == 8, "wrong offset");
 // static_assert(offsetof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationResponse, errorMessage) == 24, "wrong offset");
 // static_assert(sizeof(::android::hardware::automotive::vehicle::V2_0::UserIdentificationResponse) == 40, "wrong size");
@@ -4622,6 +5089,47 @@ enum class RotaryInputType : int32_t {
      * Volume control for adjusting audio volume.
      */
     ROTARY_INPUT_TYPE_AUDIO_VOLUME = 1,
+};
+
+/**
+ * The reason why a process is terminated by car watchdog.
+ * This is used with WATCHDOG_TERMINATED_PROCESS property.
+ */
+enum class ProcessTerminationReason : int32_t {
+    /**
+     * A process doesn't respond to car watchdog within the timeout.
+     */
+    NOT_RESPONDING = 1,
+    /**
+     * A process uses more IO operations than what is allowed.
+     */
+    IO_OVERUSE = 2,
+    /**
+     * A process uses more memory space than what is allowed.
+     */
+    MEMORY_OVERUSE = 3,
+};
+
+/**
+ * Input code values for HW_CUSTOM_INPUT.
+ */
+enum class CustomInputType : int32_t {
+    /**
+     * Ten functions representing the custom input code to be defined and implemented by OEM
+     * partners.
+     *
+     * OEMs need to formally contact Android team if more than 10 functions are required.
+     */
+    CUSTOM_EVENT_F1 = 1001,
+    CUSTOM_EVENT_F2 = 1002,
+    CUSTOM_EVENT_F3 = 1003,
+    CUSTOM_EVENT_F4 = 1004,
+    CUSTOM_EVENT_F5 = 1005,
+    CUSTOM_EVENT_F6 = 1006,
+    CUSTOM_EVENT_F7 = 1007,
+    CUSTOM_EVENT_F8 = 1008,
+    CUSTOM_EVENT_F9 = 1009,
+    CUSTOM_EVENT_F10 = 1010,
 };
 
 //
@@ -4754,6 +5262,68 @@ constexpr int32_t &operator&=(int32_t& v, const ::android::hardware::automotive:
 
 template<typename>
 static inline std::string toString(int32_t o);
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType o);
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType o, ::std::ostream* os);
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType lhs, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType rhs) {
+    return static_cast<int32_t>(lhs | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | rhs);
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType lhs, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType rhs) {
+    return static_cast<int32_t>(lhs & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & rhs);
+}
+constexpr int32_t &operator|=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType e) {
+    v |= static_cast<int32_t>(e);
+    return v;
+}
+constexpr int32_t &operator&=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType e) {
+    v &= static_cast<int32_t>(e);
+    return v;
+}
+
+template<typename>
+static inline std::string toString(int32_t o);
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus o);
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus o, ::std::ostream* os);
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus lhs, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus rhs) {
+    return static_cast<int32_t>(lhs | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | rhs);
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus lhs, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus rhs) {
+    return static_cast<int32_t>(lhs & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & rhs);
+}
+constexpr int32_t &operator|=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus e) {
+    v |= static_cast<int32_t>(e);
+    return v;
+}
+constexpr int32_t &operator&=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus e) {
+    v &= static_cast<int32_t>(e);
+    return v;
+}
+
+template<typename>
+static inline std::string toString(int32_t o);
 static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::VehicleVendorPermission o);
 static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::VehicleVendorPermission o, ::std::ostream* os);
 constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::VehicleVendorPermission lhs, const ::android::hardware::automotive::vehicle::V2_0::VehicleVendorPermission rhs) {
@@ -4810,6 +5380,99 @@ constexpr int32_t &operator|=(int32_t& v, const ::android::hardware::automotive:
     return v;
 }
 constexpr int32_t &operator&=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::VehicleSeatOccupancyState e) {
+    v &= static_cast<int32_t>(e);
+    return v;
+}
+
+template<typename>
+static inline std::string toString(int32_t o);
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::EvsServiceType o);
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::EvsServiceType o, ::std::ostream* os);
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceType lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceType rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceType rhs) {
+    return static_cast<int32_t>(lhs | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceType lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | rhs);
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceType lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceType rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceType rhs) {
+    return static_cast<int32_t>(lhs & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceType lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & rhs);
+}
+constexpr int32_t &operator|=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceType e) {
+    v |= static_cast<int32_t>(e);
+    return v;
+}
+constexpr int32_t &operator&=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceType e) {
+    v &= static_cast<int32_t>(e);
+    return v;
+}
+
+template<typename>
+static inline std::string toString(int32_t o);
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::EvsServiceState o);
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::EvsServiceState o, ::std::ostream* os);
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceState lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceState rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceState rhs) {
+    return static_cast<int32_t>(lhs | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceState lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | rhs);
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceState lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceState rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceState rhs) {
+    return static_cast<int32_t>(lhs & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceState lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & rhs);
+}
+constexpr int32_t &operator|=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceState e) {
+    v |= static_cast<int32_t>(e);
+    return v;
+}
+constexpr int32_t &operator&=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceState e) {
+    v &= static_cast<int32_t>(e);
+    return v;
+}
+
+template<typename>
+static inline std::string toString(int32_t o);
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex o);
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex o, ::std::ostream* os);
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex rhs) {
+    return static_cast<int32_t>(lhs | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | rhs);
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex rhs) {
+    return static_cast<int32_t>(lhs & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & rhs);
+}
+constexpr int32_t &operator|=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex e) {
+    v |= static_cast<int32_t>(e);
+    return v;
+}
+constexpr int32_t &operator&=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex e) {
     v &= static_cast<int32_t>(e);
     return v;
 }
@@ -6645,6 +7308,68 @@ constexpr int32_t &operator&=(int32_t& v, const ::android::hardware::automotive:
     return v;
 }
 
+template<typename>
+static inline std::string toString(int32_t o);
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason o);
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason o, ::std::ostream* os);
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason lhs, const ::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason rhs) {
+    return static_cast<int32_t>(lhs | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | rhs);
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason lhs, const ::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason rhs) {
+    return static_cast<int32_t>(lhs & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & rhs);
+}
+constexpr int32_t &operator|=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason e) {
+    v |= static_cast<int32_t>(e);
+    return v;
+}
+constexpr int32_t &operator&=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::ProcessTerminationReason e) {
+    v &= static_cast<int32_t>(e);
+    return v;
+}
+
+template<typename>
+static inline std::string toString(int32_t o);
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::CustomInputType o);
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::CustomInputType o, ::std::ostream* os);
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::CustomInputType lhs, const ::android::hardware::automotive::vehicle::V2_0::CustomInputType rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::CustomInputType rhs) {
+    return static_cast<int32_t>(lhs | static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator|(const ::android::hardware::automotive::vehicle::V2_0::CustomInputType lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) | rhs);
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::CustomInputType lhs, const ::android::hardware::automotive::vehicle::V2_0::CustomInputType rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const int32_t lhs, const ::android::hardware::automotive::vehicle::V2_0::CustomInputType rhs) {
+    return static_cast<int32_t>(lhs & static_cast<int32_t>(rhs));
+}
+constexpr int32_t operator&(const ::android::hardware::automotive::vehicle::V2_0::CustomInputType lhs, const int32_t rhs) {
+    return static_cast<int32_t>(static_cast<int32_t>(lhs) & rhs);
+}
+constexpr int32_t &operator|=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::CustomInputType e) {
+    v |= static_cast<int32_t>(e);
+    return v;
+}
+constexpr int32_t &operator&=(int32_t& v, const ::android::hardware::automotive::vehicle::V2_0::CustomInputType e) {
+    v &= static_cast<int32_t>(e);
+    return v;
+}
+
 //
 // type header definitions for package
 //
@@ -7114,6 +7839,12 @@ inline std::string toString<::android::hardware::automotive::vehicle::V2_0::Vehi
         first = false;
         flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::TIRE_PRESSURE;
     }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CRITICALLY_LOW_TIRE_PRESSURE) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CRITICALLY_LOW_TIRE_PRESSURE)) {
+        os += (first ? "" : " | ");
+        os += "CRITICALLY_LOW_TIRE_PRESSURE";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CRITICALLY_LOW_TIRE_PRESSURE;
+    }
     if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::GEAR_SELECTION) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::GEAR_SELECTION)) {
         os += (first ? "" : " | ");
         os += "GEAR_SELECTION";
@@ -7300,6 +8031,12 @@ inline std::string toString<::android::hardware::automotive::vehicle::V2_0::Vehi
         first = false;
         flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HVAC_ELECTRIC_DEFROSTER_ON;
     }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HVAC_TEMPERATURE_VALUE_SUGGESTION) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HVAC_TEMPERATURE_VALUE_SUGGESTION)) {
+        os += (first ? "" : " | ");
+        os += "HVAC_TEMPERATURE_VALUE_SUGGESTION";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HVAC_TEMPERATURE_VALUE_SUGGESTION;
+    }
     if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::DISTANCE_DISPLAY_UNITS) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::DISTANCE_DISPLAY_UNITS)) {
         os += (first ? "" : " | ");
         os += "DISTANCE_DISPLAY_UNITS";
@@ -7335,6 +8072,18 @@ inline std::string toString<::android::hardware::automotive::vehicle::V2_0::Vehi
         os += "VEHICLE_SPEED_DISPLAY_UNITS";
         first = false;
         flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::VEHICLE_SPEED_DISPLAY_UNITS;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::EPOCH_TIME) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::EPOCH_TIME)) {
+        os += (first ? "" : " | ");
+        os += "EPOCH_TIME";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::EPOCH_TIME;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::STORAGE_ENCRYPTION_BINDING_SEED) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::STORAGE_ENCRYPTION_BINDING_SEED)) {
+        os += (first ? "" : " | ");
+        os += "STORAGE_ENCRYPTION_BINDING_SEED";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::STORAGE_ENCRYPTION_BINDING_SEED;
     }
     if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::ENV_OUTSIDE_TEMPERATURE) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::ENV_OUTSIDE_TEMPERATURE)) {
         os += (first ? "" : " | ");
@@ -7377,6 +8126,12 @@ inline std::string toString<::android::hardware::automotive::vehicle::V2_0::Vehi
         os += "HW_ROTARY_INPUT";
         first = false;
         flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HW_ROTARY_INPUT;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HW_CUSTOM_INPUT) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HW_CUSTOM_INPUT)) {
+        os += (first ? "" : " | ");
+        os += "HW_CUSTOM_INPUT";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HW_CUSTOM_INPUT;
     }
     if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::DOOR_POS) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::DOOR_POS)) {
         os += (first ? "" : " | ");
@@ -7762,6 +8517,90 @@ inline std::string toString<::android::hardware::automotive::vehicle::V2_0::Vehi
         first = false;
         flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::USER_IDENTIFICATION_ASSOCIATION;
     }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::EVS_SERVICE_REQUEST) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::EVS_SERVICE_REQUEST)) {
+        os += (first ? "" : " | ");
+        os += "EVS_SERVICE_REQUEST";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::EVS_SERVICE_REQUEST;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::POWER_POLICY_REQ) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::POWER_POLICY_REQ)) {
+        os += (first ? "" : " | ");
+        os += "POWER_POLICY_REQ";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::POWER_POLICY_REQ;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::POWER_POLICY_GROUP_REQ) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::POWER_POLICY_GROUP_REQ)) {
+        os += (first ? "" : " | ");
+        os += "POWER_POLICY_GROUP_REQ";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::POWER_POLICY_GROUP_REQ;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CURRENT_POWER_POLICY) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CURRENT_POWER_POLICY)) {
+        os += (first ? "" : " | ");
+        os += "CURRENT_POWER_POLICY";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CURRENT_POWER_POLICY;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::WATCHDOG_ALIVE) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::WATCHDOG_ALIVE)) {
+        os += (first ? "" : " | ");
+        os += "WATCHDOG_ALIVE";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::WATCHDOG_ALIVE;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::WATCHDOG_TERMINATED_PROCESS) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::WATCHDOG_TERMINATED_PROCESS)) {
+        os += (first ? "" : " | ");
+        os += "WATCHDOG_TERMINATED_PROCESS";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::WATCHDOG_TERMINATED_PROCESS;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::VHAL_HEARTBEAT) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::VHAL_HEARTBEAT)) {
+        os += (first ? "" : " | ");
+        os += "VHAL_HEARTBEAT";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::VHAL_HEARTBEAT;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_SWITCH_UI) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_SWITCH_UI)) {
+        os += (first ? "" : " | ");
+        os += "CLUSTER_SWITCH_UI";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_SWITCH_UI;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_DISPLAY_STATE) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_DISPLAY_STATE)) {
+        os += (first ? "" : " | ");
+        os += "CLUSTER_DISPLAY_STATE";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_DISPLAY_STATE;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_REPORT_STATE) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_REPORT_STATE)) {
+        os += (first ? "" : " | ");
+        os += "CLUSTER_REPORT_STATE";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_REPORT_STATE;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_REQUEST_DISPLAY) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_REQUEST_DISPLAY)) {
+        os += (first ? "" : " | ");
+        os += "CLUSTER_REQUEST_DISPLAY";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_REQUEST_DISPLAY;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_NAVIGATION_STATE) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_NAVIGATION_STATE)) {
+        os += (first ? "" : " | ");
+        os += "CLUSTER_NAVIGATION_STATE";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_NAVIGATION_STATE;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::ELECTRONIC_TOLL_COLLECTION_CARD_TYPE) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::ELECTRONIC_TOLL_COLLECTION_CARD_TYPE)) {
+        os += (first ? "" : " | ");
+        os += "ELECTRONIC_TOLL_COLLECTION_CARD_TYPE";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::ELECTRONIC_TOLL_COLLECTION_CARD_TYPE;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::ELECTRONIC_TOLL_COLLECTION_CARD_STATUS) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleProperty::ELECTRONIC_TOLL_COLLECTION_CARD_STATUS)) {
+        os += (first ? "" : " | ");
+        os += "ELECTRONIC_TOLL_COLLECTION_CARD_STATUS";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::ELECTRONIC_TOLL_COLLECTION_CARD_STATUS;
+    }
     if (o != flipped) {
         os += (first ? "" : " | ");
         os += toHexString(o & (~flipped));
@@ -7869,6 +8708,9 @@ static inline std::string toString(::android::hardware::automotive::vehicle::V2_
     if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::TIRE_PRESSURE) {
         return "TIRE_PRESSURE";
     }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CRITICALLY_LOW_TIRE_PRESSURE) {
+        return "CRITICALLY_LOW_TIRE_PRESSURE";
+    }
     if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::GEAR_SELECTION) {
         return "GEAR_SELECTION";
     }
@@ -7962,6 +8804,9 @@ static inline std::string toString(::android::hardware::automotive::vehicle::V2_
     if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HVAC_ELECTRIC_DEFROSTER_ON) {
         return "HVAC_ELECTRIC_DEFROSTER_ON";
     }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HVAC_TEMPERATURE_VALUE_SUGGESTION) {
+        return "HVAC_TEMPERATURE_VALUE_SUGGESTION";
+    }
     if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::DISTANCE_DISPLAY_UNITS) {
         return "DISTANCE_DISPLAY_UNITS";
     }
@@ -7979,6 +8824,12 @@ static inline std::string toString(::android::hardware::automotive::vehicle::V2_
     }
     if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::VEHICLE_SPEED_DISPLAY_UNITS) {
         return "VEHICLE_SPEED_DISPLAY_UNITS";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::EPOCH_TIME) {
+        return "EPOCH_TIME";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::STORAGE_ENCRYPTION_BINDING_SEED) {
+        return "STORAGE_ENCRYPTION_BINDING_SEED";
     }
     if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::ENV_OUTSIDE_TEMPERATURE) {
         return "ENV_OUTSIDE_TEMPERATURE";
@@ -8000,6 +8851,9 @@ static inline std::string toString(::android::hardware::automotive::vehicle::V2_
     }
     if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HW_ROTARY_INPUT) {
         return "HW_ROTARY_INPUT";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::HW_CUSTOM_INPUT) {
+        return "HW_CUSTOM_INPUT";
     }
     if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::DOOR_POS) {
         return "DOOR_POS";
@@ -8193,12 +9047,169 @@ static inline std::string toString(::android::hardware::automotive::vehicle::V2_
     if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::USER_IDENTIFICATION_ASSOCIATION) {
         return "USER_IDENTIFICATION_ASSOCIATION";
     }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::EVS_SERVICE_REQUEST) {
+        return "EVS_SERVICE_REQUEST";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::POWER_POLICY_REQ) {
+        return "POWER_POLICY_REQ";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::POWER_POLICY_GROUP_REQ) {
+        return "POWER_POLICY_GROUP_REQ";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CURRENT_POWER_POLICY) {
+        return "CURRENT_POWER_POLICY";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::WATCHDOG_ALIVE) {
+        return "WATCHDOG_ALIVE";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::WATCHDOG_TERMINATED_PROCESS) {
+        return "WATCHDOG_TERMINATED_PROCESS";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::VHAL_HEARTBEAT) {
+        return "VHAL_HEARTBEAT";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_SWITCH_UI) {
+        return "CLUSTER_SWITCH_UI";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_DISPLAY_STATE) {
+        return "CLUSTER_DISPLAY_STATE";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_REPORT_STATE) {
+        return "CLUSTER_REPORT_STATE";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_REQUEST_DISPLAY) {
+        return "CLUSTER_REQUEST_DISPLAY";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::CLUSTER_NAVIGATION_STATE) {
+        return "CLUSTER_NAVIGATION_STATE";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::ELECTRONIC_TOLL_COLLECTION_CARD_TYPE) {
+        return "ELECTRONIC_TOLL_COLLECTION_CARD_TYPE";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleProperty::ELECTRONIC_TOLL_COLLECTION_CARD_STATUS) {
+        return "ELECTRONIC_TOLL_COLLECTION_CARD_STATUS";
+    }
     std::string os;
     os += toHexString(static_cast<int32_t>(o));
     return os;
 }
 
 static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::VehicleProperty o, ::std::ostream* os) {
+    *os << toString(o);
+}
+
+template<>
+inline std::string toString<::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType>(int32_t o) {
+    using ::android::hardware::details::toHexString;
+    std::string os;
+    ::android::hardware::hidl_bitfield<::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType> flipped = 0;
+    bool first = true;
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::UNKNOWN) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::UNKNOWN)) {
+        os += (first ? "" : " | ");
+        os += "UNKNOWN";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::UNKNOWN;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::JP_ELECTRONIC_TOLL_COLLECTION_CARD) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::JP_ELECTRONIC_TOLL_COLLECTION_CARD)) {
+        os += (first ? "" : " | ");
+        os += "JP_ELECTRONIC_TOLL_COLLECTION_CARD";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::JP_ELECTRONIC_TOLL_COLLECTION_CARD;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::JP_ELECTRONIC_TOLL_COLLECTION_CARD_V2) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::JP_ELECTRONIC_TOLL_COLLECTION_CARD_V2)) {
+        os += (first ? "" : " | ");
+        os += "JP_ELECTRONIC_TOLL_COLLECTION_CARD_V2";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::JP_ELECTRONIC_TOLL_COLLECTION_CARD_V2;
+    }
+    if (o != flipped) {
+        os += (first ? "" : " | ");
+        os += toHexString(o & (~flipped));
+    }os += " (";
+    os += toHexString(o);
+    os += ")";
+    return os;
+}
+
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType o) {
+    using ::android::hardware::details::toHexString;
+    if (o == ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::UNKNOWN) {
+        return "UNKNOWN";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::JP_ELECTRONIC_TOLL_COLLECTION_CARD) {
+        return "JP_ELECTRONIC_TOLL_COLLECTION_CARD";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType::JP_ELECTRONIC_TOLL_COLLECTION_CARD_V2) {
+        return "JP_ELECTRONIC_TOLL_COLLECTION_CARD_V2";
+    }
+    std::string os;
+    os += toHexString(static_cast<int32_t>(o));
+    return os;
+}
+
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardType o, ::std::ostream* os) {
+    *os << toString(o);
+}
+
+template<>
+inline std::string toString<::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus>(int32_t o) {
+    using ::android::hardware::details::toHexString;
+    std::string os;
+    ::android::hardware::hidl_bitfield<::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus> flipped = 0;
+    bool first = true;
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::UNKNOWN) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::UNKNOWN)) {
+        os += (first ? "" : " | ");
+        os += "UNKNOWN";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::UNKNOWN;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_VALID) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_VALID)) {
+        os += (first ? "" : " | ");
+        os += "ELECTRONIC_TOLL_COLLECTION_CARD_VALID";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_VALID;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_INVALID) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_INVALID)) {
+        os += (first ? "" : " | ");
+        os += "ELECTRONIC_TOLL_COLLECTION_CARD_INVALID";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_INVALID;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_NOT_INSERTED) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_NOT_INSERTED)) {
+        os += (first ? "" : " | ");
+        os += "ELECTRONIC_TOLL_COLLECTION_CARD_NOT_INSERTED";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_NOT_INSERTED;
+    }
+    if (o != flipped) {
+        os += (first ? "" : " | ");
+        os += toHexString(o & (~flipped));
+    }os += " (";
+    os += toHexString(o);
+    os += ")";
+    return os;
+}
+
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus o) {
+    using ::android::hardware::details::toHexString;
+    if (o == ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::UNKNOWN) {
+        return "UNKNOWN";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_VALID) {
+        return "ELECTRONIC_TOLL_COLLECTION_CARD_VALID";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_INVALID) {
+        return "ELECTRONIC_TOLL_COLLECTION_CARD_INVALID";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus::ELECTRONIC_TOLL_COLLECTION_CARD_NOT_INSERTED) {
+        return "ELECTRONIC_TOLL_COLLECTION_CARD_NOT_INSERTED";
+    }
+    std::string os;
+    os += toHexString(static_cast<int32_t>(o));
+    return os;
+}
+
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::ElectronicTollCollectionCardStatus o, ::std::ostream* os) {
     *os << toString(o);
 }
 
@@ -8620,6 +9631,138 @@ static inline std::string toString(::android::hardware::automotive::vehicle::V2_
 }
 
 static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::VehicleSeatOccupancyState o, ::std::ostream* os) {
+    *os << toString(o);
+}
+
+template<>
+inline std::string toString<::android::hardware::automotive::vehicle::V2_0::EvsServiceType>(int32_t o) {
+    using ::android::hardware::details::toHexString;
+    std::string os;
+    ::android::hardware::hidl_bitfield<::android::hardware::automotive::vehicle::V2_0::EvsServiceType> flipped = 0;
+    bool first = true;
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::EvsServiceType::REARVIEW) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::EvsServiceType::REARVIEW)) {
+        os += (first ? "" : " | ");
+        os += "REARVIEW";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::EvsServiceType::REARVIEW;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::EvsServiceType::SURROUNDVIEW) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::EvsServiceType::SURROUNDVIEW)) {
+        os += (first ? "" : " | ");
+        os += "SURROUNDVIEW";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::EvsServiceType::SURROUNDVIEW;
+    }
+    if (o != flipped) {
+        os += (first ? "" : " | ");
+        os += toHexString(o & (~flipped));
+    }os += " (";
+    os += toHexString(o);
+    os += ")";
+    return os;
+}
+
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::EvsServiceType o) {
+    using ::android::hardware::details::toHexString;
+    if (o == ::android::hardware::automotive::vehicle::V2_0::EvsServiceType::REARVIEW) {
+        return "REARVIEW";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::EvsServiceType::SURROUNDVIEW) {
+        return "SURROUNDVIEW";
+    }
+    std::string os;
+    os += toHexString(static_cast<int32_t>(o));
+    return os;
+}
+
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::EvsServiceType o, ::std::ostream* os) {
+    *os << toString(o);
+}
+
+template<>
+inline std::string toString<::android::hardware::automotive::vehicle::V2_0::EvsServiceState>(int32_t o) {
+    using ::android::hardware::details::toHexString;
+    std::string os;
+    ::android::hardware::hidl_bitfield<::android::hardware::automotive::vehicle::V2_0::EvsServiceState> flipped = 0;
+    bool first = true;
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::EvsServiceState::OFF) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::EvsServiceState::OFF)) {
+        os += (first ? "" : " | ");
+        os += "OFF";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::EvsServiceState::OFF;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::EvsServiceState::ON) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::EvsServiceState::ON)) {
+        os += (first ? "" : " | ");
+        os += "ON";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::EvsServiceState::ON;
+    }
+    if (o != flipped) {
+        os += (first ? "" : " | ");
+        os += toHexString(o & (~flipped));
+    }os += " (";
+    os += toHexString(o);
+    os += ")";
+    return os;
+}
+
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::EvsServiceState o) {
+    using ::android::hardware::details::toHexString;
+    if (o == ::android::hardware::automotive::vehicle::V2_0::EvsServiceState::OFF) {
+        return "OFF";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::EvsServiceState::ON) {
+        return "ON";
+    }
+    std::string os;
+    os += toHexString(static_cast<int32_t>(o));
+    return os;
+}
+
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::EvsServiceState o, ::std::ostream* os) {
+    *os << toString(o);
+}
+
+template<>
+inline std::string toString<::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex>(int32_t o) {
+    using ::android::hardware::details::toHexString;
+    std::string os;
+    ::android::hardware::hidl_bitfield<::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex> flipped = 0;
+    bool first = true;
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex::TYPE) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex::TYPE)) {
+        os += (first ? "" : " | ");
+        os += "TYPE";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex::TYPE;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex::STATE) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex::STATE)) {
+        os += (first ? "" : " | ");
+        os += "STATE";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex::STATE;
+    }
+    if (o != flipped) {
+        os += (first ? "" : " | ");
+        os += toHexString(o & (~flipped));
+    }os += " (";
+    os += toHexString(o);
+    os += ")";
+    return os;
+}
+
+static inline std::string toString(::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex o) {
+    using ::android::hardware::details::toHexString;
+    if (o == ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex::TYPE) {
+        return "TYPE";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex::STATE) {
+        return "STATE";
+    }
+    std::string os;
+    os += toHexString(static_cast<int32_t>(o));
+    return os;
+}
+
+static inline void PrintTo(::android::hardware::automotive::vehicle::V2_0::EvsServiceRequestIndex o, ::std::ostream* os) {
     *os << toString(o);
 }
 
@@ -9776,6 +10919,12 @@ inline std::string toString<::android::hardware::automotive::vehicle::V2_0::Vehi
         first = false;
         flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleUnit::NANO_SECS;
     }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleUnit::MILLI_SECS) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleUnit::MILLI_SECS)) {
+        os += (first ? "" : " | ");
+        os += "MILLI_SECS";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::VehicleUnit::MILLI_SECS;
+    }
     if ((o & ::android::hardware::automotive::vehicle::V2_0::VehicleUnit::SECS) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::VehicleUnit::SECS)) {
         os += (first ? "" : " | ");
         os += "SECS";
@@ -9924,6 +11073,9 @@ static inline std::string toString(::android::hardware::automotive::vehicle::V2_
     }
     if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleUnit::NANO_SECS) {
         return "NANO_SECS";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleUnit::MILLI_SECS) {
+        return "MILLI_SECS";
     }
     if (o == ::android::hardware::automotive::vehicle::V2_0::VehicleUnit::SECS) {
         return "SECS";
@@ -13834,6 +14986,18 @@ inline std::string toString<::android::hardware::automotive::vehicle::V2_0::User
         first = false;
         flipped |= ::android::hardware::automotive::vehicle::V2_0::UserFlags::ADMIN;
     }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::UserFlags::DISABLED) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::UserFlags::DISABLED)) {
+        os += (first ? "" : " | ");
+        os += "DISABLED";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::UserFlags::DISABLED;
+    }
+    if ((o & ::android::hardware::automotive::vehicle::V2_0::UserFlags::PROFILE) == static_cast<int32_t>(::android::hardware::automotive::vehicle::V2_0::UserFlags::PROFILE)) {
+        os += (first ? "" : " | ");
+        os += "PROFILE";
+        first = false;
+        flipped |= ::android::hardware::automotive::vehicle::V2_0::UserFlags::PROFILE;
+    }
     if (o != flipped) {
         os += (first ? "" : " | ");
         os += toHexString(o & (~flipped));
@@ -13859,6 +15023,12 @@ static inline std::string toString(::android::hardware::automotive::vehicle::V2_
     }
     if (o == ::android::hardware::automotive::vehicle::V2_0::UserFlags::ADMIN) {
         return "ADMIN";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::UserFlags::DISABLED) {
+        return "DISABLED";
+    }
+    if (o == ::android::hardware::automotive::vehicle::V2_0::UserFlags::PROFILE) {
+        return "PROFILE";
     }
     std::string os;
     os += toHexString(static_cast<int32_t>(o));
@@ -14091,6 +15261,8 @@ static inline std::string toString(const ::android::hardware::automotive::vehicl
     os += ::android::hardware::automotive::vehicle::V2_0::toString(o.action);
     os += ", .userToSwitchOrCreate = ";
     os += ::android::hardware::automotive::vehicle::V2_0::toString(o.userToSwitchOrCreate);
+    os += ", .userLocales = ";
+    os += ::android::hardware::toString(o.userLocales);
     os += ", .userNameToCreate = ";
     os += ::android::hardware::toString(o.userNameToCreate);
     os += "}"; return os;
@@ -14108,6 +15280,9 @@ static inline bool operator==(const ::android::hardware::automotive::vehicle::V2
         return false;
     }
     if (lhs.userToSwitchOrCreate != rhs.userToSwitchOrCreate) {
+        return false;
+    }
+    if (lhs.userLocales != rhs.userLocales) {
         return false;
     }
     if (lhs.userNameToCreate != rhs.userNameToCreate) {
@@ -14654,7 +15829,9 @@ static inline std::string toString(const ::android::hardware::automotive::vehicl
     using ::android::hardware::toString;
     std::string os;
     os += "{";
-    os += ".userInfo = ";
+    os += ".requestId = ";
+    os += ::android::hardware::toString(o.requestId);
+    os += ", .userInfo = ";
     os += ::android::hardware::automotive::vehicle::V2_0::toString(o.userInfo);
     os += ", .numberAssociationTypes = ";
     os += ::android::hardware::toString(o.numberAssociationTypes);
@@ -14668,6 +15845,9 @@ static inline void PrintTo(const ::android::hardware::automotive::vehicle::V2_0:
 }
 
 static inline bool operator==(const ::android::hardware::automotive::vehicle::V2_0::UserIdentificationGetRequest& lhs, const ::android::hardware::automotive::vehicle::V2_0::UserIdentificationGetRequest& rhs) {
+    if (lhs.requestId != rhs.requestId) {
+        return false;
+    }
     if (lhs.userInfo != rhs.userInfo) {
         return false;
     }
@@ -14688,7 +15868,9 @@ static inline std::string toString(const ::android::hardware::automotive::vehicl
     using ::android::hardware::toString;
     std::string os;
     os += "{";
-    os += ".userInfo = ";
+    os += ".requestId = ";
+    os += ::android::hardware::toString(o.requestId);
+    os += ", .userInfo = ";
     os += ::android::hardware::automotive::vehicle::V2_0::toString(o.userInfo);
     os += ", .numberAssociations = ";
     os += ::android::hardware::toString(o.numberAssociations);
@@ -14702,6 +15884,9 @@ static inline void PrintTo(const ::android::hardware::automotive::vehicle::V2_0:
 }
 
 static inline bool operator==(const ::android::hardware::automotive::vehicle::V2_0::UserIdentificationSetRequest& lhs, const ::android::hardware::automotive::vehicle::V2_0::UserIdentificationSetRequest& rhs) {
+    if (lhs.requestId != rhs.requestId) {
+        return false;
+    }
     if (lhs.userInfo != rhs.userInfo) {
         return false;
     }
@@ -14722,7 +15907,9 @@ static inline std::string toString(const ::android::hardware::automotive::vehicl
     using ::android::hardware::toString;
     std::string os;
     os += "{";
-    os += ".numberAssociation = ";
+    os += ".requestId = ";
+    os += ::android::hardware::toString(o.requestId);
+    os += ", .numberAssociation = ";
     os += ::android::hardware::toString(o.numberAssociation);
     os += ", .associations = ";
     os += ::android::hardware::toString(o.associations);
@@ -14736,6 +15923,9 @@ static inline void PrintTo(const ::android::hardware::automotive::vehicle::V2_0:
 }
 
 static inline bool operator==(const ::android::hardware::automotive::vehicle::V2_0::UserIdentificationResponse& lhs, const ::android::hardware::automotive::vehicle::V2_0::UserIdentificationResponse& rhs) {
+    if (lhs.requestId != rhs.requestId) {
+        return false;
+    }
     if (lhs.numberAssociation != rhs.numberAssociation) {
         return false;
     }

@@ -95,8 +95,10 @@ public class DefaultCustomizationInjector extends BaseWallpaperInjector
             WallpaperInfo wallpaperInfo,
             int mode,
             boolean viewAsHome,
+            boolean viewFullScreen,
             boolean testingModeEnabled) {
-        return PreviewFragment.newInstance(wallpaperInfo, mode, viewAsHome, testingModeEnabled);
+        return PreviewFragment.newInstance(wallpaperInfo, mode, viewAsHome, viewFullScreen,
+                testingModeEnabled);
     }
 
     @Override

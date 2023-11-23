@@ -27,5 +27,6 @@
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="package" value="com.android.nn.benchmark.vts.v1_2" />
         <option name="test-timeout" value="2h"/>
+        <option name="shell-timeout" value="1h" />
     </test>
 </configuration>

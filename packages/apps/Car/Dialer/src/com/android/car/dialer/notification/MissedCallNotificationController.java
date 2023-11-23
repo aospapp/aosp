@@ -32,7 +32,7 @@ import androidx.annotation.StringRes;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Observer;
 
-import com.android.car.arch.common.LiveDataFunctions;
+import com.android.car.apps.common.util.LiveDataFunctions;
 import com.android.car.dialer.R;
 import com.android.car.dialer.livedata.UnreadMissedCallLiveData;
 import com.android.car.dialer.log.L;

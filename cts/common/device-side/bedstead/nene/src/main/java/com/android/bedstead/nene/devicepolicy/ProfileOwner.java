@@ -16,15 +16,21 @@
 
 package com.android.bedstead.nene.devicepolicy;
 
+import static com.android.bedstead.nene.permissions.Permissions.MANAGE_PROFILE_AND_DEVICE_OWNERS;
+
+import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
+import android.os.Build;
 
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.AdbException;
 import com.android.bedstead.nene.exceptions.NeneException;
-import com.android.bedstead.nene.packages.PackageReference;
+import com.android.bedstead.nene.packages.Package;
+import com.android.bedstead.nene.permissions.PermissionContext;
 import com.android.bedstead.nene.users.UserReference;
 import com.android.bedstead.nene.utils.ShellCommand;
 import com.android.bedstead.nene.utils.ShellCommandUtils;
+import com.android.bedstead.nene.utils.Versions;
 
 import java.util.Objects;
 
@@ -33,17 +39,31 @@ import java.util.Objects;
  */
 public final class ProfileOwner extends DevicePolicyController {
 
-    ProfileOwner(TestApis testApis,
-            UserReference user,
-            PackageReference pkg,
+    ProfileOwner(UserReference user,
+            Package pkg,
             ComponentName componentName) {
-        super(testApis, user, pkg, componentName);
+        super(user, pkg, componentName);
     }
 
     @Override
     public void remove() {
-        // TODO(scottjonathan): use DevicePolicyManager#forceRemoveActiveAdmin on S+
+        if (!Versions.meetsMinimumSdkVersionRequirement(Build.VERSION_CODES.S)
+                || TestApis.packages().instrumented().isInstantApp()) {
+            removePreS();
+            return;
+        }
 
+        DevicePolicyManager devicePolicyManager =
+                TestApis.context().androidContextAsUser(mUser).getSystemService(
+                        DevicePolicyManager.class);
+
+        try (PermissionContext p =
+                     TestApis.permissions().withPermission(MANAGE_PROFILE_AND_DEVICE_OWNERS)) {
+            devicePolicyManager.forceRemoveActiveAdmin(mComponentName, mUser.id());
+        }
+    }
+
+    private void removePreS() {
         try {
             ShellCommand.builderForUser(mUser, "dpm remove-active-admin")
                     .addOperand(componentName().flattenToShortString())

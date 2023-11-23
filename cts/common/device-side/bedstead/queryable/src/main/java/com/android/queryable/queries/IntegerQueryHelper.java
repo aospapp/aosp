@@ -19,10 +19,14 @@ package com.android.queryable.queries;
 import com.android.queryable.Queryable;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Implementation of {@link IntegerQuery}. */
 public final class IntegerQueryHelper<E extends Queryable> implements IntegerQuery<E>,
         Serializable {
+
+    private static final long serialVersionUID = 1;
 
     private Integer mEqualToValue = null;
     private Integer mGreaterThanValue = null;
@@ -87,9 +91,13 @@ public final class IntegerQueryHelper<E extends Queryable> implements IntegerQue
         return mQuery;
     }
 
-    /** {@code true} if all filters are met by {@code value}. */
     @Override
     public boolean matches(Integer value) {
+        return matches(value.intValue());
+    }
+
+    /** {@code true} if all filters are met by {@code value}. */
+    public boolean matches(int value) {
         if (mEqualToValue != null && mEqualToValue != value) {
             return false;
         }
@@ -111,5 +119,31 @@ public final class IntegerQueryHelper<E extends Queryable> implements IntegerQue
         }
 
         return true;
+    }
+
+    public static boolean matches(IntegerQuery<?> query, int value) {
+        return query.matches(value);
+    }
+
+    @Override
+    public String describeQuery(String fieldName) {
+        List<String> queryStrings = new ArrayList<>();
+        if (mEqualToValue != null) {
+            queryStrings.add(fieldName + "=" + mEqualToValue);
+        }
+        if (mGreaterThanValue != null) {
+            queryStrings.add(fieldName + ">" + mGreaterThanValue);
+        }
+        if (mGreaterThanOrEqualToValue != null) {
+            queryStrings.add(fieldName + ">=" + mGreaterThanOrEqualToValue);
+        }
+        if (mLessThanValue != null) {
+            queryStrings.add(fieldName + "<" + mLessThanValue);
+        }
+        if (mLessThanOrEqualToValue != null) {
+            queryStrings.add(fieldName + "<=" + mLessThanOrEqualToValue);
+        }
+
+        return Queryable.joinQueryStrings(queryStrings);
     }
 }

@@ -89,7 +89,9 @@ public class PerfEventParanoidTest extends BaseHostJUnit4Test {
     private void assumeSecurityModelCompat() throws DeviceNotAvailableException {
         // This feature name check only applies to devices that first shipped with
         // SC or later.
-        if (PropertyUtil.getFirstApiLevel(mDevice) >= ANDROID_S_API_LEVEL) {
+        final int firstApiLevel = Math.min(PropertyUtil.getFirstApiLevel(mDevice),
+                PropertyUtil.getVendorApiLevel(mDevice));
+        if (firstApiLevel >= ANDROID_S_API_LEVEL) {
             assumeTrue("Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.",
                     getDevice().hasFeature("feature:android.hardware.security.model.compatible"));
         }

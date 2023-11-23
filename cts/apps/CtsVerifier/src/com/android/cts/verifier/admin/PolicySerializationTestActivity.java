@@ -16,10 +16,6 @@
 
 package com.android.cts.verifier.admin;
 
-import com.android.cts.verifier.managedprovisioning.DeviceAdminTestReceiver;
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
-
 import android.app.AlertDialog;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
@@ -29,6 +25,7 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
@@ -36,6 +33,10 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
+import com.android.cts.verifier.managedprovisioning.DeviceAdminTestReceiver;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +48,9 @@ import java.util.Random;
  * returning to the test, the activity checks that the device manager is reporting the values
  * it set before the user rebooted the device.
  */
-public class PolicySerializationTestActivity extends PassFailButtons.ListActivity {
+public final class PolicySerializationTestActivity extends PassFailButtons.ListActivity {
+
+    private static final String TAG = PolicySerializationTestActivity.class.getSimpleName();
 
     /**
      * Whether or not to load the expected policy from the preferences and check against
@@ -87,18 +90,16 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
         });
 
         mApplyPolicyButton = findViewById(R.id.apply_policy_button);
-        mApplyPolicyButton.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                applyPolicy();
-            }
-        });
+        mApplyPolicyButton.setOnClickListener((v) -> applyPolicy());
 
         if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_SECURE_LOCK_SCREEN)) {
             mPolicyItems.add(new MaximumFailedPasswordsForWipePolicy(this));
         }
 
         mPolicyItems.add(new MaximumTimeToLockPolicy(this));
+
+        Log.d(TAG, "onCreate(): " + mPolicyItems.size() + " policy items: " + mPolicyItems);
+
         mAdapter = new PolicyAdapter(this);
         setListAdapter(mAdapter);
 
@@ -113,8 +114,11 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
             for (PolicyItem<?> item : mPolicyItems) {
                 item.loadExpectedValue(prefs);
                 item.loadActualValue(mDevicePolicyManager, mAdmin);
+                Log.d(TAG, "loading " + item);
                 mAdapter.add(item);
             }
+        } else {
+            Log.d(TAG, "loadPolicy(): " + LOAD_EXPECTED_POLICY_PREFERENCE + " is false");
         }
     }
 
@@ -122,6 +126,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
         Random random = new Random();
         mAdapter.clear();
         for (PolicyItem<?> item : mPolicyItems) {
+            Log.d(TAG, "Adding " + item);
             item.setRandomExpectedValue(random);
             item.resetActualValue();
             mAdapter.add(item);
@@ -130,6 +135,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
         SharedPreferences prefs = getPreferences(MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         editor.clear();
+        Log.d(TAG, "setting LOAD_EXPECTED_POLICY_PREFERENCE to false");
         editor.putBoolean(LOAD_EXPECTED_POLICY_PREFERENCE, false);
         editor.apply();
 
@@ -140,12 +146,15 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
         Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
         intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN,
                 DeviceAdminTestReceiver.getReceiverComponentName());
+        Log.d(TAG, "Starting " + intent);
         startActivityForResult(intent, ADD_DEVICE_ADMIN_REQUEST_CODE);
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        Log.d(TAG, "onActivityResult(): req=" + requestCode + ", resp=" + resultCode);
+
         switch (requestCode) {
             case ADD_DEVICE_ADMIN_REQUEST_CODE:
                 handleAddDeviceAdminResult(resultCode, data);
@@ -154,22 +163,25 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
     }
 
     private void handleAddDeviceAdminResult(int resultCode, Intent data) {
-        if (resultCode == RESULT_OK) {
-            ComponentName admin = DeviceAdminTestReceiver.getReceiverComponentName();
-            for (PolicyItem<?> item : mPolicyItems) {
-                item.applyExpectedValue(mDevicePolicyManager, admin);
-            }
-
-            SharedPreferences prefs = getPreferences(MODE_PRIVATE);
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.clear();
-            editor.putBoolean(LOAD_EXPECTED_POLICY_PREFERENCE, true);
-            for (PolicyItem<?> item : mPolicyItems) {
-                item.saveExpectedValue(editor);
-            }
-            editor.apply();
-            showRebootDialog();
+        if (resultCode != RESULT_OK) {
+            Log.w(TAG, "handleAddDeviceAdminResult(): invalid result: " + resultCode);
+            return;
         }
+        ComponentName admin = DeviceAdminTestReceiver.getReceiverComponentName();
+        for (PolicyItem<?> item : mPolicyItems) {
+            item.applyExpectedValue(mDevicePolicyManager, admin);
+        }
+
+        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.clear();
+        Log.d(TAG, "setting LOAD_EXPECTED_POLICY_PREFERENCE to true");
+        editor.putBoolean(LOAD_EXPECTED_POLICY_PREFERENCE, true);
+        for (PolicyItem<?> item : mPolicyItems) {
+            item.saveExpectedValue(editor);
+        }
+        editor.apply();
+        showRebootDialog();
     }
 
     private void showRebootDialog() {
@@ -210,7 +222,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
             .show();
     }
 
-    static class PolicyAdapter extends ArrayAdapter<PolicyItem<?>> {
+    private static final class PolicyAdapter extends ArrayAdapter<PolicyItem<?>> {
 
         public PolicyAdapter(Context context) {
             super(context, android.R.layout.simple_list_item_1);
@@ -241,7 +253,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
         }
     }
 
-    interface PolicyItem<T> {
+    private interface PolicyItem<T> {
 
         void setRandomExpectedValue(Random random);
 
@@ -268,7 +280,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
         boolean matchesExpectedValue();
     }
 
-    static abstract class BasePolicyItem<T> implements PolicyItem<T> {
+    private abstract static class BasePolicyItem<T> implements PolicyItem<T> {
         private String mDisplayName;
         private T mExpectedValue;
         private T mActualValue;
@@ -287,6 +299,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
         @Override
         public final void loadExpectedValue(SharedPreferences prefs) {
             mExpectedValue = getPreferencesValue(prefs);
+            Log.d(TAG, "loaded expected value for " + mDisplayName + ": " + mExpectedValue);
         }
 
         protected abstract T getPreferencesValue(SharedPreferences prefs);
@@ -301,6 +314,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
 
         @Override
         public final void resetActualValue() {
+            Log.d(TAG, "resetting " + mDisplayName);
             mActualValue = null;
         }
 
@@ -344,7 +358,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
         }
     }
 
-    static abstract class IntegerPolicyItem extends BasePolicyItem<Integer> {
+    private abstract static class IntegerPolicyItem extends BasePolicyItem<Integer> {
 
         private String mPreferenceKey;
 
@@ -355,16 +369,20 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
 
         @Override
         protected final Integer getPreferencesValue(SharedPreferences prefs) {
-            return prefs.getInt(mPreferenceKey, -1);
+            int value = prefs.getInt(mPreferenceKey, -1);
+            Log.d(TAG, "loaded pref for " + getDisplayName() + ": " + mPreferenceKey + "=" + value);
+            return value;
         }
 
         @Override
         public final void saveExpectedValue(Editor editor) {
-            editor.putInt(mPreferenceKey, getExpectedValue());
+            int value = getExpectedValue();
+            Log.d(TAG, "saving pref for " + getDisplayName() + ": " + mPreferenceKey + "=" + value);
+            editor.putInt(mPreferenceKey, value);
         }
     }
 
-    static abstract class LongPolicyItem extends BasePolicyItem<Long> {
+    private abstract static class LongPolicyItem extends BasePolicyItem<Long> {
 
         private String mPreferenceKey;
 
@@ -375,89 +393,20 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
 
         @Override
         protected final Long getPreferencesValue(SharedPreferences prefs) {
-            return prefs.getLong(mPreferenceKey, -1);
+            long value = prefs.getLong(mPreferenceKey, -1);
+            Log.d(TAG, "loaded pref for " + getDisplayName() + ": " + mPreferenceKey + "=" + value);
+            return value;
         }
 
         @Override
         public final void saveExpectedValue(Editor editor) {
-            editor.putLong(mPreferenceKey, getExpectedValue());
+            long value = getExpectedValue();
+            Log.d(TAG, "saving pref for " + getDisplayName() + ": " + mPreferenceKey + "=" + value);
+            editor.putLong(mPreferenceKey, value);
         }
     }
 
-    static class PasswordQualityPolicy extends IntegerPolicyItem {
-
-        private final Context mContext;
-
-        public PasswordQualityPolicy(Context context) {
-            super(context, R.string.da_password_quality, "password-quality");
-            mContext = context;
-        }
-
-        @Override
-        protected Integer getRandomExpectedValue(Random random) {
-            int[] passwordQualities = new int[] {
-                    DevicePolicyManager.PASSWORD_QUALITY_ALPHABETIC,
-                    DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC,
-                    DevicePolicyManager.PASSWORD_QUALITY_NUMERIC,
-                    DevicePolicyManager.PASSWORD_QUALITY_SOMETHING
-            };
-
-            int index = random.nextInt(passwordQualities.length);
-            return passwordQualities[index];
-        }
-
-        @Override
-        public void applyExpectedValue(DevicePolicyManager deviceManager, ComponentName admin) {
-            deviceManager.setPasswordQuality(admin, getExpectedValue());
-        }
-
-        @Override
-        protected Integer getDeviceManagerValue(DevicePolicyManager deviceManager,
-                ComponentName admin) {
-            return deviceManager.getPasswordQuality(admin);
-        }
-
-        @Override
-        protected String getDisplayValue(Integer value) {
-            switch (value) {
-                case DevicePolicyManager.PASSWORD_QUALITY_ALPHABETIC:
-                    return mContext.getString(R.string.da_password_quality_alphabetic);
-                case DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC:
-                    return mContext.getString(R.string.da_password_quality_alphanumeric);
-                case DevicePolicyManager.PASSWORD_QUALITY_NUMERIC:
-                    return mContext.getString(R.string.da_password_quality_numeric);
-                case DevicePolicyManager.PASSWORD_QUALITY_SOMETHING:
-                    return mContext.getString(R.string.da_password_quality_something);
-                default:
-                    return Integer.toString(value);
-            }
-        }
-    }
-
-    static class PasswordMinimumLengthPolicy extends IntegerPolicyItem {
-
-        PasswordMinimumLengthPolicy(Context context) {
-            super(context, R.string.da_password_minimum_length, "password-minimum-length");
-        }
-
-        @Override
-        protected Integer getRandomExpectedValue(Random random) {
-            return random.nextInt(50);
-        }
-
-        @Override
-        public void applyExpectedValue(DevicePolicyManager deviceManager, ComponentName admin) {
-            deviceManager.setPasswordMinimumLength(admin, getExpectedValue());
-        }
-
-        @Override
-        protected Integer getDeviceManagerValue(DevicePolicyManager deviceManager,
-                ComponentName admin) {
-            return deviceManager.getPasswordMinimumLength(admin);
-        }
-    }
-
-    static class MaximumFailedPasswordsForWipePolicy extends IntegerPolicyItem {
+    private static final class MaximumFailedPasswordsForWipePolicy extends IntegerPolicyItem {
 
         MaximumFailedPasswordsForWipePolicy(Context context) {
             super(context, R.string.da_maximum_failed_passwords_for_wipe,
@@ -481,7 +430,7 @@ public class PolicySerializationTestActivity extends PassFailButtons.ListActivit
         }
     }
 
-    static class MaximumTimeToLockPolicy extends LongPolicyItem {
+    private static final class MaximumTimeToLockPolicy extends LongPolicyItem {
 
         MaximumTimeToLockPolicy(Context context) {
             super(context, R.string.da_maximum_time_to_lock, "maximum-time-to-lock");

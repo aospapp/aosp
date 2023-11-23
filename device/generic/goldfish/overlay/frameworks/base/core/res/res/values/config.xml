@@ -57,10 +57,21 @@
     <!-- The device states (supplied by DeviceStateManager) that should be treated as folded by the
          display fold controller. -->
     <integer-array name="config_foldedDeviceStates" translatable="false">
-      <item>0</item> <!-- CLOSED -->
+      <item>1</item> <!-- CLOSED -->
     </integer-array>
 
     <!-- This device is able to support the microphone and camera global toggles. -->
     <bool name="config_supportsMicToggle">true</bool>
     <bool name="config_supportsCamToggle">true</bool>
+    <!-- Restricting eth0 -->
+    <string-array translatable="false" name="config_ethernet_interfaces">
+        <item>eth0;11,12,14;;</item>
+    </string-array>
+    <!-- Specifies priority of automatic time sources. Suggestions from higher entries in the list
+         take precedence over lower ones.
+         See com.android.server.timedetector.TimeDetectorStrategy for available sources. -->
+    <string-array name="config_autoTimeSourcesPriority">
+        <item>telephony</item>
+        <item>network</item>
+    </string-array>
 </resources>

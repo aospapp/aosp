@@ -34,6 +34,7 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.apps.common.BackgroundImageView;
 import com.android.car.apps.common.LetterTileDrawable;
+import com.android.car.apps.common.util.ViewUtils;
 import com.android.car.dialer.R;
 import com.android.car.dialer.log.L;
 import com.android.car.dialer.ui.view.ContactAvatarOutputlineProvider;
@@ -60,6 +61,8 @@ public abstract class InCallFragment extends Hilt_InCallFragment {
 
     private View mUserProfileContainerView;
     private TextView mPhoneNumberView;
+    @Nullable
+    private TextView mPhoneLabelView;
     private Chronometer mUserProfileCallStateText;
     private TextView mNameView;
     private ImageView mAvatarView;
@@ -85,6 +88,7 @@ public abstract class InCallFragment extends Hilt_InCallFragment {
         mAvatarView = mUserProfileContainerView.findViewById(R.id.user_profile_avatar);
         mAvatarView.setOutlineProvider(ContactAvatarOutputlineProvider.get());
         mPhoneNumberView = mUserProfileContainerView.findViewById(R.id.user_profile_phone_number);
+        mPhoneLabelView = mUserProfileContainerView.findViewById(R.id.user_profile_phone_label);
         mUserProfileCallStateText = mUserProfileContainerView.findViewById(
                 R.id.user_profile_call_state);
         mBackgroundImage = view.findViewById(R.id.background_image);
@@ -107,7 +111,8 @@ public abstract class InCallFragment extends Hilt_InCallFragment {
             mPhoneNumberInfoFuture.cancel(true);
         }
 
-        mNameView.setText(TelecomUtils.getFormattedNumber(getContext(), number));
+        mNameView.setText(TelecomUtils.getReadableNumber(getContext(), number));
+        ViewUtils.setVisible(mPhoneLabelView, false);
         mPhoneNumberView.setVisibility(View.GONE);
         mAvatarView.setImageDrawable(mDefaultAvatar);
 
@@ -117,23 +122,26 @@ public abstract class InCallFragment extends Hilt_InCallFragment {
 
     private void updateProfileInfo(String number, TelecomUtils.PhoneNumberInfo info) {
         String nameViewText = info.getDisplayName();
+        String formattedNumber = TelecomUtils.getReadableNumber(getContext(), number);
         mNameView.setText(nameViewText);
 
-        String phoneNumberLabel = info.getTypeLabel();
-        if (!phoneNumberLabel.isEmpty()) {
-            phoneNumberLabel += " ";
-        }
-
-        String bidiWrappedLabel = phoneNumberLabel + TelecomUtils.getBidiWrappedNumber(
-                TelecomUtils.getFormattedNumber(getContext(), number));
-        phoneNumberLabel += TelecomUtils.getFormattedNumber(getContext(), number);
-
-        if (!TextUtils.isEmpty(phoneNumberLabel)
-                && !phoneNumberLabel.equals(info.getDisplayName())) {
-            mPhoneNumberView.setText(bidiWrappedLabel);
-            mPhoneNumberView.setVisibility(View.VISIBLE);
-        } else {
+        if (TextUtils.equals(nameViewText, formattedNumber)) {
+            ViewUtils.setVisible(mPhoneLabelView, false);
             mPhoneNumberView.setVisibility(View.GONE);
+        } else {
+            String phoneNumberLabel = info.getTypeLabel();
+            String bidiWrappedNumber;
+            if (!phoneNumberLabel.isEmpty()) {
+                bidiWrappedNumber = " ";
+                ViewUtils.setText(mPhoneLabelView, phoneNumberLabel);
+                ViewUtils.setVisible(mPhoneLabelView, true);
+            } else {
+                bidiWrappedNumber = "";
+                ViewUtils.setVisible(mPhoneLabelView, false);
+            }
+            bidiWrappedNumber += TelecomUtils.getBidiWrappedNumber(formattedNumber);
+            mPhoneNumberView.setText(bidiWrappedNumber);
+            mPhoneNumberView.setVisibility(View.VISIBLE);
         }
 
         LetterTileDrawable letterTile = TelecomUtils.createLetterTile(

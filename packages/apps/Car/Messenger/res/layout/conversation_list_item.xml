@@ -28,7 +28,7 @@ limitations under the License.
         android:layout_marginEnd="@dimen/unread_icon_marginEnd"
         android:contentDescription="@string/cd_unread"
         android:scaleType="centerCrop"
-        android:src="@color/unread_dot_color"
+        android:src="@color/unread_color"
         app:layout_constraintBottom_toBottomOf="@id/icon"
         app:layout_constraintEnd_toStartOf="@id/icon"
         app:layout_constraintTop_toTopOf="@id/icon" />
@@ -46,41 +46,44 @@ limitations under the License.
         tools:src="@color/car_red_500a" />
 
     <ImageView
-        android:id="@+id/last_action_icon_view"
-        android:layout_width="@dimen/subtitle_icon_width"
-        android:layout_height="0dp"
-        android:contentDescription="@string/cd_icon_indicating_the_last_action"
-        android:scaleType="centerInside"
-        android:src="@drawable/car_ui_icon_reply"
-        app:layout_constraintBottom_toBottomOf="@id/time_text"
-        app:layout_constraintStart_toStartOf="@id/guideline_begin"
-        app:layout_constraintTop_toBottomOf="@id/title"
-        app:layout_constraintTop_toTopOf="@id/time_text" />
-
-    <ImageView
         android:id="@+id/reply_action_button"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:background="?android:attr/selectableItemBackground"
         android:contentDescription="@string/cd_reply_action_button"
         android:scaleType="center"
-        android:src="@drawable/car_ui_icon_reply"
+        android:src="@drawable/ic_reply"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/mute_action_button"
-        app:layout_constraintStart_toEndOf="@id/guideline_end"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="visible"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/play_action_button"
+        android:layout_width="100dp"
+        android:layout_height="match_parent"
+        android:background="?android:attr/selectableItemBackground"
+        android:contentDescription="@string/cd_play_action_button"
+        android:scaleX=".4"
+        android:scaleY=".4"
+        android:src="@drawable/ic_play"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:visibility="gone"
         app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
         android:id="@+id/mute_action_button"
         android:layout_width="0dp"
         android:layout_height="match_parent"
+        android:visibility="gone"
         android:background="?android:attr/selectableItemBackground"
         android:contentDescription="@string/cd_mute_button"
         android:scaleType="center"
         android:src="@drawable/car_ui_icon_toggle_mute"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/reply_action_button"
+        app:layout_constraintStart_toEndOf="@id/guideline_end"
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
@@ -89,48 +92,102 @@ limitations under the License.
         android:layout_height="wrap_content"
         android:layout_marginEnd="@dimen/message_history_text_margin_end"
         android:singleLine="true"
+        tools:text="Ashley Bae"
+        app:layout_constraintVertical_chainStyle="packed"
         android:theme="@style/Theme.Messaging.BidiText"
-        app:layout_constraintBottom_toTopOf="@+id/text"
+        android:ellipsize="end"
+        app:layout_constraintBottom_toTopOf="@+id/preview"
         app:layout_constraintEnd_toEndOf="@id/guideline_end"
         app:layout_constraintStart_toStartOf="@id/guideline_begin"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_chainStyle="packed" />
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <ImageView
+        android:id="@+id/last_action_icon_view"
+        android:layout_width="@dimen/subtitle_icon_width"
+        android:layout_height="0dp"
+        android:contentDescription="@string/cd_icon_indicating_the_last_action"
+        android:scaleType="centerInside"
+        android:src="@drawable/car_ui_icon_reply"
+        android:visibility="gone"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        android:layout_marginEnd="@dimen/message_history_icons_margin"
+        app:layout_constraintBottom_toBottomOf="@id/preview"
+        app:layout_constraintStart_toStartOf="@id/title"
+        app:layout_constraintTop_toBottomOf="@id/title"
+        app:layout_constraintEnd_toStartOf="@id/preview"
+        app:layout_constraintTop_toTopOf="@id/preview" />
 
     <TextView
-        android:id="@+id/time_text"
+        android:id="@+id/preview"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="@dimen/message_history_icons_margin"
         android:singleLine="true"
+        app:layout_constraintVertical_bias="0.0"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@id/last_action_icon_view"
         app:layout_constraintTop_toBottomOf="@id/title"
-        tools:text="14:02 PM" />
+        app:layout_constraintEnd_toStartOf="@id/preview_dot"
+        tools:visibility="visible"
+        android:ellipsize="end"
+        android:maxLength="40"
+        tools:text="Let this be the preview. Lots of preview with
+        a whole lot of various texts, one that is quite long in every way.
+        To verify that it still fits in the end" />
 
     <TextView
-        android:id="@+id/dot"
+        android:id="@+id/preview_dot"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/message_history_icons_margin"
+        android:layout_marginEnd="@dimen/message_history_icons_margin"
+        app:layout_goneMarginStart="0dp"
+        app:layout_goneMarginEnd="0dp"
         android:singleLine="true"
         android:text="@string/dot"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@id/text"
-        app:layout_constraintStart_toEndOf="@id/time_text"
-        app:layout_constraintTop_toTopOf="@id/text"
-        tools:visibility="visible" />
+        app:layout_constraintEnd_toStartOf="@id/text_metadata"
+        app:layout_constraintBottom_toBottomOf="@id/preview"
+        app:layout_constraintStart_toEndOf="@id/preview"
+        app:layout_constraintTop_toTopOf="@id/preview"
+        tools:visibility="gone" />
 
     <TextView
-        android:id="@id/text"
+        android:id="@+id/text_metadata"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:maxLength="20"
+        app:layout_constraintStart_toEndOf="@id/preview_dot"
+        app:layout_constraintTop_toBottomOf="@id/title"
+        app:layout_constraintEnd_toStartOf="@id/text_metadata_dot"
+        tools:visibility="visible"
+        tools:text="2 more messages" />
+
+    <TextView
+        android:id="@+id/text_metadata_dot"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:text="@string/dot"
+        android:visibility="visible"
+        android:layout_marginStart="6dp"
+        tools:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="@id/text_metadata"
+        app:layout_constraintStart_toEndOf="@id/text_metadata"
+        app:layout_constraintTop_toTopOf="@id/text_metadata"
+        app:layout_constraintEnd_toStartOf="@id/date_time_view" />
+
+    <com.android.car.messenger.core.ui.shared.DateTimeView
+        android:id="@+id/date_time_view"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="@dimen/message_history_text_margin_end"
-        android:layout_marginStart="@dimen/message_history_icons_margin"
+        android:layout_marginStart="6dp"
         android:singleLine="true"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toBottomOf="@id/text_metadata"
         app:layout_constraintEnd_toEndOf="@id/guideline_end"
-        app:layout_constraintStart_toEndOf="@id/dot"
+        app:layout_constraintStart_toEndOf="@id/text_metadata_dot"
         app:layout_constraintTop_toBottomOf="@id/title"
-        tools:text="Replied" />
+        tools:text="6 min" />
 
     <View
         android:id="@+id/play_action_touch_view"
@@ -165,5 +222,5 @@ limitations under the License.
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_end="200dp" />
+        app:layout_constraintGuide_end="100dp" />
 </androidx.constraintlayout.widget.ConstraintLayout>

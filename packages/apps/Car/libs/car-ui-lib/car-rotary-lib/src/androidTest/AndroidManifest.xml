@@ -19,10 +19,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.car.rotary.test">
     <application android:debuggable="true">
-        <uses-library android:name="android.test.runner" />
-        <activity android:name="com.android.car.ui.FocusAreaTestActivity" />
-        <activity android:name="com.android.car.ui.FocusParkingViewTestActivity" />
-        <activity android:name="com.android.car.ui.utils.ViewUtilsTestActivity" />
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name="com.android.car.ui.utils.DirectManipulationHelperTestActivity"
+                  android:theme="@style/Theme.CarUi.NoToolbar"/>
+        <activity android:name="com.android.car.ui.FocusAreaTestActivity"/>
+        <activity android:name="com.android.car.ui.FocusParkingViewTestActivity"
+            android:theme="@style/Theme.CarUi.NoToolbar"/>
+        <activity android:name="com.android.car.ui.utils.ViewUtilsTestActivity"
+            android:theme="@style/Theme.CarUi.NoToolbar"/>
     </application>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.car.rotary.test"

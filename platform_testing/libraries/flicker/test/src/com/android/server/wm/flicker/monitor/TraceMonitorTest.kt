@@ -20,7 +20,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import com.android.server.wm.flicker.FlickerRunResult
 import com.android.server.wm.flicker.getDefaultFlickerOutputDir
-import com.android.server.wm.traces.parser.DeviceStateDump
+import com.android.server.wm.traces.common.DeviceTraceDump
+import com.android.server.wm.traces.parser.DeviceDumpParser
 import com.google.common.io.Files
 import com.google.common.truth.Truth
 import org.junit.After
@@ -81,19 +82,19 @@ abstract class TraceMonitorTest<T : TransitionMonitor> {
         savedTrace = getTraceFile(result) ?: error("Could not find saved trace file")
         val testFile = savedTrace.toFile()
         Truth.assertThat(testFile.exists()).isTrue()
-        val calculatedChecksum = TraceMonitor.calculateChecksum(savedTrace)
-        Truth.assertThat(calculatedChecksum).isEqualTo(traceMonitor.checksum)
         val trace = Files.toByteArray(testFile)
         Truth.assertThat(trace.size).isGreaterThan(0)
         assertTrace(trace)
     }
 
-    private fun validateTrace(dump: DeviceStateDump) {
+    private fun validateTrace(dump: DeviceTraceDump) {
         Truth.assertWithMessage("Could not obtain SF trace")
-            .that(dump.layersTrace?.entries)
+            .that(dump.layersTrace?.entries ?: emptyArray())
+            .asList()
             .isNotEmpty()
         Truth.assertWithMessage("Could not obtain WM trace")
-            .that(dump.wmTrace?.entries)
+            .that(dump.wmTrace?.entries ?: emptyArray())
+            .asList()
             .isNotEmpty()
     }
 
@@ -114,7 +115,7 @@ abstract class TraceMonitorTest<T : TransitionMonitor> {
             device.pressRecentApps()
         }
 
-        val dump = DeviceStateDump.fromTrace(trace.first, trace.second)
+        val dump = DeviceDumpParser.fromTrace(trace.first, trace.second)
         this.validateTrace(dump)
     }
 }

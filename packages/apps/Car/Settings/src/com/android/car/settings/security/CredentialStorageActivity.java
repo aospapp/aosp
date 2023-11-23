@@ -78,7 +78,7 @@ public class CredentialStorageActivity extends FragmentActivity {
 
         Intent intent = getIntent();
         String action = intent.getAction();
-        if (ACTION_RESET.equals(action)) {
+        if (ACTION_RESET.equals(action) && checkCallerIsSelf()) {
             showResetConfirmationDialog();
         } else if (ACTION_INSTALL.equals(action) && checkCallerIsCertInstallerOrSelfInProfile()) {
             Bundle installBundle = intent.getExtras();
@@ -95,6 +95,11 @@ public class CredentialStorageActivity extends FragmentActivity {
                 .setMessage(R.string.credentials_reset_hint)
                 .setPositiveButton(android.R.string.ok, arguments -> onResetConfirmed())
                 .setNegativeButton(android.R.string.cancel, arguments -> finish())
+                .setDismissListener((arguments, positiveResult) -> {
+                    if (!positiveResult) {
+                        finish();
+                    }
+                })
                 .build();
         dialog.show(getSupportFragmentManager(), DIALOG_TAG);
     }
@@ -117,6 +122,19 @@ public class CredentialStorageActivity extends FragmentActivity {
             } else {
                 finish();
             }
+        }
+    }
+
+    /**
+     * Check that the caller is Settings.
+     */
+    private boolean checkCallerIsSelf() {
+        try {
+            return Process.myUid() == android.app.ActivityManager.getService()
+                    .getLaunchedFromUid(getActivityToken());
+        } catch (RemoteException re) {
+            // Error talking to ActivityManager, just give up
+            return false;
         }
     }
 

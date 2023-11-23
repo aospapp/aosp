@@ -18,6 +18,7 @@ package com.android.car.settings.development;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -36,6 +37,7 @@ import org.mockito.MockitoAnnotations;
 @RunWith(AndroidJUnit4.class)
 public class DevelopmentSettingsUtilTest {
     private Context mContext = ApplicationProvider.getApplicationContext();
+    private Context mSpiedContext = spy(mContext);
 
     @Mock
     private UserManager mMockUserManager;
@@ -47,6 +49,8 @@ public class DevelopmentSettingsUtilTest {
         // default to no debugging restrictions
         when(mMockUserManager.hasUserRestriction(
                 UserManager.DISALLOW_DEBUGGING_FEATURES)).thenReturn(false);
+        when(mSpiedContext.getSystemService(UserManager.class)).thenReturn(mMockUserManager);
+        when(mSpiedContext.getContentResolver()).thenReturn(mContext.getContentResolver());
     }
 
     @Test
@@ -90,8 +94,8 @@ public class DevelopmentSettingsUtilTest {
         when(mMockUserManager.hasUserRestriction(
                 UserManager.DISALLOW_DEBUGGING_FEATURES)).thenReturn(true);
 
-        assertThat(DevelopmentSettingsUtil.isDevelopmentSettingsEnabled(mContext, mMockUserManager))
-                .isFalse();
+        assertThat(DevelopmentSettingsUtil
+                .isDevelopmentSettingsEnabled(mSpiedContext, mMockUserManager)).isFalse();
     }
 
     @Test

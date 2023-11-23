@@ -39,6 +39,7 @@ import java.util.Locale;
 public class PkgInstallSignatureVerificationTest extends DeviceTestCase implements IBuildReceiver {
 
     private static final String TEST_PKG = "android.appsecurity.cts.tinyapp";
+    private static final String TEST_PKG2 = "android.appsecurity.cts.tinyapp2";
     private static final String COMPANION_TEST_PKG = "android.appsecurity.cts.tinyapp_companion";
     private static final String COMPANION2_TEST_PKG = "android.appsecurity.cts.tinyapp_companion2";
     private static final String DEVICE_TESTS_APK = "CtsV3SigningSchemeRotationTest.apk";
@@ -958,6 +959,35 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-1_P_and_2_Qplus.apk");
     }
 
+    public void testSharedKeyInSeparateLineageRetainsDeclaredCapabilities() throws Exception {
+        // This test verifies when a key is used in the signing lineage of multiple apps each
+        // instance of the key retains its declared capabilities.
+
+        // This app has granted the PERMISSION capability to the previous signer in the lineage
+        // but has revoked the SHARED_USER_ID capability.
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-no-shUid-cap-declperm2.apk");
+        // This app has granted the SHARED_USER_ID capability to the previous signer in the lineage
+        // but has revoked the PERMISSION capability.
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-no-perm-cap-sharedUid.apk");
+
+        // Reboot the device to ensure that the capabilities written to packages.xml are properly
+        // assigned to the packages installed above; it's possible immediately after a package
+        // install the capabilities are as declared, but then during the reboot shared signing
+        // keys also share the initial declared capabilities.
+        getDevice().reboot();
+
+        // This app is signed with the original shared signing key in the lineage and is part of the
+        // sharedUserId; since the other app in this sharedUserId has granted the required
+        // capability in the lineage the install should succeed.
+        assertInstallFromBuildSucceeds("v3-ec-p256-1-sharedUid-companion2.apk");
+        // This app is signed with the original shared signing key in the lineage and requests the
+        // signature permission declared by the test app above. Since that app granted the
+        // PERMISSION capability to the previous signer in the lineage this app should have the
+        // permission granted.
+        assertInstallFromBuildSucceeds("v3-ec-p256-1-companion-usesperm.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
+    }
+
     public void testInstallTargetSdk30WithV1Signers() throws Exception {
         // An app targeting SDK version >= 30 must have at least a V2 signature; this test verifies
         // an app targeting SDK version 30 with only a V1 signature fails to install.
@@ -1321,6 +1351,11 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
     }
 
     public void testInstallV4UpdateAfterRotation() throws Exception {
+        // V4 is only enabled on devices with Incremental feature
+        if (!hasIncrementalFeature()) {
+            return;
+        }
+
         // This test performs an end to end verification of the update of an app with a rotated
         // key. The app under test exports a bound service that performs its own PackageManager key
         // rotation API verification, and the instrumentation test binds to the service and invokes
@@ -1588,7 +1623,9 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
     }
 
     private String uninstallPackage() throws DeviceNotAvailableException {
-        return getDevice().uninstallPackage(TEST_PKG);
+        String result1 = getDevice().uninstallPackage(TEST_PKG);
+        String result2 = getDevice().uninstallPackage(TEST_PKG2);
+        return result1 != null ? result1 : result2;
     }
 
     private String uninstallCompanionPackages() throws DeviceNotAvailableException {

@@ -108,12 +108,12 @@ public class ToolbarActivity extends AppCompatActivity implements InsetsChangedL
         }));
 
         mButtons.add(Pair.create(getString(R.string.toolbar_cycle_nav_button), v -> {
-            Toolbar.NavButtonMode mode = toolbar.getNavButtonMode();
-            if (mode == Toolbar.NavButtonMode.DISABLED) {
+            NavButtonMode mode = toolbar.getNavButtonMode();
+            if (mode == NavButtonMode.DISABLED) {
                 toolbar.setNavButtonMode(NavButtonMode.BACK);
-            } else if (mode == Toolbar.NavButtonMode.BACK) {
+            } else if (mode == NavButtonMode.BACK) {
                 toolbar.setNavButtonMode(NavButtonMode.CLOSE);
-            } else if (mode == Toolbar.NavButtonMode.CLOSE) {
+            } else if (mode == NavButtonMode.CLOSE) {
                 toolbar.setNavButtonMode(NavButtonMode.DOWN);
             } else {
                 toolbar.setNavButtonMode(NavButtonMode.DISABLED);

@@ -27,12 +27,7 @@
     <string name="night_mode_tile_label" msgid="6603597795502131664">"מצב לילה"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"רשת ואינטרנט"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"רשת סלולרית"</string>
-    <plurals name="mobile_network_summary_count" formatted="false" msgid="6917348330386831454">
-      <item quantity="two"><xliff:g id="COUNT_1">%1$d</xliff:g> כרטיסי SIM</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%1$d</xliff:g> כרטיסי SIM</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> כרטיסי SIM</item>
-      <item quantity="one">כרטיס SIM אחד (‏<xliff:g id="COUNT_0">%1$d</xliff:g>)</item>
-    </plurals>
+    <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{כרטיס SIM אחד}two{# כרטיסי SIM}many{# כרטיסי SIM}other{# כרטיסי SIM}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"פעיל / SIM"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"לא פעיל / SIM"</string>
     <string name="mobile_network_active_esim" msgid="5864100786496761032">"פעיל / SIM שהורדת"</string>
@@ -40,6 +35,8 @@
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"הוספה"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"חבילת גלישה"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"שימוש בחבילת הגלישה דרך הרשת הסלולרית"</string>
+    <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"רשת סלולרית"</string>
+    <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"שימוש בחבילת גלישה"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"לכבות את חבילת הגלישה?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"עליך לבחור אפשרות כלשהי"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"להשתמש ב-<xliff:g id="CARRIER">%1$s</xliff:g> בשביל חבילת גלישה?"</string>
@@ -55,12 +52,7 @@
     <string name="cell_data_warning" msgid="8997739664336571149">"אזהרה לגבי שימוש בנתונים: <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_limit" msgid="6862164869877993009">"מגבלת נתונים: <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_warning_and_limit" msgid="5003954080814312475">"אזהרה לגבי שימוש בנתונים:<xliff:g id="ID_1">^1</xliff:g>/מגבלת נתונים:<xliff:g id="ID_2">^2</xliff:g>"</string>
-    <plurals name="billing_cycle_days_left" formatted="false" msgid="9163059632851951402">
-      <item quantity="two">נותרו יומיים (%d)</item>
-      <item quantity="many">נותרו %d ימים</item>
-      <item quantity="other">נותרו %d ימים</item>
-      <item quantity="one">נותר יום אחד (%d)</item>
-    </plurals>
+    <string name="billing_cycle_days_left" msgid="1810100330204239102">"{count,plural, =1{נותר יום אחד}two{נותרו יומיים}many{נותרו # ימים}other{נותרו # ימים}}"</string>
     <string name="billing_cycle_none_left" msgid="3499893148398931302">"לא נשאר זמן"</string>
     <string name="billing_cycle_less_than_one_day_left" msgid="8121013296375203759">"נותר פחות מיום אחד"</string>
     <string name="carrier_and_update_text" msgid="4351043160977741244">"עדכון בוצע על ידי <xliff:g id="ID_1">^1</xliff:g> לפני <xliff:g id="ID_2">^2</xliff:g>"</string>
@@ -75,6 +67,7 @@
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"הגדרה"</string>
     <string name="data_warning_limit_title" msgid="4950868241810828601">"אזהרות והגבלות של נתונים"</string>
     <string name="app_usage_cycle" msgid="8445927080245880296">"מחזור שימוש בחבילת הגלישה באפליקציות"</string>
+    <string name="mobile_data_usage" msgid="8171519864391091861">"שימוש בחבילת הגלישה"</string>
     <string name="set_data_warning" msgid="6628236612886588097">"מתי תופיע אזהרת שימוש בנתונים"</string>
     <string name="data_warning" msgid="116776633806885370">"אזהרה לגבי שימוש בנתונים"</string>
     <string name="set_data_limit" msgid="7136539812414500084">"הגדרת מגבלת נתונים"</string>
@@ -83,8 +76,14 @@
     <string name="data_usage_limit_dialog_mobile" msgid="3633960011913085089">"כשהיחידה הראשית ברכב תגיע למגבלה שהגדרת, היא תשבית את חבילת הגלישה.\n\nמכיוון שעשויים להיות הבדלים בין השימוש בחבילת הגלישה שנמדד על ידי היחידה הראשית לבין השימוש שנמדד על ידי הספק, מומלץ להגדיר מגבלה סבירה."</string>
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"הגדרת אזהרה לגבי שימוש בחבילת הגלישה"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"מגבלה לשימוש בחבילת הגלישה"</string>
+    <string name="data_usage_settings_footer" msgid="681881387909678237">"כמות השימוש בחבילת הגלישה נמדדת על ידי המכשיר שלך. ייתכן שהערך הזה יהיה שונה מהערך שנמדד על ידי ספק הסלולר שלך."</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"הגדרה"</string>
+    <string name="data_usage_warning_save_title" msgid="2900544287239037695">"שמירה"</string>
     <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"רשת OEM"</string>
+    <string name="network_and_internet_vehicle_internet_title" msgid="2518848595673002736">"חיבור הרכב לאינטרנט"</string>
+    <string name="network_and_internet_oem_network_dialog_description" msgid="4469178879867702066">"לאחר השבתה של חיבור הרכב לאינטרנט, ייתכן שתכונות או אפליקציות מסוימות של הרכב לא יפעלו.\n\nהמערכת תמשיך לשתף נתונים קריטיים הדרושים להפעלת הרכב עם יצרן הרכב."</string>
+    <string name="network_and_internet_oem_network_dialog_confirm_label" msgid="2630033932472996255">"השבתה בכל זאת"</string>
+    <string name="network_and_internet_oem_network_disabled_footer" msgid="3529208167627034245">"חיבור הרכב לאינטרנט מושבת. בעקבות זאת, ייתכן שתכונות או אפליקציות מסוימות של הרכב לא יפעלו. המערכת תמשיך לשתף נתונים קריטיים הדרושים להפעלת הרכב עם יצרן הרכב."</string>
     <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"השתמשת ב-%1$s בין %2$s ל-%3$s"</string>
     <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"הצטרפות לרשת אחרת"</string>
     <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"העדפות רשת"</string>
@@ -98,6 +97,7 @@
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"הוספת רשת"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"התחברות"</string>
     <string name="wifi_connecting" msgid="1930665730621677960">"ההתחברות מתבצעת…"</string>
+    <string name="wifi_disconnected" msgid="4485699234859368137">"לא מחובר"</string>
     <string name="wifi_not_in_range_message" msgid="2617126307140203787">"הרשת לא בטווח"</string>
     <string name="wifi_password" msgid="5565632142720292397">"סיסמה"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"הצגת סיסמה"</string>
@@ -159,6 +159,7 @@
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"יש לבחור תדר אחד לפחות לנקודת Wi‑Fi לשיתוף אינטרנט:"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"נקודה לשיתוף אינטרנט ושיתוף אינטרנט בין מכשירים"</string>
     <string name="hotspot_settings_title" msgid="8220814387592756713">"נקודת אינטרנט"</string>
+    <string name="wifi_hotspot_state_off" msgid="6096709579204322798">"כבויה"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"כיבוי אוטומטי של הנקודה לשיתוף אינטרנט"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"נקודת ה-Wi‑Fi לשיתוף אינטרנט תיכבה כשאין אף מכשיר מחובר"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> רוצה להפעיל את ה-Wi-Fi"</string>
@@ -301,10 +302,10 @@
     <string name="force_stop" msgid="2153183697014720520">"סגירה ידנית"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"לסגור ידנית?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"אם סוגרים אפליקציה ידנית, ייתכן שהיא לא תפעל כהלכה."</string>
-    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"לכבות את ההגנה על הביצועים?"</string>
-    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"בחירה באפשרות הזו עלולה לגרום לפעילות לא תקינה של התוכנה והחומרה."</string>
-    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"לא לכבות"</string>
-    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"כיבוי"</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"להפעיל את העדיפות לביצועי האפליקציות?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"הפעלת ההגדרה הזו עלולה לגרום לאי יציבות במערכת או להשפיע על החומרה לטווח ארוך. רוצה להמשיך?"</string>
+    <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"כן"</string>
+    <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"לא תודה"</string>
     <string name="disable_text" msgid="4358165448648990820">"השבת"</string>
     <string name="enable_text" msgid="1794971777861881238">"הפעלה"</string>
     <string name="uninstall_text" msgid="277907956072833012">"הסרת התקנה"</string>
@@ -314,29 +315,30 @@
     <string name="permissions_label" msgid="2701446753515612685">"הרשאות"</string>
     <string name="notifications_label" msgid="6586089149665170731">"התראות"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"אחסון ומטמון"</string>
-    <string name="peak_performance_label" msgid="1592816366516845648">"הבטחת ביצועים מרביים"</string>
+    <string name="prioritize_app_performance_label" msgid="7264505023347026606">"עדיפות לביצועי אפליקציות"</string>
     <string name="application_version_label" msgid="8556889839783311649">"גרסה: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"לא הוענקו הרשאות"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"לא התבקשו הרשאות"</string>
     <string name="unused_apps" msgid="648471933781010395">"אפליקציות שמזמן לא השתמשת בהן"</string>
-    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
-      <item quantity="two"><xliff:g id="COUNT_1">%d</xliff:g> אפליקציות שמזמן לא השתמשת בהן</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> אפליקציות שמזמן לא השתמשת בהן</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> אפליקציות שמזמן לא השתמשת בהן</item>
-      <item quantity="one">אפליקציה אחת (<xliff:g id="COUNT_0">%d</xliff:g>) שמזמן לא השתמשת בה</item>
-    </plurals>
+    <string name="unused_apps_summary" msgid="8257304516038923072">"{count,plural, =1{אפליקציה אחת שמזמן לא השתמשת בה}two{# אפליקציות שמזמן לא השתמשת בהן}many{# אפליקציות שמזמן לא השתמשת בהן}other{# אפליקציות שמזמן לא השתמשת בהן}}"</string>
     <string name="unused_apps_switch" msgid="4433958286200341563">"הסרת הרשאות ופינוי נפח אחסון"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"%s בשטח אחסון פנימי"</string>
-    <string name="peak_performance_summary" msgid="2450911487290019786">"סגירת האפליקציה מאפשרת לחסוך במשאבים כשצריך"</string>
+    <string name="prioritize_app_performance_summary" msgid="1081874788185691418">"שימוש במשאבי המערכת תוך מתן עדיפות לביצועי אפליקציות"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"שימוש בחבילת הגלישה"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"שימוש בחבילת הגלישה באפל\'"</string>
+    <string name="data_usage_usage_history_title" msgid="2386346082501471648">"היסטוריית השימוש"</string>
+    <string name="data_usage_all_apps_title" msgid="5956991037518761599">"כל האפליקציות"</string>
+    <string name="app_data_usage_title" msgid="6991057296054761322">"חבילת גלישה ו-Wi‑Fi"</string>
+    <string name="app_data_usage_usage_history_title" msgid="5861801915345874959">"היסטוריית השימוש"</string>
+    <string name="app_data_usage_total_usage" msgid="6166480544992906281">"השימוש הכולל"</string>
+    <string name="app_data_usage_foreground" msgid="76513424438149709">"בחזית"</string>
+    <string name="app_data_usage_background" msgid="6972054078770685280">"ברקע"</string>
+    <string name="app_data_usage_allow_data_title" msgid="2713343973040466293">"השימוש בחבילת גלישה מותר"</string>
+    <string name="app_data_usage_allow_data_summary" msgid="7431118326573403774">"מתן הרשאה לאפליקציה הזאת לשימוש בחבילת גלישה"</string>
+    <string name="app_data_usage_restrict_data_title" msgid="7080736007645963633">"הגבלת השימוש בחבילת גלישה"</string>
+    <string name="app_data_usage_background_data_summary" msgid="4445472217737386826">"השימוש בחבילת גלישה מותר רק כשהאפליקציה פועלת ברקע"</string>
     <string name="computing_size" msgid="5791407621793083965">"מתבצע חישוב…"</string>
-    <plurals name="runtime_permissions_additional_count" formatted="false" msgid="3513360187065317613">
-      <item quantity="two"><xliff:g id="COUNT_1">%d</xliff:g> הרשאות נוספות</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> הרשאות נוספות</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> הרשאות נוספות</item>
-      <item quantity="one">הרשאה אחת (<xliff:g id="COUNT_0">%d</xliff:g>) נוספת</item>
-    </plurals>
+    <string name="runtime_permissions_additional_count" msgid="3920383880473283764">"{count,plural, =1{הרשאה אחת נוספת}two{# הרשאות נוספות}many{# הרשאות נוספות}other{# הרשאות נוספות}}"</string>
     <string name="direct_boot_unaware_dialog_message_car" msgid="2857599310518724080">"הערה: לאחר הפעלה מחדש, ניתן להפעיל את האפליקציה רק לאחר ביטול של נעילת הרכב."</string>
     <string name="assist_and_voice_input_settings" msgid="8813195157136637132">"קלט אסיסטנט וקלט קולי"</string>
     <string name="assist_app_settings" msgid="9085261410166776497">"אפליקציית עזרה"</string>
@@ -393,12 +395,35 @@
     <string name="wifi_control_description" msgid="6021926850423169261">"שליטה ב-Wi-Fi מאפשרת לאפליקציות להפעיל ולכבות חיבור Wi-Fi, לסרוק רשתות Wi-Fi ולהתחבר אליהן, להוסיף ולהסיר רשתות או להפעיל נקודה לשיתוף אינטרנט באופן מקומי בלבד."</string>
     <string name="more_special_access_title" msgid="166115485446645971">"עוד"</string>
     <string name="location_settings_title" msgid="901334356682423679">"מיקום"</string>
+    <string name="location_toggle_title" msgid="836779750812064601">"שימוש במיקום"</string>
+    <string name="location_toggle_summary" msgid="7977868708102299495">"אישור לאפליקציות נבחרות לגשת למיקום"</string>
+    <string name="location_toggle_off_warning" msgid="8396854289251143748">"אם משביתים את האפשרות הזו, מסירים את הגישה למיקום עבור כל האפליקציות. לאפליקציות העזרה לנהג עדיין תהיה גישה."</string>
+    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"שימוש במיקום עבור עזרה לנהג"</string>
+    <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"מיקום הרכב כבוי"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"לאפליקציות העזרה לנהג אין גישה למיקום"</string>
+    <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"שינוי"</string>
+    <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"אישור לאפליקציות העזרה לנהג לגשת למיקום"</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"אם משביתים את האפשרות הזו, משביתים את אפליקציות העזרה לנהג שמתבססות על פרטי המיקום."</string>
+    <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"השבתה בכל זאת"</string>
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"בקשות של מיקומים אחרונים"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"אין בקשות של מיקומים אחרונים"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"הרשאות ברמת אפליקציה"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"שירותי מיקום"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"שימוש במיקום"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"תכונת המיקום משתמשת במקורות כמו GPS,‏ Wi‑Fi, רשתות סלולריות וחיישנים כדי לעזור בהערכה של מיקום המכשיר שלך."</string>
+    <string name="driver_assistance_settings_title" msgid="4915804073177128915">"עזרה לנהג"</string>
+    <string name="adas_settings_footer" msgid="5128483877858058534">"פרטי המיקום שנשלחים לאפליקציות העזרה לנהג לא מכילים פרטים מזהים עליך. הפרטים מאוחסנים ליומיים לכל היותר עד למחיקתם."</string>
+    <string name="microphone_settings_title" msgid="7125554350537136922">"מיקרופון"</string>
+    <string name="microphone_toggle_title" msgid="911586035332827275">"שימוש במיקרופון"</string>
+    <string name="microphone_toggle_summary" msgid="2682653449849128626">"מתן הרשאת גישה למיקרופון לכל האפליקציות"</string>
+    <string name="microphone_manage_permissions" msgid="7280905792151988183">"ניהול של הרשאות המיקרופון"</string>
+    <string name="microphone_recently_accessed" msgid="2084292372486026607">"האפליקציות האחרונות שניגשו למיקרופון"</string>
+    <string name="microphone_no_recent_access" msgid="6412908936060990649">"אין אפליקציות אחרונות"</string>
+    <string name="microphone_app_permission_summary_microphone_off" msgid="6139321726246115550">"אין אפליקציות עם הרשאת גישה"</string>
+    <string name="microphone_app_permission_summary_microphone_on" msgid="7870834777359783838">"{count,plural, =1{לאפליקציה אחת מתוך {total_count} יש גישה}two{ל-# אפליקציות מתוך {total_count} יש גישה}many{ל-# אפליקציות מתוך {total_count} יש גישה}other{ל-# אפליקציות מתוך {total_count} יש גישה}}"</string>
+    <string name="microphone_settings_recent_requests_title" msgid="8154796551134761329">"בקשות הגישה האחרונות למיקרופון"</string>
+    <string name="microphone_settings_recent_requests_view_all_title" msgid="4339820818072842872">"הצגת כל הבקשות"</string>
+    <string name="microphone_settings_loading_app_permission_stats" msgid="4357161201098081615">"בטעינה…"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"מערכת"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"עדכוני מערכת"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"מתקדם"</string>
@@ -437,12 +462,7 @@
     <string name="settings_license_activity_title" msgid="8499293744313077709">"רישיונות צד שלישי"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"יש בעיה בטעינת הרישיון."</string>
     <string name="settings_license_activity_loading" msgid="6163263123009681841">"בטעינה…"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="2968627665608969405">
-      <item quantity="two">בעוד <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> צעדים התואר שלך יהיה מפתח/ת.</item>
-      <item quantity="many">בעוד <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> צעדים התואר שלך יהיה מפתח/ת.</item>
-      <item quantity="other">בעוד <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> צעדים התואר שלך יהיה מפתח/ת.</item>
-      <item quantity="one">בעוד צעד אחד (<xliff:g id="STEP_COUNT_0">%1$d</xliff:g>) התואר שלך יהיה מפתח/ת.</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="7416958516942072383">"{count,plural, =1{נותר עוד שלב אחד להגדרתך כמפתח.}two{נותרו עוד # שלבים אחד להגדרתך כמפתח.}many{נותרו עוד # שלבים אחד להגדרתך כמפתח.}other{נותרו עוד # שלבים אחד להגדרתך כמפתח.}}"</string>
     <string name="show_dev_on" msgid="5339077400040834808">"את/ה מפתח/ת עכשיו!"</string>
     <string name="show_dev_already" msgid="1678087328973865736">"אין צורך, את/ה כבר מפתח/ת."</string>
     <string name="developer_options_settings" msgid="1530739225109118480">"אפשרויות למפתחים"</string>
@@ -511,16 +531,11 @@
     <string name="user_add_user_message_setup" msgid="812616230454605159">"לאחר יצירה של פרופיל חדש, המשתמש של הפרופיל הזה צריך להתאים אותו אישית בעצמו."</string>
     <string name="user_add_user_message_update" msgid="3836353291078729240">"עדכון אפליקציות מפרופיל כלשהו יחיל את העדכונים בכל יתר הפרופילים."</string>
     <string name="user_limit_reached_title" msgid="5677729355746623293">"הגעת למספר הפרופילים המרבי"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
-      <item quantity="two">ניתן ליצור רק <xliff:g id="COUNT">%d</xliff:g> פרופילים.</item>
-      <item quantity="many">ניתן ליצור רק <xliff:g id="COUNT">%d</xliff:g> פרופילים.</item>
-      <item quantity="other">ניתן ליצור רק <xliff:g id="COUNT">%d</xliff:g> פרופילים.</item>
-      <item quantity="one">ניתן ליצור רק פרופיל אחד.</item>
-    </plurals>
+    <string name="user_limit_reached_message" msgid="2773441357248819721">"{count,plural, =1{ניתן ליצור רק פרופיל אחד.}two{ניתן ליצור רק # פרופילים.}many{ניתן ליצור רק # פרופילים.}other{ניתן ליצור רק # פרופילים.}}"</string>
     <string name="add_user_error_title" msgid="7589792057846396341">"לא ניתן היה ליצור את הפרופיל החדש"</string>
     <string name="delete_user_dialog_title" msgid="575517556232943687">"למחוק את הפרופיל הזה?"</string>
     <string name="delete_user_dialog_message" msgid="3916865958419051299">"כל האפליקציות והנתונים של הפרופיל הזה יימחקו"</string>
-    <string name="delete_user_error_title" msgid="6422249596301690254">"לא ניתן היה למחוק את הפרופיל"</string>
+    <string name="delete_user_error_title" msgid="287249031795906102">"הפרופיל לא נמחק. צריך להפעיל מחדש ולנסות שוב."</string>
     <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"הפרופיל הזה יימחק במהלך החלפת פרופילים או הפעלה מחדש של הרכב."</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"ביטול"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"ניסיון חוזר"</string>
@@ -633,6 +648,7 @@
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"כיצד לשרטט קו ביטול נעילה"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"שגיאה בשמירה של קו ביטול הנעילה"</string>
     <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"יותר מדי ניסיונות שגויים. ניתן לנסות שוב בעוד <xliff:g id="NUMBER">%d</xliff:g> שניות."</string>
+    <string name="lockpattern_does_not_support_rotary" msgid="7356367113555659428">"אין תמיכה בקו ביטול נעילה בחוגה, רק במגע"</string>
     <string name="okay" msgid="4589873324439764349">"אישור"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"להסיר את נעילת המסך?"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"פעולה זו תאפשר לכל אחד לגשת לחשבון שלך"</string>
@@ -664,42 +680,6 @@
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"קודי אימות נפוצים חסומים בידי מנהל ה-IT. יש לנסות קוד אימות אחר."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"לא ניתן לכלול תו לא חוקי."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"הסיסמה לא חוקית, היא חייבת להיות באורך של ארבעה תווים לפחות."</string>
-    <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
-      <item quantity="two">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> אותיות</item>
-      <item quantity="many">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> אותיות</item>
-      <item quantity="other">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> אותיות</item>
-      <item quantity="one">צריכה להכיל לפחות אות אחת</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_lowercase" formatted="false" msgid="2267487180744744833">
-      <item quantity="two">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> אותיות קטנות</item>
-      <item quantity="many">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> אותיות קטנות</item>
-      <item quantity="other">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> אותיות קטנות</item>
-      <item quantity="one"> צריכה להכיל לפחות אות קטנה אחת</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_uppercase" formatted="false" msgid="7999264563026517898">
-      <item quantity="two">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> אותיות גדולות</item>
-      <item quantity="many">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> אותיות גדולות</item>
-      <item quantity="other">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> אותיות גדולות</item>
-      <item quantity="one">צריכה להכיל לפחות אות גדולה אחת</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_numeric" formatted="false" msgid="7935079851855168646">
-      <item quantity="two">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> ספרות</item>
-      <item quantity="many">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> ספרות</item>
-      <item quantity="other">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> ספרות</item>
-      <item quantity="one">צריכה להכיל לפחות ספרה אחת</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_symbols" formatted="false" msgid="3994046435150094132">
-      <item quantity="two">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> סמלים מיוחדים</item>
-      <item quantity="many">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> סמלים מיוחדים</item>
-      <item quantity="other">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> סמלים מיוחדים</item>
-      <item quantity="one">צריכה להכיל לפחות סמל מיוחד אחד</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="6878486326748506524">
-      <item quantity="two">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> תווים שאינם אותיות</item>
-      <item quantity="many">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> תווים שאינם אותיות</item>
-      <item quantity="other">צריכה להכיל לפחות <xliff:g id="COUNT">%d</xliff:g> תווים שאינם אותיות</item>
-      <item quantity="one">צריכה להכיל לפחות תו אחד שאינו אות</item>
-    </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"מנהל המכשיר לא מאפשר להשתמש בסיסמה שנעשה בה שימוש לאחרונה"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"שגיאה בשמירת הסיסמה"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"סיסמאות נפוצות חסומות בידי מנהל ה-IT. יש לנסות סיסמה אחרת."</string>
@@ -742,5 +722,66 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"להוספת פרופיל"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"מחיקת הפרופיל"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"הוספת פרופיל"</string>
+    <string name="qc_display_brightness" msgid="2939655289816201170">"בהירות התצוגה"</string>
+    <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"כדי להציג את המכשירים שלך, צריך להפעיל את Bluetooth"</string>
+    <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"כדי להתאים מכשיר, צריך לפתוח את הגדרות Bluetooth"</string>
+    <string name="device_admin_add_title" msgid="1294399588284546811">"המנהל של מערכת המידע והבידור"</string>
+    <string name="device_admin_activated_apps" msgid="568075063362271751">"אפליקציות מופעלות"</string>
+    <string name="device_admin_deactivated_apps" msgid="3797263682500122872">"אפליקציות מושבתות"</string>
+    <string name="device_admin_apps_description" msgid="1371935499168453457">"לאפליקציות עם ההרשאה הזאת יש גישה לנתוני הרכב הזה"</string>
+    <string name="device_admin_apps_list_empty" msgid="7634804595645191123">"אין אפליקציות למנהלים ברכב"</string>
+    <string name="device_admin_status" msgid="4041772636856135168">"אפליקציית המנהל של מערכת המידע והבידור פעילה ומאפשרת לאפליקציה <xliff:g id="APP_NAME">%1$s</xliff:g> לבצע את הפעולות הבאות:"</string>
+    <string name="device_admin_warning" msgid="8997805999333600901">"הפעלת האפליקציה הזאת של מערכת המידע והבידור תאפשר לאפליקציה <xliff:g id="APP_NAME">%1$s</xliff:g> לבצע את הפעולות הבאות:"</string>
+    <string name="add_device_admin_msg" msgid="8188888666879499482">"להפעיל את אפליקציית המידע והבידור?"</string>
+    <string name="add_device_admin" msgid="7674707256074840333">"הפעלת האפליקציה הזאת של מערכת המידע והבידור"</string>
+    <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"השבתה והסרה"</string>
+    <string name="remove_device_admin" msgid="3595343390502030723">"השבתת האפליקציה הזאת של מערכת המידע והבידור"</string>
+    <string name="admin_support_more_info" msgid="380785608579390750">"פרטים נוספים"</string>
+    <string name="admin_profile_owner_message" msgid="8361351256802954556">"מנהל הארגון יכול לפקח על אפליקציות ונתונים המשויכים לפרופיל הזה ולנהל אותם, כולל הגדרות, הרשאות, גישה ארגונית, פעילות הרשת ומידע על מיקום הרכב."</string>
+    <string name="admin_profile_owner_user_message" msgid="366072696508275753">"מנהל הארגון יכול לפקח על אפליקציות ונתונים המשויכים לפרופיל הזה ולנהל אותם, כולל הגדרות, הרשאות, גישה ארגונית, פעילות הרשת ומידע על מיקום המכשיר."</string>
+    <string name="admin_device_owner_message" msgid="896530502350904835">"מנהל הארגון יכול לפקח על אפליקציות ונתונים המשויכים למערכת הזו של המידע והבידור ולנהל אותם, כולל הגדרות, הרשאות, גישה ארגונית, פעילות הרשת ומידע על מיקום הרכב."</string>
+    <string name="admin_financed_message" msgid="7357397436233684082">"יכול להיות שמנהל הארגון יוכל לקבל גישה לנתונים שמשויכים למערכת הזו של המידע והבידור, לנהל אפליקציות ולשנות את הגדרות הרכב הזה."</string>
+    <string name="disabled_by_policy_title" msgid="1121694702115232518">"ההגדרה הזו לא זמינה"</string>
+    <string name="disabled_by_policy_title_adjust_volume" msgid="7002865820552702232">"לא ניתן לשנות את עוצמת הקול ברכב המנוהל הזה"</string>
+    <string name="disabled_by_policy_title_outgoing_calls" msgid="158752542663419500">"לא ניתן לבצע שיחות ברכב המנוהל הזה"</string>
+    <string name="disabled_by_policy_title_sms" msgid="3044491214572494290">"לא ניתן לשלוח ולקבל הודעות SMS ברכב המנוהל הזה"</string>
+    <string name="disabled_by_policy_title_camera" msgid="8929782627587059121">"המצלמה לא זמינה ברכב המנוהל הזה"</string>
+    <string name="disabled_by_policy_title_screen_capture" msgid="4059715943558852466">"לא ניתן לבצע צילומי מסך ברכב המנוהל הזה"</string>
+    <string name="disabled_by_policy_title_suspend_packages" msgid="7505332012990359725">"לא ניתן לפתוח את האפליקציה הזו ברכב המנוהל הזה"</string>
+    <string name="disabled_by_policy_title_financed_device" msgid="6005343494788285981">"נחסמה על ידי החברה שמוכרת מכשירים באשראי"</string>
+    <string name="default_admin_support_msg" msgid="2986598061733013282">"הגישה לחלק מהתכונות מוגבלת על ידי הארגון.\n\nיש לך שאלות? כדאי ליצור קשר עם מנהל הארגון."</string>
+    <string name="help_url_action_disabled_by_it_admin" msgid="1479392394986580260"></string>
+    <string name="manage_device_admin" msgid="7087659697154317316">"אפליקציות למנהלי מערכות של הרכב"</string>
+    <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{אפליקציה אחת מופעלת}two{# אפליקציות מופעלות}many{# אפליקציות מופעלות}other{# אפליקציות מופעלות}}"</string>
+    <string name="number_of_device_admins_none" msgid="5547493703413973954">"אין אפליקציות פעילות"</string>
+    <string name="work_policy_privacy_settings" msgid="5263835989260149968">"מדיניות הרכב של <xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>"</string>
+    <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"ההגדרות מנוהלות על ידי המנהל של הארגון"</string>
+    <string name="footer_learn_more_content_description" msgid="7749452309729272078">"מידע נוסף על <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"לשתף את דוח איתור הבאגים?"</string>
+    <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"מנהל הארגון האחראי לרכב הזה ביקש דוח איתור באגים כדי לסייע בפתרון בעיות במכשיר הזה. יכול להיות שהאפליקציות והנתונים שלך ישותפו."</string>
+    <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"מנהל הארגון האחראי לרכב הזה ביקש דוח איתור באגים כדי לסייע בפתרון בעיות במכשיר הזה. יכול להיות שהאפליקציות והנתונים ישותפו, ופעילות המכשיר שלך תהיה איטית יותר באופן זמני."</string>
+    <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"דוח איתור הבאגים משותף עכשיו עם מנהל הארגון האחראי לרכב הזה. צריך ליצור איתו קשר כדי לקבל פרטים נוספים."</string>
+    <string name="share_remote_bugreport_action" msgid="5364819432179581532">"שיתוף"</string>
+    <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"דחייה"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"לא ניתן לשנות את ההגדרה הזו כרגע."</string>
+    <string name="accessibility_settings_title" msgid="2615042088419230347">"נגישות"</string>
+    <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"כתוביות"</string>
+    <string name="captions_settings_title" msgid="5738067618097295831">"העדפות לכתוביות"</string>
+    <string name="captions_settings_off" msgid="7568096968016015626">"מושבתות"</string>
+    <string name="captions_settings_on" msgid="5374984113566914978">"פועלות"</string>
+    <string name="screen_reader_settings_title" msgid="4012734340987826872">"קורא מסך"</string>
+    <string name="show_captions_toggle_title" msgid="710582308974826311">"הצגת הכתוביות"</string>
+    <string name="captions_text_size_title" msgid="1960814652560877963">"גודל הטקסט"</string>
+    <string name="captions_settings_style_header" msgid="944591388386054372">"גודל וסגנון הכתוביות"</string>
+    <string name="captions_settings_text_size_very_small" msgid="7476485317028306502">"קטנות מאוד"</string>
+    <string name="captions_settings_text_size_small" msgid="1481895299805450566">"קטנות"</string>
+    <string name="captions_settings_text_size_default" msgid="2227802573224038267">"ברירת מחדל"</string>
+    <string name="captions_settings_text_size_large" msgid="5198207220911360512">"גדולות"</string>
+    <string name="captions_settings_text_size_very_large" msgid="949511539689307969">"גדולות מאוד"</string>
+    <string name="captions_text_style_title" msgid="8547777957403577760">"סגנון הכתוביות"</string>
+    <string name="captions_settings_text_style_by_app" msgid="7014882290456996444">"בהגדרת האפליקציה"</string>
+    <string name="captions_settings_text_style_white_on_black" msgid="5758084000323596070">"לבן על גבי שחור"</string>
+    <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"שחור על גבי לבן"</string>
+    <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"צהוב על גבי שחור"</string>
+    <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"צהוב על גבי כחול"</string>
 </resources>

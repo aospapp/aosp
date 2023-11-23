@@ -1,0 +1,4 @@
+/vendor/bin/securedpud\.slider                                                   u:object_r:securedpud_slider_exec:s0
+/vendor/bin/hw/android\.hardware\.confirmationui@1\.0-service\.trusty\.vendor    u:object_r:hal_confirmationui_default_exec:s0
+
+/dev/tui-driver                                                                  u:object_r:tui_device:s0

@@ -140,8 +140,19 @@
 
     <color name="sud_portal_pending_progress">@color/sud_portal_pending_progress_light</color>
 
-    <color name="sud_switch_track_off">#FF757575</color>
-    <color name="sud_switch_thumb_off">#BFFFFFFF</color>
+
+    <color name="sud_switch_track_off_light">#FF55575E</color>
+    <color name="sud_switch_thumb_off_light">#FFA5ACB2</color>
+    <color name="sud_switch_track_off_dark">#FF454749</color>
+    <color name="sud_switch_thumb_off_dark">#FF8F9193</color>
+
+    <color name="sud_switch_track_on_light">#3B78E7</color>
+
+    <color name="sud_switch_thumb_on_light">#C6DAFC</color>
+
+    <color name="sud_switch_track_on_dark">#824285F4</color>
+
+    <color name="sud_switch_thumb_on_dark">#C6DAFC</color>
 
 
     <color name="sud_uniformity_backdrop_color">@android:color/white</color>

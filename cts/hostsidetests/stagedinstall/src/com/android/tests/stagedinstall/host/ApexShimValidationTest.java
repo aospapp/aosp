@@ -210,6 +210,31 @@ public class ApexShimValidationTest extends BaseHostJUnit4Test {
         runPhase("testInstallRejected_VerifyPostReboot");
     }
 
+    @Test
+    public void testRejectsApexWithAdditionalFile_rebootless() throws Exception {
+        runPhase("testRejectsApexWithAdditionalFile_rebootless");
+    }
+
+    @Test
+    public void testRejectsApexWithAdditionalFolder_rebootless() throws Exception {
+        runPhase("testRejectsApexWithAdditionalFolder_rebootless");
+    }
+
+    @Test
+    public void testRejectsApexWithPostInstallHook_rebootless() throws Exception {
+        runPhase("testRejectsApexWithPostInstallHook_rebootless");
+    }
+
+    @Test
+    public void testRejectsApexWithPreInstallHook_rebootless() throws Exception {
+        runPhase("testRejectsApexWithPreInstallHook_rebootless");
+    }
+
+    @Test
+    public void testRejectsApexWrongSHA_rebootless() throws Exception {
+        runPhase("testRejectsApexWrongSHA_rebootless");
+    }
+
     /**
      * Extracts {@link #DEAPEXER_ZIP_FILE_NAME} into the destination folder. Updates executable
      * attribute for the binaries of deapexer and debugfs_static.

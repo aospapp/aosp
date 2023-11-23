@@ -19,26 +19,42 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="hvac_min_text" msgid="866677328637088715">"Min."</string>
     <string name="hvac_max_text" msgid="7627950157128770380">"Maks."</string>
+    <string name="fan_speed_max" msgid="956683571700419211">"MAKS."</string>
+    <string name="fan_speed_off" msgid="3860115181014880798">"AV"</string>
+    <string name="hvac_temperature_off" msgid="8370977023494579242">"AV"</string>
     <string name="voice_recognition_toast" msgid="7579725862117020349">"Talegjenkjenning håndteres nå av tilkoblet Bluetooth-enhet"</string>
     <string name="car_guest" msgid="768913000117469596">"Gjest"</string>
     <string name="start_guest_session" msgid="2759367183497948650">"Gjest"</string>
-    <string name="car_add_user" msgid="8660226923614358478">"Legg til bruker"</string>
-    <string name="car_new_user" msgid="304628168515673432">"Ny bruker"</string>
-    <string name="user_add_user_message_setup" msgid="2130987756494836929">"Når du legger til en ny bruker, må vedkommende konfigurere sitt eget område."</string>
-    <string name="user_add_user_message_update" msgid="1001907075316748931">"Alle brukere kan oppdatere apper for alle andre brukere."</string>
+    <string name="car_add_user" msgid="6182764665687382136">"Legg til en profil"</string>
+    <string name="car_new_user" msgid="6766334721724989964">"Ny profil"</string>
+    <string name="user_add_profile_title" msgid="828371911076521952">"Vil du legge til en ny profil?"</string>
+    <string name="user_add_user_message_setup" msgid="6136074867764164790">"Etter at du har opprettet en ny profil, kan brukeren tilpasse den selv."</string>
+    <string name="user_add_user_message_update" msgid="3310089453006545712">"Apper kan oppdateres fra hvilken som helst profil for bruk av alle andre profiler."</string>
+    <string name="profile_limit_reached_title" msgid="7891779218496729653">"Grensen for antall profiler er nådd"</string>
+    <plurals name="profile_limit_reached_message" formatted="false" msgid="910608128912533066">
+      <item quantity="other">Du kan legge til opptil <xliff:g id="COUNT">%d</xliff:g> profiler.</item>
+      <item quantity="one">Du kan bare opprette én profil.</item>
+    </plurals>
     <string name="car_loading_profile" msgid="458961191993686065">"Laster inn"</string>
     <string name="car_loading_profile_developer_message" msgid="737810794567935702">"Laster inn brukeren (fra <xliff:g id="FROM_USER">%1$d</xliff:g> til <xliff:g id="TO_USER">%2$d</xliff:g>)"</string>
     <string name="mic_privacy_chip_off_content" msgid="4989623700063721557">"Mikrofonen er av."</string>
-    <string name="mic_privacy_chip_mic_enabled" msgid="5667789064187849349">"Mikrofonen er slått på"</string>
-    <string name="mic_privacy_chip_mic_enabled_subtext" msgid="815124399469247109">"Apper har tilgang til mikrofonen"</string>
-    <string name="mic_privacy_chip_mic_disabled" msgid="2709173475947157320">"Mikrofonen er slått av"</string>
-    <string name="mic_privacy_chip_mic_disabled_subtext" msgid="9059745506470016701">"Ingen apper har tilgang til mikrofonen"</string>
-    <string name="mic_privacy_chip_privacy_settings" msgid="719293067082198224">"Personverninnstillinger"</string>
+    <string name="mic_privacy_chip_use_microphone" msgid="6766440136862693589">"Bruk mikrofonen"</string>
+    <string name="mic_privacy_chip_use_microphone_subtext" msgid="3953394014360603987">"For apper som har tillatelse"</string>
+    <string name="mic_privacy_chip_microphone_settings" msgid="4520886720588226450">"Mikrofoninnstillinger"</string>
     <string name="mic_privacy_chip_app_using_mic_suffix" msgid="8355462601492180023">"<xliff:g id="APP">%s</xliff:g> bruker mikrofonen"</string>
     <string name="mic_privacy_chip_apps_using_mic_suffix" msgid="6656026041668305817">"<xliff:g id="APP_LIST">%s</xliff:g> bruker mikrofonen"</string>
     <string name="mic_privacy_chip_app_recently_used_mic_suffix" msgid="1819299821245419382">"<xliff:g id="APP">%s</xliff:g> har nylig brukt mikrofonen"</string>
+    <string name="mic_privacy_chip_apps_recently_used_mic_suffix" msgid="3451383324549295901">"<xliff:g id="APP_0">%1$s</xliff:g> og <xliff:g id="ADDITIONAL_APP_COUNT">%2$d</xliff:g> til har brukt mikrofonen nylig"</string>
     <string name="mic_privacy_chip_on_toast" msgid="7003896860896586181">"Mikrofonen er slått på"</string>
     <string name="mic_privacy_chip_off_toast" msgid="8718743873640788032">"Mikrofonen er slått av"</string>
-    <string name="mic_privacy_chip_dialog_title_mic" msgid="3782090299882049010">"Nylig bruk av mikrofonen"</string>
     <string name="mic_privacy_chip_dialog_ok" msgid="2298690833121720237">"OK"</string>
+    <string name="sensor_privacy_start_use_mic_dialog_title" msgid="8774244900043105266">"Vil du slå på mikrofonen i kjøretøyet?"</string>
+    <string name="sensor_privacy_start_use_mic_dialog_content" msgid="8382980879434990801">"For å fortsette, slå på mikrofonen til infotainment-systemet. Dette gjør at mikrofonen slås på for alle apper som har tillatelse."</string>
+    <string name="qc_footer_settings" msgid="5471523941092316743">"Innstillinger"</string>
+    <string name="qc_footer_bluetooth_settings" msgid="2870204430643762847">"Bluetooth-innstillinger"</string>
+    <string name="qc_footer_network_internet_settings" msgid="2480582764252681575">"Nettverks- og internettinnstillinger"</string>
+    <string name="qc_footer_display_settings" msgid="2950539240110437704">"Skjerminnstillinger"</string>
+    <string name="qc_footer_network_sound_settings" msgid="5117011034908775097">"Lydinnstillinger"</string>
+    <string name="qc_footer_profiles_accounts_settings" msgid="4456419248123950232">"Profil- og kontoinnstillinger"</string>
+    <string name="lockpattern_does_not_support_rotary" msgid="4605787900312103476">"Mønsteret støtter ikke rotasjon. Bruk berøring."</string>
 </resources>

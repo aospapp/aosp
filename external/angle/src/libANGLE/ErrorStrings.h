@@ -209,9 +209,11 @@ MSG kInsufficientBufferSize = "Insufficient buffer size.";
 MSG kInsufficientParams = "More parameters are required than were provided.";
 MSG kInsufficientVertexBufferSize = "Vertex buffer is not big enough for the draw call";
 MSG kIntegerOverflow = "Integer overflow.";
+MSG kInternalFormatRequiresTexture2D = "internalformat is an ETC1 or PVRTC1 format.";
 MSG kInternalFormatRequiresTexture2DArray = "internalformat is an ETC2/EAC format and target is not GL_TEXTURE_2D_ARRAY.";
 MSG kInternalFormatRequiresTexture2DArrayS3TC = "internalformat is an S3TC format and target is not GL_TEXTURE_2D_ARRAY.";
 MSG kInternalFormatRequiresTexture2DArrayRGTC = "internalformat is an RGTC format and target is not GL_TEXTURE_2D_ARRAY.";
+MSG kInternalFormatRequiresTexture2DArrayBPTC = "internalformat is a BPTC format and target is not GL_TEXTURE_2D_ARRAY.";
 MSG kInternalFormatRequiresTexture2DArrayASTC = "internalformat is an ASTC format and target is not GL_TEXTURE_2D_ARRAY.";
 MSG kInvalidAccessBits = "Invalid access bits.";
 MSG kInvalidAccessBitsFlush = "The explicit flushing bit may only be set if the buffer is mapped for writing.";
@@ -566,7 +568,9 @@ MSG kUnrecognizedShaderStageBit = "Unrecognized shader stage bit.";
 MSG kProgramNotSeparable = "Program object was not linked with its PROGRAM_SEPARABLE status set.";
 MSG kProgramPipelineDoesNotExist = "Program pipeline does not exist.";
 MSG kNotAllStagesOfSeparableProgramUsed = "A program object is active for at least one, but not all of the shader stages that were present when the program was linked.";
+MSG kNoExecutableCodeInstalled = "There is no current program object specified by UseProgram, there is a current program pipeline object, and that object is empty (no executable code is installed for any stage).";
 MSG kProgramPipelineLinkFailed = "Program pipeline link failed";
+MSG kProtectedTexturesExtensionRequired = "GL_EXT_protected_textures not enabled.";
 
 // clang-format on
 

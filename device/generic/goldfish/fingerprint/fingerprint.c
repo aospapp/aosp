@@ -267,13 +267,6 @@ static int fingerprint_set_active_group(struct fingerprint_device *device, uint3
     uint64_t authenticator_id = 0;
     loadFingerprints(&qdev->listener);
     loadAuthenticatorId(qdev->listener.authid_filename, &authenticator_id);
-    if (authenticator_id == 0) {
-        // firs time, create an authenticator id
-        authenticator_id = get_64bit_rand();
-        // save it to disk
-        saveAuthenticatorId(qdev->listener.authid_filename, authenticator_id);
-    }
-
     qdev->authenticator_id = authenticator_id;
     pthread_mutex_unlock(&qdev->lock);
 
@@ -538,6 +531,22 @@ static int fingerprint_remove(struct fingerprint_device *device,
         device->notify(&msg);
     }
 
+    // where there are no enrollment, reset authenticator id to 0
+    bool has_fingerprints = false;
+    for (idx = 0; idx < MAX_NUM_FINGERS; idx++) {
+        uint32_t theFid = qdev->listener.fingerid[idx];
+        if (theFid != 0) {
+            has_fingerprints = true;
+            break;
+        }
+    }
+
+    if (!has_fingerprints) {
+        qdev->authenticator_id = 0;
+        saveAuthenticatorId(qdev->listener.authid_filename, qdev->authenticator_id);
+    }
+
+
     return 0;
 }
 
@@ -637,6 +646,10 @@ static void send_enroll_notice(qemu_fingerprint_device_t* qdev, int fid) {
         qdev->listener.secureid[idx] = qdev->secure_user_id;
         qdev->listener.fingerid[idx] = fid;
         saveFingerprint(&qdev->listener, idx);
+        uint64_t authenticator_id = get_64bit_rand();
+        // save it to disk
+        saveAuthenticatorId(qdev->listener.authid_filename, authenticator_id);
+        qdev->authenticator_id = authenticator_id;
         qdev->listener.state = STATE_IDLE;
     }
     pthread_mutex_unlock(&qdev->lock);

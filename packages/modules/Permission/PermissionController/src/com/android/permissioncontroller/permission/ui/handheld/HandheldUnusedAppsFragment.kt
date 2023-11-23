@@ -22,9 +22,11 @@ import android.os.Bundle
 import android.os.UserHandle
 import android.view.MenuItem
 import androidx.preference.Preference
+import androidx.preference.PreferenceCategory
 import com.android.permissioncontroller.R
 import com.android.permissioncontroller.hibernation.isHibernationEnabled
 import com.android.permissioncontroller.permission.ui.UnusedAppsFragment
+import com.android.permissioncontroller.permission.ui.UnusedAppsFragment.Companion.INFO_MSG_CATEGORY
 
 /**
  * Handheld wrapper, with customizations, around [UnusedAppsFragment].
@@ -108,5 +110,11 @@ class HandheldUnusedAppsFragment : PermissionsFrameFragment(),
 
     override fun setTitle(title: CharSequence) {
         requireActivity().setTitle(title)
+    }
+
+    override fun setEmptyState(empty: Boolean) {
+        val infoMsgCategory =
+                preferenceScreen.findPreference<PreferenceCategory>(INFO_MSG_CATEGORY)!!
+        infoMsgCategory.isVisible = !empty
     }
 }

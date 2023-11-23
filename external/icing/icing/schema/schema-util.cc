@@ -37,6 +37,20 @@ namespace lib {
 
 namespace {
 
+bool ArePropertiesEqual(const PropertyConfigProto& old_property,
+                        const PropertyConfigProto& new_property) {
+  return old_property.property_name() == new_property.property_name() &&
+         old_property.data_type() == new_property.data_type() &&
+         old_property.schema_type() == new_property.schema_type() &&
+         old_property.cardinality() == new_property.cardinality() &&
+         old_property.string_indexing_config().term_match_type() ==
+             new_property.string_indexing_config().term_match_type() &&
+         old_property.string_indexing_config().tokenizer_type() ==
+             new_property.string_indexing_config().tokenizer_type() &&
+         old_property.document_indexing_config().index_nested_properties() ==
+             new_property.document_indexing_config().index_nested_properties();
+}
+
 bool IsCardinalityCompatible(const PropertyConfigProto& old_property,
                              const PropertyConfigProto& new_property) {
   if (old_property.cardinality() < new_property.cardinality()) {
@@ -432,7 +446,6 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
     const SchemaProto& old_schema, const SchemaProto& new_schema,
     const DependencyMap& new_schema_dependency_map) {
   SchemaDelta schema_delta;
-  schema_delta.index_incompatible = false;
 
   TypeConfigMap new_type_config_map;
   BuildTypeConfigMap(new_schema, &new_type_config_map);
@@ -463,6 +476,9 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
 
     // If there is a different number of properties, then there must have been a
     // change.
+    bool has_property_changed =
+        old_type_config.properties_size() !=
+        new_schema_type_and_config->second.properties_size();
     bool is_incompatible = false;
     bool is_index_incompatible = false;
     for (const auto& old_property_config : old_type_config.properties()) {
@@ -498,6 +514,11 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
 
       const PropertyConfigProto* new_property_config =
           new_property_name_and_config->second;
+      if (!has_property_changed &&
+          !ArePropertiesEqual(old_property_config, *new_property_config)) {
+        // Finally found a property that changed.
+        has_property_changed = true;
+      }
 
       if (!IsPropertyCompatible(old_property_config, *new_property_config)) {
         ICING_VLOG(1) << absl_ports::StrCat(
@@ -562,9 +583,38 @@ const SchemaUtil::SchemaDelta SchemaUtil::ComputeCompatibilityDelta(
     }
 
     if (is_index_incompatible) {
-      schema_delta.index_incompatible = true;
+      // If this type is index incompatible, then every type that depends on it
+      // might also be index incompatible. Use the dependency map to mark those
+      // ones as index incompatible too.
+      schema_delta.schema_types_index_incompatible.insert(
+          old_type_config.schema_type());
+      auto parent_types_itr =
+          new_schema_dependency_map.find(old_type_config.schema_type());
+      if (parent_types_itr != new_schema_dependency_map.end()) {
+        schema_delta.schema_types_index_incompatible.reserve(
+            schema_delta.schema_types_index_incompatible.size() +
+            parent_types_itr->second.size());
+        schema_delta.schema_types_index_incompatible.insert(
+            parent_types_itr->second.begin(), parent_types_itr->second.end());
+      }
     }
 
+    if (!is_incompatible && !is_index_incompatible && has_property_changed) {
+      schema_delta.schema_types_changed_fully_compatible.insert(
+          old_type_config.schema_type());
+    }
+
+    // Lastly, remove this type from the map. We know that this type can't
+    // come up in future iterations through the old schema types because the old
+    // type config has unique types.
+    new_type_config_map.erase(old_type_config.schema_type());
+  }
+
+  // Any types that are still present in the new_type_config_map are newly added
+  // types.
+  schema_delta.schema_types_new.reserve(new_type_config_map.size());
+  for (auto& kvp : new_type_config_map) {
+    schema_delta.schema_types_new.insert(std::move(kvp.first));
   }
 
   return schema_delta;

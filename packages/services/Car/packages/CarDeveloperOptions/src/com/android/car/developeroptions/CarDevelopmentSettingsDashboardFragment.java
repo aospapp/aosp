@@ -24,6 +24,11 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 
+import androidx.annotation.XmlRes;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.SwitchPreference;
+
 import com.android.car.ui.toolbar.MenuItem;
 import com.android.car.ui.toolbar.Toolbar;
 import com.android.car.ui.toolbar.ToolbarController;
@@ -40,20 +45,60 @@ import java.util.List;
  * {@link PREFERENCES_TO_REMOVE} constant.
  */
 public class CarDevelopmentSettingsDashboardFragment extends DevelopmentSettingsDashboardFragment {
+    static final String PREF_KEY_CAR_CATEGORY = "car_development_category";
+    static final String PREF_KEY_DEBUG_MISC_CATEGORY = "debug_misc_category";
 
-    private ToolbarController mToolbar;
+    private final List<CarDevelopmentPreferenceController> mCarFeatureControllers =
+            new ArrayList<>();
 
     @Override
     public void onActivityCreated(Bundle icicle) {
         super.onActivityCreated(icicle);
-        mToolbar = getToolbar();
-        if (mToolbar != null) {
+        ToolbarController toolbar = getToolbar();
+        if (toolbar != null) {
             List<MenuItem> items = getToolbarMenuItems();
-            mToolbar.setTitle(getPreferenceScreen().getTitle());
-            mToolbar.setMenuItems(items);
-            mToolbar.setNavButtonMode(Toolbar.NavButtonMode.BACK);
-            mToolbar.setState(Toolbar.State.SUBPAGE);
+            toolbar.setTitle(getPreferenceScreen().getTitle());
+            toolbar.setMenuItems(items);
+            toolbar.setNavButtonMode(Toolbar.NavButtonMode.BACK);
+            toolbar.setState(Toolbar.State.SUBPAGE);
         }
+    }
+
+    @Override
+    public void addPreferencesFromResource(@XmlRes int preferencesResId) {
+        super.addPreferencesFromResource(preferencesResId);
+
+        int miscPrefCategory = getPreferenceScreen().findPreference(
+                PREF_KEY_DEBUG_MISC_CATEGORY).getOrder();
+        PreferenceCategory carCategory = new PreferenceCategory(getContext());
+        carCategory.setOrder(miscPrefCategory + 1);
+        carCategory.setKey(PREF_KEY_CAR_CATEGORY);
+        carCategory.setTitle(getContext().getString(R.string.car_pref_category_title));
+        getPreferenceScreen().addPreference(carCategory);
+
+        for (CarDevelopmentPreferenceController controller : mCarFeatureControllers) {
+            addCarPreference(controller);
+        }
+    }
+
+    void addCarPreference(CarDevelopmentPreferenceController controller) {
+        final Preference dynamicPreference;
+        if (controller instanceof CarDevelopmentCarUiLibController) {
+            dynamicPreference = new SwitchPreference(getContext());
+        } else {
+            throw new UnsupportedOperationException(
+                    "Unexpected controller type " + controller.getClass().getSimpleName());
+        }
+
+        dynamicPreference.setKey(controller.getPreferenceKey());
+        dynamicPreference.setTitle(controller.getPreferenceTitle());
+        final String summary = controller.getPreferenceSummary();
+        if (summary != null) {
+            dynamicPreference.setSummary(summary);
+        }
+
+        ((PreferenceCategory) getPreferenceScreen().findPreference(PREF_KEY_CAR_CATEGORY))
+                .addPreference(dynamicPreference);
     }
 
     @Override
@@ -61,6 +106,7 @@ public class CarDevelopmentSettingsDashboardFragment extends DevelopmentSettings
         List<AbstractPreferenceController> controllers = super.createPreferenceControllers(context);
         removeControllers(controllers);
         addHiddenControllers(context, controllers);
+        addCarControllers(context, controllers);
         return controllers;
     }
 
@@ -100,6 +146,12 @@ public class CarDevelopmentSettingsDashboardFragment extends DevelopmentSettings
         for (String key : PREFERENCES_TO_REMOVE) {
             controllers.add(new HiddenPreferenceController(context, key));
         }
+    }
+
+    private void addCarControllers(Context context,
+            List<AbstractPreferenceController> controllers) {
+        mCarFeatureControllers.add(new CarDevelopmentCarUiLibController(context));
+        controllers.addAll(mCarFeatureControllers);
     }
 
     private boolean isDeveloperOptionsModuleEnabled() {

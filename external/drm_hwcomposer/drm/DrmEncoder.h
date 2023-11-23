@@ -30,7 +30,7 @@ namespace android {
 class DrmEncoder {
  public:
   DrmEncoder(drmModeEncoderPtr e, DrmCrtc *current_crtc,
-             const std::vector<DrmCrtc *> &possible_crtcs);
+             std::vector<DrmCrtc *> possible_crtcs);
   DrmEncoder(const DrmEncoder &) = delete;
   DrmEncoder &operator=(const DrmEncoder &) = delete;
 

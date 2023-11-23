@@ -72,18 +72,18 @@
     <string name="add_account" msgid="7386223854837017129">"ਖਾਤਾ ਸ਼ਾਮਲ ਕਰੋ"</string>
     <string name="account_header_remove_account" msgid="8573697553061331373">"ਖਾਤਾ ਹਟਾਓ"</string>
     <string name="account_sync" msgid="4315295293211313989">"ਸਮਕਾਲੀਕਿਰਤ ਐਪਾਂ ਚੁਣੋ"</string>
-    <string name="sync_now" msgid="4335217984374620551">"ਹੁਣੇ ਸਮਕਾਲੀਕਰਨ ਕਰੋ"</string>
-    <string name="sync_in_progress" msgid="8081367667406185785">"ਸਮਕਾਲੀਕਰਨ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ..."</string>
-    <string name="last_synced" msgid="8371967816955123864">"ਆਖਰੀ ਵਾਰ ਸਮਕਾਲੀਕਰਨ ਕੀਤਾ <xliff:g id="TIME">%1$s</xliff:g>"</string>
+    <string name="sync_now" msgid="4335217984374620551">"ਹੁਣੇ ਸਿੰਕ ਕਰੋ"</string>
+    <string name="sync_in_progress" msgid="8081367667406185785">"ਸਿੰਕ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ..."</string>
+    <string name="last_synced" msgid="8371967816955123864">"ਆਖਰੀ ਵਾਰ ਸਿੰਕ ਕੀਤਾ <xliff:g id="TIME">%1$s</xliff:g>"</string>
     <string name="sync_disabled" msgid="6652778349371079140">"ਅਯੋਗ ਬਣਾਇਆ ਗਿਆ"</string>
     <string name="account_remove" msgid="8456848988853890155">"ਖਾਤਾ ਹਟਾਓ"</string>
     <string name="account_remove_failed" msgid="5654411101098531690">"ਖਾਤੇ ਨੂੰ ਹਟਾਇਆ ਨਹੀਂ ਜਾ ਸਕਦਾ"</string>
     <!-- no translation found for sync_item_title (5884138264243772176) -->
     <skip />
-    <string name="sync_one_time_sync" msgid="1665961083810584134">"ਹੁਣੇ ਸਮਕਾਲੀਕਰਨ ਕਰੋ<xliff:g id="LAST_SYNC_TIME">
+    <string name="sync_one_time_sync" msgid="1665961083810584134">"ਹੁਣੇ ਸਿੰਕ ਕਰੋ<xliff:g id="LAST_SYNC_TIME">
 %1$s</xliff:g>"</string>
-    <string name="sync_failed" msgid="2998289556481804047">"ਸਮਕਾਲੀਕਰਨ ਅਸਫਲ"</string>
-    <string name="sync_active" msgid="1621239982176888680">"ਸਮਕਾਲੀਕਰਨ ਕਿਰਿਆਸ਼ੀਲ"</string>
+    <string name="sync_failed" msgid="2998289556481804047">"ਸਿੰਕ ਅਸਫਲ"</string>
+    <string name="sync_active" msgid="1621239982176888680">"ਸਿੰਕ ਕਿਰਿਆਸ਼ੀਲ"</string>
     <string name="connectivity_wifi" msgid="1138689464484009184">"ਵਾਈ-ਫਾਈ"</string>
     <string name="connectivity_ethernet" msgid="4270588618633681766">"ਈਥਰਨੈੱਟ"</string>
     <string name="connectivity_summary_ethernet_connected" msgid="2612843587731520061">"ਈਥਰਨੈੱਟ ਕਨੈਕਟ ਕੀਤਾ ਹੋਇਆ ਹੈ"</string>
@@ -246,7 +246,7 @@
     <string name="system_keyboard_autofill" msgid="8530944165814838255">"ਕੀ-ਬੋਰਡ ਅਤੇ ਆਟੋਫਿਲ"</string>
     <string name="system_autofill" msgid="6983989261108020046">"ਆਟੋਫਿਲ"</string>
     <string name="system_home" msgid="2149349845791104094">"ਹੋਮ ਸਕ੍ਰੀਨ"</string>
-    <string name="system_search" msgid="3170169128257586925">"Search"</string>
+    <string name="system_search" msgid="3170169128257586925">"ਖੋਜੋ"</string>
     <string name="system_google" msgid="945985164023885276">"Google"</string>
     <string name="system_security" msgid="1012999639810957132">"ਸੁਰੱਖਿਆ ਅਤੇ ਪਾਬੰਦੀਆਂ"</string>
     <string name="system_speech" msgid="8779582280374089518">"ਬੋਲੀ"</string>
@@ -282,7 +282,7 @@
     <string name="enterprise_privacy_security_logs" msgid="2573545327989145361">"ਸਭ ਤੋਂ ਹਾਲੀਆ ਸੁਰੱਖਿਆ ਲੌਗ"</string>
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"ਕੋਈ ਨਹੀਂ"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"ਐਪਾਂ ਸਥਾਪਤ ਕੀਤੀਆਂ ਗਈਆਂ"</string>
-    <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"ਐਪਾਂ ਦੀ ਗਿਣਤੀ ਅਨੁਮਾਨਿਤ ਹੈ। ਹੋ ਸਕਦਾ ਹੈ ਇਸ ਵਿੱਚ Play ਸਟੋਰ ਤੋਂ ਬਾਹਰੋਂ ਸਥਾਪਤ ਕੀਤੀਆਂ ਐਪਾਂ ਸ਼ਾਮਲ ਨਾ ਹੋਣ।"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"ਐਪਾਂ ਦੀ ਗਿਣਤੀ ਅਨੁਮਾਨਿਤ ਹੈ। ਹੋ ਸਕਦਾ ਹੈ ਇਸ ਵਿੱਚ Play Store ਤੋਂ ਬਾਹਰੋਂ ਸਥਾਪਤ ਕੀਤੀਆਂ ਐਪਾਂ ਸ਼ਾਮਲ ਨਾ ਹੋਣ।"</string>
     <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
       <item quantity="one">ਘੱਟੋ-ਘੱਟ <xliff:g id="COUNT_1">%d</xliff:g> ਐਪ</item>
       <item quantity="other">ਘੱਟੋ-ਘੱਟ <xliff:g id="COUNT_1">%d</xliff:g> ਐਪਾਂ</item>
@@ -651,7 +651,7 @@
     <string name="location_reporting" msgid="3552501333650895634">"ਟਿਕਾਣਾ ਰਿਪੋਰਟਿੰਗ"</string>
     <string name="location_history" msgid="4055660203090513120">"ਟਿਕਾਣਾ ਇਤਿਹਾਸ"</string>
     <string name="location_reporting_desc" msgid="1580018652781674608">"Google ਇਸ ਵਿਸ਼ੇਸ਼ਤਾ ਨੂੰ Google Now ਅਤੇ Google Maps ਵਰਗੇ ਉਤਪਾਦਾਂ ਵਿੱਚ ਵਰਤਦਾ ਹੈ। ਟਿਕਾਣਾ ਰਿਪੋਰਟਿੰਗ ਨੂੰ ਚਾਲੂ ਕਰਨਾ ਇਸ ਵਿਸ਼ੇਸ਼ਤਾ ਦੀ ਵਰਤੋਂ ਕਰਨ ਵਾਲੇ ਕਿਸੇ ਵੀ Google ਉਤਪਾਦ ਨੁੰ ਤੁਹਾਡੇ Google ਖਾਤੇ ਦੇ ਸੰਬੰਧ ਵਿੱਚ ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਦੇ ਸਭ ਤੋਂ ਵੱਧ ਹਾਲੀਆ ਟਿਕਾਣਾ ਡਾਟਾ ਨੂੰ ਸਟੋਰ ਕਰਨ ਅਤੇ ਵਰਤਣ ਦੇ ਯੋਗ ਬਣਾਉਂਦਾ ਹੈ।"</string>
-    <string name="location_history_desc" msgid="926674012916014270">"ਜਦੋਂ ਇਸ ਖਾਤੇ ਲਈ ਟਿਕਾਣਾ ਇਤਿਹਾਸ ਚਾਲੂ ਕੀਤਾ ਹੁੰਦਾ ਹੈ, Google ਤੁਹਾਡੀਆਂ ਐਪਾਂ ਦੁਆਰਾ ਵਰਤੇ ਜਾਣ ਲਈ ਤੁਹਾਡੀ ਡੀਵਾਈਸ ਦੇ ਟਿਕਾਣਾ ਡਾਟੇ ਨੂੰ ਸਟੋਰ ਕਰ ਸਕਦਾ ਹੈ।\n\nਉਦਾਹਰਨ ਲਈ, &amp;quot;Google ਨਕਸ਼ੇ&amp;quot; ਐਪ ਤੁਹਾਨੂੰ ਦਿਸ਼ਾ-ਨਿਰਦੇਸ਼ ਦੇ ਸਕਦੀ ਹੈ ਅਤੇ Google Now ਤੁਹਾਨੂੰ ਆਉਣ-ਜਾਣ ਵਾਲੀ ਆਵਾਜਾਈ ਬਾਰੇ ਜਾਣਕਾਰੀ ਦੇ ਸਕਦੀ ਹੈ।\n\nਤੁਸੀਂ ਕਿਸੇ ਵੀ ਸਮੇਂ ਟਿਕਾਣਾ ਇਤਿਹਾਸ ਨੂੰ ਬੰਦ ਕਰ ਸਕਦੇ ਹੋ, ਪਰ ਅਜਿਹਾ ਕਰਨ ਨਾਲ ਇਹ ਮਿਟਦਾ ਨਹੀਂ। ਆਪਣੇ ਟਿਕਾਣਾ ਇਤਿਹਾਸ ਨੂੰ  ਦੇਖਣ  ਅਤੇ ਉਸਦੇ ਪ੍ਰਬੰਧਨ ਲਈ, maps.google.com/locationhistory \'ਤੇ ਜਾਓ।"</string>
+    <string name="location_history_desc" msgid="926674012916014270">"ਜਦੋਂ ਇਸ ਖਾਤੇ ਲਈ ਟਿਕਾਣਾ ਇਤਿਹਾਸ ਚਾਲੂ ਕੀਤਾ ਹੁੰਦਾ ਹੈ, Google ਤੁਹਾਡੀਆਂ ਐਪਾਂ ਦੁਆਰਾ ਵਰਤੇ ਜਾਣ ਲਈ ਤੁਹਾਡੀ ਡੀਵਾਈਸ ਦੇ ਟਿਕਾਣਾ ਡਾਟੇ ਨੂੰ ਸਟੋਰ ਕਰ ਸਕਦਾ ਹੈ।\n\nਉਦਾਹਰਨ ਲਈ, Google Maps ਐਪ ਤੁਹਾਨੂੰ ਦਿਸ਼ਾ-ਨਿਰਦੇਸ਼ ਦੇ ਸਕਦੀ ਹੈ ਅਤੇ Google Now ਤੁਹਾਨੂੰ ਆਉਣ-ਜਾਣ ਵਾਲੀ ਆਵਾਜਾਈ ਬਾਰੇ ਜਾਣਕਾਰੀ ਦੇ ਸਕਦੀ ਹੈ।\n\nਤੁਸੀਂ ਕਿਸੇ ਵੀ ਸਮੇਂ ਟਿਕਾਣਾ ਇਤਿਹਾਸ ਨੂੰ ਬੰਦ ਕਰ ਸਕਦੇ ਹੋ, ਪਰ ਅਜਿਹਾ ਕਰਨ ਨਾਲ ਇਹ ਮਿਟਦਾ ਨਹੀਂ। ਆਪਣੇ ਟਿਕਾਣਾ ਇਤਿਹਾਸ ਨੂੰ  ਦੇਖਣ  ਅਤੇ ਉਸਦੇ ਪ੍ਰਬੰਧਨ ਲਈ, maps.google.com/locationhistory \'ਤੇ ਜਾਓ।"</string>
     <string name="delete_location_history_title" msgid="707559064715633152">"ਟਿਕਾਣਾ ਇਤਿਹਾਸ ਮਿਟਾਓ"</string>
     <string name="delete_location_history_desc" msgid="4035229731487113147">"ਇਸ ਨਾਲ ਇਸ ਡੀਵਾਈਸ ਤੋਂ ਇਸ Google ਖਾਤੇ ਦਾ ਸਟੋਰ ਕੀਤਾ ਟਿਕਾਣਾ ਇਤਿਹਾਸ ਮਿਟ ਜਾਵੇਗਾ। Google Now ਸਮੇਤ ਕੁਝ ਐਪਾਂ ਕੰਮ ਕਰਨਾ ਬੰਦ ਕਰ ਦੇਣਗੀਆਂ।"</string>
     <string name="system_services" msgid="5754310941186053151">"ਸੇਵਾਵਾਂ"</string>
@@ -765,7 +765,7 @@
     <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"ਐਪਾਂ ਵੱਲੋਂ ਮੁੱਖ ਥ੍ਰੈੱਡ \'ਤੇ ਲੰਬੀਆਂ ਕਾਰਵਾਈਆਂ ਕਰਨ \'ਤੇ ਸਕ੍ਰੀਨ ਫਲੈਸ਼ ਕਰੋ"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="1594070211030991">"adb shell dumpsys gfxinfo ਵਿੱਚ ਰੈਂਡਰਿੰਗ ਦੇ ਸਮੇਂ ਨੁੂੰ ਮਾਪੋ"</string>
     <string name="security_unknown_sources_title" msgid="2012801664240314305">"ਅਗਿਆਤ ਸਰੋਤ"</string>
-    <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Play ਸਟੋਰ ਤੋਂ ਇਲਾਵਾ ਹੋਰ ਸਰੋਤਾਂ ਤੋਂ ਐਪਾਂ ਦੀ ਸਥਾਪਨਾ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿਓ"</string>
+    <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Play Store ਤੋਂ ਇਲਾਵਾ ਹੋਰ ਸਰੋਤਾਂ ਤੋਂ ਐਪਾਂ ਦੀ ਸਥਾਪਨਾ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿਓ"</string>
     <string name="security_unknown_sources_confirm_title" msgid="4600896691987804985">"ਅਗਿਆਤ ਸਰੋਤਾਂ ਨੂੰ ਇਜਾਜ਼ਤ ਦਿਓ"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7883820068140189584">"ਤੁਹਾਡਾ ਡੀਵਾਈਸ ਅਤੇ ਨਿੱਜੀ ਡਾਟਾ ਅਗਿਆਤ ਸਰੋਤਾਂ ਤੋਂ ਲਈਆਂ ਐਪਾਂ ਵੱਲੋਂ ਹਮਲੇ ਪ੍ਰਤੀ ਕਮਜ਼ੋਰ ਹੈ। ਤੁਸੀਂ ਸਹਿਮਤੀ ਦਿੰਦੇ ਹੋ ਕਿ ਤੁਸੀਂ ਆਪਣੇ ਡੀਵਾਈਸ ਨੂੰ ਹੋਣ ਵਾਲੇ ਕਿਸੇ ਵੀ ਨੁਕਸਾਨ ਅਤੇ ਡਾਟੇ ਦੇ ਨਸ਼ਟ ਹੋਣ ਲਈ ਖੁਦ ਜ਼ਿੰਮੇਵਾਰ ਹੋ, ਜੋ ਇਹਨਾਂ ਐਪਾਂ ਨੂੰ ਵਰਤਣ ਦੇ ਸਿੱਟੇ ਵਜੋਂ ਹੋ ਸਕਦਾ ਹੈ।"</string>
     <string name="system_hdcp_checking_never" msgid="3251512398865365135">"ਕਦੇ ਵੀ ਨਹੀਂ"</string>
@@ -931,7 +931,7 @@
     <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"ਕਿਰਪਾ ਕਰਕੇ ਨਵੀਂ ਸੈਟਿੰਗ ਦੀ <xliff:g id="SLEEP_TIME">%1$s</xliff:g> ਅਨੁਸਾਰ ਤਸਦੀਕ ਕਰੋ, ਕਿਉਂਕਿ ਇਸ ਸੈਟਿੰਗ ਵਿੱਚ ਊਰਜਾ ਦੀ ਵਧੀਕ ਵਰਤੋਂ ਦੀ ਸੰਭਾਵਨਾ ਹੈ।"</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"ਵਰਤਮਾਨ ਤੌਰ \'ਤੇ ਕੋਈ ਖਾਤਾ ਬੈਕਅੱਪ ਲਏ ਡਾਟੇ ਨੂੰ ਸਟੋਰ ਨਹੀਂ ਕਰ ਰਿਹਾ ਹੈ"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
-    <string name="backup_erase_dialog_message" msgid="222169533402624861">"ਕੀ ਆਪਣੇ Wi‑Fi ਪਾਸਵਰਡਾਂ, ਬੁੱਕਮਾਰਕਾਂ, ਹੋਰ ਸੈਟਿੰਗਾਂ ਅਤੇ ਐਪ ਡਾਟੇ ਦਾ ਬੈਕਅੱਪ ਲੈਣਾ ਬੰਦ ਕਰਨਾ ਹੈ ਅਤੇ Google ਸਰਵਰਾਂ \'ਤੇ ਸਾਰੀਆਂ ਕਾਪੀਆਂ ਮਿਟਾਉਣੀਆਂ ਹਨ?"</string>
+    <string name="backup_erase_dialog_message" msgid="222169533402624861">"ਕੀ ਆਪਣੇ ਵਾਈ-ਫਾਈ ਪਾਸਵਰਡਾਂ, ਬੁੱਕਮਾਰਕਾਂ, ਹੋਰ ਸੈਟਿੰਗਾਂ ਅਤੇ ਐਪ ਡਾਟੇ ਦਾ ਬੈਕਅੱਪ ਲੈਣਾ ਬੰਦ ਕਰਨਾ ਹੈ ਅਤੇ Google ਸਰਵਰਾਂ \'ਤੇ ਸਾਰੀਆਂ ਕਾਪੀਆਂ ਮਿਟਾਉਣੀਆਂ ਹਨ?"</string>
     <string name="privacy_backup_data" msgid="3604057980102997914">"ਮੇਰੇ ਡਾਟੇ ਦਾ ਬੈਕ ਅੱਪ ਲਓ"</string>
     <string name="privacy_backup_account" msgid="4527813051841860610">"ਬੈਕਅੱਪ ਖਾਤਾ"</string>
     <string name="privacy_automatic_restore" msgid="7117805818589418118">"ਸਵੈਚਾਲਿਤ ਮੁੜ-ਬਹਾਲੀ"</string>

@@ -199,3 +199,31 @@ size_t memcpy_by_index_array_initialization_from_channel_mask(int8_t *idxary, si
         return 0;
     }
 }
+
+void accumulate_by_audio_format(void *dst, const void *src,
+        audio_format_t format, size_t count) {
+    switch (format) {
+    case AUDIO_FORMAT_PCM_16_BIT:
+        accumulate_i16((int16_t *)dst, (const int16_t *)src, count);
+        return;
+    case AUDIO_FORMAT_PCM_FLOAT:
+        accumulate_float((float *)dst, (const float *)src, count);
+        return;
+    case AUDIO_FORMAT_PCM_8_BIT:
+        accumulate_u8((uint8_t *)dst, (const uint8_t *)src, count);
+        return;
+    case AUDIO_FORMAT_PCM_24_BIT_PACKED:
+        accumulate_p24((uint8_t *)dst, (const uint8_t *)src, count);
+        return;
+    case AUDIO_FORMAT_PCM_32_BIT:
+        accumulate_i32((int32_t *)dst, (const int32_t *)src, count);
+        return;
+    case AUDIO_FORMAT_PCM_8_24_BIT:
+        accumulate_q8_23((int32_t *)dst, (const int32_t *)src, count);
+        return;
+    default:
+        break;
+    }
+    // invalid format
+    assert(false);
+}

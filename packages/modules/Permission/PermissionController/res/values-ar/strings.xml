@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"أذونات التطبيق"</string>
     <string name="unused_apps" msgid="2058057455175955094">"التطبيقات غير المستخدمة"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"ما مِن تطبيقات غير مستخدمة."</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"التطبيقات غير المستخدمة: 0"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"إيقاف التطبيق"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"‏قد يؤدي إيقاف هذا التطبيق إلى عدم عمل نظام Android وتطبيقات أخرى على النحو المنشود. تجدر الإشارة إلى أنه لا يمكنك حذف هذا التطبيق لأنه من التطبيقات المثبّتة تلقائيًا على جهازك. ويعني إيقاف التطبيق أنه سيتم إيقافه وإخفاؤه على جهازك."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"مدير الأذونات"</string>
@@ -306,12 +307,12 @@
     <string name="app_permission_never_accessed_summary" msgid="401346181461975090">"لم يستخدم الإذن مطلقًا"</string>
     <string name="app_permission_never_accessed_denied_summary" msgid="6596000497490905146">"تم الرفض / لم يسبق الحصول على الإذن"</string>
     <string name="allowed_header" msgid="7769277978004790414">"التطبيقات المسموح بها"</string>
-    <string name="allowed_always_header" msgid="6455903312589013545">"التطبيقات المسموح لها طوال الوقت"</string>
-    <string name="allowed_foreground_header" msgid="6845655788447833353">"التطبيقات المسموح لها فقط أثناء استخدامها"</string>
+    <string name="allowed_always_header" msgid="6455903312589013545">"تطبيقات مسموح لها بالوصول طوال الوقت"</string>
+    <string name="allowed_foreground_header" msgid="6845655788447833353">"تطبيقات يمكنها الوصول عند استخدامها فقط"</string>
     <string name="allowed_storage_scoped" msgid="5383645873719086975">"التطبيقات المسموح لها بالوصول إلى الوسائط فقط"</string>
     <string name="allowed_storage_full" msgid="5356699280625693530">"التطبيقات المسموح لها بإدارة كل الملفات"</string>
     <string name="ask_header" msgid="2633816846459944376">"الطلب في كل مرة"</string>
-    <string name="denied_header" msgid="903209608358177654">"التطبيقات/الأذونات غير المسموح بها"</string>
+    <string name="denied_header" msgid="903209608358177654">"التطبيقات غير المسموح لها بالوصول"</string>
     <plurals name="days" formatted="false" msgid="7882807103511175827">
       <item quantity="zero"><xliff:g id="NUMBER">%s</xliff:g> يوم</item>
       <item quantity="two">يومان (<xliff:g id="NUMBER">%s</xliff:g>)</item>
@@ -540,7 +541,7 @@
     <string name="permgrouprequest_finelocation_imagetext" msgid="1313062433398914334">"دقيق"</string>
     <string name="permgrouprequest_coarselocation_imagetext" msgid="8650605041483025297">"تقريبي"</string>
     <string name="permgrouprequest_calendar" msgid="1493150855673603806">"‏هل تريد السماح لتطبيق &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; بالدخول إلى التقويم؟"</string>
-    <string name="permgrouprequest_sms" msgid="5672063688745420991">"‏هل تريد السماح لتطبيق &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; بتوجيه رسائل SMS وعرضها؟"</string>
+    <string name="permgrouprequest_sms" msgid="5672063688745420991">"‏هل تريد السماح لتطبيق &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; بإرسال رسائل SMS وعرضها؟"</string>
     <string name="permgrouprequest_storage" msgid="8717773092518621602">"‏هل تريد السماح لتطبيق &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; بالوصول إلى الصور والوسائط والملفات على جهازك؟"</string>
     <string name="permgrouprequest_microphone" msgid="2825208549114811299">"‏هل تريد السماح لتطبيق &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; بتسجيل الصوت؟"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"لن يتمكن هذا التطبيق من تسجيل الصوت إلا عندما يكون قيد الاستخدام"</string>

@@ -105,10 +105,14 @@ public class SimpleSaveActivity extends AbstractAutoFillActivity {
         mClearFieldsOnSubmit = flag;
     }
 
-    public FillExpectation expectAutoFill(String input) {
+    public FillExpectation expectInputTextChange(String input) {
         final FillExpectation expectation = new FillExpectation(input, null);
         mInput.addTextChangedListener(expectation.mInputWatcher);
         return expectation;
+    }
+
+    public FillExpectation expectAutoFill(String input) {
+        return expectInputTextChange(input);
     }
 
     public FillExpectation expectAutoFill(String input, String password) {
@@ -131,6 +135,10 @@ public class SimpleSaveActivity extends AbstractAutoFillActivity {
             mPasswordWatcher = password == null
                     ? null
                     : new OneTimeTextWatcher("password", mPassword, password);
+        }
+
+        public void assertTextChange() throws Exception {
+            assertAutoFilled();
         }
 
         public void assertAutoFilled() throws Exception {

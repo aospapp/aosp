@@ -196,7 +196,7 @@
     <string name="network_connecting" msgid="160901383582774987">"Povezivanje…"</string>
     <string name="network_could_not_connect" msgid="6547460848093727998">"Povezivanje nije uspjelo"</string>
   <string-array name="preferred_network_mode_choices">
-    <item msgid="4531933377509551889">"Preferiraj GSM/WCDMA"</item>
+    <item msgid="4531933377509551889">"Preferira se GSM/WCDMA"</item>
     <item msgid="5120532750027435355">"Samo GSM"</item>
     <item msgid="8973311380798000102">"Samo WCDMA"</item>
     <item msgid="4139961027147085705">"Automatski GSM/WCDMA"</item>
@@ -310,7 +310,7 @@
     <string name="sim_change_data_title" msgid="9142726786345906606">"Promijeniti SIM za prijenos podataka?"</string>
     <string name="sim_change_data_message" msgid="3567358694255933280">"Koristiti SIM karticu <xliff:g id="NEW_SIM">%1$s</xliff:g> umjesto SIM kartice <xliff:g id="OLD_SIM">%2$s</xliff:g> za prijenos podataka na mobilnoj mreži?"</string>
     <string name="wifi_calling_settings_title" msgid="5800018845662016507">"Pozivanje putem WiFi-ja"</string>
-    <string name="video_calling_settings_title" msgid="342829454913266078">"Operater video pozivanja"</string>
+    <string name="video_calling_settings_title" msgid="342829454913266078">"Video pozivi putem operatera"</string>
     <string name="gsm_umts_options" msgid="4968446771519376808">"GSM/UMTS opcije"</string>
     <string name="cdma_options" msgid="3669592472226145665">"CDMA opcije"</string>
     <string name="throttle_data_usage" msgid="1944145350660420711">"Korištenje podataka"</string>
@@ -839,7 +839,7 @@
     <string name="radio_info_data_connection_enable" msgid="6183729739783252840">"Omogućite vezu za prijenos podataka"</string>
     <string name="radio_info_data_connection_disable" msgid="6404751291511368706">"Onemogući vezu za prijenos podataka"</string>
     <string name="volte_provisioned_switch_string" msgid="4812874990480336178">"VoLTE omogućen"</string>
-    <string name="vt_provisioned_switch_string" msgid="8295542122512195979">"Video poziv obezbijeđen"</string>
+    <string name="vt_provisioned_switch_string" msgid="8295542122512195979">"Video pozivi su omogućeni"</string>
     <string name="wfc_provisioned_switch_string" msgid="3835004640321078988">"WiFi poziv obezbijeđen"</string>
     <string name="eab_provisioned_switch_string" msgid="4449676720736033035">"EAB/Omogućeno prisustvo"</string>
     <string name="cbrs_data_switch_string" msgid="6060356430838077653">"Cbrs podaci"</string>
@@ -858,7 +858,7 @@
     <string name="radio_info_ims_reg_status_not_registered" msgid="8045821447288876085">"Nije registrirano"</string>
     <string name="radio_info_ims_feature_status_available" msgid="6493200914756969292">"Dostupno"</string>
     <string name="radio_info_ims_feature_status_unavailable" msgid="8930391136839759778">"Nedostupno"</string>
-    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS registracija: <xliff:g id="STATUS">%1$s</xliff:g>\nGovor putem LTE mreže: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nGovor putem WiFi mreže: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nVideo pozivanje: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT interfejs: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
+    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS registracija: <xliff:g id="STATUS">%1$s</xliff:g>\nGovor putem LTE mreže: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nGovor putem WiFi mreže: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nVideo pozivi: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT interfejs: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
     <string name="radioInfo_service_in" msgid="45753418231446400">"Aktivno"</string>
     <string name="radioInfo_service_out" msgid="287972405416142312">"Ne radi"</string>
     <string name="radioInfo_service_emergency" msgid="4763879891415016848">"Samo hitni pozivi"</string>

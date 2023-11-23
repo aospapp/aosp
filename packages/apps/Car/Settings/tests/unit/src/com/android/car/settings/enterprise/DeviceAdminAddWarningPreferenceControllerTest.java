@@ -15,14 +15,19 @@
  */
 package com.android.car.settings.enterprise;
 
+import androidx.preference.Preference;
+
 import com.android.car.settings.R;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
 
 public final class DeviceAdminAddWarningPreferenceControllerTest extends
-        BaseDeviceAdminAddPreferenceControllerTestCase
-                <DeviceAdminAddWarningPreferenceController> {
+        BasePreferenceControllerTestCase {
+
+    @Mock
+    private Preference mPreference;
 
     private DeviceAdminAddWarningPreferenceController mController;
 
@@ -35,21 +40,21 @@ public final class DeviceAdminAddWarningPreferenceControllerTest extends
 
     @Test
     public void testUpdateState_adminInactive() {
-        mockInactiveAdmin();
+        mockInactiveAdmin(mDefaultAdmin);
 
         mController.updateState(mPreference);
 
-        verifyPreferenceTitleSet(
+        verifyPreferenceTitleSet(mPreference,
                 mRealContext.getString(R.string.device_admin_warning, mPackageName));
     }
 
     @Test
     public void testUpdateState_adminActive() {
-        mockActiveAdmin();
+        mockActiveAdmin(mDefaultAdmin);
 
         mController.updateState(mPreference);
 
-        verifyPreferenceTitleSet(
+        verifyPreferenceTitleSet(mPreference,
                 mRealContext.getString(R.string.device_admin_status, mPackageName));
     }
 
@@ -59,7 +64,8 @@ public final class DeviceAdminAddWarningPreferenceControllerTest extends
 
         mController.updateState(mPreference);
 
-        verifyPreferenceTitleSet(mRealContext.getString(R.string.admin_profile_owner_user_message));
+        verifyPreferenceTitleSet(mPreference,
+                mRealContext.getString(R.string.admin_profile_owner_user_message));
     }
 
     @Test
@@ -68,7 +74,8 @@ public final class DeviceAdminAddWarningPreferenceControllerTest extends
 
         mController.updateState(mPreference);
 
-        verifyPreferenceTitleSet(mRealContext.getString(R.string.admin_device_owner_message));
+        verifyPreferenceTitleSet(mPreference,
+                mRealContext.getString(R.string.admin_device_owner_message));
     }
 
     @Test
@@ -78,6 +85,7 @@ public final class DeviceAdminAddWarningPreferenceControllerTest extends
 
         mController.updateState(mPreference);
 
-        verifyPreferenceTitleSet(mRealContext.getString(R.string.admin_financed_message));
+        verifyPreferenceTitleSet(mPreference,
+                mRealContext.getString(R.string.admin_financed_message));
     }
 }

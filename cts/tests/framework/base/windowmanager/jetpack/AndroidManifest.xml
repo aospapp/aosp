@@ -25,11 +25,14 @@
                       android:required="false" />
         <uses-library android:name="androidx.window.sidecar"
                       android:required="false" />
-        <activity android:name="android.server.wm.jetpack.TestActivity" />
-        <activity android:name="android.server.wm.jetpack.TestConfigChangeHandlingActivity"
+        <activity android:name="android.server.wm.jetpack.utils.TestActivity" />
+        <activity android:name="android.server.wm.jetpack.utils.TestConfigChangeHandlingActivity"
                   android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|colorMode|density|touchscreen"
         />
-        <activity android:name="android.server.wm.jetpack.TestGetWindowLayoutInfoActivity" />
+        <activity android:name="android.server.wm.jetpack.utils.TestGetWindowLayoutInfoActivity" />
+        <activity android:name="android.server.wm.jetpack.utils.TestActivityWithId"
+                  android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|colorMode|density|touchscreen"
+        />
     </application>
 
     <!--  self-instrumenting test package. -->

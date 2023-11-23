@@ -267,7 +267,8 @@ void SocketServer::serviceSocket() {
 
   LOGI("Ready to accept connections");
   while (!sSignalReceived) {
-    int ret = ppoll(mPollFds, 1 + kMaxActiveClients, nullptr, &signalMask);
+    int ret = TEMP_FAILURE_RETRY(
+        ppoll(mPollFds, 1 + kMaxActiveClients, nullptr, &signalMask));
     maskAllSignalsExceptIntAndTerm();
     if (ret == -1) {
       LOGI("Exiting poll loop: %s", strerror(errno));

@@ -16,8 +16,7 @@
 
 package com.android.car.carlauncher.homescreen;
 
-import android.annotation.IdRes;
-
+import androidx.annotation.IdRes;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.carlauncher.homescreen.HomeCardInterface.Presenter;

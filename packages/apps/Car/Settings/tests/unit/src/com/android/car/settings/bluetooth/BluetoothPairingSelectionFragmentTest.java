@@ -24,6 +24,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 
 import androidx.fragment.app.FragmentManager;
@@ -146,6 +147,18 @@ public class BluetoothPairingSelectionFragmentTest {
         mActivityTestRule.runOnUiThread(() -> {
             mFragment.mCallback.onDeviceBondStateChanged(mock(CachedBluetoothDevice.class),
                     BluetoothDevice.BOND_BONDED);
+        });
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+
+        assertThat(mActivity.getOnBackPressedFlag()).isTrue();
+    }
+
+    @Test
+    public void onBluetoothDisabled_goesBack() throws Throwable {
+        verify(mMockEventManager).registerCallback(mFragment.mCallback);
+
+        mActivityTestRule.runOnUiThread(() -> {
+            mFragment.mCallback.onBluetoothStateChanged(BluetoothAdapter.STATE_OFF);
         });
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 

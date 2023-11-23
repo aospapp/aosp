@@ -215,7 +215,7 @@ public class FavoriteNumberRepository {
                 new String[]{String.valueOf(contactId)},
                 /* orderBy= */null)) {
             if (cursor != null) {
-                if (cursor.moveToFirst()) {
+                while (cursor.moveToFirst()) {
                     Contact contact = Contact.fromCursor(mContext, cursor);
                     contact.getNumbers().clear();
                     Contact inMemoryContact = InMemoryPhoneBook.get().lookupContactByKey(

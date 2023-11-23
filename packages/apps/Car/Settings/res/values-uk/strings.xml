@@ -27,12 +27,7 @@
     <string name="night_mode_tile_label" msgid="6603597795502131664">"Нічний режим"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Мережа й Інтернет"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Мобільна мережа"</string>
-    <plurals name="mobile_network_summary_count" formatted="false" msgid="6917348330386831454">
-      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карта</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карти</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карт</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карти</item>
-    </plurals>
+    <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM-карта}one{# SIM-карта}few{# SIM-карти}many{# SIM-карт}other{# SIM-карти}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Активовано/SIM-карта"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Не активовано/SIM-карта"</string>
     <string name="mobile_network_active_esim" msgid="5864100786496761032">"Активовано/завантажена SIM-карта"</string>
@@ -40,6 +35,8 @@
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"Додати ще"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"Мобільне передавання даних"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Доступ до даних через мобільну мережу"</string>
+    <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Мобільна мережа"</string>
+    <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Використовувати мобільний Інтернет"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Вимкнути мобільне передавання даних?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Виберіть варіант"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Використовувати оператора <xliff:g id="CARRIER">%1$s</xliff:g> для мобільного передавання даних?"</string>
@@ -55,12 +52,7 @@
     <string name="cell_data_warning" msgid="8997739664336571149">"Застереження про <xliff:g id="ID_1">^1</xliff:g> даних"</string>
     <string name="cell_data_limit" msgid="6862164869877993009">"Обмеження обсягу даних – <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_warning_and_limit" msgid="5003954080814312475">"Застереження про <xliff:g id="ID_1">^1</xliff:g> даних/Обмеження обсягу даних – <xliff:g id="ID_2">^2</xliff:g>"</string>
-    <plurals name="billing_cycle_days_left" formatted="false" msgid="9163059632851951402">
-      <item quantity="one">Залишився %d день</item>
-      <item quantity="few">Залишилося %d дні</item>
-      <item quantity="many">Залишилося %d днів</item>
-      <item quantity="other">Залишилося %d дня</item>
-    </plurals>
+    <string name="billing_cycle_days_left" msgid="1810100330204239102">"{count,plural, =1{Залишився # день}one{Залишився # день}few{Залишилося # дні}many{Залишилося # днів}other{Залишилося # дня}}"</string>
     <string name="billing_cycle_none_left" msgid="3499893148398931302">"Часу не залишилося"</string>
     <string name="billing_cycle_less_than_one_day_left" msgid="8121013296375203759">"Залишилося менше 1 дня"</string>
     <string name="carrier_and_update_text" msgid="4351043160977741244">"Оновлено оператором <xliff:g id="ID_1">^1</xliff:g> <xliff:g id="ID_2">^2</xliff:g> тому"</string>
@@ -75,6 +67,7 @@
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"Налаштувати"</string>
     <string name="data_warning_limit_title" msgid="4950868241810828601">"Застереження та ліміт"</string>
     <string name="app_usage_cycle" msgid="8445927080245880296">"Цикл використання трафіку додатків"</string>
+    <string name="mobile_data_usage" msgid="8171519864391091861">"Використання мобільного Інтернету"</string>
     <string name="set_data_warning" msgid="6628236612886588097">"Увімкнути сповіщення про трафік"</string>
     <string name="data_warning" msgid="116776633806885370">"Застереження про трафік"</string>
     <string name="set_data_limit" msgid="7136539812414500084">"Налаштуйте обмеження трафіку"</string>
@@ -83,8 +76,14 @@
     <string name="data_usage_limit_dialog_mobile" msgid="3633960011913085089">"Головний пристрій автомобіля вимкне мобільне передавання даних, коли буде досягнуто вказаного обмеження.\n\nОскільки головний пристрій і оператор можуть вимірювати трафік по-різному, радимо встановити занижене обмеження."</string>
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"Налаштуйте застереження про використання трафіку"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"Налаштуйте ліміт використання трафіку"</string>
+    <string name="data_usage_settings_footer" msgid="681881387909678237">"Пристрій вимірює використання трафіку. Ці дані можуть відрізнятися від тих, що надає оператор мобільного зв’язку."</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"Налаштувати"</string>
+    <string name="data_usage_warning_save_title" msgid="2900544287239037695">"Зберегти"</string>
     <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"Мережа OEM"</string>
+    <string name="network_and_internet_vehicle_internet_title" msgid="2518848595673002736">"Інтернет у транспортному засобі"</string>
+    <string name="network_and_internet_oem_network_dialog_description" msgid="4469178879867702066">"Деякі функції транспортного засобу або додатки можуть не працювати.\n\nНайважливіші дані, необхідні для його роботи, будуть й надалі передаватися виробнику."</string>
+    <string name="network_and_internet_oem_network_dialog_confirm_label" msgid="2630033932472996255">"Вимкнути"</string>
+    <string name="network_and_internet_oem_network_disabled_footer" msgid="3529208167627034245">"Інтернет у транспортному засобі вимкнено. Деякі функції або додатки можуть не працювати. Найважливіші дані, необхідні для його роботи, будуть й надалі передаватися виробнику."</string>
     <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"З %2$s до %3$s було використано %1$s"</string>
     <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"Під\'єднатися до іншої мережі"</string>
     <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"Налаштування мережі"</string>
@@ -98,6 +97,7 @@
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"Додати мережу"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"Під’єднати"</string>
     <string name="wifi_connecting" msgid="1930665730621677960">"Підключення…"</string>
+    <string name="wifi_disconnected" msgid="4485699234859368137">"Не підключено"</string>
     <string name="wifi_not_in_range_message" msgid="2617126307140203787">"Авто поза зоною покриття мережі"</string>
     <string name="wifi_password" msgid="5565632142720292397">"Пароль"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"Показати пароль"</string>
@@ -159,6 +159,7 @@
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Виберіть принаймні один діапазон частот для точки доступу Wi-Fi:"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"Точка доступу та модем"</string>
     <string name="hotspot_settings_title" msgid="8220814387592756713">"Точка доступу"</string>
+    <string name="wifi_hotspot_state_off" msgid="6096709579204322798">"Вимкнено"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"Автоматично вимикати точку доступу"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"Якщо немає під’єднаних пристроїв, точка доступу Wi-Fi вимикатиметься"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"Додаток <xliff:g id="REQUESTER">%s</xliff:g> хоче ввімкнути Wi-Fi"</string>
@@ -301,10 +302,10 @@
     <string name="force_stop" msgid="2153183697014720520">"Примусово припинити роботу"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"Примусово припинити роботу?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Після примусового припинення роботи додаток може працювати неналежним чином."</string>
-    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"Вимкнути захист продуктивності?"</string>
-    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"У такому разі програмне й апаратне забезпечення також може не працюватиме."</string>
-    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"Не вимикати"</string>
-    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"Вимкнути"</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"Пріоритезувати продуктивність додатка?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"Увімкнення налаштування може спричинити нестабільність системи або вплинути на роботу апаратного забезпечення в довгостроковій перспективі. Продовжити?"</string>
+    <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"Так"</string>
+    <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"Ні, дякую"</string>
     <string name="disable_text" msgid="4358165448648990820">"Вимкнути"</string>
     <string name="enable_text" msgid="1794971777861881238">"Увімкнути"</string>
     <string name="uninstall_text" msgid="277907956072833012">"Видалити"</string>
@@ -314,29 +315,30 @@
     <string name="permissions_label" msgid="2701446753515612685">"Дозволи"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Сповіщення"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"Пам\'ять і кеш"</string>
-    <string name="peak_performance_label" msgid="1592816366516845648">"Макс. продуктивність"</string>
+    <string name="prioritize_app_performance_label" msgid="7264505023347026606">"Пріоритезувати продуктивність додатка"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Версія: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Дозволи не надано"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Немає запитів на дозволи"</string>
     <string name="unused_apps" msgid="648471933781010395">"Додатки, що не використовуються"</string>
-    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> додаток, що не використовується</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> додатки, що не використовуються</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> додатків, що не використовуються</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> додатка, що не використовується</item>
-    </plurals>
+    <string name="unused_apps_summary" msgid="8257304516038923072">"{count,plural, =1{# додаток, що не використовується}one{# додаток, що не використовується}few{# додатки, що не використовуються}many{# додатків, що не використовуються}other{# додатка, що не використовується}}"</string>
     <string name="unused_apps_switch" msgid="4433958286200341563">"Скасувати дозволи й звільняти місце"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"%s у внутрішній пам\'яті"</string>
-    <string name="peak_performance_summary" msgid="2450911487290019786">"Закривати додаток для економії ресурсів"</string>
+    <string name="prioritize_app_performance_summary" msgid="1081874788185691418">"Використовує системні ресурси, щоб пріоритезувати продуктивність додатка"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Використання трафіку"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Використання трафіку"</string>
+    <string name="data_usage_usage_history_title" msgid="2386346082501471648">"Історія використання"</string>
+    <string name="data_usage_all_apps_title" msgid="5956991037518761599">"Усі додатки"</string>
+    <string name="app_data_usage_title" msgid="6991057296054761322">"Викор. трафіку й Wi-Fi"</string>
+    <string name="app_data_usage_usage_history_title" msgid="5861801915345874959">"Історія використання"</string>
+    <string name="app_data_usage_total_usage" msgid="6166480544992906281">"Усього"</string>
+    <string name="app_data_usage_foreground" msgid="76513424438149709">"Активний режим"</string>
+    <string name="app_data_usage_background" msgid="6972054078770685280">"Фоновий режим"</string>
+    <string name="app_data_usage_allow_data_title" msgid="2713343973040466293">"Дозволити моб. Інтернет"</string>
+    <string name="app_data_usage_allow_data_summary" msgid="7431118326573403774">"Дозволити додатку використовувати моб. Інтернет"</string>
+    <string name="app_data_usage_restrict_data_title" msgid="7080736007645963633">"Обмежити дані"</string>
+    <string name="app_data_usage_background_data_summary" msgid="4445472217737386826">"Використовувати моб. Інтернет лише на фоні"</string>
     <string name="computing_size" msgid="5791407621793083965">"Обчислення…"</string>
-    <plurals name="runtime_permissions_additional_count" formatted="false" msgid="3513360187065317613">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> додатковий дозвіл</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> додаткові дозволи</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> додаткових дозволів</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> додаткового дозволу</item>
-    </plurals>
+    <string name="runtime_permissions_additional_count" msgid="3920383880473283764">"{count,plural, =1{# додатковий дозвіл}one{# додатковий дозвіл}few{# додаткові дозволи}many{# додаткових дозволів}other{# додаткового дозволу}}"</string>
     <string name="direct_boot_unaware_dialog_message_car" msgid="2857599310518724080">"Примітка: щоб запустити цей додаток після перезавантаження, спершу потрібно буде розблокувати автомобіль."</string>
     <string name="assist_and_voice_input_settings" msgid="8813195157136637132">"Асистент і голосовий ввід"</string>
     <string name="assist_app_settings" msgid="9085261410166776497">"Помічник"</string>
@@ -393,12 +395,35 @@
     <string name="wifi_control_description" msgid="6021926850423169261">"Додаток із дозволом на керування Wi-Fi може вмикати й вимикати Wi-Fi, шукати, додавати й вилучати мережі, підключатися до них, а також запускати локальну точку доступу."</string>
     <string name="more_special_access_title" msgid="166115485446645971">"Більше"</string>
     <string name="location_settings_title" msgid="901334356682423679">"Геодані"</string>
+    <string name="location_toggle_title" msgid="836779750812064601">"Використовувати геодані"</string>
+    <string name="location_toggle_summary" msgid="7977868708102299495">"Дати вибраним додаткам доступ до геоданих"</string>
+    <string name="location_toggle_off_warning" msgid="8396854289251143748">"Якщо вимкнути цю опцію, доступ до геоданих буде скасовано для всіх додатків, окрім додатків для допомоги водію."</string>
+    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"Викор. геодані для функцій допомоги водію"</string>
+    <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"Геодані транспортного засобу вимкнено"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"Додатки для допомоги водію не мають доступу до геоданих"</string>
+    <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"Змінити"</string>
+    <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"Надати додаткам для допомоги водію доступ до геоданих"</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"Якщо вимкнути цю опцію, функції допомоги водію, які використовують геодані, будуть деактивовані."</string>
+    <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"Вимкнути"</string>
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Останні запити на геодані"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Немає останніх запитів на геодані"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Дозволи на рівні додатка"</string>
-    <string name="location_settings_services_title" msgid="1186133632690970468">"Служби локації"</string>
+    <string name="location_settings_services_title" msgid="1186133632690970468">"Геолокація"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"Використовувати геодані"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"Для визначення місцезнаходження вашого пристрою можуть використовуватися дані GPS, Wi-Fi, мобільних мереж і датчиків."</string>
+    <string name="driver_assistance_settings_title" msgid="4915804073177128915">"Допомога водію"</string>
+    <string name="adas_settings_footer" msgid="5128483877858058534">"Геодані, які отримують додатки для допомоги водію, не містять інформації, за якою вас можна ідентифікувати. Вони зберігаються щонайбільше 2 дні, а потім видаляються."</string>
+    <string name="microphone_settings_title" msgid="7125554350537136922">"Мікрофон"</string>
+    <string name="microphone_toggle_title" msgid="911586035332827275">"Використовувати мікрофон"</string>
+    <string name="microphone_toggle_summary" msgid="2682653449849128626">"Надати всім додаткам доступ до мікрофона"</string>
+    <string name="microphone_manage_permissions" msgid="7280905792151988183">"Керувати доступом до мікрофона"</string>
+    <string name="microphone_recently_accessed" msgid="2084292372486026607">"Нещодавно використовувався"</string>
+    <string name="microphone_no_recent_access" msgid="6412908936060990649">"Жодний додаток не використовував мікрофон нещодавно"</string>
+    <string name="microphone_app_permission_summary_microphone_off" msgid="6139321726246115550">"0 додатків мають доступ"</string>
+    <string name="microphone_app_permission_summary_microphone_on" msgid="7870834777359783838">"{count,plural, =1{# додаток із {total_count} має доступ}one{# додаток із {total_count} має доступ}few{# додатки з {total_count} мають доступ}many{# додатків із {total_count} мають доступ}other{# додатка з {total_count} має доступ}}"</string>
+    <string name="microphone_settings_recent_requests_title" msgid="8154796551134761329">"Нещодавно використовувався"</string>
+    <string name="microphone_settings_recent_requests_view_all_title" msgid="4339820818072842872">"Показати всі"</string>
+    <string name="microphone_settings_loading_app_permission_stats" msgid="4357161201098081615">"Завантаження…"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Система"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Оновлення системи"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"Додатково"</string>
@@ -437,12 +462,7 @@
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Ліцензії сторонніх розробників"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Не вдалося завантажити ліцензії."</string>
     <string name="settings_license_activity_loading" msgid="6163263123009681841">"Завантаження…"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="2968627665608969405">
-      <item quantity="one">Залишився лише <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> крок, щоб стати розробником.</item>
-      <item quantity="few">Залишилося лише <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> кроки, щоб стати розробником.</item>
-      <item quantity="many">Залишилося лише <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> кроків, щоб стати розробником.</item>
-      <item quantity="other">Залишилося лише <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> кроку, щоб стати розробником.</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="7416958516942072383">"{count,plural, =1{Залишився лише # крок, щоб стати розробником.}one{Залишився лише # крок, щоб стати розробником.}few{Залишилося лише # кроки, щоб стати розробником.}many{Залишилося лише # кроків, щоб стати розробником.}other{Залишилося лише # кроку, щоб стати розробником.}}"</string>
     <string name="show_dev_on" msgid="5339077400040834808">"Тепер ви розробник."</string>
     <string name="show_dev_already" msgid="1678087328973865736">"Непотрібно, ви вже розробник."</string>
     <string name="developer_options_settings" msgid="1530739225109118480">"Параметри розробника"</string>
@@ -511,16 +531,11 @@
     <string name="user_add_user_message_setup" msgid="812616230454605159">"Коли ви створите новий профіль, цій людині потрібно налаштувати його для себе."</string>
     <string name="user_add_user_message_update" msgid="3836353291078729240">"Користувачі всіх профілів можуть оновлювати додатки для інших профілів."</string>
     <string name="user_limit_reached_title" msgid="5677729355746623293">"Досягнуто ліміту профілів"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
-      <item quantity="one">Можна створити до <xliff:g id="COUNT">%d</xliff:g> профілю.</item>
-      <item quantity="few">Можна створити до <xliff:g id="COUNT">%d</xliff:g> профілів.</item>
-      <item quantity="many">Можна створити до <xliff:g id="COUNT">%d</xliff:g> профілів.</item>
-      <item quantity="other">Можна створити до <xliff:g id="COUNT">%d</xliff:g> профілю.</item>
-    </plurals>
+    <string name="user_limit_reached_message" msgid="2773441357248819721">"{count,plural, =1{Можна створити лише один профіль.}one{Можна створити не більше ніж # профіль.}few{Можна створити не більше ніж # профілі.}many{Можна створити не більше ніж # профілів.}other{Можна створити не більше ніж # профілю.}}"</string>
     <string name="add_user_error_title" msgid="7589792057846396341">"Не вдалося створити новий профіль"</string>
     <string name="delete_user_dialog_title" msgid="575517556232943687">"Видалити цей профіль?"</string>
     <string name="delete_user_dialog_message" msgid="3916865958419051299">"Усі додатки та дані для цього профілю буде видалено"</string>
-    <string name="delete_user_error_title" msgid="6422249596301690254">"Не вдалося видалити профіль."</string>
+    <string name="delete_user_error_title" msgid="287249031795906102">"Профіль не видалено. Перезапустіть пристрій і повторіть спробу."</string>
     <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"Цей профіль видалиться, коли ви ввійдете в інший або перезапустите транспортний засіб."</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"Закрити"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"Повторити"</string>
@@ -633,6 +648,7 @@
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"Як намалювати ключ розблокування"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"Не вдалося зберегти ключ"</string>
     <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"Забагато невдалих спроб. Повторіть через <xliff:g id="NUMBER">%d</xliff:g> с."</string>
+    <string name="lockpattern_does_not_support_rotary" msgid="7356367113555659428">"Ключ вводиться лише на сенсорній панелі"</string>
     <string name="okay" msgid="4589873324439764349">"OK"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"Вимкнути блокування екрана?"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"Будь-хто зможе ввійти у ваш обліковий запис"</string>
@@ -664,42 +680,6 @@
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Системний адміністратор заблокував загальні PIN-коди. Введіть інший PIN-код."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"Не може містити недійсні символи."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"Пароль недійсний. Потрібно ввести принаймні 4 символи."</string>
-    <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
-      <item quantity="one">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> літеру</item>
-      <item quantity="few">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> літери</item>
-      <item quantity="many">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> літер</item>
-      <item quantity="other">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> літери</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_lowercase" formatted="false" msgid="2267487180744744833">
-      <item quantity="one">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> малу літеру</item>
-      <item quantity="few">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> малі літери</item>
-      <item quantity="many">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> малих літер</item>
-      <item quantity="other">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> малої літери</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_uppercase" formatted="false" msgid="7999264563026517898">
-      <item quantity="one">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> велику літеру</item>
-      <item quantity="few">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> великі літери</item>
-      <item quantity="many">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> великих літер</item>
-      <item quantity="other">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> великої літери</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_numeric" formatted="false" msgid="7935079851855168646">
-      <item quantity="one">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> цифру</item>
-      <item quantity="few">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> цифри</item>
-      <item quantity="many">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> цифр</item>
-      <item quantity="other">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> цифри</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_symbols" formatted="false" msgid="3994046435150094132">
-      <item quantity="one">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> спеціальний символ</item>
-      <item quantity="few">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> спеціальні символи</item>
-      <item quantity="many">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> спеціальних символів</item>
-      <item quantity="other">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> спеціального символу</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="6878486326748506524">
-      <item quantity="one">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> символ, який не є літерою</item>
-      <item quantity="few">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> символи, які не є літерами</item>
-      <item quantity="many">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> символів, які не є літерами</item>
-      <item quantity="other">Має містити принаймні <xliff:g id="COUNT">%d</xliff:g> символу, які не є літерами</item>
-    </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Адміністратор пристрою не дозволяє використовувати останній пароль"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Не вдалося зберегти пароль"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Системний адміністратор заблокував загальні паролі. Введіть інший пароль."</string>
@@ -742,5 +722,66 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"Додати профіль"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"Видалити цей профіль"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"Додати профіль"</string>
+    <string name="qc_display_brightness" msgid="2939655289816201170">"Яскравість дисплея"</string>
+    <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"Щоб переглянути свої пристрої, увімкніть Bluetooth"</string>
+    <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"Щоб створити пару з пристроєм, відкрийте налаштування Bluetooth"</string>
+    <string name="device_admin_add_title" msgid="1294399588284546811">"Адміністратор інформаційно-розважальної системи"</string>
+    <string name="device_admin_activated_apps" msgid="568075063362271751">"Активовані додатки"</string>
+    <string name="device_admin_deactivated_apps" msgid="3797263682500122872">"Деактивовані додатки"</string>
+    <string name="device_admin_apps_description" msgid="1371935499168453457">"Додатки з цим дозволом мають доступ до даних транспортного засобу"</string>
+    <string name="device_admin_apps_list_empty" msgid="7634804595645191123">"Немає додатків адміністратора транспортного засобу"</string>
+    <string name="device_admin_status" msgid="4041772636856135168">"Цей додаток адміністратора інформаційно-розважальної системи активний і дає змогу додатку <xliff:g id="APP_NAME">%1$s</xliff:g> виконувати вказані нижче операції."</string>
+    <string name="device_admin_warning" msgid="8997805999333600901">"Якщо ви активуєте цей додаток інформаційно-розважальної системи, додаток <xliff:g id="APP_NAME">%1$s</xliff:g> зможе виконувати вказані нижче операції."</string>
+    <string name="add_device_admin_msg" msgid="8188888666879499482">"Активувати цей додаток?"</string>
+    <string name="add_device_admin" msgid="7674707256074840333">"Активувати цей додаток інформаційно-розважальної системи"</string>
+    <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Вимкнути й видалити"</string>
+    <string name="remove_device_admin" msgid="3595343390502030723">"Деактивувати цей додаток інформаційно-розважальної системи"</string>
+    <string name="admin_support_more_info" msgid="380785608579390750">"Докладніше"</string>
+    <string name="admin_profile_owner_message" msgid="8361351256802954556">"Адміністратор організації може відстежувати додатки й дані, пов’язані з цим профілем, зокрема налаштування, дозволи, корпоративний доступ, дії в мережі й дані про місцезнаходження транспортного засобу, а також керувати ними."</string>
+    <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Адміністратор організації може відстежувати додатки й дані, пов’язані з цим профілем, зокрема налаштування, дозволи, корпоративний доступ, дії в мережі й дані про місцезнаходження пристрою, а також керувати ними."</string>
+    <string name="admin_device_owner_message" msgid="896530502350904835">"Адміністратор організації може відстежувати додатки й дані, пов’язані з цією інформаційно-розважальною системою, зокрема налаштування, дозволи, корпоративний доступ, дії в мережі й дані про місцезнаходження транспортного засобу, а також керувати ними."</string>
+    <string name="admin_financed_message" msgid="7357397436233684082">"Адміністратор організації може мати доступ до даних, пов’язаних з цією інформаційно-розважальною системою, керувати додатками й змінювати налаштування цього транспортного засобу."</string>
+    <string name="disabled_by_policy_title" msgid="1121694702115232518">"Немає доступу"</string>
+    <string name="disabled_by_policy_title_adjust_volume" msgid="7002865820552702232">"Не вдається змінити гучність у цьому керованому транспортному засобі"</string>
+    <string name="disabled_by_policy_title_outgoing_calls" msgid="158752542663419500">"Не вдається здійснювати виклики в цьому керованому транспортному засобі"</string>
+    <string name="disabled_by_policy_title_sms" msgid="3044491214572494290">"Заборонено надсилати SMS у цьому керованому транспортному засобі"</string>
+    <string name="disabled_by_policy_title_camera" msgid="8929782627587059121">"Камера недоступна в цьому керованому транспортному засобі"</string>
+    <string name="disabled_by_policy_title_screen_capture" msgid="4059715943558852466">"У цьому керованому транспортному засобі не можна робити знімки екрана"</string>
+    <string name="disabled_by_policy_title_suspend_packages" msgid="7505332012990359725">"Не вдається відкрити додаток у цьому керованому транспортному засобі"</string>
+    <string name="disabled_by_policy_title_financed_device" msgid="6005343494788285981">"Заблоковано кредитором"</string>
+    <string name="default_admin_support_msg" msgid="2986598061733013282">"Доступ до деяких функцій обмежує організація.\n\nЯкщо у вас є запитання, зв’яжіться з її керівником."</string>
+    <string name="help_url_action_disabled_by_it_admin" msgid="1479392394986580260"></string>
+    <string name="manage_device_admin" msgid="7087659697154317316">"Програми для адміністраторів авто"</string>
+    <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# активований додаток}one{# активований додаток}few{# активовані додатки}many{# активованих додатків}other{# активованого додатка}}"</string>
+    <string name="number_of_device_admins_none" msgid="5547493703413973954">"Немає активованих додатків"</string>
+    <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Правила організації \"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>\" щодо транспортних засобів"</string>
+    <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Налаштування, якими керує адміністратор організації"</string>
+    <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Докладніше про сервіс <xliff:g id="SERVICE">%1$s</xliff:g>"</string>
+    <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Надіслати звіт про помилку?"</string>
+    <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Адміністратор транспортного засобу просить надіслати звіт про помилку, щоб вирішити проблему з цим пристроєм. Він може отримати доступ до ваших додатків і даних."</string>
+    <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Адміністратор транспортного засобу просить надіслати звіт про помилку, щоб вирішити проблему з цим пристроєм. Він може отримати доступ до ваших додатків і даних. Це також може тимчасово сповільнити роботу вашого пристрою."</string>
+    <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Звіт про помилку надіслано адміністратору транспортного засобу. Щоб дізнатися більше, зв’яжіться з ним."</string>
+    <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Поділитися"</string>
+    <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Відхилити"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Наразі це налаштування змінити не можна"</string>
+    <string name="accessibility_settings_title" msgid="2615042088419230347">"Спеціальні можливості"</string>
+    <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Субтитри"</string>
+    <string name="captions_settings_title" msgid="5738067618097295831">"Налаштування субтитрів"</string>
+    <string name="captions_settings_off" msgid="7568096968016015626">"Вимкнено"</string>
+    <string name="captions_settings_on" msgid="5374984113566914978">"Увімкнено"</string>
+    <string name="screen_reader_settings_title" msgid="4012734340987826872">"Програма зчитування з екрана"</string>
+    <string name="show_captions_toggle_title" msgid="710582308974826311">"Показувати субтитри"</string>
+    <string name="captions_text_size_title" msgid="1960814652560877963">"Розмір тексту"</string>
+    <string name="captions_settings_style_header" msgid="944591388386054372">"Розмір і стиль субтитрів"</string>
+    <string name="captions_settings_text_size_very_small" msgid="7476485317028306502">"Дуже малий"</string>
+    <string name="captions_settings_text_size_small" msgid="1481895299805450566">"Малий"</string>
+    <string name="captions_settings_text_size_default" msgid="2227802573224038267">"За умовчанням"</string>
+    <string name="captions_settings_text_size_large" msgid="5198207220911360512">"Великий"</string>
+    <string name="captions_settings_text_size_very_large" msgid="949511539689307969">"Дуже великий"</string>
+    <string name="captions_text_style_title" msgid="8547777957403577760">"Стиль субтитрів"</string>
+    <string name="captions_settings_text_style_by_app" msgid="7014882290456996444">"Як у додатку"</string>
+    <string name="captions_settings_text_style_white_on_black" msgid="5758084000323596070">"Білий на чорному"</string>
+    <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Чорний на білому"</string>
+    <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Жовтий на чорному"</string>
+    <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Жовтий на синьому"</string>
 </resources>

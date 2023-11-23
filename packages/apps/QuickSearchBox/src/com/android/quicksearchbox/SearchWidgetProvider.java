@@ -178,6 +178,7 @@ public class SearchWidgetProvider extends BroadcastReceiver {
 
         private void setOnClickActivityIntent(Context context, RemoteViews views, int viewId,
                 Intent intent) {
+            intent.setPackage(context.getPackageName());
             PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 0);
             views.setOnClickPendingIntent(viewId, pendingIntent);
         }

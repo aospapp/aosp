@@ -19,6 +19,9 @@ package android.appsecurity.cts;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
+import static com.android.compatibility.common.util.PropertyUtil.getFirstApiLevel;
+import static com.android.compatibility.common.util.PropertyUtil.getVendorApiLevel;
+
 import android.platform.test.annotations.AppModeFull;
 
 import com.android.compatibility.common.util.CddTest;
@@ -435,7 +438,9 @@ public final class ApkVerityInstallTest extends BaseAppSecurityTest {
     private void assumeSecurityModelCompat() throws DeviceNotAvailableException {
         // This feature name check only applies to devices that first shipped with
         // SC or later.
-        if (mLaunchApiLevel >= 31) {
+        final int firstApiLevel =
+                Math.min(getFirstApiLevel(getDevice()), getVendorApiLevel(getDevice()));
+        if (firstApiLevel >= 31) {
             assumeTrue("Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.",
                     getDevice().hasFeature("feature:android.hardware.security.model.compatible"));
         }

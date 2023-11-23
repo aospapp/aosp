@@ -112,7 +112,9 @@ RenderThread::RenderThread(
     }
 }
 
-
+// Note: the RenderThread destructor might be called from a different thread
+// than from RenderThread::main() so thread specific cleanup likely belongs at
+// the end of RenderThread::main().
 RenderThread::~RenderThread() = default;
 
 void RenderThread::pausePreSnapshot() {
@@ -517,6 +519,10 @@ intptr_t RenderThread::main() {
 
         FrameBuffer::getFB()->drainWindowSurface();
         FrameBuffer::getFB()->drainRenderContext();
+    }
+
+    if (!s_egl.eglReleaseThread()) {
+        DBG("Error: RenderThread @%p failed to eglReleaseThread()\n", this);
     }
 
     setFinished();

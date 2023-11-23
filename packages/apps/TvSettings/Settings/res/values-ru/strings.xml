@@ -165,7 +165,7 @@
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Никогда"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Устройство не будет переключать формат вывода изображения в соответствии с исходной частотой кадров воспроизводимого видео, даже если поступит соответствующий запрос от приложения."</string>
     <string name="font_scale_settings_title" msgid="4114019544800225980">"Масштабирование текста"</string>
-    <string name="font_scale_item_detail" msgid="1558315053348778805">"Масштаб – до <xliff:g id="SCALE">%1$d</xliff:g> %%"</string>
+    <string name="font_scale_item_detail" msgid="1558315053348778805">"Масштаб <xliff:g id="SCALE">%1$d</xliff:g> %%"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"Пример текста"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"Удивительный волшебник из страны Оз"</string>
     <string name="font_scale_preview_text_subtitle" msgid="677394182922188048">"Глава 11. Изумрудный Город Страны Оз"</string>

@@ -25,9 +25,15 @@ android_app {
 
     resource_dirs: ["res"],
 
+    min_sdk_version: "30",
+
+    target_sdk_version: "31",
+
     sdk_version: "system_current",
 
     required: ["allowed_privapp_com.android.car.messenger"],
+
+    certificate: "platform",
 
     overrides: ["messaging"],
 
@@ -48,7 +54,7 @@ android_app {
         "androidx.preference_preference",
         "androidx.recyclerview_recyclerview",
         "car-assist-lib",
-        "car-messaging-models",
+        "car-messenger-common",
         "car-telephony-common",
         "car-ui-lib",
         "androidx.annotation_annotation",
@@ -63,4 +69,67 @@ android_app {
             enabled: false,
         },
     },
+}
+
+android_test_helper_app {
+    name: "CarMessengerAppForTesting",
+
+    srcs: ["src/**/*.java"],
+
+    resource_dirs: ["res"],
+
+    min_sdk_version: "30",
+
+    target_sdk_version: "31",
+
+    sdk_version: "system_current",
+
+    required: ["allowed_privapp_com.android.car.messenger"],
+
+    certificate: "platform",
+
+    overrides: ["messaging"],
+
+    optimize: {
+        enabled: false,
+    },
+
+    privileged: true,
+
+    libs: ["android.car-system-stubs"],
+
+    // must be unbundled dependencies
+    static_libs: [
+        "androidx-constraintlayout_constraintlayout",
+        "androidx.lifecycle_lifecycle-common-java8",
+        "androidx.lifecycle_lifecycle-extensions",
+        "androidx.legacy_legacy-support-v4",
+        "androidx.preference_preference",
+        "androidx.recyclerview_recyclerview",
+        "car-assist-lib",
+        "car-messenger-common",
+        "car-telephony-common",
+        "car-ui-lib",
+        "androidx.annotation_annotation",
+    ],
+
+    dex_preopt: {
+        enabled: false,
+    },
+
+    product_variables: {
+        pdk: {
+            enabled: false,
+        },
+    },
+
+    // runtime cc library which is used by mockito-target-extended.
+    jni_libs: [
+        // For mockito extended
+        "libdexmakerjvmtiagent",
+        "libstaticjvmtiagent",
+    ],
+
+    // Enforce the jni libraries to be grouped into the APK file.
+    use_embedded_native_libs: true,
 }

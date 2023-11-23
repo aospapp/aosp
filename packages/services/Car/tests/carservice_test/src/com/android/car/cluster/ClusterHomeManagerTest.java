@@ -86,9 +86,12 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
     private ClusterHomeManager mClusterHomeManager;
     private final ClusterPropertyHandler mPropertyHandler = new ClusterPropertyHandler();
     private final CountDownLatch mPropertySetReady = new CountDownLatch(1);
-    private final CountDownLatch mCallbackReceived = new CountDownLatch(1);
+    private final CountDownLatch mClusterStateListenerCalled = new CountDownLatch(1);
+    private final CountDownLatch mClusterNavigationStateListenerCalled = new CountDownLatch(1);
 
-    private ClusterHomeCallbackImpl mClusterHomeCallback = new ClusterHomeCallbackImpl();
+    private ClusterStateListenerImpl mClusterStateListener = new ClusterStateListenerImpl();
+    private ClusterNavigationStateListenerImpl mClusterNavigationStateListener =
+            new ClusterNavigationStateListenerImpl();
     private ClusterState mState;
     private int mChanges = 0;
     private byte[] mNavigationState;
@@ -155,8 +158,11 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
         super.setUp();
         mClusterHomeManager = (ClusterHomeManager) getCar().getCarManager(Car.CLUSTER_HOME_SERVICE);
         if (!isNoHalPropertyTest() && mClusterHomeManager != null) {
-            mClusterHomeManager.registerClusterHomeCallback(
-                    getContext().getMainExecutor(), mClusterHomeCallback);
+            mClusterHomeManager.registerClusterStateListener(
+                    getContext().getMainExecutor(), mClusterStateListener);
+
+            mClusterHomeManager.registerClusterNavigationStateListener(
+                    getContext().getMainExecutor(), mClusterNavigationStateListener);
         }
     }
 
@@ -173,7 +179,9 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
     @Override
     public void tearDown() throws Exception {
         if (!isNoHalPropertyTest() && mClusterHomeManager != null) {
-            mClusterHomeManager.unregisterClusterHomeCallback(mClusterHomeCallback);
+            mClusterHomeManager.unregisterClusterStateListener(mClusterStateListener);
+            mClusterHomeManager
+                    .unregisterClusterNavigationStateListener(mClusterNavigationStateListener);
         }
         super.tearDown();
     }
@@ -181,7 +189,7 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
     @Test
     public void testClusterSwitchUi() throws InterruptedException {
         getMockedVehicleHal().injectEvent(createSwitchUiEvent(UI_TYPE_2));
-        mCallbackReceived.await(TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        mClusterStateListenerCalled.await(TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
         assertThat(mState).isNotNull();
         assertThat(mState.uiType).isEqualTo(UI_TYPE_2);
@@ -193,7 +201,7 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
         getMockedVehicleHal().injectEvent(createDisplayStateEvent(
                 DISPLAY_ON, BOUNDS_LEFT, BOUNDS_TOP, BOUNDS_RIGHT, BOUNDS_BOTTOM,
                 INSET_LEFT, INSET_TOP, INSET_RIGHT, INSET_BOTTOM));
-        mCallbackReceived.await(TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        mClusterStateListenerCalled.await(TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
         assertThat(mState).isNotNull();
         assertThat(mState.on).isEqualTo(true);
@@ -246,10 +254,16 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
         assertThrows(IllegalStateException.class,
                 () -> mClusterHomeManager.requestDisplay(UI_TYPE_1));
         assertThrows(IllegalStateException.class,
-                () -> mClusterHomeManager.registerClusterHomeCallback(
-                        getContext().getMainExecutor(), mClusterHomeCallback));
+                () -> mClusterHomeManager.registerClusterStateListener(
+                        getContext().getMainExecutor(), mClusterStateListener));
         assertThrows(IllegalStateException.class,
-                () -> mClusterHomeManager.unregisterClusterHomeCallback(mClusterHomeCallback));
+                () -> mClusterHomeManager.unregisterClusterStateListener(mClusterStateListener));
+        assertThrows(IllegalStateException.class,
+                () -> mClusterHomeManager.registerClusterNavigationStateListener(
+                        getContext().getMainExecutor(), mClusterNavigationStateListener));
+        assertThrows(IllegalStateException.class,
+                () -> mClusterHomeManager
+                        .unregisterClusterNavigationStateListener(mClusterNavigationStateListener));
     }
 
     @Test
@@ -319,15 +333,19 @@ public class ClusterHomeManagerTest extends MockedCarTestBase {
         }
     }
 
-    private class ClusterHomeCallbackImpl implements ClusterHomeManager.ClusterHomeCallback {
+    private class ClusterStateListenerImpl implements ClusterHomeManager.ClusterStateListener {
         public void onClusterStateChanged(ClusterState state, int changes) {
             mState = state;
             mChanges = changes;
-            mCallbackReceived.countDown();
+            mClusterStateListenerCalled.countDown();
         }
+    }
+    private class ClusterNavigationStateListenerImpl implements
+            ClusterHomeManager.ClusterNavigationStateListener {
+        @Override
         public void onNavigationState(byte[] navigationState) {
             mNavigationState = navigationState;
-            mCallbackReceived.countDown();
+            mClusterNavigationStateListenerCalled.countDown();
         }
     }
 

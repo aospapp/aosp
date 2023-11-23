@@ -47,9 +47,6 @@ private:
     std::set<uint32_t> mBufferIds GUARDED_BY(mMutex);
     // The maximum count of allocated buffers.
     size_t mBufferCount GUARDED_BY(mMutex){0};
-    // The timestamp for the next fetchGraphicBlock() call.
-    // Set when the previous fetchGraphicBlock() call timed out.
-    int64_t mNextFetchTimeUs GUARDED_BY(mMutex){0};
 };
 
 }  // namespace android

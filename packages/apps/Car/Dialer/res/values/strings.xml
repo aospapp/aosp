@@ -238,7 +238,7 @@
     <string name="sort_order_default_value">@string/given_name_first_key</string>
 
     <!-- Audio route selection dialog. Placeholder resources for overriding -->
-    <string name="audio_route_dialog_title">Output call audio to:</string>
+    <string name="audio_route_dialog_title"></string>
     <string name="audio_route_dialog_subtitle"></string>
 
     <!-- Ongoing Conference Call -->
@@ -253,5 +253,11 @@
 
     <!-- Delimiter to join two unrelated strings together, a comma followed by a whitespace. Use case: join phone number label and phone call timestamp in Recents page, "Mobile, 4 days ago" for example. -->
     <string name="comma_delimiter">,\u0020</string>
+
+    <!-- Sending SMS notification title -->
+    <string name="sms_notification_title">Dialer SMS</string>
+
+    <!-- Sending SMS notification text -->
+    <string name="sms_notification_text">Sending SMS</string>
 
 </resources>

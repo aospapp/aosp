@@ -17,8 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="sip_settings" msgid="7452587325305604702">"SIP параметрлері"</string>
-    <string name="sip_accounts" msgid="7297896885665783239">"SIP есептік жазбалары"</string>
-    <string name="sip_accounts_title" msgid="3061686404598143943">"Есептік жазбалар"</string>
+    <string name="sip_accounts" msgid="7297896885665783239">"SIP аккаунттары"</string>
+    <string name="sip_accounts_title" msgid="3061686404598143943">"Аккаунттар"</string>
     <string name="sip_receive_calls" msgid="3403644006618369349">"Кіріс қоңырауларды қабылдау"</string>
     <string name="sip_receive_calls_summary" msgid="5306603671778761443">"Көбірек батарея қуатын пайдаланады"</string>
     <string name="sip_call_options_title" msgid="5027066677561068192">"SIP қызметін пайдалану"</string>
@@ -26,11 +26,11 @@
     <string name="sip_call_options_entry_1" msgid="4722647332760934261">"Деректер желісі қол жетімді болғанда барлық қоңыраулар үшін"</string>
     <string name="sip_call_options_entry_2" msgid="7338504256051655013">"Тек SIP қоңыраулары үшін"</string>
     <string name="sip_call_options_wifi_only_entry_1" msgid="922329055414010991">"Барлық қоңыраулар үшін"</string>
-    <string name="add_sip_account" msgid="5754758646745144384">"Есептік жазба қосу"</string>
-    <string name="remove_sip_account" msgid="8272617403399636513">"Есептік жазбаны жою"</string>
-    <string name="sip_account_list" msgid="2596262496233721769">"SIP есептік жазбалары"</string>
-    <string name="saving_account" msgid="3390358043846687266">"Есептік жазба сақталуда…"</string>
-    <string name="removing_account" msgid="1544132880414780408">"Есептік жазба жойылуда…"</string>
+    <string name="add_sip_account" msgid="5754758646745144384">"Аккаунт қосу"</string>
+    <string name="remove_sip_account" msgid="8272617403399636513">"Аккаунтты жою"</string>
+    <string name="sip_account_list" msgid="2596262496233721769">"SIP аккаунттары"</string>
+    <string name="saving_account" msgid="3390358043846687266">"Аккаунт сақталуда…"</string>
+    <string name="removing_account" msgid="1544132880414780408">"Аккаунт жойылуда…"</string>
     <string name="sip_menu_save" msgid="4377112554203123060">"Сақтау"</string>
     <string name="sip_menu_discard" msgid="1883166691772895243">"Алып тастау"</string>
     <string name="alert_dialog_close" msgid="1734746505531110706">"Профильді жабу"</string>
@@ -40,16 +40,16 @@
     <string name="registration_status_registering" msgid="7986331597809521791">"Тіркелуде…"</string>
     <string name="registration_status_still_trying" msgid="7178623685868766282">"Әлі әрекеттенуде…"</string>
     <string name="registration_status_not_receiving" msgid="3873074208531938401">"Қоңыраулар қабылданып жатқан жоқ."</string>
-    <string name="registration_status_no_data" msgid="2987064560116584121">"Есептік жазбаны тіркеу тоқтатылды, себебі интернет байланысы жоқ."</string>
-    <string name="registration_status_no_wifi_data" msgid="685470618241482948">"Есептік жазбаны тіркеу тоқтатылды, себебі Wi-Fi байланысы жоқ."</string>
-    <string name="registration_status_not_running" msgid="6236403137652262659">"Есептік жазба тіркеу сәтсіз аяқталды."</string>
+    <string name="registration_status_no_data" msgid="2987064560116584121">"Аккаунтты тіркеу тоқтатылды, себебі интернет байланысы жоқ."</string>
+    <string name="registration_status_no_wifi_data" msgid="685470618241482948">"Аккаунтты тіркеу тоқтатылды, себебі Wi-Fi байланысы жоқ."</string>
+    <string name="registration_status_not_running" msgid="6236403137652262659">"Аккаунт тіркеу сәтсіз аяқталды."</string>
     <string name="registration_status_done" msgid="6787397199273357721">"Қоңыраулар қабылдануда."</string>
-    <string name="registration_status_failed_try_later" msgid="7855389184910312091">"Есептік жазбаны тіркеу сәтсіз аяқталды: (<xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>); әрекет кейінірек қайталанады"</string>
-    <string name="registration_status_invalid_credentials" msgid="8896714049938660777">"Есептік жазбаны тіркеу сәтсіз аяқталды: Пайдаланушы аты немесе құпия сөз қате."</string>
-    <string name="registration_status_server_unreachable" msgid="3832339558868965604">"Есептік жазба тіркеу сәтсіз аяқталды: Сервер атауын тексеріңіз."</string>
-    <string name="third_party_account_summary" msgid="5918779106950859167">"Бұл есептік жазбаны қазіргі уақытта <xliff:g id="ACCOUNT_OWNER">%s</xliff:g> қолданбасы пайдалануда."</string>
-    <string name="sip_edit_title" msgid="7438891546610820307">"SIP есептік жазбасы туралы мәліметтер"</string>
-    <string name="sip_edit_new_title" msgid="8394790068979636381">"SIP есептік жазбасы туралы мәліметтер"</string>
+    <string name="registration_status_failed_try_later" msgid="7855389184910312091">"Аккаунтты тіркеу сәтсіз аяқталды: (<xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>); әрекет кейінірек қайталанады"</string>
+    <string name="registration_status_invalid_credentials" msgid="8896714049938660777">"Аккаунтты тіркеу сәтсіз аяқталды: Пайдаланушы аты немесе құпия сөз қате."</string>
+    <string name="registration_status_server_unreachable" msgid="3832339558868965604">"Аккаунт тіркеу сәтсіз аяқталды: Сервер атауын тексеріңіз."</string>
+    <string name="third_party_account_summary" msgid="5918779106950859167">"Бұл аккаунтты қазіргі уақытта <xliff:g id="ACCOUNT_OWNER">%s</xliff:g> қолданбасы пайдалануда."</string>
+    <string name="sip_edit_title" msgid="7438891546610820307">"SIP аккаунты туралы мәліметтер"</string>
+    <string name="sip_edit_new_title" msgid="8394790068979636381">"SIP аккаунты туралы мәліметтер"</string>
     <string name="domain_address_title" msgid="8238078615181248579">"Сервер"</string>
     <string name="username_title" msgid="298416796886107970">"Пайдаланушы аты"</string>
     <string name="password_title" msgid="8035579335591959021">"Құпия сөз"</string>
@@ -68,7 +68,7 @@
     <string name="optional_summary" msgid="620379377865437488">"&lt;Міндетті емес&gt;"</string>
     <string name="advanced_settings_show" msgid="2318728080037568529">"▷ Барлығын көрсету үшін түрту"</string>
     <string name="advanced_settings_hide" msgid="6200816937370652083">"▽ Барлығын жасыру үшін түрту"</string>
-    <string name="all_empty_alert" msgid="6085603517610199098">"Жаңа SIP есептік жазбасының мәліметтерін енгізіңіз."</string>
+    <string name="all_empty_alert" msgid="6085603517610199098">"Жаңа SIP аккаунтының мәліметтерін енгізіңіз."</string>
     <string name="empty_alert" msgid="3693655518612836718">"<xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> міндетті және оны бос қалдыруға болмайды."</string>
     <string name="not_a_valid_port" msgid="3664668836663491376">"Порт нөмірі 1000 және 65534 аралығында болуы керек."</string>
     <string name="no_internet_available" msgid="161720645084325479">"SIP қоңырауын шалу үшін алдымен интернет қосылымын тексеріңіз."</string>

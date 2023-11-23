@@ -58,6 +58,7 @@ import com.android.cts.install.lib.TestApp;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -109,15 +110,11 @@ public class RedactUriDeviceTest extends ScopedStorageBaseDeviceTest {
     }
 
     @BeforeClass
-    public static void setup() {
-        setupApps();
-        setShouldForceStopTestApp(false);
-    }
-
-    private static void setupApps() {
+    public static void setupApps() {
         // Installed by target preparer
         assertThat(checkPermission(APP_B_NO_PERMS,
                 Manifest.permission.READ_EXTERNAL_STORAGE)).isFalse();
+        setShouldForceStopTestApp(false);
     }
 
     @AfterClass
@@ -275,6 +272,7 @@ public class RedactUriDeviceTest extends ScopedStorageBaseDeviceTest {
      * redacted mode.
      **/
     @Test
+    @Ignore("Enable when b/194700183 is fixed")
     public void testSharedRedactedUri_openFileForRead() throws Exception {
         forceStopApp(APP_B_NO_PERMS.getPackageName());
         final File img = stageImageFileWithMetadata(IMAGE_FILE_NAME);

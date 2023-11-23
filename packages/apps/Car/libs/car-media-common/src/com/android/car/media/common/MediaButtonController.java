@@ -230,6 +230,8 @@ public class MediaButtonController {
     }
 
     private void updateCustomActions(@Nullable PlaybackViewModel.PlaybackStateWrapper state) {
+        int focusedViewIndex = mControlBar.getFocusedViewIndex();
+
         List<ImageButton> imageButtons = new ArrayList<>();
         if (state != null) {
             imageButtons.addAll(state.getCustomActions()
@@ -245,6 +247,8 @@ public class MediaButtonController {
             mControlBar.setView(imageButtons.remove(0), CarControlBar.SLOT_RIGHT);
         }
         mControlBar.setViews(imageButtons.toArray(new ImageButton[0]));
+
+        mControlBar.setFocusAtViewIndex(focusedViewIndex);
     }
 
     private ImageButton getOrCreateIconButton(CustomPlaybackAction action) {

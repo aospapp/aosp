@@ -4,6 +4,7 @@
     <string name="system_tracing" msgid="4719188511746319848">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‏‎‏‏‏‏‏‏‏‎‎‎‎‎‏‎‏‏‏‏‏‎‏‏‏‏‎‏‏‎‎‏‏‏‏‎‎‏‎‏‎‏‏‎‏‏‎‏‎‏‏‏‏‏‎‎‏‏‎‎‏‎‏‏‏‏‎‏‎‎‎‎System Tracing‎‏‎‎‏‎"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‏‎‏‏‏‏‏‎‏‏‏‏‎‎‎‎‏‏‏‎‎‎‏‏‎‏‏‏‎‏‏‏‏‏‏‎‏‏‎‏‏‎‏‏‎‏‏‎‎‎‎‏‎‎‎‎‎‏‏‏‏‎‏‎‏‎‎‎‎‏‎Record system activity and analyze it later to improve performance‎‏‎‎‏‎"</string>
     <string name="record_trace" msgid="6416875085186661845">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‏‎‏‏‏‏‏‏‏‎‏‏‎‎‏‎‎‎‎‏‏‎‏‎‏‎‏‎‎‎‏‏‏‏‎‎‏‎‎‎‏‎‏‎‏‎‎‏‎‎‏‏‎‏‎‏‏‏‏‏‏‎‏‏‏‎‏‎‏‎‏‎Record trace‎‏‎‎‏‎"</string>
+    <string name="start_new_trace" msgid="8177130420802170353">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‏‎‏‏‏‏‏‏‏‏‏‎‎‎‏‎‏‏‏‏‎‏‏‎‎‎‎‎‎‎‎‏‏‎‎‏‎‏‏‎‎‎‏‏‏‎‏‏‏‏‏‎‏‎‎‎‎‏‎‏‏‎‏‏‏‏‏‎‎‎‏‎Start new trace‎‏‎‎‏‎"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‏‎‏‏‏‏‏‏‏‏‎‏‏‏‎‎‏‏‎‏‏‎‏‎‎‏‏‎‎‎‎‏‏‏‎‏‎‎‏‎‏‎‏‎‎‏‎‎‎‏‏‏‏‏‎‏‎‏‏‎‎‎‎‏‏‎‏‏‎‏‏‎Trace debuggable applications‎‏‎‎‏‎"</string>
     <string name="categories" msgid="2280163673538611008">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‏‎‏‏‏‏‎‏‏‏‏‏‏‏‎‏‎‎‏‎‎‏‏‎‎‎‏‎‎‏‏‎‎‎‏‏‏‏‎‏‏‏‏‏‏‎‎‎‎‎‏‎‎‏‏‎‎‎‏‏‏‎‏‎‎‎‎‎‎‎Categories‎‏‎‎‏‎"</string>
     <string name="restore_default_categories" msgid="5090536794637169521">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‏‎‎‎‏‎‏‏‏‏‏‏‏‎‎‎‏‏‎‏‎‏‎‎‏‎‏‎‎‏‏‏‎‎‎‎‎‏‏‏‏‏‎‎‏‏‏‎‎‎‎‎‏‏‎‎‏‏‏‎‏‏‏‎‎‏‏‎‏‏‏‎‎‎‏‎Restore default categories‎‏‎‎‏‎"</string>

@@ -78,21 +78,14 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
     private AtomicReference<String> mWifiScanResultsCompareFinalErrorMessage =
             new AtomicReference<String>(null);
 
-    private boolean mUseScanResultsSizeThreshold;
-
-    /**
-     * @param useScanResultsSizeThreshold true if the test should allow CHRE to have a certain
-     *                                    threhsold less scan results than AP.
-     */
     public ChreCrossValidatorWifi(
             ContextHubManager contextHubManager, ContextHubInfo contextHubInfo,
-            NanoAppBinary nanoAppBinary, boolean useScanResultsSizeThreshold) {
+            NanoAppBinary nanoAppBinary) {
         super(contextHubManager, contextHubInfo, nanoAppBinary);
         Assert.assertTrue("Nanoapp given to cross validator is not the designated chre cross"
                 + " validation nanoapp.",
                 nanoAppBinary.getNanoAppId() == NANO_APP_ID);
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        mUseScanResultsSizeThreshold = useScanResultsSizeThreshold;
         mWifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
         mWifiScanReceiver = new BroadcastReceiver() {
             @Override
@@ -120,9 +113,6 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
         mCollectingData.set(true);
         sendStepStartMessage(Step.SETUP);
 
-        // TODO(b/158770664): Address the issue that requires this workaround in the test on older
-        // devices.
-        sendMessageUseScanResultsThresholdMessage(mUseScanResultsSizeThreshold);
         waitForMessageFromNanoapp();
         mCollectingData.set(false);
 
@@ -213,16 +203,6 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
         for (int i = 0; i < results.size(); i++) {
             sendMessageToNanoApp(makeWifiScanResultMessage(results.get(i), results.size(), i));
         }
-    }
-
-    private void sendMessageUseScanResultsThresholdMessage(boolean useThreshold) {
-        int messageType = ChreCrossValidationWifi.MessageType.USE_SCAN_RESULTS_SIZE_THRESHOLD_VALUE;
-        ChreCrossValidationWifi.UseScanResultsSizeThreshold messageProto =
-                ChreCrossValidationWifi.UseScanResultsSizeThreshold
-                .newBuilder().setUseThreshold(useThreshold).build();
-        NanoAppMessage message = NanoAppMessage.createMessageToNanoApp(
-                mNappBinary.getNanoAppId(), messageType, messageProto.toByteArray());
-        sendMessageToNanoApp(message);
     }
 
     private NanoAppMessage makeWifiScanResultMessage(ScanResult result, int totalNumResults,

@@ -20,15 +20,23 @@ ParamBuffer::~ParamBuffer() {}
 ParamCapture::~ParamCapture() {}
 ResourceTracker::ResourceTracker() {}
 ResourceTracker::~ResourceTracker() {}
+TrackedResource::TrackedResource() {}
+TrackedResource::~TrackedResource() {}
 
 FrameCapture::FrameCapture() {}
 FrameCapture::~FrameCapture() {}
 
-FrameCaptureShared::FrameCaptureShared() {}
+FrameCaptureShared::FrameCaptureShared() : mEnabled(false) {}
 FrameCaptureShared::~FrameCaptureShared() {}
 void FrameCaptureShared::onEndFrame(const gl::Context *context) {}
 void FrameCaptureShared::onMakeCurrent(const gl::Context *context, const egl::Surface *drawSurface)
 {}
 void FrameCaptureShared::onDestroyContext(const gl::Context *context) {}
 void FrameCaptureShared::replay(gl::Context *context) {}
+const ProgramSources &FrameCaptureShared::getProgramSources(gl::ShaderProgramID id) const
+{
+    const auto &foundSources = mCachedProgramSources.find(id);
+    return foundSources->second;
+}
+void FrameCaptureShared::setProgramSources(gl::ShaderProgramID id, ProgramSources sources) {}
 }  // namespace angle

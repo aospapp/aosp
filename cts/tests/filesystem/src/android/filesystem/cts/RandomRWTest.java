@@ -65,6 +65,7 @@ public class RandomRWTest {
         if (fileSize == 0) { // not enough space, give up
             return;
         }
+        FileActivity.startFileActivity(getContext());
         String streamName = "test_random_read";
         DeviceReportLog report = new DeviceReportLog(REPORT_LOG_NAME, streamName);
         double mbps = FileUtil.doRandomReadTest(getContext(), DIR_RANDOM_RD, report, fileSize,
@@ -86,6 +87,7 @@ public class RandomRWTest {
         while (usableSpace < fileSize) {
             fileSize = fileSize / 2;
         }
+        FileActivity.startFileActivity(getContext());
         String streamName = "test_random_update";
         DeviceReportLog report = new DeviceReportLog(REPORT_LOG_NAME, streamName);
         double mbps = -1;

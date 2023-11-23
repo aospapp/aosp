@@ -74,12 +74,28 @@ MULTIPATH_PREFERENCE_RELIABILITY = 1 << 1
 MULTIPATH_PREFERENCE_PERFORMANCE = 1 << 2
 
 # Private DNS constants
-DNS_GOOGLE = "dns.google"
-DNS_QUAD9 = "dns.quad9.net"
-DNS_CLOUDFLARE = "1dot1dot1dot1.cloudflare-dns.com"
+DNS_GOOGLE_HOSTNAME = "dns.google"
+DNS_QUAD9_HOSTNAME = "dns.quad9.net"
+DNS_CLOUDFLARE_HOSTNAME = "1dot1dot1dot1.cloudflare-dns.com"
+DOH_CLOUDFLARE_HOSTNAME = "cloudflare-dns.com"
 PRIVATE_DNS_MODE_OFF = "off"
 PRIVATE_DNS_MODE_OPPORTUNISTIC = "opportunistic"
 PRIVATE_DNS_MODE_STRICT = "hostname"
+
+DNS_SUPPORT_TYPE = {
+    DNS_GOOGLE_HOSTNAME: ["Do53", "DoT", "DoH"],
+    DNS_CLOUDFLARE_HOSTNAME: ["Do53","DoT"],
+    DOH_CLOUDFLARE_HOSTNAME: ["DoH"]
+}
+
+DNS_GOOGLE_ADDR_V4 = ["8.8.4.4", "8.8.8.8"]
+DNS_GOOGLE_ADDR_V6 = ["2001:4860:4860::8888",
+                      "2001:4860:4860::8844"]
+DNS_CLOUDFLARE_ADDR_V4 = ["1.1.1.1", "1.0.0.1"]
+DOH_CLOUDFLARE_ADDR_V4 = ["104.16.248.249", "104.16.249.249"]
+DOH_CLOUDFLARE_ADDR_V6 = ["2606:4700::6810:f8f9",
+                          "2606:4700::6810:f9f9"]
+
 
 # IpSec constants
 SOCK_STREAM = 1

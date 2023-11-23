@@ -16,6 +16,10 @@
 
 package com.android.car.settings.profiles;
 
+import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
 import static com.android.car.settings.profiles.AddProfileHandler.CONFIRM_CREATE_NEW_PROFILE_DIALOG_TAG;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -24,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,6 +48,8 @@ import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
+import com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment;
+import com.android.car.settings.testutils.EnterpriseTestUtils;
 import com.android.car.settings.testutils.ResourceTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
 import com.android.internal.infra.AndroidFuture;
@@ -60,8 +67,10 @@ import java.util.concurrent.TimeoutException;
 @RunWith(AndroidJUnit4.class)
 public class AddProfileHandlerTest {
     private static final int ADD_PROFILE_TASK_TIMEOUT = 10; // in seconds
+    private static final String TEST_RESTRICTION =
+            android.os.UserManager.DISALLOW_ADD_USER;
 
-    private Context mContext = ApplicationProvider.getApplicationContext();
+    private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private AddProfileHandler mAddProfileHandler;
     private LifecycleOwner mLifecycleOwner;
     private TestAddProfilePreferenceController mPreferenceController;
@@ -78,6 +87,7 @@ public class AddProfileHandlerTest {
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mUserManager);
         mLifecycleOwner = new TestLifecycleOwner();
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
@@ -131,6 +141,67 @@ public class AddProfileHandlerTest {
 
         verify(mMockFragmentController).showDialog(any(ConfirmationDialogFragment.class),
                 eq(CONFIRM_CREATE_NEW_PROFILE_DIALOG_TAG));
+    }
+
+    @Test
+    public void getAddProfilePreferenceAvailabilityStatus_demoUser_available() {
+        when(mUserManager.isDemoUser()).thenReturn(true);
+        assertThat(mAddProfileHandler.getAddProfilePreferenceAvailabilityStatus(mContext))
+                .isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAddProfilePreferenceAvailabilityStatus_notRestricted_available() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mUserManager, TEST_RESTRICTION, false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, false);
+        assertThat(mAddProfileHandler.getAddProfilePreferenceAvailabilityStatus(mContext))
+                .isEqualTo(AVAILABLE);
+    }
+
+    @Test
+    public void getAddProfilePreferenceAvailabilityStatus_notDemoUser_restrictedByUm_disabled() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mUserManager, TEST_RESTRICTION, true);
+        assertThat(mAddProfileHandler.getAddProfilePreferenceAvailabilityStatus(mContext))
+                .isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAddProfilePreferenceAvailabilityStatus_notDemoUser_restrictedByDpm_viewing() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+        assertThat(mAddProfileHandler.getAddProfilePreferenceAvailabilityStatus(mContext))
+                .isEqualTo(AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAddProfilePreferenceAvailabilityStatus_notDemoUser_restrictedByBoth_disabled() {
+        when(mUserManager.isDemoUser()).thenReturn(false);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByUm(mUserManager, TEST_RESTRICTION, true);
+        assertThat(mAddProfileHandler.getAddProfilePreferenceAvailabilityStatus(mContext))
+                .isEqualTo(DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void runClickableWhileDisabled_restrictedByDpm_showAdminDialog() {
+        EnterpriseTestUtils
+                .mockUserRestrictionSetByDpm(mUserManager, TEST_RESTRICTION, true);
+
+        mAddProfileHandler.runClickableWhileDisabled();
+
+        assertShowingDisabledByAdminDialog();
+    }
+
+    private void assertShowingDisabledByAdminDialog() {
+        verify(mMockFragmentController).showDialog(any(ActionDisabledByAdminDialogFragment.class),
+                eq(DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG));
     }
 
     private class TestAddProfilePreferenceController

@@ -26,14 +26,15 @@ import android.provider.ContactsContract;
 import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.WorkerThread;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MediatorLiveData;
 
 import com.android.car.dialer.livedata.SharedPreferencesLiveData;
 import com.android.car.dialer.ui.common.entity.ContactSortingInfo;
+import com.android.car.telephony.common.AsyncEntityLoader;
 import com.android.car.telephony.common.Contact;
 import com.android.car.telephony.common.InMemoryPhoneBook;
-import com.android.car.telephony.common.ObservableAsyncQuery;
 import com.android.car.telephony.common.QueryParam;
 
 import java.util.ArrayList;
@@ -54,7 +55,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext;
  * Represents a list of {@link Contact} based on the search query
  */
 public class ContactResultsLiveData extends
-        MediatorLiveData<List<ContactResultsLiveData.ContactResultListItem>> {
+        MediatorLiveData<List<ContactResultsLiveData.ContactResultListItem>> implements
+        AsyncEntityLoader.EntityConverter<List<ContactResultsLiveData.ContactResultListItem>> {
     private static final String[] CONTACT_DETAILS_PROJECTION = {
             ContactsContract.CommonDataKinds.Phone._ID,
             ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY,
@@ -62,7 +64,7 @@ public class ContactResultsLiveData extends
     };
     private final Context mContext;
     private final SearchQueryParamProvider mSearchQueryParamProvider;
-    private final ObservableAsyncQuery mObservableAsyncQuery;
+    private final AsyncEntityLoader<List<ContactResultListItem>> mAsyncEntityLoader;
     private final LiveData<BluetoothDevice> mCurrentHfpDeviceLiveData;
     private final LiveData<String> mSearchQueryLiveData;
     private final SharedPreferencesLiveData mSortOrderPreferenceLiveData;
@@ -70,10 +72,11 @@ public class ContactResultsLiveData extends
     private boolean mShowOnlyOneEntry;
 
     /**
-     * @param searchQueryLiveData represents a list of strings that are used to query the data
-     * @param contactListLiveData represents contact list for current connected hfp device
+     * @param searchQueryLiveData         represents a list of strings that are used to query the
+     *                                    data
+     * @param contactListLiveData         represents contact list for current connected hfp device
      * @param sortOrderPreferenceLiveData has the information on how to order the acquired contacts.
-     * @param showOnlyOneEntry determines whether to show only entry per contact.
+     * @param showOnlyOneEntry            determines whether to show only entry per contact.
      */
     @AssistedInject
     public ContactResultsLiveData(
@@ -87,8 +90,8 @@ public class ContactResultsLiveData extends
         mShowOnlyOneEntry = showOnlyOneEntry;
         mCurrentHfpDeviceLiveData = currentHfpDeviceLiveData;
         mSearchQueryParamProvider = new SearchQueryParamProvider(searchQueryLiveData);
-        mObservableAsyncQuery = new ObservableAsyncQuery(context, mSearchQueryParamProvider,
-                this::onQueryFinished);
+        mAsyncEntityLoader = new AsyncEntityLoader<>(context, mSearchQueryParamProvider, this,
+                (loader, contactResultListItems) -> setValue(contactResultListItems));
 
         addSource(contactListLiveData, this::onContactsChange);
 
@@ -99,9 +102,21 @@ public class ContactResultsLiveData extends
         addSource(mSortOrderPreferenceLiveData, this::onSortOrderChanged);
     }
 
+    @Override
+    protected void onActive() {
+        super.onActive();
+        mAsyncEntityLoader.startLoading();
+    }
+
+    @Override
+    protected void onInactive() {
+        super.onInactive();
+        mAsyncEntityLoader.reset();
+    }
+
     private void onContactsChange(List<Contact> contactList) {
         if (contactList == null || contactList.isEmpty()) {
-            mObservableAsyncQuery.stopQuery();
+            mAsyncEntityLoader.cancelLoad();
             setValue(Collections.emptyList());
         } else {
             onSearchQueryChanged(mSearchQueryLiveData.getValue());
@@ -111,21 +126,24 @@ public class ContactResultsLiveData extends
     private void onSearchQueryChanged(String searchQuery) {
         mSearchQuery = searchQuery;
         if (TextUtils.isEmpty(searchQuery)) {
-            mObservableAsyncQuery.stopQuery();
+            mAsyncEntityLoader.cancelLoad();
             setValue(Collections.emptyList());
         } else {
-            mObservableAsyncQuery.startQuery();
+            mAsyncEntityLoader.forceLoad();
         }
     }
 
     private void onSortOrderChanged(SharedPreferences unusedSharedPreferences) {
-        setValue(getValue());
+        List<ContactResultListItem> contactResults = getValue();
+        sort(contactResults);
+        setValue(contactResults == null ? Collections.emptyList() : contactResults);
     }
 
-    private void onQueryFinished(@Nullable Cursor cursor) {
+    @WorkerThread
+    @Override
+    public List<ContactResultListItem> convertToEntity(@Nullable Cursor cursor) {
         if (cursor == null) {
-            setValue(Collections.emptyList());
-            return;
+            return Collections.emptyList();
         }
 
         List<ContactResultListItem> contactResults = new ArrayList<>();
@@ -151,21 +169,17 @@ public class ContactResultsLiveData extends
                     .collect(Collectors.toList());
         }
 
-        setValue(contactResults);
-        cursor.close();
+        sort(contactResults);
+
+        return contactResults;
     }
 
-    /**
-     * Sort and replace null list with empty list.
-     */
-    @Override
-    public void setValue(List<ContactResultListItem> contactResults) {
-        if (contactResults != null && !contactResults.isEmpty()) {
+    private void sort(List<ContactResultListItem> contactResults) {
+        if (contactResults != null) {
             Collections.sort(contactResults, (o1, o2) -> ContactSortingInfo.getSortingInfo(
                     mContext, mSortOrderPreferenceLiveData).first.compare(o1.mContact,
                     o2.mContact));
         }
-        super.setValue(contactResults == null ? Collections.EMPTY_LIST : contactResults);
     }
 
     private static class SearchQueryParamProvider implements QueryParam.Provider {

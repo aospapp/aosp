@@ -62,11 +62,10 @@ import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Rect;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.WindowManagerState.DisplayContent;
-import android.server.wm.WindowManagerState.ActivityTask;
+import android.server.wm.WindowManagerState.Task;
 import android.server.wm.CommandSession.ActivitySession;
 import android.server.wm.TestJournalProvider.TestJournalContainer;
 import android.view.Display;
@@ -471,11 +470,10 @@ public class MultiDisplaySecurityTests extends MultiDisplayTestBase {
         mWmState.assertVisibility(VIRTUAL_DISPLAY_ACTIVITY, true /* visible */);
         mWmState.assertFocusedActivity("Virtual display activity must be on top",
                 VIRTUAL_DISPLAY_ACTIVITY);
-        final int defaultDisplayFocusedStackId = mWmState.getFocusedStackId();
-        ActivityTask frontStack = mWmState.getRootTask(
-                defaultDisplayFocusedStackId);
-        assertEquals("Top stack must remain on primary display",
-                DEFAULT_DISPLAY, frontStack.mDisplayId);
+        final int defaultDisplayFocusedTaskId = mWmState.getFocusedTaskId();
+        Task frontRootTask = mWmState.getRootTask(defaultDisplayFocusedTaskId);
+        assertEquals("Top root task must remain on primary display",
+                DEFAULT_DISPLAY, frontRootTask.mDisplayId);
 
         // Launch activity on new secondary display.
         launchActivityOnDisplay(TEST_ACTIVITY, newDisplay.mId);
@@ -485,7 +483,7 @@ public class MultiDisplaySecurityTests extends MultiDisplayTestBase {
         assertBothDisplaysHaveResumedActivities(pair(DEFAULT_DISPLAY, VIRTUAL_DISPLAY_ACTIVITY),
                 pair(newDisplay.mId, TEST_ACTIVITY));
 
-        // Launch other activity with different uid and check it is launched on dynamic stack on
+        // Launch other activity with different uid and check it is launched on dynamic task on
         // secondary display.
         final String startCmd = "am start -n " + getActivityName(SECOND_ACTIVITY)
                 + " --display " + newDisplay.mId;
@@ -537,18 +535,19 @@ public class MultiDisplaySecurityTests extends MultiDisplayTestBase {
         mWmState.computeState(LAUNCHING_ACTIVITY);
 
         // Check that the first activity is launched onto the secondary display.
-        final int frontStackId = mWmState.getFrontRootTaskId(newDisplay.mId);
-        ActivityTask frontStack = mWmState.getRootTask(frontStackId);
+        final int frontRootTaskId = mWmState.getFrontRootTaskId(newDisplay.mId);
+        Task frontTask = mWmState.getRootTask(frontRootTaskId);
         assertEquals("Activity launched on secondary display must be resumed",
-                getActivityName(LAUNCHING_ACTIVITY), frontStack.mResumedActivity);
-        mWmState.assertFocusedStack("Top stack must be on secondary display", frontStackId);
+                getActivityName(LAUNCHING_ACTIVITY), frontTask.mResumedActivity);
+        mWmState.assertFocusedRootTask("Top task must be on secondary display",
+                frontRootTaskId);
 
         // Launch an activity from a different UID into the first activity's task.
         getLaunchActivityBuilder().setTargetActivity(SECOND_ACTIVITY).execute();
 
         waitAndAssertTopResumedActivity(SECOND_ACTIVITY, newDisplay.mId,
                 "Top activity must be the newly launched one");
-        frontStack = mWmState.getRootTask(frontStackId);
+        frontTask = mWmState.getRootTask(frontRootTaskId);
         assertEquals("Secondary display must contain 1 task", 1,
                 mWmState.getDisplay(newDisplay.mId).getRootTasks().size());
     }
@@ -564,11 +563,10 @@ public class MultiDisplaySecurityTests extends MultiDisplayTestBase {
         mWmState.assertVisibility(VIRTUAL_DISPLAY_ACTIVITY, true /* visible */);
         mWmState.assertFocusedActivity("Virtual display activity must be focused",
                 VIRTUAL_DISPLAY_ACTIVITY);
-        final int defaultDisplayFocusedStackId = mWmState.getFocusedStackId();
-        ActivityTask frontStack = mWmState.getRootTask(
-                defaultDisplayFocusedStackId);
-        assertEquals("Top stack must remain on primary display",
-                DEFAULT_DISPLAY, frontStack.mDisplayId);
+        final int defaultDisplayFocusedRootTaskId = mWmState.getFocusedTaskId();
+        Task frontRootTask = mWmState.getRootTask(defaultDisplayFocusedRootTaskId);
+        assertEquals("Top root task must remain on primary display",
+                DEFAULT_DISPLAY, frontRootTask.mDisplayId);
 
         // Launch activity on new secondary display.
         launchActivityOnDisplay(TEST_ACTIVITY, newDisplay.mId);

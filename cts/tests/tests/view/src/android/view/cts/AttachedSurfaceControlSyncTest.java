@@ -28,12 +28,12 @@ import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.util.IntProperty;
+import android.util.Property;
 import android.view.Gravity;
-import android.view.SurfaceControl;
-import android.view.SurfaceView;
 import android.view.Surface;
+import android.view.SurfaceControl;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.animation.LinearInterpolator;
 import android.view.cts.surfacevalidator.AnimationFactory;
@@ -42,8 +42,6 @@ import android.view.cts.surfacevalidator.CapturedActivityWithResource;
 import android.view.cts.surfacevalidator.PixelChecker;
 import android.view.cts.surfacevalidator.ViewFactory;
 import android.widget.FrameLayout;
-
-import android.util.Log;
 
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.RequiresDevice;
@@ -81,7 +79,7 @@ public class AttachedSurfaceControlSyncTest {
         return a;
     }
 
-    class GreenSurfaceAnchorView extends View {
+    static class GreenSurfaceAnchorView extends View {
         SurfaceControl mSurfaceControl;
         final Surface mSurface;
         final int[] mLocation = new int[2];
@@ -110,7 +108,6 @@ public class AttachedSurfaceControlSyncTest {
 
         @Override
         public boolean gatherTransparentRegion(Region region) {
-            boolean opaque = true;
             int w = getWidth();
             int h = getHeight();
             if (w>0 && h>0) {
@@ -155,13 +152,36 @@ public class AttachedSurfaceControlSyncTest {
         }
     }
 
-    private ViewFactory sGreenSurfaceControlAnchorFactory = context -> {
-        return new GreenSurfaceAnchorView(context);
-    };
+    private static final ViewFactory sGreenSurfaceControlAnchorFactory =
+            GreenSurfaceAnchorView::new;
 
-    private AnimationFactory sTranslateAnimationFactory = view -> {
-        PropertyValuesHolder pvhX = PropertyValuesHolder.ofFloat(View.TRANSLATION_X, 10f, 30f);
-        PropertyValuesHolder pvhY = PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, 10f, 30f);
+    private static final AnimationFactory sTranslateAnimationFactory = view -> {
+        Property<View, Integer> translationX = new IntProperty<View>("translationX") {
+            @Override
+            public void setValue(View object, int value) {
+                object.setTranslationX(value);
+            }
+
+            @Override
+            public Integer get(View object) {
+                return (int) object.getTranslationX();
+            }
+        };
+
+        Property<View, Integer> translationY = new IntProperty<View>("translationY") {
+            @Override
+            public void setValue(View object, int value) {
+                object.setTranslationY(value);
+            }
+
+            @Override
+            public Integer get(View object) {
+                return (int) object.getTranslationY();
+            }
+        };
+
+        PropertyValuesHolder pvhX = PropertyValuesHolder.ofInt(translationX, 10, 30);
+        PropertyValuesHolder pvhY = PropertyValuesHolder.ofInt(translationY, 10, 30);
         return makeInfinite(ObjectAnimator.ofPropertyValuesHolder(view, pvhX, pvhY));
     };
 

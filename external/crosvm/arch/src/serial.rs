@@ -136,7 +136,7 @@ impl WriteSocket {
         const SEND_RETRY: usize = 2;
         let mut sent = 0;
         for _ in 0..SEND_RETRY {
-            match self.sock.send(&buf[..]) {
+            match self.sock.send(buf) {
                 Ok(bytes_sent) => {
                     sent = bytes_sent;
                     break;
@@ -437,8 +437,14 @@ pub fn add_serial_devices(
         match serial_jail.as_ref() {
             Some(jail) => {
                 let com = Arc::new(Mutex::new(
-                    ProxyDevice::new(com, &jail, preserved_fds)
-                        .map_err(DeviceRegistrationError::ProxyDeviceCreation)?,
+                    ProxyDevice::new(
+                        com,
+                        &jail
+                            .try_clone()
+                            .map_err(DeviceRegistrationError::CloneJail)?,
+                        preserved_fds,
+                    )
+                    .map_err(DeviceRegistrationError::ProxyDeviceCreation)?,
                 ));
                 io_bus
                     .insert(com.clone(), SERIAL_ADDR[x as usize], 0x8)

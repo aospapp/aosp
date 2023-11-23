@@ -58,6 +58,8 @@ public abstract class AbstractSampleActivity extends Activity implements
                 return startSampleActivity(ProgressBarSamples.class);
             case R.id.panel_elements:
                 return startSampleActivity(ColorSamples.class);
+            case R.id.palette_elements:
+                return startSampleActivity(ColorPalette.class);
             case R.id.dialog_elements:
                 return startSampleActivity(DialogSamples.class);
             case R.id.toggle_theme:

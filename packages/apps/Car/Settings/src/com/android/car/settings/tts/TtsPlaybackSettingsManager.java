@@ -24,6 +24,7 @@ import android.speech.tts.TtsEngines;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
@@ -159,11 +160,16 @@ class TtsPlaybackSettingsManager {
     }
 
     private void displayNetworkAlert() {
-        AlertDialog dialog = new AlertDialogBuilder(mContext)
+        AlertDialog dialog = createNetworkAlertDialog();
+        dialog.show();
+    }
+
+    @VisibleForTesting
+    AlertDialog createNetworkAlertDialog() {
+        return new AlertDialogBuilder(mContext)
                 .setTitle(android.R.string.dialog_alert_title)
                 .setMessage(R.string.tts_engine_network_required)
                 .setCancelable(false)
                 .setPositiveButton(android.R.string.ok, null).create();
-        dialog.show();
     }
 }

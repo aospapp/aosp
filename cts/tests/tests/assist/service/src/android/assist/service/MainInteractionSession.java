@@ -160,7 +160,7 @@ public class MainInteractionSession extends VoiceInteractionSession {
                 data, activity, structure, content));
 
         if (activity != null && Utils.isAutomotive(mContext)
-                && !activity.getPackageName().equals("android.assist.testapp")) {
+                && !activity.getPackageName().startsWith("android.assist")) {
             // TODO: automotive has multiple activities / displays, so the test might fail if it
             // receives one of them (like the cluster activity) instead of what's expecting. This is
             // a quick fix for the issue; a better solution would be refactoring the infra to

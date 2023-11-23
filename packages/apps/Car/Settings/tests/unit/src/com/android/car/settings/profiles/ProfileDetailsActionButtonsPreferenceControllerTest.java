@@ -20,6 +20,7 @@ import static android.content.pm.UserInfo.FLAG_ADMIN;
 import static android.content.pm.UserInfo.FLAG_INITIALIZED;
 
 import static com.android.car.settings.common.ActionButtonsPreference.ActionButtons;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 import static com.android.car.settings.profiles.ProfileDetailsActionButtonsPreferenceController.MAKE_ADMIN_DIALOG_TAG;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -238,6 +239,8 @@ public class ProfileDetailsActionButtonsPreferenceControllerTest {
         when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(false);
         when(mMockUserManager.hasUserRestriction(UserManager.DISALLOW_REMOVE_USER))
                 .thenReturn(true);
+        when(mRemoveProfileHandler.getAvailabilityStatus(mContext, userInfo,
+                /* allowRemoveCurrentProcessUser */ false)).thenReturn(DISABLED_FOR_PROFILE);
         mPreferenceController.setUserInfo(userInfo);
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreference);
         mPreferenceController.onCreate(mLifecycleOwner);
@@ -250,9 +253,11 @@ public class ProfileDetailsActionButtonsPreferenceControllerTest {
     public void onStart_userIsViewingSelf_deleteButtonHidden() {
         UserInfo userInfo = new UserInfo(/* id= */ 10, TEST_PROFILE_NAME, FLAG_INITIALIZED);
         when(mMockProfileHelper.isCurrentProcessUser(userInfo)).thenReturn(true);
+        when(mRemoveProfileHandler.getAvailabilityStatus(mContext, userInfo,
+                /* allowRemoveCurrentProcessUser */ false)).thenReturn(DISABLED_FOR_PROFILE);
+        when(mRemoveProfileHandler.canRemoveProfile(userInfo)).thenReturn(true);
         mPreferenceController.setUserInfo(userInfo);
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreference);
-        when(mRemoveProfileHandler.canRemoveProfile(userInfo)).thenReturn(true);
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.onStart(mLifecycleOwner);
 

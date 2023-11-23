@@ -21,6 +21,9 @@
 #include "audio-hal-enums.h"
 #include "audio_common-base.h"
 
+//TODO: b/193496180 use spatializer flag at audio HAL when available
+#define AUDIO_OUTPUT_FLAG_SPATIALIZER ((audio_output_flags_t)0x40000)
+
 /** Define helper values to iterate over enum, extend them or checking value validity.
  *  Those values are compatible with the corresponding enum values.
  *  They are not macro like similar values in audio.h to avoid conflicting

@@ -20,6 +20,7 @@
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_delete);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_openStream);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setAllowedCapturePolicy);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setAttributionTag);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setBufferCapacityInFrames);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setChannelCount);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setContentType);
@@ -30,6 +31,7 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setErrorCallback);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setFormat);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setFramesPerDataCallback);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setInputPreset);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setPackageName);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setPerformanceMode);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setPrivacySensitive);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AAudioStreamBuilder_setSampleRate);
@@ -81,6 +83,7 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_delete);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_openStream);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setAllowedCapturePolicy);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setAttributionTag);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setBufferCapacityInFrames);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setChannelCount);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setContentType);
@@ -91,6 +94,7 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setFormat);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setFramesPerDataCallback);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setInputPreset);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setPackageName);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setPerformanceMode);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setPrivacySensitive);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libaaudio.so", AAudioStreamBuilder_setSampleRate);

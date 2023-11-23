@@ -20,6 +20,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="config-descriptor:metadata" key="component" value="telecom" />
     <option name="config-descriptor:metadata" key="token" value="UICC_SIM_CARD" />
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
     <option name="not-shardable" value="true" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />

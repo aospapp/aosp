@@ -23,6 +23,7 @@ import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.platform.test.composer.Iterate;
+import android.platform.test.rule.DynamicRuleChain;
 import android.platform.test.rule.TracePointRule;
 import android.util.Log;
 import androidx.annotation.VisibleForTesting;
@@ -32,6 +33,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -71,6 +73,12 @@ public class Microbenchmark extends BlockJUnit4ClassRunner {
             };
     @VisibleForTesting static final String MIN_BATTERY_LEVEL_OPTION = "min-battery";
     @VisibleForTesting static final String MAX_BATTERY_DRAIN_OPTION = "max-battery-drain";
+    // Use these options to inject rules at runtime via the command line. For details, please see
+    // documentation for DynamicRuleChain.
+    @VisibleForTesting static final String DYNAMIC_OUTER_CLASS_RULES_OPTION = "outer-class-rules";
+    @VisibleForTesting static final String DYNAMIC_INNER_CLASS_RULES_OPTION = "inner-class-rules";
+    @VisibleForTesting static final String DYNAMIC_OUTER_TEST_RULES_OPTION = "outer-test-rules";
+    @VisibleForTesting static final String DYNAMIC_INNER_TEST_RULES_OPTION = "inner-test-rules";
 
     // Options for aligning with the battery charge (coulomb) counter for power tests. We want to
     // start microbenchmarks just after the coulomb counter has decremented to account for the
@@ -275,7 +283,11 @@ public class Microbenchmark extends BlockJUnit4ClassRunner {
     /** Re-implement the private rules wrapper from {@link BlockJUnit4ClassRunner} in JUnit 4.12. */
     private Statement withRules(FrameworkMethod method, Object target, Statement statement) {
         Statement result = statement;
-        List<TestRule> testRules = getTestRules(target);
+        List<TestRule> testRules = new ArrayList<>();
+        // Inner dynamic rules should be included first because RunRules applies rules inside-out.
+        testRules.add(new DynamicRuleChain(DYNAMIC_INNER_TEST_RULES_OPTION, mArguments));
+        testRules.addAll(getTestRules(target));
+        testRules.add(new DynamicRuleChain(DYNAMIC_OUTER_TEST_RULES_OPTION, mArguments));
         // Apply legacy MethodRules, if they don't overlap with TestRules.
         for (org.junit.rules.MethodRule each : rules(target)) {
             if (!testRules.contains(each)) {
@@ -283,11 +295,20 @@ public class Microbenchmark extends BlockJUnit4ClassRunner {
             }
         }
         // Apply modern, method-level TestRules in outer statements.
-        result =
-                testRules.isEmpty()
-                        ? statement
-                        : new RunRules(result, testRules, describeChild(method));
+        result = new RunRules(result, testRules, describeChild(method));
         return result;
+    }
+
+    /** Add {@link DynamicRuleChain} to existing class rules. */
+    @Override
+    protected List<TestRule> classRules() {
+        List<TestRule> classRules = new ArrayList<>();
+        // Inner dynamic class rules should be included first because RunRules applies rules inside
+        // -out.
+        classRules.add(new DynamicRuleChain(DYNAMIC_INNER_CLASS_RULES_OPTION, mArguments));
+        classRules.addAll(super.classRules());
+        classRules.add(new DynamicRuleChain(DYNAMIC_OUTER_CLASS_RULES_OPTION, mArguments));
+        return classRules;
     }
 
     /**

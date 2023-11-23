@@ -313,11 +313,15 @@ public class CallScreeningServiceFilter extends CallFilter {
 
     private void bindCallScreeningService(
             CompletableFuture<CallFilteringResult> resultFuture) {
-        mConnection = new CallScreeningServiceConnection(resultFuture);
+        CallScreeningServiceConnection connection = new CallScreeningServiceConnection(
+                resultFuture);
         if (!CallScreeningServiceHelper.bindCallScreeningService(mContext,
-                mCallsManager.getCurrentUserHandle(), mPackageName, mConnection)) {
+                mCallsManager.getCurrentUserHandle(), mPackageName, connection)) {
             Log.i(this, "Call screening service binding failed.");
             resultFuture.complete(mPriorStageResult);
+            mConnection = null;
+        } else {
+            mConnection = connection;
         }
     }
 

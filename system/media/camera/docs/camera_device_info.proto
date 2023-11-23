@@ -55,8 +55,8 @@ message CameraDeviceInfo {
     }
 
     message RangeFloat {
-        optional int32 lower = 1;
-        optional int32 upper = 2;
+        optional float lower = 1;
+        optional float upper = 2;
     }
 
     message RangeInt {
@@ -182,6 +182,7 @@ message CameraDeviceInfo {
     repeated int32 android_tonemap_availableToneMapModes = 1310721;
     optional int32 android_info_supportedHardwareLevel = 1441792;
     optional string android_info_version = 1441793;
+    optional DeviceStateSensorOrientationMap android_info_deviceStateSensorOrientationMap = 1441794;
     optional int32 android_sync_maxLatency = 1572864;
     optional int32 android_reprocess_maxCaptureStall = 1638400;
     optional bool android_depth_depthIsExclusive = 1703936;

@@ -166,14 +166,11 @@ void wifi_unregister_handler(wifi_handle handle, int cmd)
     pthread_mutex_unlock(&info->cb_lock);
 }
 
-void wifi_unregister_vendor_handler(wifi_handle handle, uint32_t id, int subcmd)
+void wifi_unregister_vendor_handler_without_lock(wifi_handle handle, uint32_t id, int subcmd)
 {
     hal_info *info = (hal_info *)handle;
 
-    pthread_mutex_lock(&info->cb_lock);
-
     for (int i = 0; i < info->num_event_cb; i++) {
-
         if (info->event_cb[i].nl_cmd == NL80211_CMD_VENDOR
                 && info->event_cb[i].vendor_id == id
                 && info->event_cb[i].vendor_subcmd == subcmd) {
@@ -185,10 +182,16 @@ void wifi_unregister_vendor_handler(wifi_handle handle, uint32_t id, int subcmd)
             break;
         }
     }
-
-    pthread_mutex_unlock(&info->cb_lock);
 }
 
+void wifi_unregister_vendor_handler(wifi_handle handle, uint32_t id, int subcmd)
+{
+    hal_info *info = (hal_info *)handle;
+
+    pthread_mutex_lock(&info->cb_lock);
+    wifi_unregister_vendor_handler_without_lock(handle, id, subcmd);
+    pthread_mutex_unlock(&info->cb_lock);
+}
 
 wifi_error wifi_register_cmd(wifi_handle handle, int id, WifiCommand *cmd)
 {

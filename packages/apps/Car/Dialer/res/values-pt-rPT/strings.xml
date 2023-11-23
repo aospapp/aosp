@@ -65,8 +65,8 @@
     <string name="notification_incoming_call" msgid="1722904631804432389">"Chamada recebida"</string>
     <string name="missed_call_notification_channel_name" msgid="1135686963409691772">"Notificação de chamada não atendida"</string>
     <plurals name="notification_missed_call" formatted="false" msgid="1018870358427938752">
-      <item quantity="other">Chamadas não atendidas (<xliff:g id="NUMBER">%1$d</xliff:g>) </item>
       <item quantity="one">Chamada não atendida</item>
+      <item quantity="other">Chamadas não atendidas (<xliff:g id="NUMBER">%1$d</xliff:g>) </item>
     </plurals>
     <string name="onhold_call_separator" msgid="2357788035385100805">"•"</string>
     <string name="swap_call_label" msgid="309322319645637302">"Mudar de chamada"</string>
@@ -82,11 +82,13 @@
     <string name="family_name_first_title" msgid="7721976826282427987">"Apelido"</string>
     <!-- no translation found for sort_order_default_value (5876201942256731358) -->
     <skip />
-    <string name="audio_route_dialog_title" msgid="2904553846970171054">"Áudio da chamada de saída para:"</string>
+    <string name="audio_route_dialog_title" msgid="2262715267187794363"></string>
     <string name="audio_route_dialog_subtitle" msgid="8780526104805330121"></string>
     <string name="ongoing_conf_title" msgid="4161590966144000887">"Conferência"</string>
     <string name="ongoing_conf_title_format" msgid="7667048745156395220">"%1$s (%2$d) - "</string>
     <string name="dialing_disabled_warning" msgid="8094136040809498594">"Marcação desativada"</string>
     <string name="restricted_dialing_mode_label" msgid="2439439835180117206">"A utilização do teclado é restrita durante a condução."</string>
     <string name="comma_delimiter" msgid="7949695553572428165">", "</string>
+    <string name="sms_notification_title" msgid="5980540487139970307">"SMS do telefone"</string>
+    <string name="sms_notification_text" msgid="9193883830187173056">"A enviar SMS"</string>
 </resources>

@@ -20,15 +20,18 @@ use std::fs::File;
 use std::os::raw::c_int;
 use std::result::Result as StdResult;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
+
+use std::thread::JoinHandle;
 
 use libc::{EINVAL, EIO, ENODEV};
 use serde::{Deserialize, Serialize};
 
 use base::{
     error, with_as_descriptor, AsRawDescriptor, Error as SysError, Event, ExternalMapping, Fd,
-    FromRawDescriptor, IntoRawDescriptor, MappedRegion, MemoryMappingArena, MemoryMappingBuilder,
-    MemoryMappingBuilderUnix, MmapError, Protection, Result, SafeDescriptor, SharedMemory, Tube,
+    FromRawDescriptor, IntoRawDescriptor, Killable, MappedRegion, MemoryMappingArena,
+    MemoryMappingBuilder, MemoryMappingBuilderUnix, MmapError, Protection, Result, SafeDescriptor,
+    SharedMemory, Tube, SIGRTMIN,
 };
 use hypervisor::{IrqRoute, IrqSource, Vm};
 use resources::{Alloc, MmioType, SystemAllocator};
@@ -57,11 +60,12 @@ pub use crate::gdb::*;
 pub use hypervisor::MemSlot;
 
 /// Control the state of a particular VM CPU.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum VcpuControl {
     #[cfg(all(target_arch = "x86_64", feature = "gdb"))]
     Debug(VcpuDebug),
     RunState(VmRunMode),
+    MakeRT,
 }
 
 /// Mode of execution for the VM.
@@ -103,6 +107,7 @@ impl Default for VmRunMode {
 /// require adding a big dependency for a single const.
 pub const USB_CONTROL_MAX_PORTS: usize = 16;
 
+// Balloon commands that are sent on the crosvm control socket.
 #[derive(Serialize, Deserialize, Debug)]
 pub enum BalloonControlCommand {
     /// Set the size of the VM's balloon.
@@ -110,6 +115,17 @@ pub enum BalloonControlCommand {
         num_bytes: u64,
     },
     Stats,
+}
+
+// Balloon commands that are send on the balloon command tube.
+//
+// This is the same as BalloonControlCommand above, but includes an ID for the
+// Stats request so that we can discard stale stats if any previous stats
+// request failed or timed out.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum BalloonTubeCommand {
+    Adjust { num_bytes: u64 },
+    Stats { id: u64 },
 }
 
 // BalloonStats holds stats returned from the stats_queue.
@@ -127,48 +143,24 @@ pub struct BalloonStats {
     pub hugetlb_failures: Option<u64>,
 }
 
-impl Display for BalloonStats {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{{")?;
-        if let Some(swap_in) = self.swap_in {
-            write!(f, "\n    swap_in: {}", swap_in)?;
-        }
-        if let Some(swap_out) = self.swap_out {
-            write!(f, "\n    swap_out: {}", swap_out)?;
-        }
-        if let Some(major_faults) = self.major_faults {
-            write!(f, "\n    major_faults: {}", major_faults)?;
-        }
-        if let Some(minor_faults) = self.minor_faults {
-            write!(f, "\n    minor_faults: {}", minor_faults)?;
-        }
-        if let Some(free_memory) = self.free_memory {
-            write!(f, "\n    free_memory: {}", free_memory)?;
-        }
-        if let Some(total_memory) = self.total_memory {
-            write!(f, "\n    total_memory: {}", total_memory)?;
-        }
-        if let Some(available_memory) = self.available_memory {
-            write!(f, "\n    available_memory: {}", available_memory)?;
-        }
-        if let Some(disk_caches) = self.disk_caches {
-            write!(f, "\n    disk_caches: {}", disk_caches)?;
-        }
-        if let Some(hugetlb_allocations) = self.hugetlb_allocations {
-            write!(f, "\n    hugetlb_allocations: {}", hugetlb_allocations)?;
-        }
-        if let Some(hugetlb_failures) = self.hugetlb_failures {
-            write!(f, "\n    hugetlb_failures: {}", hugetlb_failures)?;
-        }
-        write!(f, "\n}}")
-    }
-}
-
+// BalloonControlResult holds results for BalloonControlCommand defined above.
 #[derive(Serialize, Deserialize, Debug)]
 pub enum BalloonControlResult {
     Stats {
         stats: BalloonStats,
         balloon_actual: u64,
+    },
+}
+
+// BalloonTubeResult are results to BalloonTubeCommand defined above. This is
+// the same as BalloonControlResult, but with an added ID so that we can detect
+// stale balloon stats values queued to the balloon command tube.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum BalloonTubeResult {
+    Stats {
+        stats: BalloonStats,
+        balloon_actual: u64,
+        id: u64,
     },
 }
 
@@ -233,6 +225,7 @@ pub enum UsbControlResult {
     NoSuchPort,
     FailedToOpenDevice,
     Devices([UsbControlAttachedDevice; USB_CONTROL_MAX_PORTS]),
+    FailedToInitHostDevice,
 }
 
 impl Display for UsbControlResult {
@@ -252,6 +245,7 @@ impl Display for UsbControlResult {
                 }
                 std::result::Result::Ok(())
             }
+            FailedToInitHostDevice => write!(f, "failed_to_init_host_device"),
         }
     }
 }
@@ -905,6 +899,8 @@ pub enum VmRequest {
     Suspend,
     /// Resume the VM's VCPUs that were previously suspended.
     Resume,
+    /// Make the VM's RT VCPU real-time.
+    MakeRT,
     /// Command for balloon driver.
     BalloonCommand(BalloonControlCommand),
     /// Send a command to a disk chosen by `disk_index`.
@@ -979,9 +975,11 @@ impl VmRequest {
         &self,
         run_mode: &mut Option<VmRunMode>,
         balloon_host_tube: &Tube,
+        balloon_stats_id: &mut u64,
         disk_host_tubes: &[Tube],
-        usb_control_tube: &Tube,
+        usb_control_tube: Option<&Tube>,
         bat_control: &mut Option<BatControl>,
+        vcpu_handles: &[(JoinHandle<()>, mpsc::Sender<VcpuControl>)],
     ) -> VmResponse {
         match *self {
             VmRequest::Exit => {
@@ -996,27 +994,60 @@ impl VmRequest {
                 *run_mode = Some(VmRunMode::Running);
                 VmResponse::Ok
             }
+            VmRequest::MakeRT => {
+                for (handle, channel) in vcpu_handles {
+                    if let Err(e) = channel.send(VcpuControl::MakeRT) {
+                        error!("failed to send MakeRT: {}", e);
+                    }
+                    let _ = handle.kill(SIGRTMIN() + 0);
+                }
+                VmResponse::Ok
+            }
             VmRequest::BalloonCommand(BalloonControlCommand::Adjust { num_bytes }) => {
-                match balloon_host_tube.send(&BalloonControlCommand::Adjust { num_bytes }) {
+                match balloon_host_tube.send(&BalloonTubeCommand::Adjust { num_bytes }) {
                     Ok(_) => VmResponse::Ok,
                     Err(_) => VmResponse::Err(SysError::last()),
                 }
             }
             VmRequest::BalloonCommand(BalloonControlCommand::Stats) => {
-                match balloon_host_tube.send(&BalloonControlCommand::Stats {}) {
-                    Ok(_) => match balloon_host_tube.recv() {
-                        Ok(BalloonControlResult::Stats {
-                            stats,
-                            balloon_actual,
-                        }) => VmResponse::BalloonStats {
-                            stats,
-                            balloon_actual,
-                        },
-                        Err(e) => {
-                            error!("balloon socket recv failed: {}", e);
-                            VmResponse::Err(SysError::last())
+                // NB: There are a few reasons stale balloon stats could be left
+                // in balloon_host_tube:
+                //  - the send succeeds, but the recv fails because the device
+                //      is not ready yet. So when the device is ready, there are
+                //      extra stats requests queued.
+                //  - the send succeed, but the recv times out. When the device
+                //      does return the stats, there will be no consumer.
+                //
+                // To guard against this, add an `id` to the stats request. If
+                // the id returned to us doesn't match, we keep trying to read
+                // until it does.
+                *balloon_stats_id = (*balloon_stats_id).wrapping_add(1);
+                let sent_id = *balloon_stats_id;
+                match balloon_host_tube.send(&BalloonTubeCommand::Stats { id: sent_id }) {
+                    Ok(_) => {
+                        loop {
+                            match balloon_host_tube.recv() {
+                                Ok(BalloonTubeResult::Stats {
+                                    stats,
+                                    balloon_actual,
+                                    id,
+                                }) => {
+                                    if sent_id != id {
+                                        // Keep trying to get the fresh stats.
+                                        continue;
+                                    }
+                                    break VmResponse::BalloonStats {
+                                        stats,
+                                        balloon_actual,
+                                    };
+                                }
+                                Err(e) => {
+                                    error!("balloon socket recv failed: {}", e);
+                                    break VmResponse::Err(SysError::last());
+                                }
+                            }
                         }
-                    },
+                    }
                     Err(_) => VmResponse::Err(SysError::last()),
                 }
             }
@@ -1044,6 +1075,13 @@ impl VmRequest {
                 }
             }
             VmRequest::UsbCommand(ref cmd) => {
+                let usb_control_tube = match usb_control_tube {
+                    Some(t) => t,
+                    None => {
+                        error!("attempted to execute USB request without control tube");
+                        return VmResponse::Err(SysError::new(ENODEV));
+                    }
+                };
                 let res = usb_control_tube.send(cmd);
                 if let Err(e) = res {
                     error!("fail to send command to usb control socket: {}", e);
@@ -1137,11 +1175,15 @@ impl Display for VmResponse {
             VmResponse::BalloonStats {
                 stats,
                 balloon_actual,
-            } => write!(
-                f,
-                "balloon size: {}\nballoon stats: {}",
-                balloon_actual, stats
-            ),
+            } => {
+                write!(
+                    f,
+                    "stats: {}\nballoon_actual: {}",
+                    serde_json::to_string_pretty(&stats)
+                        .unwrap_or_else(|_| "invalid_response".to_string()),
+                    balloon_actual
+                )
+            }
             UsbResponse(result) => write!(f, "usb control request get result {:?}", result),
             BatResponse(result) => write!(f, "{}", result),
         }

@@ -18,6 +18,7 @@ package com.android.car.carlauncher;
 
 import static com.android.car.carlauncher.AppLauncherUtils.APP_TYPE_LAUNCHABLES;
 import static com.android.car.carlauncher.AppLauncherUtils.APP_TYPE_MEDIA_SERVICES;
+import static com.android.car.carlauncher.displayarea.CarDisplayAreaOrganizer.FOREGROUND_DISPLAY_AREA_ROOT;
 
 import android.app.Activity;
 import android.app.usage.UsageStats;
@@ -47,15 +48,16 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup;
-import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.carlauncher.AppLauncherUtils.LauncherAppsInfo;
+import com.android.car.carlauncher.displayarea.CarDisplayAreaController;
 import com.android.car.ui.FocusArea;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.baselayout.InsetsChangedListener;
 import com.android.car.ui.core.CarUi;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.toolbar.MenuItem;
-import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.NavButtonMode;
 import com.android.car.ui.toolbar.ToolbarController;
 
 import java.util.ArrayList;
@@ -86,6 +88,16 @@ public class AppGridActivity extends Activity implements InsetsChangedListener {
     private CarPackageManager mCarPackageManager;
     private CarMediaManager mCarMediaManager;
     private Mode mMode;
+
+    /**
+     * enum to define the state of display area possible.
+     * CONTROL_BAR state is when only control bar is visible.
+     * FULL state is when display area hosting default apps  cover the screen fully.
+     * DEFAULT state where maps are shown above DA for default apps.
+     */
+    public enum CAR_LAUNCHER_STATE {
+        CONTROL_BAR, DEFAULT, FULL
+    }
 
     private enum Mode {
         ALL_APPS(R.string.app_launcher_title_all_apps,
@@ -143,6 +155,7 @@ public class AppGridActivity extends Activity implements InsetsChangedListener {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         mColumnNumber = getResources().getInteger(R.integer.car_app_selector_column_number);
         mPackageManager = getPackageManager();
         mUsageStatsManager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
@@ -156,8 +169,15 @@ public class AppGridActivity extends Activity implements InsetsChangedListener {
         updateMode();
 
         ToolbarController toolbar = CarUi.requireToolbar(this);
-        toolbar.setNavButtonMode(Toolbar.NavButtonMode.CLOSE);
-        toolbar.setState(Toolbar.State.SUBPAGE);
+
+        // Check if a custom policy builder is defined.
+        if (CarLauncherUtils.isCustomDisplayPolicyDefined(this)) {
+            CarDisplayAreaController carDisplayAreaController =
+                    CarDisplayAreaController.getInstance();
+            carDisplayAreaController.showTitleBar(FOREGROUND_DISPLAY_AREA_ROOT, this);
+        } else {
+            toolbar.setNavButtonMode(NavButtonMode.CLOSE);
+        }
 
         if (Build.IS_DEBUGGABLE) {
             toolbar.setMenuItems(Collections.singletonList(MenuItem.builder(this)
@@ -174,7 +194,7 @@ public class AppGridActivity extends Activity implements InsetsChangedListener {
         }
 
         mGridAdapter = new AppGridAdapter(this);
-        RecyclerView gridView = requireViewById(R.id.apps_grid);
+        CarUiRecyclerView gridView = requireViewById(R.id.apps_grid);
 
         GridLayoutManager gridLayoutManager = new GridLayoutManager(this, mColumnNumber);
         gridLayoutManager.setSpanSizeLookup(new SpanSizeLookup() {
@@ -226,6 +246,7 @@ public class AppGridActivity extends Activity implements InsetsChangedListener {
     @Override
     protected void onResume() {
         super.onResume();
+
         // Using onResume() to refresh most recently used apps because we want to refresh even if
         // the app being launched crashes/doesn't cover the entire screen.
         updateAppsLists();
@@ -241,6 +262,7 @@ public class AppGridActivity extends Activity implements InsetsChangedListener {
                 getSystemService(LauncherApps.class),
                 mCarPackageManager,
                 mPackageManager,
+                new AppLauncherUtils.VideoAppPredicate(mPackageManager),
                 mCarMediaManager);
         mGridAdapter.setAllApps(appsInfo.getLaunchableComponentsList());
         mGridAdapter.setMostRecentApps(getMostRecentApps(appsInfo));
@@ -265,7 +287,7 @@ public class AppGridActivity extends Activity implements InsetsChangedListener {
 
     @Override
     protected void onStop() {
-        super.onPause();
+        super.onStop();
         // disconnect from app install/uninstall receiver
         if (mInstallUninstallReceiver != null) {
             unregisterReceiver(mInstallUninstallReceiver);

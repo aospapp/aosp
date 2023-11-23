@@ -42,8 +42,9 @@ namespace {
 bool parseCpuStats(const std::string& data, CpuStats* cpuStats) {
     std::vector<std::string> fields = Split(data, " ");
     if (fields.size() == 12 && fields[1].empty()) {
-        // The first cpu line will have an extra space after the first word. This will generate an
-        // empty element when the line is split on " ". Erase the extra element.
+        /* The first cpu line will have an extra space after the first word. This will generate an
+         * empty element when the line is split on " ". Erase the extra element.
+         */
         fields.erase(fields.begin() + 1);
     }
     if (fields.size() != 11 || fields[0] != "cpu" || !ParseUint(fields[1], &cpuStats->userTime) ||
@@ -115,7 +116,7 @@ Result<ProcStatInfo> ProcStat::getProcStatLocked() const {
                 if (didReadProcsRunning) {
                     return Error() << "Duplicate `procs_running .*` line in " << kPath;
                 }
-                if (!parseProcsCount(std::move(lines[i]), &info.runnableProcessesCnt)) {
+                if (!parseProcsCount(std::move(lines[i]), &info.runnableProcessCount)) {
                     return Error() << "Failed to parse `procs_running .*` line in " << kPath;
                 }
                 didReadProcsRunning = true;
@@ -124,7 +125,7 @@ Result<ProcStatInfo> ProcStat::getProcStatLocked() const {
                 if (didReadProcsBlocked) {
                     return Error() << "Duplicate `procs_blocked .*` line in " << kPath;
                 }
-                if (!parseProcsCount(std::move(lines[i]), &info.ioBlockedProcessesCnt)) {
+                if (!parseProcsCount(std::move(lines[i]), &info.ioBlockedProcessCount)) {
                     return Error() << "Failed to parse `procs_blocked .*` line in " << kPath;
                 }
                 didReadProcsBlocked = true;

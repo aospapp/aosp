@@ -18,6 +18,7 @@ package com.android.car.settings.applications;
 
 import static com.android.car.settings.applications.ApplicationActionButtonsPreferenceController.DISABLE_CONFIRM_DIALOG_TAG;
 import static com.android.car.settings.applications.ApplicationActionButtonsPreferenceController.FORCE_STOP_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.applications.ApplicationActionButtonsPreferenceController.UNINSTALL_DEVICE_ADMIN_REQUEST_CODE;
 import static com.android.car.settings.applications.ApplicationActionButtonsPreferenceController.UNINSTALL_REQUEST_CODE;
 import static com.android.car.settings.common.ActionButtonsPreference.ActionButtons;
 import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
@@ -30,6 +31,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,6 +68,7 @@ import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment;
+import com.android.car.settings.enterprise.DeviceAdminAddActivity;
 import com.android.car.settings.testutils.ResourceTestUtils;
 import com.android.car.settings.testutils.TestLifecycleOwner;
 import com.android.settingslib.applications.ApplicationsState;
@@ -248,7 +251,7 @@ public class ApplicationActionButtonsPreferenceControllerTest {
     }
 
     @Test
-    public void onCreate_packageHasActiveAdmins_disablesUninstallButton() {
+    public void onCreate_packageHasActiveAdmins_doesNotDisableUninstallButton() {
         setupAndAssignPreference();
         setApplicationInfo(/* stopped= */ false, /* enabled= */ true, /* system= */ false);
 
@@ -256,7 +259,7 @@ public class ApplicationActionButtonsPreferenceControllerTest {
 
         mPreferenceController.onCreate(mLifecycleOwner);
 
-        assertThat(getUninstallButton().isEnabled()).isFalse();
+        assertThat(getUninstallButton().isEnabled()).isTrue();
     }
 
     @Test
@@ -615,6 +618,23 @@ public class ApplicationActionButtonsPreferenceControllerTest {
     }
 
     @Test
+    public void disableClicked_showsDisabledByDeviceAdminDialog() {
+        mockDisabledByDevicePolicyManagerRestriction(UserManager.DISALLOW_APPS_CONTROL);
+
+        setupAndAssignPreference();
+        setApplicationInfo(/* stopped= */ false, /* enabled= */ true, /* system= */ true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        getDisableButton().getOnClickListener().onClick(/* view= */ null);
+
+        verify(mFragmentController).showDialog(any(ActionDisabledByAdminDialogFragment.class),
+                eq(DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG));
+        verify(mMockPm, never()).setApplicationEnabledSetting(PACKAGE_NAME,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER, /* flags= */ 0);
+    }
+
+    @Test
     public void enableClicked_enablesPackage() {
         setupAndAssignPreference();
         setApplicationInfo(/* stopped= */ false, /* enabled= */ false, /* system= */ true);
@@ -625,6 +645,47 @@ public class ApplicationActionButtonsPreferenceControllerTest {
 
         verify(mMockPm).setApplicationEnabledSetting(PACKAGE_NAME,
                 PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, /* flags= */ 0);
+    }
+
+    @Test
+    public void enableClicked_showsDisabledByDeviceAdminDialog() {
+        mockDisabledByDevicePolicyManagerRestriction(UserManager.DISALLOW_APPS_CONTROL);
+
+        setupAndAssignPreference();
+        setApplicationInfo(/* stopped= */ false, /* enabled= */ false, /* system= */ true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        getDisableButton().getOnClickListener().onClick(/* view= */ null);
+
+        verify(mFragmentController).showDialog(any(ActionDisabledByAdminDialogFragment.class),
+                eq(DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG));
+        verify(mMockPm, never()).setApplicationEnabledSetting(PACKAGE_NAME,
+                PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, /* flags= */ 0);
+    }
+
+    @Test
+    public void uninstallClicked_packageHasActiveAdmins_startsDeviceAdminAddActivity() {
+        setupAndAssignPreference();
+        setApplicationInfo(/* stopped= */ false, /* enabled= */ true, /* system= */ false);
+        when(mMockDpm.packageHasActiveAdmins(PACKAGE_NAME)).thenReturn(true);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+
+        getUninstallButton().getOnClickListener().onClick(/* view= */ null);
+
+        ArgumentCaptor<Intent> intentArgumentCaptor = ArgumentCaptor.forClass(
+                Intent.class);
+
+        verify(mFragmentController).startActivityForResult(intentArgumentCaptor.capture(),
+                eq(UNINSTALL_DEVICE_ADMIN_REQUEST_CODE),
+                any(ApplicationActionButtonsPreferenceController.class));
+
+        Intent intent = intentArgumentCaptor.getValue();
+        assertThat(intent.getComponent().getClassName())
+                .isEqualTo(DeviceAdminAddActivity.class.getName());
+        assertThat(intent.getStringExtra(DeviceAdminAddActivity.EXTRA_DEVICE_ADMIN_PACKAGE_NAME))
+                .isEqualTo(PACKAGE_NAME);
     }
 
     @Test
@@ -680,6 +741,18 @@ public class ApplicationActionButtonsPreferenceControllerTest {
 
         mPreferenceController.onCreate(mLifecycleOwner);
         mPreferenceController.processActivityResult(UNINSTALL_REQUEST_CODE,
+                Activity.RESULT_OK, /* data= */ null);
+
+        verify(mFragmentController).goBack();
+    }
+
+    @Test
+    public void processActivityResult_uninstallDeviceAdmin_resultOk_goesBack() {
+        setupAndAssignPreference();
+        setApplicationInfo(/* stopped= */ false, /* enabled= */ true, /* system= */ false);
+
+        mPreferenceController.onCreate(mLifecycleOwner);
+        mPreferenceController.processActivityResult(UNINSTALL_DEVICE_ADMIN_REQUEST_CODE,
                 Activity.RESULT_OK, /* data= */ null);
 
         verify(mFragmentController).goBack();

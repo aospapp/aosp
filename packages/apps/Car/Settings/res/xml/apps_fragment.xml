@@ -36,6 +36,7 @@
         <Preference
             android:fragment="com.android.car.settings.applications.ApplicationsSettingsFragment"
             android:key="@string/pk_recent_apps_view_all"
+            android:icon="@drawable/ic_apps"
             settings:controller="com.android.car.settings.applications.RecentAppsViewAllPreferenceController"/>
         <com.android.car.settings.common.DividerPreference/>
     </com.android.car.settings.common.LogicalPreferenceGroup>

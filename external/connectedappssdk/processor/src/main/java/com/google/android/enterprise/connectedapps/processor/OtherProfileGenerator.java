@@ -19,6 +19,7 @@ import static com.google.android.enterprise.connectedapps.processor.CommonClassN
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.LOCAL_CALLBACK_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PARCEL_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_CONNECTOR_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_RUNTIME_EXCEPTION_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.UNAVAILABLE_PROFILE_EXCEPTION_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.containers.CrossProfileMethodInfo.AutomaticallyResolvedParameterFilterBehaviour.REMOVE_AUTOMATICALLY_RESOLVED_PARAMETERS;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -209,9 +210,12 @@ final class OtherProfileGenerator {
         methodBuilder.addStatement("throw e");
       }
 
+      methodBuilder.nextControlFlow("catch ($T e)", PROFILE_RUNTIME_EXCEPTION_CLASSNAME);
+      methodBuilder.addStatement("throw e");
+
       methodBuilder.nextControlFlow("catch ($T e)", Throwable.class);
       methodBuilder.addStatement(
-          "throw new $T($S)", IllegalStateException.class, "Unexpected exception thrown");
+          "throw new $T($S, e)", IllegalStateException.class, "Unexpected exception thrown");
       methodBuilder.endControlFlow();
     }
 

@@ -213,6 +213,8 @@ mkdir -p "${hidldir}/3.5"
 gen_file_abs HidlMetadata.mako "$hidldir/3.5/types.hal" yes 3.5 2017 || exit 1
 mkdir -p "${hidldir}/3.6"
 gen_file_abs HidlMetadata.mako "$hidldir/3.6/types.hal" yes 3.6 2021 || exit 1
+mkdir -p "${hidldir}/3.7"
+gen_file_abs HidlMetadata.mako "$hidldir/3.7/types.hal" yes 3.7 2021 || exit 1
 
 #Generate NDK header
 gen_file_abs ndk_camera_metadata_tags.mako "$ndk_header_dir/NdkCameraMetadataTags.h" yes || exit 1

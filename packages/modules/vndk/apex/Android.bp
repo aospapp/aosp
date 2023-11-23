@@ -44,6 +44,28 @@ android_app_certificate {
 }
 
 apex_vndk {
+    name: "com.android.vndk.v31",
+    manifest: "apex_manifest.v31.json",
+    key: "com.android.vndk.v31.key",
+    certificate: ":com.android.vndk.v31.certificate",
+    vndk_version: "31",
+    system_ext_specific: true,
+    file_contexts: ":com.android.vndk-file_contexts",
+    updatable: false,
+}
+
+apex_key {
+    name: "com.android.vndk.v31.key",
+    public_key: "com.android.vndk.v31.pubkey",
+    private_key: "com.android.vndk.v31.pem",
+}
+
+android_app_certificate {
+    name: "com.android.vndk.v31.certificate",
+    certificate: "com.android.vndk.v31",
+}
+
+apex_vndk {
     name: "com.android.vndk.v30",
     manifest: "apex_manifest.v30.json",
     key: "com.android.vndk.v30.key",

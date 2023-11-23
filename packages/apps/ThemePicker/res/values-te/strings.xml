@@ -22,9 +22,8 @@
     <string name="clock_title" msgid="2126046720254613991">"గడియారం"</string>
     <string name="grid_title" msgid="1688173478777254123">"యాప్ గ్రిడ్"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"వర్తింపజేయి"</string>
-    <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"సవరించడానికి నొక్కండి"</string>
+    <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"ఎడిట్ చేయడానికి నొక్కండి"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"ప్రస్తుత వాల్‌పేపర్‌ను అలాగే ఉంచండి"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"వర్తింపజేయి"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"స్టైల్ ప్రివ్యూ"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"గ్రిడ్ ప్రివ్యూ"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"ఫాంట్ ప్రివ్యూ"</string>
@@ -34,8 +33,9 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, ప్రస్తుతం వర్తింపజేయబడింది"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, ప్రస్తుతం వర్తింప చేయబడి ప్రివ్యూ చేయబడింది"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, ప్రస్తుతం ప్రివ్యూ చేయబడింది"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, మార్పు ఎంచుకోబడింది, ప్రివ్యూ చేయబడింది"</string>
     <string name="theme_description" msgid="3697012391785254635">"ఫాంట్: <xliff:g id="ID_1">%1$s</xliff:g>, చిహ్నాలు: <xliff:g id="ID_2">%2$s</xliff:g>, ఆకారం: <xliff:g id="ID_3">%3$s</xliff:g>, రంగు: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
-    <string name="default_theme_title" msgid="2555741736622366797">"డిఫాల్ట్"</string>
+    <string name="default_theme_title" msgid="2555741736622366797">"ఆటోమేటిక్"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"ఫాంట్"</string>
     <string name="preview_name_icon" msgid="6818927315316316440">"చిహ్నం"</string>
     <string name="preview_name_color" msgid="8776203144994416172">"రంగు"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"అనుకూల స్టయిల్ పేరు"</string>
     <string name="mode_title" msgid="2394873501427436055">"ముదురు రంగు రూపం"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"బ్యాటరీ సేవర్ కారణంగా తాత్కాలికంగా డిజేబుల్‌ చేయబడింది"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"థీమ్ మార్చబడింది"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"రూపానికి తగిన చిహ్నాలు"</string>
     <string name="beta_title" msgid="8703819523760746458">"బీటా"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"యాప్ గ్రిడ్‌ను మార్చండి"</string>

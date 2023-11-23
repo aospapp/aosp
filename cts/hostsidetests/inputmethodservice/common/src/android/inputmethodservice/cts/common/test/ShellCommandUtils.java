@@ -189,6 +189,17 @@ public final class ShellCommandUtils {
     }
 
     /**
+     * Command to enable app-compat change for a package .
+     *
+     * @param compatChange name of the app-compat change.
+     * @param packageName name of the package to enable the change for.
+     * @return the command to be passed to shell command.
+     */
+    public static String enableCompatChange(String compatChange, String packageName) {
+        return "am compat enable " + compatChange + " " + packageName;
+    }
+
+    /**
      * Command to send broadcast {@code Intent}.
      *
      * @param action action of intent.

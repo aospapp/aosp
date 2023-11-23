@@ -16,6 +16,7 @@
 
 package com.android.car.settings.sound;
 
+import android.annotation.WorkerThread;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.media.AudioAttributes;
@@ -28,6 +29,7 @@ import androidx.fragment.app.Fragment;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.settingslib.utils.ThreadUtils;
 
 /** Business logic for changing the default ringtone. */
 public class RingtonePreferenceController extends PreferenceController<RingtonePreference> {
@@ -52,21 +54,24 @@ public class RingtonePreferenceController extends PreferenceController<RingtoneP
     }
 
     @Override
-    protected void updateState(RingtonePreference preference) {
-        Uri ringtoneUri = RingtoneManager.getActualDefaultRingtoneUri(getContext(),
-                getPreference().getRingtoneType());
-        // If this URI cannot be found by the ringtone manager, set the URI to be null.
-        if (mRingtoneManager.getRingtonePosition(ringtoneUri) < 0) {
-            ringtoneUri = null;
-        }
-        preference.setSummary(Ringtone.getTitle(getContext(), ringtoneUri,
-                /* followSettingsUri= */ false, /* allowRemote= */ true));
+    public void onStartInternal() {
+        super.onStartInternal();
+        ThreadUtils.postOnBackgroundThread(() -> updateSummary(getPreference()));
     }
 
     @Override
     protected boolean handlePreferenceClicked(RingtonePreference preference) {
         getFragmentController().launchFragment(createRingtonePickerFragment(preference));
         return true;
+    }
+
+    @WorkerThread
+    private void updateSummary(RingtonePreference preference) {
+        Uri ringtoneUri = RingtoneManager.getActualDefaultRingtoneUri(getContext(),
+                preference.getRingtoneType());
+        String summary = Ringtone.getTitle(getContext(), ringtoneUri,
+                /* followSettingsUri= */ false, /* allowRemote= */ true);
+        ThreadUtils.postOnMainThread(() -> preference.setSummary(summary));
     }
 
     /**

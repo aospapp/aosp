@@ -22,7 +22,6 @@ import android.view.ViewGroup;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.dialer.R;
@@ -30,6 +29,7 @@ import com.android.car.dialer.log.L;
 import com.android.car.dialer.ui.common.DialerUtils;
 import com.android.car.dialer.ui.common.entity.HeaderViewHolder;
 import com.android.car.dialer.ui.common.entity.UiCallLog;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.recyclerview.ContentLimitingAdapter;
 
 import java.util.ArrayList;
@@ -40,7 +40,7 @@ import javax.inject.Inject;
 import dagger.hilt.android.qualifiers.ActivityContext;
 
 /** Adapter for call history list. */
-class CallLogAdapter extends ContentLimitingAdapter {
+class CallLogAdapter extends ContentLimitingAdapter implements CarUiRecyclerView.OnAttachListener {
 
     private static final String TAG = "CD.CallLogAdapter";
 
@@ -62,7 +62,7 @@ class CallLogAdapter extends ContentLimitingAdapter {
     private final CallLogViewHolder.Factory mViewHolderFactory;
     private List<Object> mUiCallLogs = new ArrayList<>();
     private Context mContext;
-    private LinearLayoutManager mLayoutManager;
+    private CarUiRecyclerView mRrecyclerView;
     private int mLimitingAnchorIndex = 0;
 
     @Inject
@@ -146,20 +146,18 @@ class CallLogAdapter extends ContentLimitingAdapter {
     }
 
     @Override
-    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
-        super.onAttachedToRecyclerView(recyclerView);
-        mLayoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+    public void onAttachedToCarUiRecyclerView(@NonNull CarUiRecyclerView recyclerView) {
+        mRrecyclerView = recyclerView;
     }
 
     @Override
-    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
-        mLayoutManager = null;
-        super.onDetachedFromRecyclerView(recyclerView);
+    public void onDetachedFromCarUiRecyclerView(@NonNull CarUiRecyclerView recyclerView) {
+        mRrecyclerView = null;
     }
 
     @Override
     public int computeAnchorIndexWhenRestricting() {
-        mLimitingAnchorIndex = DialerUtils.getFirstVisibleItemPosition(mLayoutManager);
+        mLimitingAnchorIndex = DialerUtils.getFirstVisibleItemPosition(mRrecyclerView);
         return mLimitingAnchorIndex;
     }
 }

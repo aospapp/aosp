@@ -39,12 +39,6 @@ interface ITransitionMonitor {
             save("${testTag}_$iteration", flickerRunResultBuilder)
 
     /**
-     * Saves any monitor artifacts to file adding `testTag` to the file name.
-     *
-     * @param testTag suffix added to artifact name
-     * @return Path to saved artifact
-     */
-    /**
      * Saves trace file to the external storage directory suffixing the name with the testtag and
      * iteration.
      *
@@ -58,7 +52,4 @@ interface ITransitionMonitor {
     fun save(testTag: String, flickerRunResultBuilder: FlickerRunResult.Builder) {
         throw UnsupportedOperationException("Save not implemented for this monitor")
     }
-
-    val checksum: String
-        get() = throw UnsupportedOperationException("Checksum not implemented for this monitor")
 }

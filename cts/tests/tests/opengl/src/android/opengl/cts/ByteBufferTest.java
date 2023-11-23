@@ -16,6 +16,7 @@
 
 package android.opengl.cts;
 
+import static android.opengl.GLES20.GL_ALPHA;
 import static android.opengl.GLES30.GL_ARRAY_BUFFER;
 import static android.opengl.GLES30.GL_BUFFER_MAP_POINTER;
 import static android.opengl.GLES30.GL_COLOR_ATTACHMENT0;
@@ -24,8 +25,6 @@ import static android.opengl.GLES30.GL_FRAMEBUFFER;
 import static android.opengl.GLES30.GL_FRAMEBUFFER_COMPLETE;
 import static android.opengl.GLES30.GL_MAP_READ_BIT;
 import static android.opengl.GLES30.GL_NO_ERROR;
-import static android.opengl.GLES30.GL_R8;
-import static android.opengl.GLES30.GL_RED;
 import static android.opengl.GLES30.GL_RGBA;
 import static android.opengl.GLES30.GL_STATIC_DRAW;
 import static android.opengl.GLES30.GL_TEXTURE_2D;
@@ -105,7 +104,7 @@ public class ByteBufferTest extends GlTestBase {
         glGenTextures(1, textureHandles);
         int textureHandle = textureHandles.get(0);
         glBindTexture(GL_TEXTURE_2D, textureHandle);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, 2, 2, 0, GL_RED, GL_UNSIGNED_BYTE, texelData);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, 2, 2, 0, GL_ALPHA, GL_UNSIGNED_BYTE, texelData);
         assertEquals(glGetError(), GL_NO_ERROR);
         glDeleteTextures(1, textureHandles);
     }

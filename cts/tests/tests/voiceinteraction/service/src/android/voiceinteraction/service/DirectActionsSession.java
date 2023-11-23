@@ -18,10 +18,12 @@ package android.voiceinteraction.service;
 
 import android.app.DirectAction;
 import android.content.Context;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.RemoteCallback;
+import android.service.voice.VisibleActivityInfo;
 import android.service.voice.VoiceInteractionSession;
 import android.util.Log;
 import android.voiceinteraction.common.Utils;
@@ -31,6 +33,7 @@ import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -51,6 +54,24 @@ public class DirectActionsSession extends VoiceInteractionSession {
     // GuardedBy("mLock")
     private boolean mActionsInvalidated;
 
+    private final VisibleActivityCallback mCallback = new VisibleActivityCallback() {
+        @Override
+        public void onVisible(VisibleActivityInfo activityInfo) {
+            VisibleActivityCallback.super.onVisible(activityInfo);
+            Log.v(TAG, "onVisible : " + activityInfo);
+            broadcastVisibleActivityCallback(Utils.VISIBLE_ACTIVITY_CALLBACK_ONVISIBLE_INTENT,
+                    true);
+        }
+
+        @Override
+        public void onInvisible(ActivityId activityId) {
+            VisibleActivityCallback.super.onInvisible(activityId);
+            Log.v(TAG, "onInvisible : " + activityId);
+            broadcastVisibleActivityCallback(Utils.VISIBLE_ACTIVITY_CALLBACK_ONINVISIBLE_INTENT,
+                    true);
+        }
+    };
+
     public DirectActionsSession(@NonNull Context context) {
         super(context);
     }
@@ -61,13 +82,13 @@ public class DirectActionsSession extends VoiceInteractionSession {
             Log.e("TODO", "onshow() received null args");
             return;
         }
-        final RemoteCallback callback = args.getParcelable(Utils.DIRECT_ACTIONS_KEY_CALLBACK);
+        final RemoteCallback callback = args.getParcelable(Utils.VOICE_INTERACTION_KEY_CALLBACK);
 
         final RemoteCallback control = new RemoteCallback((cmdArgs) -> {
-            final String command = cmdArgs.getString(Utils.DIRECT_ACTIONS_KEY_COMMAND);
+            final String command = cmdArgs.getString(Utils.VOICE_INTERACTION_KEY_COMMAND);
             Log.v(TAG, "on remote callback: command=" + command);
             final RemoteCallback commandCallback = cmdArgs.getParcelable(
-                    Utils.DIRECT_ACTIONS_KEY_CALLBACK);
+                    Utils.VOICE_INTERACTION_KEY_CALLBACK);
             switch (command) {
                 case Utils.DIRECT_ACTIONS_SESSION_CMD_PERFORM_ACTION: {
                     executeWithAssist((result) -> performDirectAction(cmdArgs, result),
@@ -80,22 +101,32 @@ public class DirectActionsSession extends VoiceInteractionSession {
                 case Utils.DIRECT_ACTIONS_SESSION_CMD_GET_ACTIONS: {
                     executeWithAssist(this::getDirectActions, commandCallback);
                 } break;
-                case Utils.DIRECT_ACTIONS_SESSION_CMD_FINISH: {
+                case Utils.VOICE_INTERACTION_SESSION_CMD_FINISH: {
                     executeWithAssist(this::performHide, commandCallback);
                 } break;
                 case Utils.DIRECT_ACTIONS_SESSION_CMD_DETECT_ACTIONS_CHANGED: {
                     executeWithAssist(this::detectDirectActionsInvalidated, commandCallback);
                 } break;
+                case Utils.VISIBLE_ACTIVITY_CMD_REGISTER_CALLBACK: {
+                    executeWithAssist(
+                            (result) -> registerVisibleActivityCallbackInternal(cmdArgs, result),
+                            commandCallback);
+                } break;
+                case Utils.VISIBLE_ACTIVITY_CMD_UNREGISTER_CALLBACK: {
+                    executeWithAssist(this::unregisterVisibleActivityCallbackInternal,
+                            commandCallback);
+                } break;
             }
         });
 
         final Bundle result = new Bundle();
-        result.putParcelable(Utils.DIRECT_ACTIONS_KEY_CONTROL, control);
+        result.putParcelable(Utils.VOICE_INTERACTION_KEY_CONTROL, control);
         callback.sendResult(result);
     }
 
     @Override
     public void onHandleAssist(AssistState state) {
+        Log.v(TAG, "onHandleAssist");
         if (state.getIndex() == 0) {
             mLock.lock();
             try {
@@ -158,8 +189,9 @@ public class DirectActionsSession extends VoiceInteractionSession {
     }
 
     private void performDirectAction(@NonNull Bundle args, @NonNull Bundle outResult) {
-        final DirectAction action = args.getParcelable(Utils.DIRECT_ACTIONS_KEY_ACTION);
-        final Bundle arguments = args.getBundle(Utils.DIRECT_ACTIONS_KEY_ARGUMENTS);
+        final DirectAction action = args.getParcelable(
+                Utils.VOICE_INTERACTION_DIRECT_ACTIONS_KEY_ACTION);
+        final Bundle arguments = args.getBundle(Utils.VOICE_INTERACTION_KEY_ARGUMENTS);
 
         final Bundle result = new Bundle();
         final CountDownLatch latch = new CountDownLatch(1);
@@ -174,8 +206,9 @@ public class DirectActionsSession extends VoiceInteractionSession {
     }
 
     private void performDirectActionAndCancel(@NonNull Bundle args, @NonNull Bundle outResult) {
-        final DirectAction action = args.getParcelable(Utils.DIRECT_ACTIONS_KEY_ACTION);
-        final Bundle arguments = args.getBundle(Utils.DIRECT_ACTIONS_KEY_ARGUMENTS);
+        final DirectAction action = args.getParcelable(
+                Utils.VOICE_INTERACTION_DIRECT_ACTIONS_KEY_ACTION);
+        final Bundle arguments = args.getBundle(Utils.VOICE_INTERACTION_KEY_ARGUMENTS);
         final Bundle result = new Bundle();
 
         final CountDownLatch cancelLatch = new CountDownLatch(1);
@@ -223,5 +256,57 @@ public class DirectActionsSession extends VoiceInteractionSession {
         finish();
         outResult.putBoolean(Utils.DIRECT_ACTIONS_KEY_RESULT, true);
         Log.v(TAG, "performHide(): " + Utils.toBundleString(outResult));
+    }
+
+    private void registerVisibleActivityCallbackInternal(@NonNull Bundle args,
+            @NonNull Bundle outResult) {
+        Log.v(TAG, "registerVisibleActivityCallbackInternal");
+        final Bundle arguments = args.getBundle(Utils.VOICE_INTERACTION_KEY_ARGUMENTS);
+        final int callbackParameter = arguments.getInt(
+                Utils.VISIBLE_ACTIVITY_CMD_REGISTER_CALLBACK);
+        Log.v(TAG, "callbackParameter : " + callbackParameter);
+
+        mLock.lock();
+        try {
+            switch (callbackParameter) {
+                case Utils.VISIBLE_ACTIVITY_CALLBACK_REGISTER_NORMAL:
+                    registerVisibleActivityCallback(Executors.newSingleThreadExecutor(), mCallback);
+                    break;
+                case Utils.VISIBLE_ACTIVITY_CALLBACK_REGISTER_WITHOUT_EXECUTOR:
+                    registerVisibleActivityCallback(/* executor */ null, mCallback);
+                    break;
+                case Utils.VISIBLE_ACTIVITY_CALLBACK_REGISTER_WITHOUT_CALLBACK:
+                    registerVisibleActivityCallback(
+                            Executors.newSingleThreadExecutor(), /* callback */ null);
+                    break;
+            }
+            outResult.putBoolean(Utils.VISIBLE_ACTIVITY_KEY_RESULT, true);
+        } catch (Throwable t) {
+            outResult.putSerializable(Utils.VISIBLE_ACTIVITY_KEY_RESULT, t);
+        } finally {
+            mLock.unlock();
+        }
+        Log.v(TAG, "registerVisibleActivityCallbackInternal(): " + Utils.toBundleString(outResult));
+    }
+
+    private void unregisterVisibleActivityCallbackInternal(@NonNull Bundle outResult) {
+        Log.v(TAG, "unregisterVisibleActivityCallbackInternal");
+        mLock.lock();
+        try {
+            unregisterVisibleActivityCallback(mCallback);
+        } finally {
+            mLock.unlock();
+        }
+        outResult.putBoolean(Utils.VISIBLE_ACTIVITY_KEY_RESULT, true);
+        Log.v(TAG,
+                "unregisterVisibleActivityCallbackInternal(): " + Utils.toBundleString(outResult));
+    }
+
+    private void broadcastVisibleActivityCallback(String intentName, boolean result) {
+        final Intent intent = new Intent(intentName)
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND | Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+                .putExtra(Utils.VISIBLE_ACTIVITY_KEY_RESULT, result);
+        Log.v(TAG, "broadcast intent = " + intent + ", result = " + result);
+        getContext().sendBroadcast(intent);
     }
 }

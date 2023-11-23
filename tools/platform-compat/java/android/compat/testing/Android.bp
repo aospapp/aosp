@@ -18,14 +18,20 @@ package {
 
 java_test_helper_library {
     name: "compat-classpaths-testing",
-    srcs: ["Classpaths.java"],
+    srcs: [
+        "Classpaths.java",
+        "SharedLibraryInfo.java"
+    ],
     host_supported: true,
     device_supported: false,
     libs: [
         "guava",
         "tradefed",
+        "cts-tradefed",
+        "compatibility-host-util",
     ],
     static_libs: [
         "dexlib2-no-guava-no-cli",
+        "modules-utils-build-testing",
     ],
 }

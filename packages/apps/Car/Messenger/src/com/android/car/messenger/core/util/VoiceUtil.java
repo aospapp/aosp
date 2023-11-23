@@ -29,7 +29,6 @@ import static com.android.car.assist.CarVoiceInteractionSession.VOICE_ACTION_REP
 import static com.android.car.assist.CarVoiceInteractionSession.VOICE_ACTION_SEND_SMS;
 import static com.android.car.messenger.core.shared.MessageConstants.ACTION_DIRECT_SEND;
 import static com.android.car.messenger.core.shared.MessageConstants.ACTION_MARK_AS_READ;
-import static com.android.car.messenger.core.shared.MessageConstants.ACTION_MUTE;
 import static com.android.car.messenger.core.shared.MessageConstants.ACTION_REPLY;
 import static com.android.car.messenger.core.shared.MessageConstants.EXTRA_ACCOUNT_ID;
 import static com.android.car.messenger.core.shared.MessageConstants.EXTRA_CONVERSATION_KEY;
@@ -189,23 +188,9 @@ public class VoiceUtil {
                                 markAsReadIntent),
                         null);
 
-        final int muteIcon = R.drawable.car_ui_icon_toggle_mute;
-        final String muteString = context.getString(R.string.action_mute);
-        PendingIntent muteIntent = createServiceIntent(ACTION_MUTE, conversationKey, userAccountId);
-        ConversationAction muteAction =
-                new ConversationAction(
-                        ActionType.ACTION_TYPE_MUTE,
-                        new RemoteAction(
-                                Icon.createWithResource(context, muteIcon),
-                                muteString,
-                                muteString,
-                                muteIntent),
-                        null);
-
         List<ConversationAction> actions = new ArrayList<>();
         actions.add(replyAction);
         actions.add(markAsReadAction);
-        actions.add(muteAction);
         builder.setActions(actions);
         return builder.build();
     }
@@ -228,10 +213,7 @@ public class VoiceUtil {
         int requestCode =
                 (conversationKey == null) ? action.hashCode() : conversationKey.hashCode();
         return PendingIntent.getForegroundService(
-                context,
-                requestCode,
-                intent,
-                PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_ONE_SHOT);
+                context, requestCode, intent, PendingIntent.FLAG_MUTABLE);
     }
 
     /** Sends a reply, meant to be used from a caller originating from voice input. */

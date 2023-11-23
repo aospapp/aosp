@@ -223,7 +223,8 @@ bool DrmPresenter::initDrmElementsLocked() {
         if (!strcmp(connectorProp->name, "CRTC_ID")) {
           connector.mCrtcPropertyId = connectorProp->prop_id;
         } else if (!strcmp(connectorProp->name, "EDID")) {
-          connector.mEdidBlobId = connectorProps->prop_values[connectorPropIndex];
+          connector.mEdidBlobId =
+              connectorProps->prop_values[connectorPropIndex];
         }
         drmModeFreeProperty(connectorProp);
       }
@@ -501,8 +502,8 @@ std::optional<std::vector<uint8_t>> DrmPresenter::getEdid(uint32_t id) {
     ALOGW("%s: EDID not supported", __func__);
     return std::nullopt;
   }
-  drmModePropertyBlobPtr blob = drmModeGetPropertyBlob(mFd.get(),
-                                                       mConnectors[id].mEdidBlobId);
+  drmModePropertyBlobPtr blob =
+      drmModeGetPropertyBlob(mFd.get(), mConnectors[id].mEdidBlobId);
   if (!blob) {
     ALOGE("%s: fail to read EDID from DRM", __func__);
     return std::nullopt;

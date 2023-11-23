@@ -34,7 +34,6 @@ cc_binary {
     compile_multilib: "prefer32",
     srcs: [
         "service.cpp",
-        "PowerPolicyClient.cpp",
     ],
 
     cflags: [
@@ -48,7 +47,6 @@ cc_binary {
         "android.hardware.audio.common@6.0",
         "android.hardware.audio.effect@6.0",
         "android.hardware.automotive.audiocontrol-V1-ndk_platform",
-        "android.frameworks.automotive.powerpolicy-V1-ndk_platform",
         "audiocontrol-caremu",
         "libbase",
         "libbinder",
@@ -56,7 +54,6 @@ cc_binary {
         "libhardware",
         "libhidlbase",
         "liblog",
-        "libpowerpolicyclient",
     ],
 
     header_libs: [

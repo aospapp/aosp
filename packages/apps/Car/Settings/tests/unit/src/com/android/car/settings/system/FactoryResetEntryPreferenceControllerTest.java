@@ -29,28 +29,27 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.os.UserHandle;
 import android.os.UserManager;
-import android.provider.Settings;
 import android.widget.Toast;
 
 import androidx.lifecycle.LifecycleOwner;
+import androidx.preference.Preference;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.android.car.settings.R;
-import com.android.car.settings.common.ClickableWhileDisabledPreference;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestUtil;
 import com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment;
 import com.android.car.settings.testutils.TestLifecycleOwner;
+import com.android.car.ui.preference.CarUiPreference;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
 import org.junit.After;
@@ -60,13 +59,14 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
+import org.mockito.quality.Strictness;
 
 /** Unit test for {@link FactoryResetEntryPreferenceController}. */
 @RunWith(AndroidJUnit4.class)
 public class FactoryResetEntryPreferenceControllerTest {
-    private Context mContext = ApplicationProvider.getApplicationContext();
+    private Context mContext = spy(ApplicationProvider.getApplicationContext());
     private LifecycleOwner mLifecycleOwner;
-    private ClickableWhileDisabledPreference mPreference;
+    private Preference mPreference;
     private FactoryResetEntryPreferenceController mPreferenceController;
     private CarUxRestrictions mCarUxRestrictions;
     private MockitoSession mSession;
@@ -86,16 +86,17 @@ public class FactoryResetEntryPreferenceControllerTest {
         mCarUxRestrictions = new CarUxRestrictions.Builder(/* reqOpt= */ true,
                 CarUxRestrictions.UX_RESTRICTIONS_BASELINE, /* timestamp= */ 0).build();
 
-        mDefaultDemoMode = Settings.Global.getInt(mContext.getContentResolver(),
-                Settings.Global.DEVICE_DEMO_MODE, 0);
         mSession = ExtendedMockito.mockitoSession()
-                .mockStatic(UserManager.class, withSettings().lenient())
-                .mockStatic(Toast.class, withSettings().lenient())
+                .mockStatic(UserManager.class)
+                .mockStatic(Toast.class)
+                .strictness(Strictness.LENIENT)
                 .startMocking();
         when(UserManager.get(mContext)).thenReturn(mMockUserManager);
+        when(mContext.getSystemService(UserManager.class)).thenReturn(mMockUserManager);
+
         when(Toast.makeText(any(), anyString(), anyInt())).thenReturn(mMockToast);
 
-        mPreference = new ClickableWhileDisabledPreference(mContext);
+        mPreference = new CarUiPreference(mContext);
         mPreferenceController = new FactoryResetEntryPreferenceController(mContext,
                 "key", mFragmentController, mCarUxRestrictions);
         PreferenceControllerTestUtil.assignPreference(mPreferenceController, mPreference);
@@ -106,8 +107,6 @@ public class FactoryResetEntryPreferenceControllerTest {
         if (mSession != null) {
             mSession.finishMocking();
         }
-        Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.DEVICE_DEMO_MODE,
-                mDefaultDemoMode);
     }
 
     @Test
@@ -139,7 +138,7 @@ public class FactoryResetEntryPreferenceControllerTest {
     }
 
     @Test
-    public void getAvailabilityStatus_adminUser_baseRestricted_dpmRestricted_available() {
+    public void getAvailabilityStatus_adminUser_baseRestricted_dpmRestricted_disabledForUser() {
         switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
         addBaseUserRestriction(DISALLOW_FACTORY_RESET);
         addUserRestriction(DISALLOW_FACTORY_RESET);
@@ -150,19 +149,18 @@ public class FactoryResetEntryPreferenceControllerTest {
     }
 
     @Test
-    public void getAvailabilityStatus_adminUser_notBaseRestricted_dpmRestricted_available() {
+    public void getAvailabilityStatus_adminUser_notBaseRestricted_dpmRestricted_disabledForUser() {
         switchToUser(/* isAdmin= */ true, /* isDemo= */ false);
         addUserRestriction(DISALLOW_FACTORY_RESET);
         mPreferenceController.onCreate(mLifecycleOwner);
 
-        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
-        assertThat(mPreference.isEnabled()).isTrue();
+        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
     }
 
     @Test
     public void getAvailabilityStatus_demoMode_demoUser_available() {
         switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
-        Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.DEVICE_DEMO_MODE, 1);
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
@@ -173,7 +171,6 @@ public class FactoryResetEntryPreferenceControllerTest {
     public void getAvailabilityStatus_demoMode_demoUser_baseRestricted_disabledForUser() {
         switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
         addBaseUserRestriction(DISALLOW_FACTORY_RESET);
-        Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.DEVICE_DEMO_MODE, 1);
         mPreferenceController.onCreate(mLifecycleOwner);
 
         assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
@@ -181,14 +178,13 @@ public class FactoryResetEntryPreferenceControllerTest {
     }
 
     @Test
-    public void getAvailabilityStatus_demoMode_demoUser_dpmRestricted_available() {
+    public void getAvailabilityStatus_demoMode_demoUser_dpmRestricted_disabledForUser() {
         switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
         addUserRestriction(DISALLOW_FACTORY_RESET);
-        Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.DEVICE_DEMO_MODE, 1);
         mPreferenceController.onCreate(mLifecycleOwner);
 
-        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE);
-        assertThat(mPreference.isEnabled()).isTrue();
+        assertThat(mPreferenceController.getAvailabilityStatus()).isEqualTo(AVAILABLE_FOR_VIEWING);
+        assertThat(mPreference.isEnabled()).isFalse();
     }
 
     @Test
@@ -253,7 +249,6 @@ public class FactoryResetEntryPreferenceControllerTest {
     @UiThreadTest
     public void performClick_triggersAction_demoUser_unrestricted() {
         switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
-        Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.DEVICE_DEMO_MODE, 1);
         mPreferenceController.onCreate(mLifecycleOwner);
 
         mPreference.performClick();
@@ -266,7 +261,6 @@ public class FactoryResetEntryPreferenceControllerTest {
     public void performClick_showsBlockedToast_demoUser_baseRestricted() {
         switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
         addBaseUserRestriction(DISALLOW_FACTORY_RESET);
-        Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.DEVICE_DEMO_MODE, 1);
         mPreferenceController.onCreate(mLifecycleOwner);
 
         mPreference.performClick();
@@ -278,7 +272,6 @@ public class FactoryResetEntryPreferenceControllerTest {
     public void performClick_showsBlockedDialog_demoUser_dpmRestricted() {
         switchToUser(/* isAdmin= */ false, /* isDemo= */ true);
         addUserRestriction(DISALLOW_FACTORY_RESET);
-        Settings.Global.putInt(mContext.getContentResolver(), Settings.Global.DEVICE_DEMO_MODE, 1);
         mPreferenceController.onCreate(mLifecycleOwner);
 
         mPreference.performClick();
@@ -294,7 +287,7 @@ public class FactoryResetEntryPreferenceControllerTest {
 
     private void addBaseUserRestriction(String restriction) {
         when(mMockUserManager.hasBaseUserRestriction(
-                restriction, UserHandle.of(mContext.getUserId()))).thenReturn(true);
+                eq(restriction), any())).thenReturn(true);
     }
 
     private void addUserRestriction(String restriction) {
@@ -302,10 +295,9 @@ public class FactoryResetEntryPreferenceControllerTest {
     }
 
     private void assertShowingBlockedToast() {
+        String toastText = mContext.getResources().getString(R.string.action_unavailable);
         ExtendedMockito.verify(
-                () -> Toast.makeText(any(),
-                        eq(mContext.getResources().getString(R.string.action_unavailable)),
-                        anyInt()));
+                () -> Toast.makeText(any(), eq(toastText), anyInt()));
         verify(mMockToast).show();
     }
 

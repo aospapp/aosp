@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Ontvang vereiste maandelikse toetse van die veiligheidwaarskuwingstelsel af"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Nasionale waarskuwing"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Wys onttrekkingdialoog nadat eerste waarskuwing gewys is (behalwe presidensiële waarskuwing)."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Nasionale waarskuwings"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Nasionale waarskuwingsboodskappe. Kan nie afgeskakel word nie."</string>
 </resources>

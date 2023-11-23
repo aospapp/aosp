@@ -235,6 +235,7 @@ public class AutoConfigConstants {
     // Media Center Screen
     public static final String MEDIA_CENTER_SCREEN = "MEDIA_CENTER_SCREEN";
     public static final String PLAY_PAUSE_BUTTON = "PLAY_PAUSE_BUTTON";
+    public static final String MEDIA_SONGS_LIST = "MEDIA_SONGS_LIST";
     // NEXT_BUTTON from Account Settings
     public static final String PREVIOUS_BUTTON = "PREVIOUS_BUTTON";
     public static final String SHUFFLE_BUTTON = "SHUFFLE_BUTTON";
@@ -245,4 +246,22 @@ public class AutoConfigConstants {
     public static final String BACK_BUTTON = "BACK_BUTTON";
     // Media Center On Home Screen
     public static final String MEDIA_CENTER_ON_HOME_SCREEN = "MEDIA_CENTER_ON_HOME_SCREEN";
+    // Media Apps Grid
+    public static final String MEDIA_APPS_GRID = "MEDIA_APPS_GRID";
+    public static final String MEDIA_APPS_GRID_TITLE = "MEDIA_APPS";
+    public static final String MEDIA_APPS_GRID_APP_NAME = "MEDIA_APP_NAME";
+    // Media App UI View
+    public static final String MEDIA_APP = "MEDIA_APP";
+    public static final String MEDIA_APP_TITLE = "MEDIA_APP_TITLE";
+    public static final String MEDIA_APP_DROP_DOWN_MENU = "MEDIA_APP_DROP_DOWN_MENU";
+    public static final String MEDIA_APP_NAVIGATION_ICON = "MEDIA_APP_NAVIGATION_ICON";
+    public static final String MEDIA_APP_NO_LOGIN_MSG = "MEDIA_APP_NO_LOGIN_MSG";
+    // Test Media App
+    public static final String TEST_MEDIA_APP = "TEST_MEDIA_APP";
+    public static final String TEST_MEDIA_ACCOUNT_TYPE = "TEST_MEDIA_ACCOUNT_TYPE";
+    public static final String TEST_MEDIA_ACCOUNT_TYPE_PAID = "TEST_MEDIA_ACCOUNT_TYPE_PAID";
+    public static final String TEST_MEDIA_ROOT_NODE_TYPE = "TEST_MEDIA_ROOT_NODE_TYPE";
+    public static final String TEST_MEDIA_ROOT_NODE_TYPE_BROWSABLE =
+            "TEST_MEDIA_ROOT_NODE_TYPE_BROWSABLE";
+    public static final String TEST_MEDIA_APP_CLOSE_SETTING = "TEST_MEDIA_APP_CLOSE_SETTING";
 }

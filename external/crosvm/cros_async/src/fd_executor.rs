@@ -11,6 +11,7 @@
 
 use std::fs::File;
 use std::future::Future;
+use std::io;
 use std::mem;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::pin::Pin;
@@ -26,8 +27,8 @@ use sync::Mutex;
 use sys_util::{add_fd_flags, warn, EpollContext, EpollEvents, EventFd, WatchingEvents};
 use thiserror::Error as ThisError;
 
-use crate::queue::RunnableQueue;
 use crate::waker::{new_waker, WakerToken, WeakWake};
+use crate::{queue::RunnableQueue, BlockingPool};
 
 #[derive(Debug, ThisError)]
 pub enum Error {
@@ -60,6 +61,23 @@ pub enum Error {
     UnknownWaker,
 }
 pub type Result<T> = std::result::Result<T, Error>;
+
+impl From<Error> for io::Error {
+    fn from(e: Error) -> Self {
+        use Error::*;
+        match e {
+            CloneEventFd(e) => e.into(),
+            CreateEventFd(e) => e.into(),
+            DuplicatingFd(e) => e.into(),
+            ExecutorGone => io::Error::new(io::ErrorKind::Other, e),
+            CreatingContext(e) => e.into(),
+            PollContextError(e) => e.into(),
+            SettingNonBlocking(e) => e.into(),
+            SubmittingWaker(e) => e.into(),
+            UnknownWaker => io::Error::new(io::ErrorKind::Other, e),
+        }
+    }
+}
 
 // A poll operation that has been submitted and is potentially being waited on.
 struct OpData {
@@ -235,6 +253,7 @@ struct RawExecutor {
     queue: RunnableQueue,
     poll_ctx: EpollContext<usize>,
     ops: Mutex<Slab<OpStatus>>,
+    blocking_pool: BlockingPool,
     state: AtomicI32,
     notify: EventFd,
 }
@@ -245,6 +264,7 @@ impl RawExecutor {
             queue: RunnableQueue::new(),
             poll_ctx: EpollContext::new().map_err(Error::CreatingContext)?,
             ops: Mutex::new(Slab::with_capacity(64)),
+            blocking_pool: Default::default(),
             state: AtomicI32::new(PROCESSING),
             notify,
         })
@@ -310,6 +330,14 @@ impl RawExecutor {
         let (runnable, task) = async_task::spawn_local(f, schedule);
         runnable.schedule();
         task
+    }
+
+    fn spawn_blocking<F, R>(self: &Arc<Self>, f: F) -> Task<R>
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        self.blocking_pool.spawn(f)
     }
 
     fn run<F: Future>(&self, cx: &mut Context, done: F) -> Result<F::Output> {
@@ -477,6 +505,14 @@ impl FdExecutor {
         F::Output: 'static,
     {
         self.raw.spawn_local(f)
+    }
+
+    pub fn spawn_blocking<F, R>(&self, f: F) -> Task<R>
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        self.raw.spawn_blocking(f)
     }
 
     pub fn run(&self) -> Result<()> {

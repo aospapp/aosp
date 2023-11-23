@@ -16,6 +16,8 @@
 
 package com.android.car.settings.profiles;
 
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.os.UserManager;
@@ -23,7 +25,6 @@ import android.os.UserManager;
 import androidx.preference.Preference;
 
 import com.android.car.settings.R;
-import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.internal.annotations.VisibleForTesting;
@@ -46,7 +47,7 @@ public class AddProfilePreferenceController extends PreferenceController<Prefere
             FragmentController fragmentController,
             CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mUserManager = UserManager.get(context);
+        mUserManager = context.getSystemService(UserManager.class);
         mDemoProfileDialogHandler = new DemoProfileDialogHandler(context, fragmentController);
         mAddProfileHandler = new AddProfileHandler(context, fragmentController, this);
     }
@@ -67,6 +68,8 @@ public class AddProfilePreferenceController extends PreferenceController<Prefere
             getPreference().setTitle(R.string.add_profile_text);
             getPreference().setIcon(R.drawable.ic_add);
         }
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p ->
+                mAddProfileHandler.runClickableWhileDisabled());
     }
 
     @Override
@@ -92,32 +95,25 @@ public class AddProfilePreferenceController extends PreferenceController<Prefere
             return true;
         }
 
-        // If no more profiles can be added because the maximum allowed number is reached, let the
-        // user know.
-        if (!mUserManager.canAddMoreUsers()) {
-            ConfirmationDialogFragment dialogFragment =
-                    ProfilesDialogProvider.getMaxProfilesLimitReachedDialogFragment(getContext(),
-                            ProfileHelper.getInstance(getContext()).getMaxSupportedRealProfiles());
-
-            getFragmentController().showDialog(dialogFragment,
-                    MAX_PROFILES_LIMIT_REACHED_DIALOG_TAG);
+        if (!mUserManager.canAddMoreUsers()
+                || hasUserRestrictionByDpm(getContext(), UserManager.DISALLOW_ADD_USER)) {
+            mAddProfileHandler.runClickableWhileDisabled();
             return true;
         }
 
-        // Only add the add profile button if the current profile is allowed to add a profile.
+        // Add the add profile button if the current profile is allowed to add a profile.
         if (mAddProfileHandler.canAddProfiles(mUserManager)) {
             mAddProfileHandler.showAddProfileDialog();
             return true;
         }
+
         return false;
     }
 
     @Override
     protected int getAvailabilityStatus() {
-        if (mUserManager.isDemoUser() || mAddProfileHandler.canAddProfiles(mUserManager)) {
-            return AVAILABLE;
-        }
-        return DISABLED_FOR_PROFILE;
+        return mAddProfileHandler
+                .getAddProfilePreferenceAvailabilityStatus(getContext());
     }
 
     @VisibleForTesting

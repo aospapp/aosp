@@ -2,6 +2,10 @@
 // kept to a minimum so that it can be statically linked into both rlsservice
 // and GCH
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_defaults {
     name: "apex_update_listener_cc_defaults_internal",
     host_supported: true,

@@ -75,6 +75,9 @@ int renderControl_client_context_t::initDispatchByName(void *(*getProc)(const ch
 	rcCreateDisplayById = (rcCreateDisplayById_client_proc_t) getProc("rcCreateDisplayById", userData);
 	rcSetDisplayPoseDpi = (rcSetDisplayPoseDpi_client_proc_t) getProc("rcSetDisplayPoseDpi", userData);
 	rcReadColorBufferDMA = (rcReadColorBufferDMA_client_proc_t) getProc("rcReadColorBufferDMA", userData);
+	rcGetFBDisplayConfigsCount = (rcGetFBDisplayConfigsCount_client_proc_t) getProc("rcGetFBDisplayConfigsCount", userData);
+	rcGetFBDisplayConfigsParam = (rcGetFBDisplayConfigsParam_client_proc_t) getProc("rcGetFBDisplayConfigsParam", userData);
+	rcGetFBDisplayActiveConfig = (rcGetFBDisplayActiveConfig_client_proc_t) getProc("rcGetFBDisplayActiveConfig", userData);
 	return 0;
 }
 

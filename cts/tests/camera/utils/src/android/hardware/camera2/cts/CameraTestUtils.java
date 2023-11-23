@@ -16,6 +16,7 @@
 
 package android.hardware.camera2.cts;
 
+import androidx.annotation.NonNull;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -103,6 +104,7 @@ public class CameraTestUtils extends Assert {
     private static final String TAG = "CameraTestUtils";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
+    public static final Size SIZE_BOUND_720P = new Size(1280, 720);
     public static final Size SIZE_BOUND_1080P = new Size(1920, 1088);
     public static final Size SIZE_BOUND_2K = new Size(2048, 1088);
     public static final Size SIZE_BOUND_QHD = new Size(2560, 1440);
@@ -126,6 +128,11 @@ public class CameraTestUtils extends Assert {
     public static final int SESSION_ACTIVE_TIMEOUT_MS = 1000;
 
     public static final int MAX_READER_IMAGES = 5;
+
+    public static final int INDEX_ALGORITHM_AE = 0;
+    public static final int INDEX_ALGORITHM_AWB = 1;
+    public static final int INDEX_ALGORITHM_AF = 2;
+    public static final int NUM_ALGORITHMS = 3; // AE, AWB and AF
 
     public static final String OFFLINE_CAMERA_ID = "offline_camera_id";
     public static final String REPORT_LOG_NAME = "CtsCameraTestCases";
@@ -490,14 +497,22 @@ public class CameraTestUtils extends Assert {
     public static class ImageVerifierListener implements ImageReader.OnImageAvailableListener {
         private Size mSize;
         private int mFormat;
+        // Whether the parent ImageReader is valid or not. If the parent ImageReader
+        // is destroyed, the acquired Image may become invalid.
+        private boolean mReaderIsValid;
 
         public ImageVerifierListener(Size sz, int format) {
             mSize = sz;
             mFormat = format;
+            mReaderIsValid = true;
+        }
+
+        public synchronized void onReaderDestroyed() {
+            mReaderIsValid = false;
         }
 
         @Override
-        public void onImageAvailable(ImageReader reader) {
+        public synchronized void onImageAvailable(ImageReader reader) {
             Image image = null;
             try {
                 image = reader.acquireNextImage();
@@ -507,7 +522,11 @@ public class CameraTestUtils extends Assert {
                     // could be closed asynchronously, which will close all images acquired from
                     // this ImageReader.
                     checkImage(image, mSize.getWidth(), mSize.getHeight(), mFormat);
-                    checkAndroidImageFormat(image);
+                    // checkAndroidImageFormat calls into underlying Image object, which could
+                    // become invalid if the ImageReader is destroyed.
+                    if (mReaderIsValid) {
+                        checkAndroidImageFormat(image);
+                    }
                     image.close();
                 }
             }
@@ -1542,9 +1561,13 @@ public class CameraTestUtils extends Assert {
                 }
                 int h = (i == 0) ? height : height / 2;
                 for (int row = 0; row < h; row++) {
-                    int length = rowStride;
+                    // Each 10-bit pixel occupies 2 bytes
+                    int length = 2 * width;
                     buffer.get(data, offset, length);
                     offset += length;
+                    if (row < h - 1) {
+                        buffer.position(buffer.position() + rowStride - length);
+                    }
                 }
                 if (VERBOSE) Log.v(TAG, "Finished reading data from plane " + i);
                 buffer.rewind();
@@ -1679,16 +1702,31 @@ public class CameraTestUtils extends Assert {
      */
     public static Size[] getSupportedSizeForFormat(int format, String cameraId,
             CameraManager cameraManager) throws CameraAccessException {
+        return getSupportedSizeForFormat(format, cameraId, cameraManager,
+                /*maxResolution*/false);
+    }
+
+    public static Size[] getSupportedSizeForFormat(int format, String cameraId,
+            CameraManager cameraManager, boolean maxResolution) throws CameraAccessException {
         CameraCharacteristics properties = cameraManager.getCameraCharacteristics(cameraId);
         assertNotNull("Can't get camera characteristics!", properties);
         if (VERBOSE) {
             Log.v(TAG, "get camera characteristics for camera: " + cameraId);
         }
-        StreamConfigurationMap configMap =
-                properties.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        CameraCharacteristics.Key<StreamConfigurationMap> configMapTag = maxResolution ?
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION :
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
+        StreamConfigurationMap configMap = properties.get(configMapTag);
+        if (configMap == null) {
+            assertTrue("SCALER_STREAM_CONFIGURATION_MAP is null!", maxResolution);
+            return null;
+        }
+
         Size[] availableSizes = configMap.getOutputSizes(format);
-        assertArrayNotEmpty(availableSizes, "availableSizes should not be empty for format: "
-                + format);
+        if (!maxResolution) {
+            assertArrayNotEmpty(availableSizes, "availableSizes should not be empty for format: "
+                    + format);
+        }
         Size[] highResAvailableSizes = configMap.getHighResolutionOutputSizes(format);
         if (highResAvailableSizes != null && highResAvailableSizes.length > 0) {
             Size[] allSizes = new Size[availableSizes.length + highResAvailableSizes.length];
@@ -1799,15 +1837,26 @@ public class CameraTestUtils extends Assert {
 
         return sortedSizes;
     }
-
     /**
      * Get sorted (descending order) size list for given format. Remove the sizes larger than
      * the bound. If the bound is null, don't do the size bound filtering.
      */
     static public List<Size> getSortedSizesForFormat(String cameraId,
             CameraManager cameraManager, int format, Size bound) throws CameraAccessException {
+        return getSortedSizesForFormat(cameraId, cameraManager, format, /*maxResolution*/false,
+                bound);
+    }
+
+    /**
+     * Get sorted (descending order) size list for given format (with an option to get sizes from
+     * the maximum resolution stream configuration map). Remove the sizes larger than
+     * the bound. If the bound is null, don't do the size bound filtering.
+     */
+    static public List<Size> getSortedSizesForFormat(String cameraId,
+            CameraManager cameraManager, int format, boolean maxResolution, Size bound)
+            throws CameraAccessException {
         Comparator<Size> comparator = new SizeComparator();
-        Size[] sizes = getSupportedSizeForFormat(format, cameraId, cameraManager);
+        Size[] sizes = getSupportedSizeForFormat(format, cameraId, cameraManager, maxResolution);
         List<Size> sortedSizes = null;
         if (bound != null) {
             sortedSizes = new ArrayList<Size>(/*capacity*/1);
@@ -1910,6 +1959,27 @@ public class CameraTestUtils extends Assert {
         List<Size> sizes = getSortedSizesForFormat(cameraId, cameraManager, ImageFormat.DEPTH16,
                 /*bound*/ null);
         return sizes.get(0);
+    }
+
+    /**
+     * Return the lower size
+     * @param a first size
+     *
+     * @param b second size
+     *
+     * @return Size the smaller size
+     *
+     * @throws IllegalArgumentException if either param was null.
+     *
+     */
+    @NonNull public static Size getMinSize(Size a, Size b) {
+        if (a == null || b == null) {
+            throw new IllegalArgumentException("sizes was empty");
+        }
+        if (a.getWidth() * a.getHeight() < b.getHeight() * b.getWidth()) {
+            return a;
+        }
+        return b;
     }
 
     /**
@@ -2045,6 +2115,156 @@ public class CameraTestUtils extends Assert {
         }
         return result;
     }
+
+    /**
+     * Update one 3A region in capture request builder if that region is supported. Do nothing
+     * if the specified 3A region is not supported by camera device.
+     * @param requestBuilder The request to be updated
+     * @param algoIdx The index to the algorithm. (AE: 0, AWB: 1, AF: 2)
+     * @param regions The 3A regions to be set
+     * @param staticInfo static metadata characteristics
+     */
+    public static void update3aRegion(
+            CaptureRequest.Builder requestBuilder, int algoIdx, MeteringRectangle[] regions,
+            StaticMetadata staticInfo)
+    {
+        int maxRegions;
+        CaptureRequest.Key<MeteringRectangle[]> key;
+
+        if (regions == null || regions.length == 0 || staticInfo == null) {
+            throw new IllegalArgumentException("Invalid input 3A region!");
+        }
+
+        switch (algoIdx) {
+            case INDEX_ALGORITHM_AE:
+                maxRegions = staticInfo.getAeMaxRegionsChecked();
+                key = CaptureRequest.CONTROL_AE_REGIONS;
+                break;
+            case INDEX_ALGORITHM_AWB:
+                maxRegions = staticInfo.getAwbMaxRegionsChecked();
+                key = CaptureRequest.CONTROL_AWB_REGIONS;
+                break;
+            case INDEX_ALGORITHM_AF:
+                maxRegions = staticInfo.getAfMaxRegionsChecked();
+                key = CaptureRequest.CONTROL_AF_REGIONS;
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown 3A Algorithm!");
+        }
+
+        if (maxRegions >= regions.length) {
+            requestBuilder.set(key, regions);
+        }
+    }
+
+    /**
+     * Validate one 3A region in capture result equals to expected region if that region is
+     * supported. Do nothing if the specified 3A region is not supported by camera device.
+     * @param result The capture result to be validated
+     * @param partialResults The partial results to be validated
+     * @param algoIdx The index to the algorithm. (AE: 0, AWB: 1, AF: 2)
+     * @param expectRegions The 3A regions expected in capture result
+     * @param scaleByZoomRatio whether to scale the error threshold by zoom ratio
+     * @param staticInfo static metadata characteristics
+     */
+    public static void validate3aRegion(
+            CaptureResult result, List<CaptureResult> partialResults, int algoIdx,
+            MeteringRectangle[] expectRegions, boolean scaleByZoomRatio, StaticMetadata staticInfo)
+    {
+        // There are multiple cases where result 3A region could be slightly different than the
+        // request:
+        // 1. Distortion correction,
+        // 2. Adding smaller 3a region in the test exposes existing devices' offset is larger
+        //    than 1.
+        // 3. Precision loss due to converting to HAL zoom ratio and back
+        // 4. Error magnification due to active array scale-up when zoom ratio API is used.
+        //
+        // To handle all these scenarios, make the threshold larger, and scale the threshold based
+        // on zoom ratio. The scaling factor should be relatively tight, and shouldn't be smaller
+        // than 1x.
+        final int maxCoordOffset = 5;
+        int maxRegions;
+        CaptureResult.Key<MeteringRectangle[]> key;
+        MeteringRectangle[] actualRegion;
+
+        switch (algoIdx) {
+            case INDEX_ALGORITHM_AE:
+                maxRegions = staticInfo.getAeMaxRegionsChecked();
+                key = CaptureResult.CONTROL_AE_REGIONS;
+                break;
+            case INDEX_ALGORITHM_AWB:
+                maxRegions = staticInfo.getAwbMaxRegionsChecked();
+                key = CaptureResult.CONTROL_AWB_REGIONS;
+                break;
+            case INDEX_ALGORITHM_AF:
+                maxRegions = staticInfo.getAfMaxRegionsChecked();
+                key = CaptureResult.CONTROL_AF_REGIONS;
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown 3A Algorithm!");
+        }
+
+        int maxDist = maxCoordOffset;
+        if (scaleByZoomRatio) {
+            Float zoomRatio = result.get(CaptureResult.CONTROL_ZOOM_RATIO);
+            for (CaptureResult partialResult : partialResults) {
+                Float zoomRatioInPartial = partialResult.get(CaptureResult.CONTROL_ZOOM_RATIO);
+                if (zoomRatioInPartial != null) {
+                    assertEquals("CONTROL_ZOOM_RATIO in partial result must match"
+                            + " that in final result", zoomRatio, zoomRatioInPartial);
+                }
+            }
+            maxDist = (int)Math.ceil(maxDist * Math.max(zoomRatio / 2, 1.0f));
+        }
+
+        if (maxRegions > 0)
+        {
+            actualRegion = getValueNotNull(result, key);
+            for (CaptureResult partialResult : partialResults) {
+                MeteringRectangle[] actualRegionInPartial = partialResult.get(key);
+                if (actualRegionInPartial != null) {
+                    assertEquals("Key " + key.getName() + " in partial result must match"
+                            + " that in final result", actualRegionInPartial, actualRegion);
+                }
+            }
+
+            for (int i = 0; i < actualRegion.length; i++) {
+                // If the expected region's metering weight is 0, allow the camera device
+                // to override it.
+                if (expectRegions[i].getMeteringWeight() == 0) {
+                    continue;
+                }
+
+                Rect a = actualRegion[i].getRect();
+                Rect e = expectRegions[i].getRect();
+
+                if (VERBOSE) {
+                    Log.v(TAG, "Actual region " + actualRegion[i].toString() +
+                            ", expected region " + expectRegions[i].toString() +
+                            ", maxDist " + maxDist);
+                }
+                assertTrue(
+                    "Expected 3A regions: " + Arrays.toString(expectRegions) +
+                    " are not close enough to the actual one: " + Arrays.toString(actualRegion),
+                    maxDist >= Math.abs(a.left - e.left));
+
+                assertTrue(
+                    "Expected 3A regions: " + Arrays.toString(expectRegions) +
+                    " are not close enough to the actual one: " + Arrays.toString(actualRegion),
+                    maxDist >= Math.abs(a.right - e.right));
+
+                assertTrue(
+                    "Expected 3A regions: " + Arrays.toString(expectRegions) +
+                    " are not close enough to the actual one: " + Arrays.toString(actualRegion),
+                    maxDist >= Math.abs(a.top - e.top));
+                assertTrue(
+                    "Expected 3A regions: " + Arrays.toString(expectRegions) +
+                    " are not close enough to the actual one: " + Arrays.toString(actualRegion),
+                    maxDist >= Math.abs(a.bottom - e.bottom));
+            }
+        }
+    }
+
 
     /**
      * Validate image based on format and size.

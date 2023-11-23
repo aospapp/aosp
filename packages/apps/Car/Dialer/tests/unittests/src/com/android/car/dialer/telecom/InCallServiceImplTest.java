@@ -33,6 +33,7 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.IBinder;
 import android.service.notification.StatusBarNotification;
@@ -46,7 +47,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ServiceTestRule;
 
-import com.android.car.arch.common.LiveDataFunctions;
+import com.android.car.apps.common.util.LiveDataFunctions;
+import com.android.car.dialer.R;
 import com.android.car.dialer.bluetooth.PhoneAccountManager;
 import com.android.car.dialer.notification.InCallNotificationController;
 import com.android.car.dialer.ui.activecall.InCallActivity;
@@ -103,12 +105,18 @@ public class InCallServiceImplTest {
         // Bind the service and grab a reference to the binder.
         IBinder binder = serviceRule.bindService(serviceIntent);
 
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(
+                mContext);
+        sharedPreferences.edit()
+                .putBoolean(
+                        mContext.getString(R.string.pref_show_fullscreen_active_call_ui_key), true)
+                .commit();
+
         mInCallServiceImpl =
                 ((InCallServiceImpl.LocalBinder) binder).getService();
         mInCallServiceImpl.mPhoneAccountManager = mPhoneAccountManager;
         mInCallNotificationController = new InCallNotificationController(mContext);
-        mInCallServiceImpl.mInCallRouter = new InCallRouter(mContext,
-                PreferenceManager.getDefaultSharedPreferences(mContext),
+        mInCallServiceImpl.mInCallRouter = new InCallRouter(mContext, sharedPreferences,
                 mInCallNotificationController, mProjectionCallHandler);
         mInCallServiceImpl.mCurrentHfpDeviceLiveData = LiveDataFunctions.nullLiveData();
 

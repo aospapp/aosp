@@ -18,6 +18,8 @@ package com.android.compatibility.common.util;
 
 import static org.junit.Assert.assertNotNull;
 
+import android.graphics.Rect;
+import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
@@ -28,8 +30,16 @@ import android.support.test.uiautomator.Until;
 
 import androidx.test.InstrumentationRegistry;
 
+import java.util.regex.Pattern;
+
 public class UiAutomatorUtils {
     private UiAutomatorUtils() {}
+
+    /** Default swipe deadzone percentage. See {@link UiScrollable}. */
+    private static final double DEFAULT_SWIPE_DEADZONE_PCT = 0.1;
+
+    private static Pattern sCollapsingToolbarResPattern =
+            Pattern.compile(".*:id/collapsing_toolbar");
 
     public static UiDevice getUiDevice() {
         return UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
@@ -61,15 +71,22 @@ public class UiAutomatorUtils {
 
         boolean isAtEnd = false;
         boolean wasScrolledUpAlready = false;
+        boolean scrolledPastCollapsibleToolbar = false;
+
         while (view == null && start + timeoutMs > System.currentTimeMillis()) {
             view = getUiDevice().wait(Until.findObject(selector), 1000);
 
             if (view == null) {
+                final double deadZone = !(FeatureUtil.isWatch() || FeatureUtil.isTV())
+                        ? 0.25 : DEFAULT_SWIPE_DEADZONE_PCT;
                 UiScrollable scrollable = new UiScrollable(new UiSelector().scrollable(true));
-                if (!FeatureUtil.isWatch() && !FeatureUtil.isTV()) {
-                    scrollable.setSwipeDeadZonePercentage(0.25);
-                }
+                scrollable.setSwipeDeadZonePercentage(deadZone);
                 if (scrollable.exists()) {
+                    if (!scrolledPastCollapsibleToolbar) {
+                        scrollPastCollapsibleToolbar(scrollable, deadZone);
+                        scrolledPastCollapsibleToolbar = true;
+                        continue;
+                    }
                     if (isAtEnd) {
                         if (wasScrolledUpAlready) {
                             return null;
@@ -77,12 +94,44 @@ public class UiAutomatorUtils {
                         scrollable.scrollToBeginning(Integer.MAX_VALUE);
                         isAtEnd = false;
                         wasScrolledUpAlready = true;
+                        scrolledPastCollapsibleToolbar = false;
                     } else {
-                        isAtEnd = !scrollable.scrollForward();
+                        Rect boundsBeforeScroll = scrollable.getBounds();
+                        boolean scrollAtStartOrEnd = !scrollable.scrollForward();
+                        Rect boundsAfterScroll = scrollable.getBounds();
+                        isAtEnd = scrollAtStartOrEnd && boundsBeforeScroll.equals(
+                                boundsAfterScroll);
                     }
+                } else {
+                    // There might be a collapsing toolbar, but no scrollable view. Try to collapse
+                    scrollPastCollapsibleToolbar(null, deadZone);
                 }
             }
         }
         return view;
+    }
+
+    private static void scrollPastCollapsibleToolbar(UiScrollable scrollable, double deadZone)
+            throws UiObjectNotFoundException {
+        final UiObject2 collapsingToolbar = getUiDevice().findObject(
+                By.res(sCollapsingToolbarResPattern));
+        if (collapsingToolbar == null) {
+            return;
+        }
+
+        final int steps = 55; // == UiScrollable.SCROLL_STEPS
+        if (scrollable != null && scrollable.exists()) {
+            final Rect scrollableBounds = scrollable.getVisibleBounds();
+            final int distanceToSwipe = collapsingToolbar.getVisibleBounds().height() / 2;
+            getUiDevice().drag(scrollableBounds.centerX(), scrollableBounds.centerY(),
+                    scrollableBounds.centerX(), scrollableBounds.centerY() - distanceToSwipe,
+                    steps);
+        } else {
+            // There might be a collapsing toolbar, but no scrollable view. Try to collapse
+            int maxY = getUiDevice().getDisplayHeight();
+            int minY = (int) (deadZone * maxY);
+            maxY -= minY;
+            getUiDevice().drag(0, maxY, 0, minY, steps);
+        }
     }
 }

@@ -29,4 +29,9 @@ interface ICarPackageManager {
     void setEnableActivityBlocking(boolean enable) = 4;
     void restartTask(int taskId) = 5;
     boolean isPendingIntentDistractionOptimized(in PendingIntent pendingIntent) = 6;
+    String getCurrentDrivingSafetyRegion() = 7;
+    void controlOneTimeActivityBlockingBypassingAsUser(String packageName, String activityClassName,
+            boolean bypass, int userId) = 8;
+    List<String> getSupportedDrivingSafetyRegionsForActivityAsUser(String packageName,
+            String activityClassName, int userId) = 9;
 }

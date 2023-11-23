@@ -113,6 +113,36 @@ LOCAL_ADDITIONAL_CERTIFICATES := $(cert_dir)/ec-p256
 LOCAL_CERTIFICATE_LINEAGE := $(cert_dir)/ec-p256-por_1_2-no-shUid-cap
 include $(BUILD_CTS_SUPPORT_PACKAGE)
 
+# This is the test package signed using the V3 signature scheme with
+# a rotated key and part of a shareduid. The capabilities of this lineage
+# prevent the previous key in the lineage from using a signature permission.
+# This package is intended to verify shared signing keys in separate app
+# lineages retain their own declared capabilities.
+include $(LOCAL_PATH)/base.mk
+LOCAL_PACKAGE_NAME := v3-ec-p256-with-por_1_2-no-perm-cap-sharedUid
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_MANIFEST_FILE := AndroidManifest-shareduid.xml
+LOCAL_CERTIFICATE := $(cert_dir)/ec-p256_2
+LOCAL_ADDITIONAL_CERTIFICATES := $(cert_dir)/ec-p256
+LOCAL_CERTIFICATE_LINEAGE := $(cert_dir)/ec-p256-por_1_2-no-perm-cap
+include $(BUILD_CTS_SUPPORT_PACKAGE)
+
+# This is the test package with a new name intended to be installed
+# alongside the original test package when verifying platform behavior when
+# two apps share the same previous signer in their lineage with different
+# capabilities granted; the lineage for this package prevents an app signed
+# with the previous signing key from joining a sharedUserId.
+include $(LOCAL_PATH)/base.mk
+LOCAL_PACKAGE_NAME := v3-ec-p256-with-por_1_2-no-shUid-cap-declperm2
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_MANIFEST_FILE := AndroidManifest-declperm2.xml
+LOCAL_CERTIFICATE := $(cert_dir)/ec-p256_2
+LOCAL_ADDITIONAL_CERTIFICATES := $(cert_dir)/ec-p256
+LOCAL_CERTIFICATE_LINEAGE := $(cert_dir)/ec-p256-por_1_2-no-shUid-cap
+include $(BUILD_CTS_SUPPORT_PACKAGE)
+
 # This is the first companion package signed using the V3 signature scheme
 # with a rotated key and part of a sharedUid. The capabilities of this lineage
 # grant access to the previous key in the lineage to join the sharedUid.
@@ -204,6 +234,19 @@ LOCAL_CERTIFICATE := $(cert_dir)/ec-p256_4
 LOCAL_ADDITIONAL_CERTIFICATES := $(cert_dir)/ec-p256
 LOCAL_CERTIFICATE_LINEAGE := $(cert_dir)/ec-p256-por-1_2_4-default-caps
 include $(BUILD_CTS_SUPPORT_PACKAGE)
+
+# This is a version of the companion package that requests the signature permission
+# declared by the test package. This package is signed with the original signing
+# key and is intended to verify that a common signing key shared between two
+# lineages retains its capability from the package declaring the signature permission.
+include $(LOCAL_PATH)/base.mk
+LOCAL_PACKAGE_NAME := v3-ec-p256-1-companion-usesperm
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_MANIFEST_FILE := AndroidManifest-companion-usesperm.xml
+LOCAL_CERTIFICATE := $(cert_dir)/ec-p256
+include $(BUILD_CTS_SUPPORT_PACKAGE)
+
 
 # This is a version of the test package that declares a signature permission
 # with the knownSigner protection flag. This app is signed with the rsa-2048

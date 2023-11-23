@@ -14,21 +14,20 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-<merge xmlns:android="http://schemas.android.com/apk/res/android">
-    <FrameLayout
-        style="@style/DismissButtonLayout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
-        <ImageButton
-            android:id="@+id/dismiss_button"
-            android:layout_width="@dimen/dismiss_button_diameter"
-            android:layout_height="@dimen/dismiss_button_diameter"
-            android:layout_marginLeft="@dimen/dismiss_button_horizontal_margin"
-            android:layout_marginRight="@dimen/dismiss_button_horizontal_margin"
-            android:layout_marginBottom="@dimen/card_min_bottom_padding"
-            android:background="@drawable/dismiss_button_background"
-            android:scaleType="center"
-            android:src="@drawable/ic_clear"
-            android:visibility="gone"/>
-    </FrameLayout>
-</merge>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/dismiss_button_container"
+    style="@style/DismissButtonLayout"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+
+    <ImageButton
+        android:id="@+id/dismiss_button"
+        android:layout_width="@dimen/dismiss_button_diameter"
+        android:layout_height="@dimen/dismiss_button_diameter"
+        android:layout_margin="@dimen/dismiss_button_margin"
+        android:background="@drawable/dismiss_button_background"
+        android:scaleType="center"
+        android:src="@drawable/ic_clear"
+        android:visibility="gone"/>
+</FrameLayout>

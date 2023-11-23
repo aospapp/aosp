@@ -1,0 +1,23 @@
+type lhd, domain;
+type lhd_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(lhd)
+
+# Allow lhd access PixelLogger unix socket in debug build only
+userdebug_or_eng(`
+    typeattribute lhd mlstrustedsubject;
+    allow lhd logger_app:unix_stream_socket connectto;
+')
+
+# Allow lhd access data vendor gps files
+allow lhd vendor_gps_file:dir create_dir_perms;
+allow lhd vendor_gps_file:file create_file_perms;
+allow lhd vendor_gps_file:fifo_file create_file_perms;
+
+# Allow lhd to obtain wakelock
+wakelock_use(lhd)
+
+# Allow lhd access /dev/bbd_control file
+allow lhd vendor_gnss_device:chr_file rw_file_perms;
+
+# Allow lhd access nstandby gpio
+allow lhd sysfs_gps:file rw_file_perms;

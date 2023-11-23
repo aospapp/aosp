@@ -45,12 +45,24 @@ public class CellBroadcastInternalReceiver extends BroadcastReceiver {
                 });
     }
 
+    /**
+     * This method's purpose if to enable unit testing
+     */
+    @VisibleForTesting
+    public void startConfigServiceToEnableChannels(Context context) {
+        CellBroadcastReceiver.startConfigService(context,
+                CellBroadcastConfigService.ACTION_ENABLE_CHANNELS);
+    }
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (CellBroadcastReceiver.ACTION_MARK_AS_READ.equals(intent.getAction())) {
             final long deliveryTime = intent.getLongExtra(
                     CellBroadcastReceiver.EXTRA_DELIVERY_TIME, -1);
             getCellBroadcastTask(context, deliveryTime);
+        } else if (CellBroadcastReceiver.CELLBROADCAST_START_CONFIG_ACTION.equals(
+                intent.getAction())) {
+            startConfigServiceToEnableChannels(context);
         }
     }
 }

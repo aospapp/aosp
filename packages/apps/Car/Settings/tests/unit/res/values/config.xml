@@ -19,4 +19,9 @@
     <bool name="config_show_settings_root_exit_icon">true</bool>
     <!-- Whether the root fragment should actually be root -->
     <bool name="config_is_root_fragment_root">true</bool>
+    <!--
+        Maximum number of devices to show for paired bluetooth device quick control.
+        Set to -1 for unlimited.
+     -->
+    <integer name="config_qc_bluetooth_device_limit">3</integer>
 </resources>

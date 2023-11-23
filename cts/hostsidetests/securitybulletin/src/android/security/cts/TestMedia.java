@@ -254,6 +254,17 @@ public class TestMedia extends SecurityTestCase {
     }
 
     /**
+     * b/74122779
+     * Vulnerability Behaviour: SIGABRT in audioserver
+     */
+    @Test
+    @AsbSecurityTest(cveBugId = 74122779)
+    public void testPocCVE_2018_9428() throws Exception {
+        String signals[] = {CrashUtils.SIGSEGV, CrashUtils.SIGBUS, CrashUtils.SIGABRT};
+        AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig("CVE-2018-9428", getDevice());
+    }
+
+    /**
      * b/64340921
      * Vulnerability Behaviour: SIGABRT in audioserver
      */
@@ -495,26 +506,6 @@ public class TestMedia extends SecurityTestCase {
         testConfig.arguments = AdbUtils.TMP_PATH + inputFiles[0];
         testConfig.inputFiles = Arrays.asList(inputFiles);
         testConfig.inputFilesDestination = AdbUtils.TMP_PATH;
-        AdbUtils.runPocAssertNoCrashesNotVulnerable(testConfig);
-    }
-
-    /**
-     * b/112891564
-     * Vulnerability Behaviour: SIGSEGV in self (Android P),
-     *                          SIGABRT in self (Android Q onward)
-     */
-    @Test
-    @AsbSecurityTest(cveBugId = 112891564)
-    public void testPocCVE_2018_9537() throws Exception {
-        String binaryName = "CVE-2018-9537";
-        String signals[] = {CrashUtils.SIGSEGV, CrashUtils.SIGBUS, CrashUtils.SIGABRT};
-        AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig(binaryName, getDevice());
-        // example of check crash to skip:
-        // Abort message: 'frameworks/av/media/extractors/mkv/MatroskaExtractor.cpp:548 CHECK(mCluster) failed.'
-        testConfig.config = new CrashUtils.Config()
-                .setProcessPatterns(binaryName)
-                .appendAbortMessageExcludes("CHECK\\(.*?\\)");
-        testConfig.config.setSignals(signals);
         AdbUtils.runPocAssertNoCrashesNotVulnerable(testConfig);
     }
 

@@ -42,8 +42,8 @@
     <string name="grant_dialog_button_allow" msgid="5314677880021102550">"Tillad"</string>
     <string name="grant_dialog_button_allow_always" msgid="4485552579273565981">"Tillad altid"</string>
     <string name="grant_dialog_button_allow_foreground" msgid="501896824973636533">"Mens du bruger appen"</string>
-    <string name="grant_dialog_button_change_to_precise_location" msgid="3273115879467236033">"Skift til præcis placering"</string>
-    <string name="grant_dialog_button_keey_approximate_location" msgid="438025182769080011">"Behold omtrentlig placering"</string>
+    <string name="grant_dialog_button_change_to_precise_location" msgid="3273115879467236033">"Skift til præcis lokation"</string>
+    <string name="grant_dialog_button_keey_approximate_location" msgid="438025182769080011">"Behold omtrentlig lokation"</string>
     <string name="grant_dialog_button_allow_one_time" msgid="2618088516449706391">"Kun denne gang"</string>
     <string name="grant_dialog_button_allow_background" msgid="8236044729434367833">"Tillad altid"</string>
     <string name="grant_dialog_button_allow_all_files" msgid="4955436994954829894">"Tillad administration af alle filer"</string>
@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"Apptilladelser"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Apps, du ikke bruger"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Ingen ubrugte apps"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"Der er 0 ubrugte apps"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Deaktiver appen"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Hvis du deaktiverer denne app, kan det medføre, at Android-apps og andre apps ikke fungerer korrekt. Vær opmærksom på, at du ikke kan slette denne app, da den er forudinstalleret på din enhed. Hvis du slår appen fra, deaktiveres og skjules den på din enhed."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Tilladelsesadministrator"</string>
@@ -71,8 +72,8 @@
     <string name="menu_hide_system" msgid="3855390843744028465">"Skjul system"</string>
     <string name="manage_permission" msgid="2895385393037061964">"Administrer tilladelse"</string>
     <string name="no_apps" msgid="2412612731628386816">"Ingen apps"</string>
-    <string name="location_settings" msgid="3624412509133422562">"Placeringsindstillinger"</string>
-    <string name="location_warning" msgid="2381649060929040962">"<xliff:g id="APP_NAME">%1$s</xliff:g> udbyder placeringstjenester for denne enhed. Adgangen til din placering kan ændres i placeringsindstillingerne."</string>
+    <string name="location_settings" msgid="3624412509133422562">"Lokationsindstillinger"</string>
+    <string name="location_warning" msgid="2381649060929040962">"<xliff:g id="APP_NAME">%1$s</xliff:g> udbyder lokationstjenester for denne enhed. Adgangen til din lokation kan ændres i lokationsindstillingerne."</string>
     <string name="system_warning" msgid="1173400963234358816">"Hvis du afviser denne tilladelse, vil grundlæggende funktioner på din enhed muligvis ikke længere fungere efter hensigten."</string>
     <string name="cdm_profile_revoke_warning" msgid="4443893270719106700">"Hvis du afviser denne tilladelse, vil nogle funktioner på din enhed, som administreres af denne app, muligvis ikke længere fungere korrekt."</string>
     <string name="permission_summary_enforced_by_policy" msgid="4443598170942950519">"Håndhæves af politik"</string>
@@ -208,10 +209,10 @@
     <string name="app_permission_button_allow_foreground" msgid="1991570451498943207">"Tillad kun, mens appen er i brug"</string>
     <string name="app_permission_button_ask" msgid="3342950658789427">"Spørg hver gang"</string>
     <string name="app_permission_button_deny" msgid="6016454069832050300">"Tillad ikke"</string>
-    <string name="precise_image_description" msgid="6349638632303619872">"Præcis placering"</string>
-    <string name="approximate_image_description" msgid="938803699637069884">"Omtrentlig placering"</string>
-    <string name="app_permission_location_accuracy" msgid="7166912915040018669">"Brug præcis placering"</string>
-    <string name="app_permission_location_accuracy_subtitle" msgid="2654077606404987210">"Når den præcise placering er slået fra, kan apps få adgang til din omtrentlige placering"</string>
+    <string name="precise_image_description" msgid="6349638632303619872">"Præcis lokation"</string>
+    <string name="approximate_image_description" msgid="938803699637069884">"Omtrentlig lokation"</string>
+    <string name="app_permission_location_accuracy" msgid="7166912915040018669">"Brug præcis lokation"</string>
+    <string name="app_permission_location_accuracy_subtitle" msgid="2654077606404987210">"Når den præcise lokation er slået fra, kan apps få adgang til din omtrentlige lokation"</string>
     <string name="app_permission_title" msgid="2090897901051370711">"Tilladelse til <xliff:g id="PERM">%1$s</xliff:g>"</string>
     <string name="app_permission_header" msgid="2951363137032603806">"Adgang til <xliff:g id="PERM">%1$s</xliff:g> for denne app"</string>
     <string name="app_permission_footer_app_permissions_link" msgid="4926890342636587393">"Se alle tilladelser for <xliff:g id="APP">%1$s</xliff:g>"</string>
@@ -246,7 +247,7 @@
     <string name="permission_description_summary_call_log" msgid="7321437186317577624">"Apps med denne tilladelse kan læse og redigere telefonens opkaldshistorik"</string>
     <string name="permission_description_summary_camera" msgid="108004375101882069">"Apps med denne tilladelse kan tage billeder og optage video"</string>
     <string name="permission_description_summary_contacts" msgid="2337798886460408996">"Apps med denne tilladelse kan få adgang til dine kontakter"</string>
-    <string name="permission_description_summary_location" msgid="2817531799933480694">"Apps med denne tilladelse kan få adgang til denne enheds placering"</string>
+    <string name="permission_description_summary_location" msgid="2817531799933480694">"Apps med denne tilladelse kan få adgang til denne enheds lokation"</string>
     <string name="permission_description_summary_nearby_devices" msgid="8269183818275073741">"Apps med denne tilladelse kan finde, oprette forbindelse til og fastslå den relative placering af enheder i nærheden"</string>
     <string name="permission_description_summary_microphone" msgid="630834800308329907">"Apps med denne tilladelse kan optage lyd"</string>
     <string name="permission_description_summary_phone" msgid="4515277217435233619">"Apps med denne tilladelse kan foretage og administrere telefonopkald"</string>
@@ -305,8 +306,8 @@
     <string name="all_unused_apps_category_title" msgid="755663524704745414">"Alle ubrugte apps"</string>
     <string name="months_ago" msgid="1766026492610646354">"For <xliff:g id="COUNT">%1$d</xliff:g> måneder siden"</string>
     <string name="auto_revoke_preference_summary" msgid="5517958331781391481">"Nogle tilladelser blev fjernet for at beskytte dit privatliv"</string>
-    <string name="background_location_access_reminder_notification_title" msgid="1140797924301941262">"<xliff:g id="APP_NAME">%s</xliff:g> har din placering i baggrunden"</string>
-    <string name="background_location_access_reminder_notification_content" msgid="7787084707336546245">"Denne app kan altid få adgang til din placering. Tryk for at ændre denne indstilling."</string>
+    <string name="background_location_access_reminder_notification_title" msgid="1140797924301941262">"<xliff:g id="APP_NAME">%s</xliff:g> har din lokation i baggrunden"</string>
+    <string name="background_location_access_reminder_notification_content" msgid="7787084707336546245">"Denne app kan altid få adgang til din lokation. Tryk for at ændre denne indstilling."</string>
     <string name="auto_revoke_after_notification_title" msgid="5417761027669887431">"Apptilladelserne blev fjernet for at beskytte dine personlige oplysninger"</string>
     <string name="auto_revoke_after_notification_content_one" msgid="6804038707453662753">"<xliff:g id="APP_NAME">%s</xliff:g> er ikke blevet brugt i et par måneder. Tryk for at gennemgå."</string>
     <string name="auto_revoke_after_notification_content_two" msgid="9108709764831425172">"<xliff:g id="APP_NAME">%s</xliff:g> og 1 anden app er ikke blevet brugt i et par måneder. Tryk for at gennemgå."</string>
@@ -451,16 +452,16 @@
     <string name="assistant_record_audio_user_sensitive_summary" msgid="6482937591816401619">"Vis ikon på statusbjælken, når mikrofonen bruges til at aktivere taleassistenten"</string>
     <string name="permgrouprequest_storage_isolated" msgid="4892154224026852295">"Vil du give &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; adgang til billeder og medier på din enhed?"</string>
     <string name="permgrouprequest_contacts" msgid="8391550064551053695">"Vil du give &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; adgang til dine kontakter?"</string>
-    <string name="permgrouprequest_location" msgid="6990232580121067883">"Vil du give &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; adgang til enhedens placering?"</string>
-    <string name="permgrouprequestdetail_location" msgid="2635935335778429894">"Appen har kun adgang til placeringen, når du bruger appen"</string>
-    <string name="permgroupbackgroundrequest_location" msgid="1085680897265734809">"Vil du give &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; adgang til enhedens placering?"</string>
-    <string name="permgroupbackgroundrequestdetail_location" msgid="8021219324989662957">"Denne app vil muligvis gerne have adgang til din placering hele tiden, også når du ikke bruger appen. "<annotation id="link">"Giv tilladelse under Indstillinger."</annotation></string>
-    <string name="permgroupupgraderequest_location" msgid="8328408946822691636">"Vil du skifte placeringsadgang for &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;?"</string>
-    <string name="permgroupupgraderequestdetail_location" msgid="1550899076845189165">"Appen vil gerne have adgang til din placering hele tiden, også når du ikke bruger appen. "<annotation id="link">"Giv appen tilladelse i Indstillinger."</annotation></string>
+    <string name="permgrouprequest_location" msgid="6990232580121067883">"Vil du give &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; adgang til enhedens lokation?"</string>
+    <string name="permgrouprequestdetail_location" msgid="2635935335778429894">"Appen har kun adgang til lokationen, når du bruger appen"</string>
+    <string name="permgroupbackgroundrequest_location" msgid="1085680897265734809">"Vil du give &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; adgang til enhedens lokation?"</string>
+    <string name="permgroupbackgroundrequestdetail_location" msgid="8021219324989662957">"Denne app vil muligvis gerne have adgang til din lokation hele tiden, også når du ikke bruger appen. "<annotation id="link">"Giv tilladelse under Indstillinger."</annotation></string>
+    <string name="permgroupupgraderequest_location" msgid="8328408946822691636">"Vil du skifte lokationsadgang for &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt;?"</string>
+    <string name="permgroupupgraderequestdetail_location" msgid="1550899076845189165">"Appen vil gerne have adgang til din lokation hele tiden, også når du ikke bruger appen. "<annotation id="link">"Giv appen tilladelse i Indstillinger."</annotation></string>
     <string name="permgrouprequest_nearby_devices" msgid="2272829282660436700">"Skal &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; kunne finde, oprette forbindelse til og fastslå den relative placering af enheder i nærheden?"</string>
     <string name="permgroupupgraderequestdetail_nearby_devices" msgid="6877531270654738614">"Skal &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; kunne finde, oprette forbindelse til og fastslå den relative placering af enheder i nærheden? "<annotation id="link">"Tillad i Indstillinger."</annotation></string>
-    <string name="permgrouprequest_fineupgrade" msgid="2334242928821697672">"Vil du skifte placeringsadgang for <xliff:g id="APP_NAME">&lt;b&gt;%1$s&lt;/b&gt;</xliff:g> fra omtrentlig til nøjagtig?"</string>
-    <string name="permgrouprequest_coarselocation" msgid="7244605063736425232">"Vil du give &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; adgang til enhedens omtrentlige placering?"</string>
+    <string name="permgrouprequest_fineupgrade" msgid="2334242928821697672">"Vil du skifte lokationsadgang for <xliff:g id="APP_NAME">&lt;b&gt;%1$s&lt;/b&gt;</xliff:g> fra omtrentlig til nøjagtig?"</string>
+    <string name="permgrouprequest_coarselocation" msgid="7244605063736425232">"Vil du give &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; adgang til enhedens omtrentlige lokation?"</string>
     <string name="permgrouprequest_finelocation_imagetext" msgid="1313062433398914334">"Præcis"</string>
     <string name="permgrouprequest_coarselocation_imagetext" msgid="8650605041483025297">"Omtrentlig"</string>
     <string name="permgrouprequest_calendar" msgid="1493150855673603806">"Vil du give &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; adgang til din kalender?"</string>
@@ -483,8 +484,8 @@
     <string name="permgrouprequest_phone" msgid="1829234136997316752">"Vil du give &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; tilladelse til at foretage og administrere telefonopkald?"</string>
     <string name="permgrouprequest_sensors" msgid="4397358316850652235">"Vil du give &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; adgang til sensordata om dine livstegn?"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"Administrerede tilladelser"</string>
-    <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Der er adgang til din placering"</string>
-    <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"Din it-administrator har givet <xliff:g id="APP_NAME">%s</xliff:g> adgang til din placering"</string>
+    <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Der er adgang til din lokation"</string>
+    <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"Din it-administrator har givet <xliff:g id="APP_NAME">%s</xliff:g> adgang til din lokation"</string>
     <string name="other_permissions_label" msgid="8986184335503271992">"Andre tilladelser"</string>
     <string name="not_used_permissions_label" msgid="3939839426115141264">"Tilladelse, der anvendes af systemet"</string>
     <string name="not_used_permissions_description" msgid="7595514824169388718">"Tilladelser, der kun anvendes af systemapps"</string>
@@ -492,7 +493,7 @@
     <string name="additional_permissions_description" msgid="2186611950890732112">"Tilladelser, der er defineret af apps"</string>
     <string name="privdash_label_camera" msgid="1426440033626198096">"Kamera"</string>
     <string name="privdash_label_microphone" msgid="8415035835803511693">"Mikrofon"</string>
-    <string name="privdash_label_location" msgid="6882400763866489291">"Placering"</string>
+    <string name="privdash_label_location" msgid="6882400763866489291">"Lokation"</string>
     <string name="privdash_label_other" msgid="3710394147423236033">"Andet"</string>
     <string name="privdash_label_none" msgid="5991866260360484858">"Ingen"</string>
     <string name="privdash_label_24h" msgid="1512532123865375319">"Seneste\n24 timer"</string>

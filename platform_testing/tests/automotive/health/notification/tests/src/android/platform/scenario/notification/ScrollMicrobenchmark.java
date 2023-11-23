@@ -25,11 +25,17 @@ import org.junit.runner.RunWith;
 public class ScrollMicrobenchmark extends Scroll {
     @BeforeClass
     public static void openApp() {
+        // Populate Notifications
+        sNotificationsMockingHelper.get().postNotifications(5);
+        // Open Notifications
         sHelper.get().open();
     }
 
     @AfterClass
     public static void closeApp() {
+        // Clear All Notifications
+        sNotificationsMockingHelper.get().clearAllNotification();
+        // Exit Notifications
         sHelper.get().exit();
     }
 }

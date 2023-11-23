@@ -10,19 +10,19 @@
     {
       "FLAGS": "playable",
       "METADATA": {
-        "MEDIA_ID": "simple_leaves normal 10s song",
-        "DISPLAY_TITLE": "A normal 10s song with a long title. A normal 10s song with a long title. A normal 10s song with a long title. ",
-        "DURATION": 10000
-      }
-    },
-    {
-      "FLAGS": "playable",
-      "METADATA": {
         "MEDIA_ID": "simple_leaves normal 1H song",
         "DISPLAY_TITLE": "A normal 1H song",
         "ARTIST": "Artist",
         "ALBUM":"Album",
         "DURATION": 3600000
+      }
+    },
+    {
+      "FLAGS": "playable",
+      "METADATA": {
+        "MEDIA_ID": "simple_leaves normal 10s song",
+        "DISPLAY_TITLE": "A normal 10s song with a long title. A normal 10s song with a long title. A normal 10s song with a long title. ",
+        "DURATION": 10000
       }
     },
     {

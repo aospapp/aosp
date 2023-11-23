@@ -17,44 +17,18 @@
 package com.android.bedstead.nene.activities;
 
 import android.app.Activity;
-import android.content.Intent;
-import android.os.Bundle;
+import android.app.RemoteActivityImpl;
+import android.os.UserHandle;
 
-class ActivityWrapper implements NeneActivity {
-
-    private final Activity mActivity;
+class ActivityWrapper extends RemoteActivityImpl implements NeneActivity {
 
     ActivityWrapper(Activity activity) {
-        mActivity = activity;
+        super(activity);
     }
 
     @Override
-    public void startLockTask() {
-        mActivity.startLockTask();
-    }
-
-    @Override
-    public void stopLockTask() {
-        mActivity.stopLockTask();
-    }
-
-    @Override
-    public void finish() {
-        mActivity.finish();
-    }
-
-    @Override
-    public boolean isFinishing() {
-        return mActivity.isFinishing();
-    }
-
-    @Override
-    public void startActivity(Intent intent) {
-        mActivity.startActivity(intent);
-    }
-
-    @Override
-    public void startActivity(Intent intent, Bundle options) {
-        mActivity.startActivity(intent, options);
+    public UserHandle getUser() {
+        // Assuming if we have an Activity it's on the instrumented user
+        return android.os.Process.myUserHandle();
     }
 }

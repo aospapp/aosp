@@ -349,6 +349,8 @@ public:
     // Convert required H264 profile and level to V4L2 enums.
     static int32_t c2ProfileToV4L2H264Profile(C2Config::profile_t profile);
     static int32_t h264LevelIdcToV4L2H264Level(uint8_t levelIdc);
+    static v4l2_mpeg_video_bitrate_mode C2BitrateModeToV4L2BitrateMode(
+            C2Config::bitrate_mode_t bitrateMode);
 
     // Converts v4l2_memory to a string.
     static const char* v4L2MemoryToString(const v4l2_memory memory);

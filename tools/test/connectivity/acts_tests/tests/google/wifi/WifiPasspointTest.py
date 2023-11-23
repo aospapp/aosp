@@ -367,7 +367,9 @@ class WifiPasspointTest(WifiBaseTest):
         current_ssid = current_passpoint[WifiEnums.SSID_KEY]
         if current_ssid not in passpoint_ssid:
            raise signals.TestFailure("Device did not connect to any of the "
-                                     "configured Passpoint networks.")
+                                     "configured Passpoint networks."
+                                     "current: {}, expected: {}"
+                                     .format(current_ssid, passpoint_ssid))
 
         expected_ssid =  self.passpoint_networks[0][WifiEnums.SSID_KEY]
         if current_ssid in expected_ssid:

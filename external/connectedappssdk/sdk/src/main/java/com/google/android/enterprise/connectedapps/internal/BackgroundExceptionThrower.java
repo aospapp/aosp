@@ -24,20 +24,34 @@ public final class BackgroundExceptionThrower {
   private BackgroundExceptionThrower() {}
 
   private static class ThrowingRunnable implements Runnable {
-    RuntimeException throwable;
+    RuntimeException runtimeException;
+    Error error;
 
-    ThrowingRunnable(RuntimeException throwable) {
-      this.throwable = throwable;
+    ThrowingRunnable(RuntimeException runtimeException) {
+      this.runtimeException = runtimeException;
+    }
+
+    ThrowingRunnable(Error error) {
+      this.error = error;
     }
 
     @Override
     public void run() {
-      throw throwable;
+      if (error != null) {
+        throw error;
+      }
+      throw runtimeException;
     }
   }
 
   /** Throw the given {@link Throwable} after a delay on the main looper. */
   public static void throwInBackground(RuntimeException throwable) {
+    // We add a small delay to ensure that the return can be completed before crashing
+    new Handler(Looper.getMainLooper()).postDelayed(new ThrowingRunnable(throwable), 1000);
+  }
+
+  /** Throw the given {@link Error} after a delay on the main looper. */
+  public static void throwInBackground(Error throwable) {
     // We add a small delay to ensure that the return can be completed before crashing
     new Handler(Looper.getMainLooper()).postDelayed(new ThrowingRunnable(throwable), 1000);
   }

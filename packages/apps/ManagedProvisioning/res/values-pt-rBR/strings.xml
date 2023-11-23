@@ -137,7 +137,7 @@
     <string name="mdm_icon_label" msgid="3399134595549660561">"Ícone de <xliff:g id="ICON_LABEL">%1$s</xliff:g>"</string>
     <string name="section_heading" msgid="3924666803774291908">"Título da seção <xliff:g id="SECTION_HEADING">%1$s</xliff:g>."</string>
     <string name="section_content" msgid="8875502515704374394">"Conteúdo da seção <xliff:g id="SECTION_HEADING">%1$s</xliff:g>: <xliff:g id="SECTION_CONTENT">%2$s</xliff:g>"</string>
-    <string name="expand" msgid="37188292156131304">"Expandir"</string>
+    <string name="expand" msgid="37188292156131304">"Abrir"</string>
     <string name="collapse" msgid="7817530505064432580">"Recolher"</string>
     <string name="access_list_of_links" msgid="7094123315959323372">"Acessar uma lista de links"</string>
     <string name="access_links" msgid="7991363727326168600">"Acessar links"</string>

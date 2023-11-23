@@ -17,13 +17,47 @@
 package com.android.server.wm.flicker.traces
 
 import com.android.server.wm.flicker.assertions.FlickerSubject
+import com.android.server.wm.traces.common.prettyTimestamp
 
 /**
  * Exception thrown by [FlickerSubject]s
  */
 class FlickerSubjectException(
-    flickerSubject: FlickerSubject,
+    internal val subject: FlickerSubject,
     cause: Throwable
-) : AssertionError(flickerSubject.defaultFacts, cause) {
-    internal val facts = flickerSubject.defaultFacts
+) : AssertionError(cause.message, if (cause is FlickerSubjectException) null else cause) {
+    internal val timestamp = subject.timestamp
+    private val prettyTimestamp =
+            if (timestamp > 0) "${prettyTimestamp(timestamp)} (timestamp=$timestamp)" else ""
+
+    internal val errorType: String =
+            if (cause is AssertionError) "Flicker assertion error" else "Unknown error"
+
+    internal val errorDescription = buildString {
+        appendln("Where? $prettyTimestamp")
+        val message = (cause.message ?: "").split(("\n"))
+        append("What? ")
+        if (message.size == 1) {
+            // Single line error message
+            appendln(message.first())
+        } else {
+            // Multi line error message
+            appendln()
+            message.forEach { appendln("\t$it") }
+        }
+    }
+
+    internal val subjectInformation = buildString {
+        appendln("Facts:")
+        subject.completeFacts.forEach { append("\t").appendln(it) }
+    }
+
+    override val message: String
+        get() = buildString {
+            appendln(errorType)
+            appendln()
+            append(errorDescription)
+            appendln()
+            append(subjectInformation)
+        }
 }

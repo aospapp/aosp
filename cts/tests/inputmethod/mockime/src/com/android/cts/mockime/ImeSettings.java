@@ -53,7 +53,7 @@ public class ImeSettings {
     private static final String INLINE_SUGGESTION_VIEW_CONTENT_DESC =
             "InlineSuggestionViewContentDesc";
     private static final String STRICT_MODE_ENABLED = "StrictModeEnabled";
-    private static final String VERIFY_GET_DISPLAY_ON_CREATE = "VerifyGetDisplayOnCreate";
+    private static final String VERIFY_CONTEXT_APIS_IN_ON_CREATE = "VerifyContextApisInOnCreate";
 
     @NonNull
     private final PersistableBundle mBundle;
@@ -133,8 +133,8 @@ public class ImeSettings {
         return mBundle.getBoolean(STRICT_MODE_ENABLED, false);
     }
 
-    public boolean isVerifyGetDisplayOnCreate() {
-        return mBundle.getBoolean(VERIFY_GET_DISPLAY_ON_CREATE, false);
+    public boolean isVerifyContextApisInOnCreate() {
+        return mBundle.getBoolean(VERIFY_CONTEXT_APIS_IN_ON_CREATE, false);
     }
 
     static Bundle serializeToBundle(@NonNull String eventCallbackActionName,
@@ -297,11 +297,14 @@ public class ImeSettings {
         }
 
         /**
-         * Sets whether to verify {@link android.inputmethodservice.InputMethodService#getDisplay()}
-         * or not.
+         * Sets whether to verify below {@link android.content.Context} APIs or not:
+         * <ul>
+         *     <li>{@link android.inputmethodservice.InputMethodService#getDisplay}</li>
+         *     <li>{@link android.inputmethodservice.InputMethodService#isUiContext}</li>
+         * </ul>
          */
-        public Builder setVerifyGetDisplayOnCreate(boolean enabled) {
-            mBundle.putBoolean(VERIFY_GET_DISPLAY_ON_CREATE, enabled);
+        public Builder setVerifyUiContextApisInOnCreate(boolean enabled) {
+            mBundle.putBoolean(VERIFY_CONTEXT_APIS_IN_ON_CREATE, enabled);
             return this;
         }
     }

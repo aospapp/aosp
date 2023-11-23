@@ -121,7 +121,7 @@ Return<void> Thermal::getCurrentTemperatures(bool filterType, TemperatureType_2_
         return setInitFailureAndCallback(_hidl_cb, temperatures);
     }
 
-    if (!thermal_helper_.fillCurrentTemperatures(filterType, type, &temperatures)) {
+    if (!thermal_helper_.fillCurrentTemperatures(filterType, false, type, &temperatures)) {
         return setFailureAndCallback(_hidl_cb, temperatures, "Failed to read thermal sensors.");
     }
 
@@ -171,6 +171,8 @@ Return<void> Thermal::registerThermalChangedCallback(const sp<IThermalChangedCal
                                                      bool filterType, TemperatureType_2_0 type,
                                                      registerThermalChangedCallback_cb _hidl_cb) {
     ThermalStatus status;
+    hidl_vec<Temperature_2_0> temperatures;
+
     if (callback == nullptr) {
         status.code = ThermalStatusCode::FAILURE;
         status.debugMessage = "Invalid nullptr callback";
@@ -193,6 +195,21 @@ Return<void> Thermal::registerThermalChangedCallback(const sp<IThermalChangedCal
                   << " Type: " << android::hardware::thermal::V2_0::toString(type);
     }
     _hidl_cb(status);
+
+    // Send notification right away after thermal callback registration
+    if (thermal_helper_.fillCurrentTemperatures(filterType, true, type, &temperatures)) {
+        for (const auto &t : temperatures) {
+            if (!filterType || t.type == type) {
+                LOG(INFO) << "Sending notification: "
+                          << " Type: " << android::hardware::thermal::V2_0::toString(t.type)
+                          << " Name: " << t.name << " CurrentValue: " << t.value
+                          << " ThrottlingStatus: "
+                          << android::hardware::thermal::V2_0::toString(t.throttlingStatus);
+                callback->notifyThrottling(t);
+            }
+        }
+    }
+
     return Void();
 }
 
@@ -246,10 +263,13 @@ void Thermal::sendThermalChangedCallback(const Temperature_2_0 &t) {
                            [&](const CallbackSetting &c) {
                                if (!c.is_filter_type || t.type == c.type) {
                                    Return<void> ret = c.callback->notifyThrottling(t);
-                                   return !ret.isOk();
+                                   if (!ret.isOk()) {
+                                       LOG(ERROR) << "a Thermal callback is dead, removed from "
+                                                     "callback list.";
+                                       return true;
+                                   }
+                                   return false;
                                }
-                               LOG(ERROR)
-                                   << "a Thermal callback is dead, removed from callback list.";
                                return false;
                            }),
             callbacks_.end());
@@ -565,8 +585,8 @@ Return<void> Thermal::debug(const hidl_handle &handle, const hidl_vec<hidl_strin
             {
                 dump_buf << "getCurrentTemperatures:" << std::endl;
                 hidl_vec<Temperature_2_0> temperatures;
-                if (!thermal_helper_.fillCurrentTemperatures(false, TemperatureType_2_0::SKIN,
-                                                             &temperatures)) {
+                if (!thermal_helper_.fillCurrentTemperatures(
+                            false, false, TemperatureType_2_0::SKIN, &temperatures)) {
                     dump_buf << "Failed to getCurrentTemperatures." << std::endl;
                 }
 

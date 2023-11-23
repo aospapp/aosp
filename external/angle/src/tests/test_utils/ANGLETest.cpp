@@ -170,6 +170,11 @@ const char *GetColorName(GLColor color)
     return nullptr;
 }
 
+const char *GetColorName(GLColorRGB color)
+{
+    return GetColorName(GLColor(color.R, color.G, color.B, 255));
+}
+
 // Always re-use displays when using --bot-mode in the test runner.
 bool gReuseDisplays = false;
 
@@ -306,6 +311,30 @@ std::ostream &operator<<(std::ostream &ostream, const GLColor &color)
     return ostream;
 }
 
+bool operator==(const GLColorRGB &a, const GLColorRGB &b)
+{
+    return a.R == b.R && a.G == b.G && a.B == b.B;
+}
+
+bool operator!=(const GLColorRGB &a, const GLColorRGB &b)
+{
+    return !(a == b);
+}
+
+std::ostream &operator<<(std::ostream &ostream, const GLColorRGB &color)
+{
+    const char *colorName = GetColorName(color);
+    if (colorName)
+    {
+        return ostream << colorName;
+    }
+
+    ostream << "(" << static_cast<unsigned int>(color.R) << ", "
+            << static_cast<unsigned int>(color.G) << ", " << static_cast<unsigned int>(color.B)
+            << ")";
+    return ostream;
+}
+
 bool operator==(const GLColor32F &a, const GLColor32F &b)
 {
     return a.R == b.R && a.G == b.G && a.B == b.B && a.A == b.A;
@@ -397,6 +426,24 @@ std::array<GLushort, 6> ANGLETestBase::GetQuadIndices()
 std::array<Vector3, 4> ANGLETestBase::GetIndexedQuadVertices()
 {
     return kIndexedQuadVertices;
+}
+
+testing::AssertionResult AssertEGLEnumsEqual(const char *lhsExpr,
+                                             const char *rhsExpr,
+                                             EGLenum lhs,
+                                             EGLenum rhs)
+{
+    if (lhs == rhs)
+    {
+        return testing::AssertionSuccess();
+    }
+    else
+    {
+        std::stringstream strstr;
+        strstr << std::hex << lhsExpr << " (0x" << int(lhs) << ") != " << rhsExpr << " (0x"
+               << int(rhs) << ")";
+        return testing::AssertionFailure() << strstr.str();
+    }
 }
 
 ANGLETestBase::ANGLETestBase(const PlatformParameters &params)
@@ -569,14 +616,15 @@ void ANGLETestBase::ANGLETestSetUp()
 
     angle::GPUTestConfig::API api = GetTestConfigAPIFromRenderer(mCurrentParams->getRenderer(),
                                                                  mCurrentParams->getDeviceType());
-    GPUTestConfig testConfig      = GPUTestConfig(api, 0);
+    GPUTestConfig testConfig      = GPUTestConfig(api, 0, false);
 
     std::stringstream fullTestNameStr;
     fullTestNameStr << testInfo->test_case_name() << "." << testInfo->name();
     std::string fullTestName = fullTestNameStr.str();
 
-    TestSuite *testSuite    = TestSuite::GetInstance();
-    int32_t testExpectation = testSuite->getTestExpectationWithConfig(testConfig, fullTestName);
+    TestSuite *testSuite = TestSuite::GetInstance();
+    int32_t testExpectation =
+        testSuite->getTestExpectationWithConfigAndUpdateTimeout(testConfig, fullTestName);
 
     if (testExpectation == GPUTestExpectationsParser::kGpuTestSkip)
     {

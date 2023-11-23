@@ -16,7 +16,7 @@
 
 package android.net.cts;
 
-import static com.android.testutils.ParcelUtils.assertParcelSane;
+import static com.android.testutils.ParcelUtils.assertParcelingIsLossless;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -118,6 +118,6 @@ public final class IpConfigurationTest {
     @Test
     public void testParcel() {
         final IpConfiguration config = new IpConfiguration();
-        assertParcelSane(config, 4);
+        assertParcelingIsLossless(config);
     }
 }

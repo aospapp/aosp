@@ -16,17 +16,24 @@
 
 package com.android.bedstead.nene.utils;
 
+import static com.android.compatibility.common.util.VersionCodes.CUR_DEVELOPMENT;
+import static com.android.compatibility.common.util.VersionCodes.R;
+
 import android.os.Build;
+
+import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Field;
 
 /** SDK Version checks. */
 public final class Versions {
 
+    public static final int T = CUR_DEVELOPMENT;
+
     /** Any version. */
     public static final int ANY = -1;
 
-    private static final String DEVELOPMENT_CODENAME = "S";
+    private static final ImmutableSet<String> DEVELOPMENT_CODENAMES = ImmutableSet.of("Sv2", "T");
 
     private Versions() {
 
@@ -37,10 +44,12 @@ public final class Versions {
      */
     public static void requireMinimumVersion(int min) {
         if (!meetsSdkVersionRequirements(min, ANY)) {
+            String currentVersion = meetsMinimumSdkVersionRequirement(R)
+                    ? Build.VERSION.RELEASE_OR_CODENAME : Integer.toString(Build.VERSION.SDK_INT);
             throw new UnsupportedOperationException(
-                    "Thie feature is only available on "
+                    "This feature is only available on "
                             + versionToLetter(min)
-                            + "+ (currently " + Build.VERSION.CODENAME + ")");
+                            + "+ (currently " + currentVersion + ")");
         }
     }
 
@@ -63,7 +72,7 @@ public final class Versions {
             }
         }
 
-        throw new IllegalStateException("Could not find version with code " + version);
+        return Integer.toString(version);
     }
 
     /**
@@ -81,7 +90,7 @@ public final class Versions {
     public static boolean meetsSdkVersionRequirements(int min, int max) {
         if (min != ANY) {
             if (min == Build.VERSION_CODES.CUR_DEVELOPMENT) {
-                if (!Build.VERSION.CODENAME.equals(DEVELOPMENT_CODENAME)) {
+                if (!DEVELOPMENT_CODENAMES.contains(Build.VERSION.CODENAME)) {
                     return false;
                 }
             } else if (min > Build.VERSION.SDK_INT) {
@@ -96,5 +105,13 @@ public final class Versions {
         }
 
         return true;
+    }
+
+    /**
+     * {@code true} if the current running version is the latest in-development version.
+     */
+    public static boolean isDevelopmentVersion() {
+        return Build.VERSION.SDK_INT == Build.VERSION_CODES.CUR_DEVELOPMENT
+                && DEVELOPMENT_CODENAMES.contains(Build.VERSION.CODENAME);
     }
 }

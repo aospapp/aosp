@@ -172,32 +172,6 @@ Result<std::string> enableFsVerity(const std::string& path, const SigningKey& ke
     return toHex(digest.value());
 }
 
-Result<std::map<std::string, std::string>> addFilesToVerityRecursive(const std::string& path,
-                                                                     const SigningKey& key) {
-    std::map<std::string, std::string> digests;
-    std::error_code ec;
-
-    auto it = std::filesystem::recursive_directory_iterator(path, ec);
-    auto end = std::filesystem::recursive_directory_iterator();
-
-    while (!ec && it != end) {
-        if (it->is_regular_file()) {
-            LOG(INFO) << "Adding " << it->path() << " to fs-verity...";
-            auto result = enableFsVerity(it->path(), key);
-            if (!result.ok()) {
-                return result.error();
-            }
-            digests[it->path()] = *result;
-        }
-        ++it;
-    }
-    if (ec) {
-        return Error() << "Failed to iterate " << path << ": " << ec;
-    }
-
-    return digests;
-}
-
 Result<std::string> isFileInVerity(const std::string& path) {
     unsigned int flags;
 
@@ -221,6 +195,38 @@ Result<std::string> isFileInVerity(const std::string& path) {
         return ErrnoError() << "Failed to FS_IOC_MEASURE_VERITY for " << path;
     }
     return toHex({&d->digest[0], &d->digest[d->digest_size]});
+}
+
+Result<std::map<std::string, std::string>> addFilesToVerityRecursive(const std::string& path,
+                                                                     const SigningKey& key) {
+    std::map<std::string, std::string> digests;
+    std::error_code ec;
+
+    auto it = std::filesystem::recursive_directory_iterator(path, ec);
+    auto end = std::filesystem::recursive_directory_iterator();
+
+    while (!ec && it != end) {
+        if (it->is_regular_file()) {
+            auto digest = isFileInVerity(it->path());
+            if (!digest.ok()) {
+                LOG(INFO) << "Adding " << it->path() << " to fs-verity...";
+                auto result = enableFsVerity(it->path(), key);
+                if (!result.ok()) {
+                    return result.error();
+                }
+                digests[it->path()] = *result;
+            } else {
+                LOG(INFO) << it->path() << " was already in fs-verity.";
+                digests[it->path()] = *digest;
+            }
+        }
+        ++it;
+    }
+    if (ec) {
+        return Error() << "Failed to iterate " << path << ": " << ec;
+    }
+
+    return digests;
 }
 
 Result<std::map<std::string, std::string>> verifyAllFilesInVerity(const std::string& path) {

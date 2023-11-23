@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Controlar a política de energia do automóvel."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"renderizar modelos"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Renderizar modelos."</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"controlar o início de aplicações"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Controlar o início de aplicações."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Dispositivo"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Convidado"</string>
     <string name="importance_default" msgid="8587741629268312938">"Importância predefinida"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"Repor mais tarde"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"O sist. infoentretenim. é reposto quando ligar o carro de novo."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"O carro deve estar estacionado para a reposição."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"A app <xliff:g id="ID_1">^1</xliff:g> está a afetar o desempenho do sistema."</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Desative a app para melhorar o desempenho do sistema. Pode ativar a app novamente nas Definições."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Dê prioridade à app para continuar a utilizá-la."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Desinstale a app para melhorar o desempenho do sistema."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Desativar app"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Dar prioridade à app"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Desinstalar app"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"A app <xliff:g id="ID_1">^1</xliff:g> foi desativada. Pode ativá-la novamente nas Definições."</string>
 </resources>

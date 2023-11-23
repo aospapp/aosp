@@ -367,6 +367,37 @@ TEST_F(MapInfoCreateMemoryTest, valid_rosegment_non_zero_offset) {
   }
 }
 
+TEST_F(MapInfoCreateMemoryTest, valid_single_rx_non_zero_offset) {
+  Maps maps;
+  maps.Add(0x3000, 0x5000, 0xa000, PROT_READ | PROT_EXEC, "/only/in/memory.apk", 0);
+
+  Elf32_Ehdr ehdr = {};
+  TestInitEhdr<Elf32_Ehdr>(&ehdr, ELFCLASS32, EM_ARM);
+
+  // Setup an elf at offset 0x3000 in memory..
+  memory_->SetMemory(0x3000, &ehdr, sizeof(ehdr));
+  memory_->SetMemoryBlock(0x3000 + sizeof(ehdr), 0x5000 - sizeof(ehdr), 0x34);
+
+  MapInfo* map_info = maps.Find(0x3000);
+  ASSERT_TRUE(map_info != nullptr);
+
+  std::unique_ptr<Memory> mem(map_info->CreateMemory(process_memory_));
+  ASSERT_TRUE(mem.get() != nullptr);
+  EXPECT_TRUE(map_info->memory_backed_elf());
+  EXPECT_EQ(0UL, map_info->elf_offset());
+  EXPECT_EQ(0xa000UL, map_info->offset());
+  EXPECT_EQ(0xa000UL, map_info->elf_start_offset());
+
+  // Verify that reading values from this memory works properly.
+  std::vector<uint8_t> buffer(0x3000);
+  size_t bytes = mem->Read(0, buffer.data(), buffer.size());
+  ASSERT_EQ(0x2000UL, bytes);
+  ASSERT_EQ(0, memcmp(&ehdr, buffer.data(), sizeof(ehdr)));
+  for (size_t i = sizeof(ehdr); i < bytes; i++) {
+    ASSERT_EQ(0x34, buffer[i]) << "Failed at byte " << i;
+  }
+}
+
 TEST_F(MapInfoCreateMemoryTest, rosegment_from_file) {
   Maps maps;
   maps.Add(0x500, 0x600, 0, PROT_READ, "something_else", 0);

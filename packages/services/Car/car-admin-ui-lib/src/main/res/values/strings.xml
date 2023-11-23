@@ -13,11 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
-    <!--  TODO(b/175214581): STOPSHIP use proper sentence, remove translatable=false, and document what they mean -->
-    <string name="car_admin_ui_managed_device_message_generic" translatable="false">This device is owned and managed by an enteprise</string>
-    <string name="car_admin_ui_managed_device_message_by_org" translatable="false">This device is owned by and managed by %1$s</string>
-    <string name="car_admin_ui_managed_device_message_by_app" translatable="false">This device is owned by an enterprise and managed by app %1$s</string>
+    <!-- Message displayed in multiple places indicating the device is managed by an organization, but the name of the organization is not known [CHAR LIMIT=NONE]-->
+    <string name="car_admin_ui_managed_device_message_generic">Vehicle managed by an organization</string>
+    <!-- Message displayed in multiple places indicating the device is managed by an organization [CHAR LIMIT=NONE]-->
+    <string name="car_admin_ui_managed_device_message_by_org">Vehicle managed by <xliff:g id="organization name" example="Acme Corporation">%1$s</xliff:g></string>
 
 </resources>

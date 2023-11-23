@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 use base::IoctlNr;
-use std::convert::TryInto;
 
 use libc::E2BIG;
 
@@ -20,6 +19,7 @@ use crate::{
     ClockState, CpuId, CpuIdEntry, DebugRegs, DescriptorTable, DeviceKind, Fpu, HypervisorX86_64,
     IoapicRedirectionTableEntry, IoapicState, IrqSourceChip, LapicState, PicSelect, PicState,
     PitChannelState, PitState, Register, Regs, Segment, Sregs, VcpuX86_64, VmCap, VmX86_64,
+    MAX_IOAPIC_PINS, NUM_IOAPIC_PINS,
 };
 
 type KvmCpuId = kvm::CpuId;
@@ -188,6 +188,17 @@ impl KvmVm {
             Ok(())
         } else {
             errno_result()
+        }
+    }
+
+    /// Retrieves the KVM_IOAPIC_NUM_PINS value for emulated IO-APIC.
+    pub fn get_ioapic_num_pins(&self) -> Result<usize> {
+        // Safe because we know that our file is a KVM fd, and if the cap is invalid KVM assumes
+        // it's an unavailable extension and returns 0, producing default KVM_IOAPIC_NUM_PINS value.
+        match unsafe { ioctl_with_val(self, KVM_CHECK_EXTENSION(), KVM_CAP_IOAPIC_NUM_PINS as u64) }
+        {
+            ret if ret < 0 => errno_result(),
+            ret => Ok((ret as usize).max(NUM_IOAPIC_PINS).min(MAX_IOAPIC_PINS)),
         }
     }
 
@@ -760,7 +771,7 @@ impl From<&kvm_ioapic_state> for IoapicState {
             ioregsel: item.ioregsel as u8,
             ioapicid: item.id,
             current_interrupt_level_bitmap: item.irr,
-            redirect_table: [IoapicRedirectionTableEntry::default(); 24],
+            redirect_table: [IoapicRedirectionTableEntry::default(); 120],
         };
         for (in_state, out_state) in item.redirtbl.iter().zip(state.redirect_table.iter_mut()) {
             *out_state = in_state.into();
@@ -812,14 +823,13 @@ impl From<&LapicState> for kvm_lapic_state {
         for (reg, value) in item.regs.iter().enumerate() {
             // Each lapic register is 16 bytes, but only the first 4 are used
             let reg_offset = 16 * reg;
-            let sliceu8 = unsafe {
-                // This array is only accessed as parts of a u32 word, so interpret it as a u8 array.
-                // to_le_bytes() produces an array of u8, not i8(c_char).
-                std::mem::transmute::<&mut [i8], &mut [u8]>(
-                    &mut state.regs[reg_offset..reg_offset + 4],
-                )
-            };
-            sliceu8.copy_from_slice(&value.to_le_bytes());
+            let regs_slice = &mut state.regs[reg_offset..reg_offset + 4];
+
+            // to_le_bytes() produces an array of u8, not i8(c_char), so we can't directly use
+            // copy_from_slice().
+            for (i, v) in value.to_le_bytes().iter().enumerate() {
+                regs_slice[i] = *v as i8;
+            }
         }
         state
     }
@@ -832,12 +842,14 @@ impl From<&kvm_lapic_state> for LapicState {
         for reg in 0..64 {
             // Each lapic register is 16 bytes, but only the first 4 are used
             let reg_offset = 16 * reg;
-            let bytes = unsafe {
-                // This array is only accessed as parts of a u32 word, so interpret it as a u8 array.
-                // from_le_bytes() only works on arrays of u8, not i8(c_char).
-                std::mem::transmute::<&[i8], &[u8]>(&item.regs[reg_offset..reg_offset + 4])
-            };
-            state.regs[reg] = u32::from_le_bytes(bytes.try_into().unwrap());
+
+            // from_le_bytes() only works on arrays of u8, not i8(c_char).
+            let reg_slice = &item.regs[reg_offset..reg_offset + 4];
+            let mut bytes = [0u8; 4];
+            for i in 0..4 {
+                bytes[i] = reg_slice[i] as u8;
+            }
+            state.regs[reg] = u32::from_le_bytes(bytes);
         }
         state
     }
@@ -1283,6 +1295,8 @@ mod tests {
     #[test]
     fn ioapic_state() {
         let mut entry = IoapicRedirectionTableEntry::default();
+        let mut noredir = IoapicRedirectionTableEntry::default();
+
         // default entry should be 0
         assert_eq!(entry.get(0, 64), 0);
 
@@ -1304,13 +1318,18 @@ mod tests {
 
         assert_eq!(entry.get(0, 64), bit_repr);
 
-        let state = IoapicState {
+        let mut state = IoapicState {
             base_address: 1,
             ioregsel: 2,
             ioapicid: 4,
             current_interrupt_level_bitmap: 8,
-            redirect_table: [entry; 24],
+            redirect_table: [noredir; 120],
         };
+
+        // Initialize first 24 (kvm_state limit) redirection entries
+        for i in 0..24 {
+            state.redirect_table[i] = entry;
+        }
 
         let kvm_state = kvm_ioapic_state::from(&state);
         assert_eq!(kvm_state.base_address, 1);
@@ -1318,7 +1337,7 @@ mod tests {
         assert_eq!(kvm_state.id, 4);
         assert_eq!(kvm_state.irr, 8);
         assert_eq!(kvm_state.pad, 0);
-        // check our entries
+        // check first 24 entries
         for i in 0..24 {
             assert_eq!(unsafe { kvm_state.redirtbl[i].bits }, bit_repr);
         }
@@ -1337,10 +1356,7 @@ mod tests {
 
         // check little endian bytes in kvm_state
         for i in 0..4 {
-            assert_eq!(
-                unsafe { std::mem::transmute::<i8, u8>(kvm_state.regs[32 + i]) } as u8,
-                2u8.pow(i as u32)
-            );
+            assert_eq!(kvm_state.regs[32 + i] as u8, 2u8.pow(i as u32));
         }
 
         // Test converting back to a LapicState

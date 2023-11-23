@@ -50,12 +50,13 @@ android::sp<IEvsDisplay> pDisplay;
 EvsStateControl *pStateController;
 
 void sigHandler(int sig) {
-    LOG(ERROR) << "evs_app is being terminated on receiving a signal " << sig;
+    LOG(WARNING) << "evs_app is being terminated on receiving a signal " << sig;
     if (pEvs != nullptr) {
         // Attempt to clean up the resources
         pStateController->postCommand({EvsStateControl::Op::EXIT, 0, 0}, true);
         pStateController->terminateUpdateLoop();
-        pEvs->closeDisplay(pDisplay);
+        pDisplay = nullptr;
+        pEvs = nullptr;
     }
 
     android::hardware::IPCThreadState::self()->stopProcess();

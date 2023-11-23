@@ -22,7 +22,6 @@ import android.widget.TextView;
 
 import androidx.preference.PreferenceViewHolder;
 
-import com.android.car.apps.common.util.Themes;
 import com.android.car.settings.R;
 import com.android.car.ui.preference.CarUiSwitchPreference;
 
@@ -69,15 +68,15 @@ public class SyncPreference extends CarUiSwitchPreference {
         switch (mSyncState) {
             case ACTIVE:
                 setIcon(R.drawable.ic_sync_anim);
-                getIcon().setTintList(Themes.getAttrColorStateList(getContext(), R.attr.iconColor));
+                getIcon().setTintList(getContext().getColorStateList(R.color.icon_color_default));
                 break;
             case PENDING:
                 setIcon(R.drawable.ic_sync);
-                getIcon().setTintList(Themes.getAttrColorStateList(getContext(), R.attr.iconColor));
+                getIcon().setTintList(getContext().getColorStateList(R.color.icon_color_default));
                 break;
             case FAILED:
                 setIcon(R.drawable.ic_sync_problem);
-                getIcon().setTintList(Themes.getAttrColorStateList(getContext(), R.attr.iconColor));
+                getIcon().setTintList(getContext().getColorStateList(R.color.icon_color_default));
                 break;
             default:
                 setIcon(null);

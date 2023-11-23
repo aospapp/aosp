@@ -37,17 +37,6 @@
 #define R_API_LEVEL 30
 #define S_API_LEVEL 31
 
-static int getFirstApiLevel(void) {
-    int level = property_get_int32("ro.product.first_api_level", 0);
-    if (level == 0) {
-        level = property_get_int32("ro.build.version.sdk", 0);
-    }
-    if (level == 0) {
-        ADD_FAILURE() << "Failed to determine first API level";
-    }
-    return level;
-}
-
 #ifdef __arm__
 // For ARM32, assemble the 'aese.8' instruction as an .inst, since otherwise
 // clang does not accept it.  It would be allowed in a separate file compiled
@@ -203,6 +192,8 @@ static void validateEncryptionFlags(int flags) {
 // https://source.android.com/security/encryption/file-based.html
 TEST(FileBasedEncryptionPolicyTest, allowedPolicy) {
     int first_api_level = getFirstApiLevel();
+    int vendor_api_level = getVendorApiLevel();
+    char crypto_type[PROPERTY_VALUE_MAX];
     struct fscrypt_get_policy_ex_arg arg;
     int res;
     int contents_mode;
@@ -215,11 +206,16 @@ TEST(FileBasedEncryptionPolicyTest, allowedPolicy) {
         FAIL() << "Failed to open " DIR_TO_CHECK ": " << strerror(errno);
     }
 
+    property_get("ro.crypto.type", crypto_type, "");
+    GTEST_LOG_(INFO) << "ro.crypto.type is '" << crypto_type << "'";
     GTEST_LOG_(INFO) << "First API level is " << first_api_level;
+    GTEST_LOG_(INFO) << "Vendor API level is " << vendor_api_level;
 
     // This feature name check only applies to devices that first shipped with
     // SC or later.
-    if(first_api_level >= S_API_LEVEL &&
+    int min_api_level = (first_api_level < vendor_api_level) ? first_api_level
+                                                             : vendor_api_level;
+    if (min_api_level >= S_API_LEVEL &&
        !deviceSupportsFeature("android.hardware.security.model.compatible")) {
         GTEST_SKIP()
             << "Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.";
@@ -247,6 +243,15 @@ TEST(FileBasedEncryptionPolicyTest, allowedPolicy) {
             if (first_api_level < Q_API_LEVEL) {
                 GTEST_LOG_(INFO)
                         << "Exempt from file-based encryption due to old starting API level";
+                return;
+            }
+            if (strcmp(crypto_type, "managed") == 0) {
+                // Android is running in a virtualized environment and the file system is encrypted
+                // by the host system.
+                GTEST_LOG_(INFO) << "Exempt from file-based encryption because the file system is "
+                                 << "encrypted by the host system";
+                // Note: All encryption-related CDD requirements still must be met,
+                // but they can't be tested directly in this case.
                 return;
             }
             FAIL() << "Device isn't using file-based encryption";

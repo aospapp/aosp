@@ -16,25 +16,31 @@
 
 package com.android.car.ui.toolbar;
 
-import com.android.car.ui.sharedlibrary.oemapis.toolbar.TabOEMV1;
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.TargetApi;
+
+import com.android.car.ui.plugin.oemapis.toolbar.TabOEMV1;
 
 import java.util.function.Consumer;
 
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(MIN_TARGET_API)
 class TabAdapterV1 {
 
     private final Tab mClientTab;
-    private final TabOEMV1 mSharedLibraryTab;
+    private final TabOEMV1 mPluginTab;
 
     TabAdapterV1(Tab clientTab) {
         mClientTab = clientTab;
         Consumer<Tab> selectedListener = mClientTab.getSelectedListener();
-        mSharedLibraryTab = TabOEMV1.builder()
+        mPluginTab = TabOEMV1.builder()
                 .setIcon(mClientTab.getIcon())
                 .setTitle(mClientTab.getText())
                 .setOnSelectedListener(selectedListener == null
                         ? null
                         : () -> selectedListener.accept(mClientTab))
+                .setTinted(mClientTab.isTinted())
                 .build();
     }
 
@@ -42,7 +48,7 @@ class TabAdapterV1 {
         return mClientTab;
     }
 
-    public TabOEMV1 getSharedLibraryTab() {
-        return mSharedLibraryTab;
+    public TabOEMV1 getPluginTab() {
+        return mPluginTab;
     }
 }

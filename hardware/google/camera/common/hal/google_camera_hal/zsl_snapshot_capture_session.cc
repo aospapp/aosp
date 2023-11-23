@@ -163,28 +163,28 @@ bool ZslSnapshotCaptureSession::IsStreamConfigurationSupported(
     return false;
   }
 
-  bool has_jpeg_stream = false;
+  bool has_eligible_snapshot_stream = false;
   bool has_preview_stream = false;
-  bool has_yuv_stream = false;
   for (const auto& stream : stream_config.streams) {
     if (stream.is_physical_camera_stream) {
       ALOGE("%s: support logical camera only", __FUNCTION__);
       return false;
     }
-    if (utils::IsJPEGSnapshotStream(stream)) {
-      has_jpeg_stream = true;
+    if (utils::IsJPEGSnapshotStream(stream) ||
+        utils::IsYUVSnapshotStream(stream)) {
+      if (utils::IsSoftwareDenoiseEligibleSnapshotStream(stream)) {
+        has_eligible_snapshot_stream = true;
+      }
     } else if (utils::IsPreviewStream(stream)) {
       has_preview_stream = true;
-    } else if (utils::IsYUVSnapshotStream(stream)) {
-      has_yuv_stream = true;
     } else {
       ALOGE("%s: only support preview + (snapshot and/or YUV) streams",
             __FUNCTION__);
       return false;
     }
   }
-  if (!has_jpeg_stream && !has_yuv_stream) {
-    ALOGE("%s: no JPEG or YUV stream", __FUNCTION__);
+  if (!has_eligible_snapshot_stream) {
+    ALOGE("%s: no eligible JPEG or YUV stream", __FUNCTION__);
     return false;
   }
 
@@ -231,12 +231,16 @@ std::unique_ptr<CaptureSession> ZslSnapshotCaptureSession::Create(
 }
 
 ZslSnapshotCaptureSession::~ZslSnapshotCaptureSession() {
+  auto release_thread = std::thread([this]() {
+    ATRACE_NAME("Release snapshot request processor");
+    snapshot_request_processor_ = nullptr;
+  });
   if (camera_device_session_hwl_ != nullptr) {
     camera_device_session_hwl_->DestroyPipelines();
   }
   // Need to explicitly release SnapshotProcessBlock by releasing
   // SnapshotRequestProcessor before the lib handle is released.
-  snapshot_request_processor_ = nullptr;
+  release_thread.join();
   dlclose(snapshot_process_block_lib_handle_);
 }
 
@@ -609,8 +613,8 @@ status_t ZslSnapshotCaptureSession::Initialize(
   if (res == OK) {
     partial_result_count_ = partial_result_entry.data.i32[0];
   }
-  result_dispatcher_ = ResultDispatcher::Create(partial_result_count_,
-                                                process_capture_result, notify);
+  result_dispatcher_ = ZslResultDispatcher::Create(
+      partial_result_count_, process_capture_result, notify);
   if (result_dispatcher_ == nullptr) {
     ALOGE("%s: Cannot create result dispatcher.", __FUNCTION__);
     return UNKNOWN_ERROR;
@@ -677,7 +681,15 @@ status_t ZslSnapshotCaptureSession::Initialize(
 
 status_t ZslSnapshotCaptureSession::ProcessRequest(const CaptureRequest& request) {
   ATRACE_CALL();
-  status_t res = result_dispatcher_->AddPendingRequest(request);
+  bool is_zsl_request = false;
+  camera_metadata_ro_entry entry;
+  if (request.settings != nullptr) {
+    if (request.settings->Get(ANDROID_CONTROL_ENABLE_ZSL, &entry) == OK &&
+        *entry.data.u8 == ANDROID_CONTROL_ENABLE_ZSL_TRUE) {
+      is_zsl_request = true;
+    }
+  }
+  status_t res = result_dispatcher_->AddPendingRequest(request, is_zsl_request);
   if (res != OK) {
     ALOGE("%s: frame(%d) fail to AddPendingRequest", __FUNCTION__,
           request.frame_number);

@@ -20,6 +20,8 @@
 
     <application>
         <uses-library android:name="android.test.runner"/>
+
+        <activity android:name=".DeviceStateTestActivity" android:exported="true"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

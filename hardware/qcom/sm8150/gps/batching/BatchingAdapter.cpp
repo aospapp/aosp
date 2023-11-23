@@ -37,7 +37,9 @@
 using namespace loc_core;
 
 BatchingAdapter::BatchingAdapter() :
-    LocAdapterBase(0, LocContext::getLocContext(LocContext::mLocationHalName)),
+    LocAdapterBase(0,
+                   LocContext::getLocContext(LocContext::mLocationHalName),
+                   false, nullptr, true),
     mOngoingTripDistance(0),
     mOngoingTripTBFInterval(0),
     mTripWithOngoingTBFDropped(false),

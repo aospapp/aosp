@@ -27,6 +27,7 @@ import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.loader.app.LoaderManager;
 import androidx.loader.content.Loader;
 
@@ -72,6 +73,14 @@ public class AppsNetworkStatsManager {
         } catch (RemoteException e) {
             LOG.e("Could not open a network session", e);
         }
+    }
+
+    @VisibleForTesting
+    AppsNetworkStatsManager(Context context, NetworkPolicyManager networkPolicyManager,
+            INetworkStatsSession iNetworkStatsSession) {
+        mContext = context;
+        mNetworkPolicyManager = networkPolicyManager;
+        mStatsSession = iNetworkStatsSession;
     }
 
     /**

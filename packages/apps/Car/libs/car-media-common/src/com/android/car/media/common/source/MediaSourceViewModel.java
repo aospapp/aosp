@@ -16,7 +16,7 @@
 
 package com.android.car.media.common.source;
 
-import static com.android.car.arch.common.LiveDataFunctions.dataOf;
+import static com.android.car.apps.common.util.LiveDataFunctions.dataOf;
 
 import android.app.Application;
 import android.car.Car;
@@ -111,6 +111,7 @@ public class MediaSourceViewModel extends AndroidViewModel {
         });
     }
 
+    private final int mMode;
     private final InputFactory mInputFactory;
     private final MediaBrowserConnector mBrowserConnector;
     private final MediaBrowserConnector.Callback mBrowserCallback = mBrowsingState::setValue;
@@ -120,6 +121,7 @@ public class MediaSourceViewModel extends AndroidViewModel {
             @NonNull InputFactory inputFactory) {
         super(application);
 
+        mMode = mode;
         mInputFactory = inputFactory;
         mCar = inputFactory.getCarApi();
 
@@ -132,7 +134,11 @@ public class MediaSourceViewModel extends AndroidViewModel {
         try {
             mCarMediaManager = mInputFactory.getCarMediaManager(mCar);
             mCarMediaManager.addMediaSourceListener(mMediaSourceListener, mode);
-            updateModelState(mInputFactory.getMediaSource(mCarMediaManager.getMediaSource(mode)));
+            MediaSource src = mInputFactory.getMediaSource(mCarMediaManager.getMediaSource(mode));
+            if (Log.isLoggable(TAG, Log.INFO)) {
+                Log.i(TAG, "Initializing with " + src);
+            }
+            updateModelState(src);
         } catch (CarNotConnectedException e) {
             Log.e(TAG, "Car not connected", e);
         }
@@ -160,6 +166,12 @@ public class MediaSourceViewModel extends AndroidViewModel {
      * Updates the primary media source.
      */
     public void setPrimaryMediaSource(@NonNull MediaSource mediaSource, int mode) {
+        if (mMode == mode) {
+            // Update the live data with the new value right away.
+            updateModelState(mediaSource);
+        } else if (Log.isLoggable(TAG, Log.WARN)) {
+            Log.w(TAG, "Inconsistent media source mode " + mode + " mMode: " + mMode);
+        }
         mCarMediaManager.setMediaSource(mediaSource.getBrowseServiceComponentName(), mode);
     }
 

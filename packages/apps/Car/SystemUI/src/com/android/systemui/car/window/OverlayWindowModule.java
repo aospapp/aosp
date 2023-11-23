@@ -16,6 +16,7 @@
 
 package com.android.systemui.car.window;
 
+import com.android.systemui.car.hvac.HvacPanelOverlayViewMediator;
 import com.android.systemui.car.keyguard.CarKeyguardViewMediator;
 import com.android.systemui.car.notification.BottomNotificationPanelViewMediator;
 import com.android.systemui.car.notification.NotificationPanelViewMediator;
@@ -75,4 +76,11 @@ public abstract class OverlayWindowModule {
     @ClassKey(UserSwitchTransitionViewMediator.class)
     public abstract OverlayViewMediator bindUserSwitchTransitionViewMediator(
             UserSwitchTransitionViewMediator userSwitchTransitionViewMediator);
+
+    /** Injects HvacPanelOverlayViewMediator. */
+    @Binds
+    @IntoMap
+    @ClassKey(HvacPanelOverlayViewMediator.class)
+    public abstract OverlayViewMediator bindHvacPanelOverlayViewMediator(
+            HvacPanelOverlayViewMediator overlayViewMediator);
 }

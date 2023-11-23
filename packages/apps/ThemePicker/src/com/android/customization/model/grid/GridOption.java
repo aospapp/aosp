@@ -93,11 +93,18 @@ public class GridOption implements CustomizationOption<GridOption>, Parcelable {
         Context context = view.getContext();
 
         int colorFilter = ResourceUtils.getColorAttr(context,
-                view.isActivated() ? android.R.attr.textColorPrimary :
-                android.R.attr.textColorTertiary);
+                view.isActivated()
+                        ? (mIsCurrent
+                            ? android.R.attr.textColorPrimary
+                            : android.R.attr.textColorPrimaryInverse)
+                        : android.R.attr.textColorTertiary);
         mTileDrawable.setColorFilter(colorFilter, Mode.SRC_ATOP);
         ((ImageView) view.findViewById(R.id.grid_option_thumbnail))
                 .setImageDrawable(mTileDrawable);
+
+        int backgroundResource = view.isActivated() && !mIsCurrent
+                ? R.drawable.option_border_new_selection : R.drawable.option_border;
+        view.findViewById(R.id.option_tile).setBackgroundResource(backgroundResource);
     }
 
     @Override

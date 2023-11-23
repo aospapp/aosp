@@ -389,6 +389,15 @@ void CuttlefishConfig::MutableInstanceSpecific::set_rootcanal_test_port(
   (*Dictionary())[kRootcanalTestPort] = rootcanal_test_port;
 }
 
+static constexpr char kCameraServerPort[] = "camera_server_port";
+int CuttlefishConfig::InstanceSpecific::camera_server_port() const {
+  return (*Dictionary())[kCameraServerPort].asInt();
+}
+void CuttlefishConfig::MutableInstanceSpecific::set_camera_server_port(
+    int camera_server_port) {
+  (*Dictionary())[kCameraServerPort] = camera_server_port;
+}
+
 static constexpr char kRootcanalConfigFile[] = "rootcanal_config_file";
 std::string CuttlefishConfig::InstanceSpecific::rootcanal_config_file() const {
   return (*Dictionary())[kRootcanalConfigFile].asString();
@@ -429,8 +438,10 @@ bool CuttlefishConfig::InstanceSpecific::start_webrtc_sig_server() const {
   return (*Dictionary())[kStartSigServer].asBool();
 }
 
-std::string CuttlefishConfig::InstanceSpecific::touch_socket_path() const {
-  return PerInstanceInternalPath("touch.sock");
+std::string CuttlefishConfig::InstanceSpecific::touch_socket_path(
+    int screen_idx) const {
+  return PerInstanceInternalPath(
+      ("touch_" + std::to_string(screen_idx) + ".sock").c_str());
 }
 
 std::string CuttlefishConfig::InstanceSpecific::keyboard_socket_path() const {

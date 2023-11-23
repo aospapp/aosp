@@ -155,6 +155,10 @@ static int get_status(const struct transport_context *ctx,
     uint8_t data[STATUS_MAX_LENGTH];
   } st;
   int retries = CRC_RETRY_COUNT;
+
+  /* All unset fields will be 0. */
+  memset(out, 0, sizeof(*out));
+
   while (retries--) {
     /* Get the status from the device */
     const uint32_t command = CMD_ID(ctx->app_id) | CMD_IS_READ | CMD_TRANSPORT;
@@ -162,9 +166,6 @@ static int get_status(const struct transport_context *ctx,
       NLOGE("Failed to read app %d status", ctx->app_id);
       return -1;
     }
-
-    /* All unset fields will be 0. */
-    memset(out, 0, sizeof(*out));
 
     /* Examine v0 fields */
     out->status = le32toh(st.status.status);
@@ -295,7 +296,7 @@ static uint32_t send_command(const struct transport_context *ctx) {
 
     /* Any further Writes needed to send all the args must set the MORE bit */
     command |= CMD_MORE_TO_COME;
-    args += ulen;
+    if (args) args += ulen;
     arg_len -= ulen;
   } while (arg_len);
 

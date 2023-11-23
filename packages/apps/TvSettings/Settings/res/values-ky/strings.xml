@@ -160,7 +160,7 @@
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"Эгер колдонмо суранса, түзмөгүңүз ойнотулуп жаткан видеонун баштапкы кадрларынын жыштыгын тууралайт. Видеону ойноткучка кирип же чыгып жатканда экран бир секундга өчүп калышы мүмкүн."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"Эч качан"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"Колдонмо суранган учурда да, түзмөгүңүз ойнотулуп жаткан видеонун баштапкы кадрларынын жыштыгын тууралоого эч качан аракет кылбайт."</string>
-    <string name="font_scale_settings_title" msgid="4114019544800225980">"Тексттин өлчөмүн жөндөө"</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"Тексттин өлчөмүн тууралоо"</string>
     <string name="font_scale_item_detail" msgid="1558315053348778805">"Өлчөмүн <xliff:g id="SCALE">%1$d</xliff:g>%% өзгөртүү"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"Үлгү текст"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"Оз өлкөсүнүн ажайып сыйкырчысы"</string>
@@ -340,8 +340,8 @@
     <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>, <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
     <string name="tutorials" msgid="7880770425872110455">"Үйрөткүчтөр"</string>
     <string name="about_system_update" msgid="7421264399111367755">"Системанын жаңыртуусу"</string>
-    <string name="system_update_description" msgid="998883510488461766">"Муну менен тутум программасы эң акыркы версияга жаңыртылат. Түзмөгүңүз өчүп күйөт."</string>
-    <string name="system_update_content_description" msgid="5702888187682876466">"Тутумду жаңыртуу. Муну менен тутум программасы эң акыркы версияга жаңыртылат. Түзмөгүңүз өчүп күйөт."</string>
+    <string name="system_update_description" msgid="998883510488461766">"Муну менен тутум программасы эң акыркы версияга жаңырат. Түзмөгүңүз өчүп күйөт."</string>
+    <string name="system_update_content_description" msgid="5702888187682876466">"Тутумду жаңыртуу. Муну менен тутум программасы эң акыркы версияга жаңырат. Түзмөгүңүз өчүп күйөт."</string>
     <string name="about_preference" msgid="9112690446998150670">"Түзмөк жөнүндө"</string>
     <string name="device_name" msgid="566626587332817733">"Түзмөктүн аталышы"</string>
     <string name="restart_button_label" msgid="911750765086382990">"Өчүрүп күйгүзүү"</string>

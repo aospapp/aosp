@@ -31,6 +31,7 @@ import static org.mockito.Mockito.verify;
 
 import android.content.res.AssetManager;
 import android.os.Bundle;
+import android.os.Environment;
 
 import com.android.internal.os.nano.StatsdConfigProto;
 import com.android.os.nano.AtomsProto;
@@ -51,6 +52,7 @@ import org.junit.runner.Result;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Map;
@@ -469,7 +471,7 @@ public class StatsdListenerTest {
 
     /** Test that the collector parses the configs from arguments correctly for valid configs. */
     @Test
-    public void testParsingConfigFromArguments_validConfig() throws Exception {
+    public void testParsingConfigFromArguments_byName_validConfig() throws Exception {
         // Stub two configs for testing.
         ByteArrayInputStream config1Stream = new ByteArrayInputStream(serialize(CONFIG_1));
         doReturn(config1Stream)
@@ -498,7 +500,7 @@ public class StatsdListenerTest {
 
     /** Test that the colletor fails and throws the right exception for an invalid config. */
     @Test
-    public void testParsingConfigFromArguments_malformedConfig() throws Exception {
+    public void testParsingConfigFromArguments_byName_malformedConfig() throws Exception {
         // Set up an invalid config for testing.
         ByteArrayInputStream configStream = new ByteArrayInputStream("not a config".getBytes());
         doReturn(configStream)
@@ -516,7 +518,7 @@ public class StatsdListenerTest {
 
     /** Test that the collector fails and throws the right exception for a nonexistent config. */
     @Test
-    public void testParsingConfigFromArguments_nonexistentConfig() {
+    public void testParsingConfigFromArguments_byName_nonexistentConfig() {
         Bundle args = new Bundle();
         args.putString(StatsdListener.OPTION_CONFIGS_RUN_LEVEL, "nah");
         doReturn(args).when(mListener).getArguments();
@@ -524,6 +526,109 @@ public class StatsdListenerTest {
         mExpectedException.expectMessage("does not exist");
         Map<String, StatsdConfigProto.StatsdConfig> configs =
                 mListener.getConfigsFromOption(StatsdListener.OPTION_CONFIGS_RUN_LEVEL);
+    }
+
+    /** Test that the collector parses the configs from arguments correctly for valid configs. */
+    @Test
+    public void testParsingConfigFromArguments_byPath_validConfig() throws Exception {
+        // Create two configs for testing.
+        File config1File =
+                File.createTempFile(
+                        "byPathValidTestConfig1", ".pb", Environment.getExternalStorageDirectory());
+        config1File.deleteOnExit();
+        Files.write(config1File.toPath(), serialize(CONFIG_1));
+        String config1Name =
+                StatsdListener.LOCAL_CONFIG_PREFIX + config1File.getName().replaceAll("\\.pb$", "");
+
+        File config2File =
+                File.createTempFile(
+                        "byPathValidTestConfig2", ".pb", Environment.getExternalStorageDirectory());
+        config2File.deleteOnExit();
+        Files.write(config2File.toPath(), serialize(CONFIG_2));
+        String config2Name =
+                StatsdListener.LOCAL_CONFIG_PREFIX + config2File.getName().replaceAll("\\.pb$", "");
+
+        Bundle args = new Bundle();
+        args.putString(
+                StatsdListener.OPTION_CONFIGS_RUN_LEVEL,
+                String.join(",", config1File.getAbsolutePath(), config2File.getAbsolutePath()));
+        doReturn(args).when(mListener).getArguments();
+
+        Map<String, StatsdConfigProto.StatsdConfig> configs =
+                mListener.getConfigsFromOption(StatsdListener.OPTION_CONFIGS_RUN_LEVEL);
+        Assert.assertTrue(configs.containsKey(config1Name));
+        Assert.assertEquals(configs.get(config1Name).id, CONFIG_ID_1);
+        Assert.assertTrue(configs.containsKey(config2Name));
+        Assert.assertEquals(configs.get(config2Name).id, CONFIG_ID_2);
+        Assert.assertEquals(configs.size(), 2);
+    }
+
+    /** Test that the collector fails and throws the right exception for a nonexistent config. */
+    @Test
+    public void testParsingConfigFromArguments_byPath_nonexistentConfig() {
+        Bundle args = new Bundle();
+        args.putString(StatsdListener.OPTION_CONFIGS_RUN_LEVEL, "/sdcard/nah");
+        doReturn(args).when(mListener).getArguments();
+
+        mExpectedException.expectMessage("does not exist");
+        Map<String, StatsdConfigProto.StatsdConfig> configs =
+                mListener.getConfigsFromOption(StatsdListener.OPTION_CONFIGS_RUN_LEVEL);
+    }
+
+    /** Test that the colletor fails and throws the right exception for an invalid config. */
+    @Test
+    public void testParsingConfigFromArguments_byPath_malformedConfig() throws Exception {
+        // Set up an invalid config for testing.
+        File configFile =
+                File.createTempFile(
+                        "byPathMalformedTestConfig",
+                        ".pb",
+                        Environment.getExternalStorageDirectory());
+        configFile.deleteOnExit();
+        Files.write(configFile.toPath(), "not a config".getBytes());
+
+        Bundle args = new Bundle();
+        args.putString(StatsdListener.OPTION_CONFIGS_RUN_LEVEL, configFile.getAbsolutePath());
+        doReturn(args).when(mListener).getArguments();
+
+        mExpectedException.expectMessage("Cannot parse");
+        Map<String, StatsdConfigProto.StatsdConfig> configs =
+                mListener.getConfigsFromOption(StatsdListener.OPTION_CONFIGS_RUN_LEVEL);
+    }
+
+    @Test
+    public void testParsingConfigFromArguments_byPathAndByName() throws Exception {
+        // We only test valid configs here because the other code paths have been tested separately.
+
+        // Create two configs for testing.
+        File config1File =
+                File.createTempFile(
+                        "byPathAndByNameValidTestConfig1",
+                        ".pb",
+                        Environment.getExternalStorageDirectory());
+        config1File.deleteOnExit();
+        Files.write(config1File.toPath(), serialize(CONFIG_1));
+        String config1Name =
+                StatsdListener.LOCAL_CONFIG_PREFIX + config1File.getName().replaceAll("\\.pb$", "");
+
+        ByteArrayInputStream config2Stream = new ByteArrayInputStream(serialize(CONFIG_2));
+        doReturn(config2Stream)
+                .when(mListener)
+                .openConfigWithAssetManager(any(AssetManager.class), eq(CONFIG_NAME_2));
+
+        Bundle args = new Bundle();
+        args.putString(
+                StatsdListener.OPTION_CONFIGS_RUN_LEVEL,
+                String.join(",", config1File.getAbsolutePath(), CONFIG_NAME_2));
+        doReturn(args).when(mListener).getArguments();
+
+        Map<String, StatsdConfigProto.StatsdConfig> configs =
+                mListener.getConfigsFromOption(StatsdListener.OPTION_CONFIGS_RUN_LEVEL);
+        Assert.assertTrue(configs.containsKey(config1Name));
+        Assert.assertEquals(configs.get(config1Name).id, CONFIG_ID_1);
+        Assert.assertTrue(configs.containsKey(CONFIG_NAME_2));
+        Assert.assertEquals(configs.get(CONFIG_NAME_2).id, CONFIG_ID_2);
+        Assert.assertEquals(configs.size(), 2);
     }
 
     /** Test that the collector has no effect when no config arguments are supplied. */

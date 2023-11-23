@@ -70,11 +70,6 @@ public class AutoNotificationMockingHelperImpl extends AbstractAutoStandardAppHe
                 getResourceFromConfig(
                         AutoConfigConstants.NOTIFICATIONS,
                         AutoConfigConstants.EXPANDED_NOTIFICATIONS_SCREEN,
-                        AutoConfigConstants.APP_NAME));
-        NOTIFICATION_REQUIRED_FIELDS.add(
-                getResourceFromConfig(
-                        AutoConfigConstants.NOTIFICATIONS,
-                        AutoConfigConstants.EXPANDED_NOTIFICATIONS_SCREEN,
                         AutoConfigConstants.NOTIFICATION_TITLE));
         NOTIFICATION_REQUIRED_FIELDS.add(
                 getResourceFromConfig(

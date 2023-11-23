@@ -19,7 +19,6 @@ package android.automotive.watchdog.internal;
 import android.automotive.watchdog.internal.ComponentType;
 import android.automotive.watchdog.internal.ICarWatchdogMonitor;
 import android.automotive.watchdog.internal.ICarWatchdogServiceForSystem;
-import android.automotive.watchdog.internal.PackageResourceOveruseAction;
 import android.automotive.watchdog.internal.ResourceOveruseConfiguration;
 import android.automotive.watchdog.internal.StateType;
 
@@ -121,11 +120,11 @@ interface ICarWatchdog {
    */
   List<ResourceOveruseConfiguration> getResourceOveruseConfigurations();
 
-  /**
-   * CarWatchdogService notifies the native service with the actions taken on the resource overusing
-   * applications.
-   *
-   * @param actions              List of actions take on resource overusing packages.
-   */
-   void actionTakenOnResourceOveruse(in List<PackageResourceOveruseAction> actions);
+   /**
+    * Enable/disable the internal client health check process.
+    * Disabling would stop the ANR killing process.
+    *
+    * @param isEnabled            New enabled state.
+    */
+    void controlProcessHealthCheck(in boolean disable);
 }

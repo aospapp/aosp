@@ -1,0 +1,2 @@
+/data/vendor/slog(/.*)?      u:object_r:vendor_slog_file:s0
+/vendor/bin/dmd              u:object_r:dmd_exec:s0

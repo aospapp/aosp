@@ -21,16 +21,25 @@ import android.os.Bundle;
 import com.android.queryable.Queryable;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Implementation of {@link BundleKeyQuery}. */
 public final class BundleKeyQueryHelper<E extends Queryable> implements BundleKeyQuery<E>,
         Serializable {
 
+    private static final long serialVersionUID = 1;
+
     private final E mQuery;
     private Boolean mExpectsToExist = null;
     private StringQueryHelper<E> mStringQuery = null;
+    private IntegerQueryHelper<E> mIntegerQuery = null;
+    private LongQueryHelper<E> mLongQuery = null;
+    private BooleanQueryHelper<E> mBooleanQuery = null;
     private SerializableQueryHelper<E> mSerializableQuery;
     private BundleQueryHelper<E> mBundleQuery;
+    private ListQueryHelper<E, String, StringQuery<E>> mStringListQuery;
+    private ListQueryHelper<E, Integer, IntegerQuery<E>> mIntegerListQuery;
 
     public BundleKeyQueryHelper(E query) {
         mQuery = query;
@@ -83,8 +92,55 @@ public final class BundleKeyQueryHelper<E extends Queryable> implements BundleKe
         return mBundleQuery;
     }
 
+    @Override
+    public IntegerQuery<E> integerValue() {
+        if (mIntegerQuery == null) {
+            checkUntyped();
+            mIntegerQuery = new IntegerQueryHelper<>(mQuery);
+        }
+        return mIntegerQuery;
+    }
+
+    @Override
+    public LongQuery<E> longValue() {
+        if (mLongQuery == null) {
+            checkUntyped();
+            mLongQuery = new LongQueryHelper<>(mQuery);
+        }
+        return mLongQuery;
+    }
+
+    @Override
+    public BooleanQuery<E> booleanValue() {
+        if (mBooleanQuery == null) {
+            checkUntyped();
+            mBooleanQuery = new BooleanQueryHelper<>(mQuery);
+        }
+        return mBooleanQuery;
+    }
+
+    @Override
+    public ListQuery<E, String, StringQuery<E>> stringListValue() {
+        if (mStringListQuery == null) {
+            checkUntyped();
+            mStringListQuery = new ListQueryHelper<>(mQuery);
+        }
+        return mStringListQuery;
+    }
+
+    @Override
+    public ListQuery<E, Integer, IntegerQuery<E>> integerListValue() {
+        if (mIntegerListQuery == null) {
+            checkUntyped();
+            mIntegerListQuery = new ListQueryHelper<>(mQuery);
+        }
+        return mIntegerListQuery;
+    }
+
     private void checkUntyped() {
-        if (mStringQuery != null || mSerializableQuery != null || mBundleQuery != null) {
+        if (mStringQuery != null || mSerializableQuery != null || mBundleQuery != null
+                || mIntegerQuery != null || mLongQuery != null || mBooleanQuery != null
+                || mStringListQuery != null || mIntegerListQuery != null) {
             throw new IllegalStateException("Each key can only be typed once");
         }
     }
@@ -102,7 +158,57 @@ public final class BundleKeyQueryHelper<E extends Queryable> implements BundleKe
         if (mBundleQuery != null && !mBundleQuery.matches(value.getBundle(key))) {
             return false;
         }
+        if (mIntegerQuery != null && !mIntegerQuery.matches(value.getInt(key))) {
+            return false;
+        }
+        if (mLongQuery != null && !mLongQuery.matches(value.getLong(key))) {
+            return false;
+        }
+        if (mBooleanQuery != null && !mBooleanQuery.matches(value.getBoolean(key))) {
+            return false;
+        }
+        if (mStringListQuery != null && !mStringListQuery.matches(value.getStringArrayList(key))) {
+            return false;
+        }
+        if (mIntegerListQuery != null && !mIntegerListQuery.matches(
+                value.getIntegerArrayList(key))) {
+            return false;
+        }
 
         return true;
+    }
+
+    @Override
+    public String describeQuery(String fieldName) {
+        List<String> queryStrings = new ArrayList<>();
+        if (mExpectsToExist != null) {
+            queryStrings.add(fieldName + " exists");
+        }
+        if (mStringQuery != null) {
+            queryStrings.add(mStringQuery.describeQuery(fieldName + ".stringValue"));
+        }
+        if (mSerializableQuery != null) {
+            queryStrings.add(mSerializableQuery.describeQuery(fieldName + ".serializableValue"));
+        }
+        if (mBundleQuery != null) {
+            queryStrings.add(mBundleQuery.describeQuery(fieldName + ".bundleValue"));
+        }
+        if (mIntegerQuery != null) {
+            queryStrings.add(mIntegerQuery.describeQuery(fieldName + ".integerValue"));
+        }
+        if (mLongQuery != null) {
+            queryStrings.add(mLongQuery.describeQuery(fieldName + ".longValue"));
+        }
+        if (mBooleanQuery != null) {
+            queryStrings.add(mBooleanQuery.describeQuery(fieldName + ".booleanValue"));
+        }
+        if (mStringListQuery != null) {
+            queryStrings.add(mStringListQuery.describeQuery(fieldName + ".stringListValue"));
+        }
+        if (mIntegerListQuery != null) {
+            queryStrings.add(mIntegerListQuery.describeQuery(fieldName + ".integerListValue"));
+        }
+
+        return Queryable.joinQueryStrings(queryStrings);
     }
 }

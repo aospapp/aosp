@@ -40,9 +40,4 @@
     <string name="cmas_presidential_level_alert">National alert</string>
     <!-- Show CMAS opt-out dialog on first non-national alert. [CHAR LIMIT=100] -->
     <string name="show_cmas_opt_out_summary">Show an opt-out dialog after displaying the first alert (other than National alert).</string>
-    <!-- Show checkbox for National alerts in settings -->
-    <!-- Preference title for enable National threat alerts checkbox. [CHAR LIMIT=40] -->
-    <string name="enable_cmas_presidential_alerts_title">National alerts</string>
-    <!-- Preference summary for enable national threat alerts checkbox. [CHAR LIMIT=100] -->
-    <string name="enable_cmas_presidential_alerts_summary">National warning messages. Can\'t be turned off.</string>
 </resources>

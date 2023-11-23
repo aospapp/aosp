@@ -17,7 +17,7 @@
 //!    stores them in an in-memory store.
 //! 2. Returns the collected metrics when requested by the statsd proxy.
 
-use crate::error::get_error_code;
+use crate::error::{get_error_code, Error};
 use crate::globals::DB;
 use crate::key_parameter::KeyParameterValue as KsKeyParamValue;
 use crate::operation::Outcome;
@@ -44,6 +44,7 @@ use android_security_metrics::aidl::android::security::metrics::{
     RkpPoolStats::RkpPoolStats, SecurityLevel::SecurityLevel as MetricsSecurityLevel,
     Storage::Storage as MetricsStorage,
 };
+use android_system_keystore2::aidl::android::system::keystore2::ResponseCode::ResponseCode;
 use anyhow::{Context, Result};
 use keystore2_system_property::{write, PropertyWatcher, PropertyWatcherError};
 use lazy_static::lazy_static;
@@ -560,10 +561,14 @@ fn pull_storage_stats() -> Result<Vec<KeystoreAtom>> {
 fn pull_attestation_pool_stats() -> Result<Vec<KeystoreAtom>> {
     let mut atoms = Vec::<KeystoreAtom>::new();
     for sec_level in &[SecurityLevel::TRUSTED_ENVIRONMENT, SecurityLevel::STRONGBOX] {
+        // set the expired_by date to be three days from now
         let expired_by = SystemTime::now()
+            .checked_add(Duration::from_secs(60 * 60 * 24 * 3))
+            .ok_or(Error::Rc(ResponseCode::SYSTEM_ERROR))
+            .context("In pull_attestation_pool_stats: Failed to compute expired by system time.")?
             .duration_since(UNIX_EPOCH)
-            .unwrap_or_else(|_| Duration::new(0, 0))
-            .as_secs() as i64;
+            .context("In pull_attestation_pool_stats: Failed to compute expired by duration.")?
+            .as_millis() as i64;
 
         let result = get_pool_status(expired_by, *sec_level);
 

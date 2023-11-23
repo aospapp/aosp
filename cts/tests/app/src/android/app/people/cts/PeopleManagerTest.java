@@ -164,6 +164,7 @@ public class PeopleManagerTest extends AndroidTestCase {
                 .setSmallIcon(android.R.drawable.sym_def_app_icon);
         return nb;
     }
+
     public void testIsConversationWithoutPermission() throws Exception {
         try {
             mPeopleManager.isConversation(mContext.getPackageName(), SHARE_SHORTCUT_ID);
@@ -188,6 +189,23 @@ public class PeopleManagerTest extends AndroidTestCase {
             InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .dropShellPermissionIdentity();
         }
+    }
+
+    public void testAddOrUpdateStatus_withExpiration() throws Exception {
+        long expirationDuration = 1000;
+        ConversationStatus cs = new ConversationStatus.Builder("id", ACTIVITY_GAME)
+                .setAvailability(AVAILABILITY_AVAILABLE)
+                .setEndTimeMillis(System.currentTimeMillis() + expirationDuration)
+                .build();
+        mPeopleManager.addOrUpdateStatus(SHARE_SHORTCUT_ID, cs);
+
+        List<ConversationStatus> statuses = mPeopleManager.getStatuses(SHARE_SHORTCUT_ID);
+
+        assertTrue(statuses.contains(cs));
+        Thread.sleep(expirationDuration * 2);
+
+        statuses = mPeopleManager.getStatuses(SHARE_SHORTCUT_ID);
+        assertTrue(statuses.isEmpty());
     }
 
     public void testAddOrUpdateStatus_add() throws Exception {

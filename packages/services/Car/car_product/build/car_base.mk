@@ -42,7 +42,6 @@ PRODUCT_PACKAGES += \
     Keyguard \
     LatinIME \
     Launcher2 \
-    ManagedProvisioning \
     PacProcessor \
     PrintSpooler \
     ProxyHandler \
@@ -61,6 +60,7 @@ PRODUCT_PACKAGES += \
     A2dpSinkService \
     PackageInstaller \
     carbugreportd \
+    vehicle_binding_util \
 
 # ENABLE_CAMERA_SERVICE must be set as true from the product's makefile if it wants to support
 # Android Camera service.
@@ -74,7 +74,8 @@ include packages/services/Car/cpp/evs/manager/evsmanager.mk
 ifeq ($(ENABLE_EVS_SAMPLE), true)
 # ENABLE_EVS_SAMPLE should set be true or their vendor specific equivalents should be included in
 # the device.mk with the corresponding selinux policies
-PRODUCT_PRODUCT_PROPERTIES += persist.automotive.evs.mode=0
+LOCAL_EVS_PROPERTIES ?= persist.automotive.evs.mode=0
+PRODUCT_PRODUCT_PROPERTIES += $(LOCAL_EVS_PROPERTIES)
 PRODUCT_PACKAGES += evs_app \
                     android.hardware.automotive.evs@1.1-sample \
                     android.frameworks.automotive.display@1.0-service
@@ -82,8 +83,7 @@ include packages/services/Car/cpp/evs/apps/sepolicy/evsapp.mk
 include packages/services/Car/cpp/evs/sampleDriver/sepolicy/evsdriver.mk
 endif
 ifeq ($(ENABLE_CAREVSSERVICE_SAMPLE), true)
-PRODUCT_PACKAGES += CarEvsCameraPreviewApp \
-                    CarSystemUIEvsRRO
+PRODUCT_PACKAGES += CarEvsCameraPreviewApp
 endif
 ifeq ($(ENABLE_REAR_VIEW_CAMERA_SAMPLE), true)
 PRODUCT_PACKAGES += SampleRearViewCamera

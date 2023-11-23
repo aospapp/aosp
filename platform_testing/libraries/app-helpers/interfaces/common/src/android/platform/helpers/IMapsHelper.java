@@ -24,29 +24,29 @@ public interface IMapsHelper extends IAppHelper {
     /**
      * Setup expectation: On the standard Map screen in any setup.
      *
-     * Best effort attempt to go to the query screen (if not currently there),
-     * does a search, and selects the results.
+     * <p>Best effort attempt to go to the query screen (if not currently there), does a search, and
+     * selects the results.
      */
     public void doSearch(String query);
 
     /**
      * Setup expectation: Destination is selected.
      *
-     * Best effort attempt to go to the directions screen for the selected destination.
+     * <p>Best effort attempt to go to the directions screen for the selected destination.
      */
     public void getDirections();
 
     /**
      * Setup expectation: On directions screen.
      *
-     * Best effort attempt to start navigation for the selected destination.
+     * <p>Best effort attempt to start navigation for the selected destination.
      */
     public void startNavigation();
 
     /**
      * Setup expectation: On navigation screen.
      *
-     * Best effort attempt to stop navigation, and go back to the directions screen.
+     * <p>Best effort attempt to stop navigation, and go back to the directions screen.
      */
     public void stopNavigation();
 
@@ -107,8 +107,7 @@ public interface IMapsHelper extends IAppHelper {
     /**
      * Setup expectation: On the standard Map screen in any setup.
      *
-     * <p>Best effort attempt to go to the query screen (if not currently there),
-     * does a search.
+     * <p>Best effort attempt to go to the query screen (if not currently there), does a search.
      */
     public default void inputSearch(String query) {
         throw new UnsupportedOperationException("Not yet implemented.");
@@ -176,5 +175,43 @@ public interface IMapsHelper extends IAppHelper {
      */
     public default void clickBaseCompassButton() {
         throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectation: On the home screen for foldable device.
+     *
+     * <p>This method checks that the home page has side panel view.
+     */
+    public default boolean isSidePanelOpened() {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Setup expectation: On the home screen for foldable device.
+     *
+     * <p>Click the button to close the side panel when it is opened.
+     */
+    public default void closeSidePanel() {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Setup expectation: On the home screen for foldable device.
+     *
+     * <p>Get the UiObject2 of main map container.
+     */
+    public default UiObject2 getMainMapContainer() {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Setup expectation: On the home screen.
+     *
+     * <p>This method checks if Maps is on the main page.
+     *
+     * @param sidePanelOpened Whether the side panel view should be opened or not.
+     */
+    public default boolean isOnMapsMainPage(boolean sidePanelOpened) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 }

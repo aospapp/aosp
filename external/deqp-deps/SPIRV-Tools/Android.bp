@@ -139,5 +139,6 @@ cc_library {
     cppflags: [
         "-Wno-implicit-fallthrough",
         "-Wno-sign-conversion",
+        "-Wno-switch",
     ],
 }

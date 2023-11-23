@@ -748,8 +748,8 @@
     <string name="system_wait_for_debugger" msgid="5715878008542589060">"Čekanje na program za otklanjanje grešaka"</string>
     <string name="system_verify_apps_over_usb" msgid="7289212844195483932">"Potvrda aplikacija putem USB-a"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="7737988681480237094">"Provjerava ima li štetnog ponašanja u aplikacijama instaliranim putem ADB-a/ADT-a"</string>
-    <string name="system_wifi_verbose_logging" msgid="3097788974146704831">"WiFi opširno zapisivanje"</string>
-    <string name="system_desc_wifi_verbose_logging" msgid="3537578245428327314">"Omogućiti WiFi opšrino zapisivanje"</string>
+    <string name="system_wifi_verbose_logging" msgid="3097788974146704831">"Detaljni zapisnik za WiFi"</string>
+    <string name="system_desc_wifi_verbose_logging" msgid="3537578245428327314">"Omogućite detaljni zapisnik za WiFi"</string>
     <string name="system_show_touches" msgid="8244331695139748286">"Prikaz dodira"</string>
     <string name="system_pointer_location" msgid="8724050865245555084">"Lokacija pokazivača"</string>
     <string name="system_show_layout_bounds" msgid="8803080672553699649">"Prikaži granice rasporeda"</string>

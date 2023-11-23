@@ -1,0 +1,7 @@
+allow netutils_wrapper pktrouter:fd use;
+allow netutils_wrapper pktrouter:fifo_file write;
+allow netutils_wrapper pktrouter:netlink_route_socket { read write };
+allow netutils_wrapper pktrouter:packet_socket { read write };
+allow netutils_wrapper pktrouter:rawip_socket { read write };
+allow netutils_wrapper pktrouter:udp_socket { read write };
+allow netutils_wrapper pktrouter_device:chr_file rw_file_perms;

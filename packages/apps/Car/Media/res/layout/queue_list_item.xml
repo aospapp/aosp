@@ -32,7 +32,8 @@
             android:id="@+id/thumbnail"
             android:layout_width="@dimen/queue_list_item_thumbnail_size"
             android:layout_height="@dimen/queue_list_item_thumbnail_size"
-            android:scaleType="centerCrop"/>
+            android:scaleType="centerCrop"
+            style="@style/MediaIconContainerStyle"/>
     </FrameLayout>
 
     <Space

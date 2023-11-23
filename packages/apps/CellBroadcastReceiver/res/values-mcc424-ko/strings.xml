@@ -28,5 +28,5 @@
     <string name="state_local_test_alert" msgid="5347253401221487116">"테스트 알림"</string>
     <string name="enable_emergency_alerts_message_title" msgid="5365080705719184919">"경고 알림"</string>
     <string name="enable_public_safety_messages_title" msgid="4702006823902961758">"공공 안전 알림"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="3586102183699625309">"테스트 알림"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="3586102183699625309">"테스트 경보"</string>
 </resources>

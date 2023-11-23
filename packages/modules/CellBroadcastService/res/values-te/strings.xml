@@ -19,6 +19,6 @@
     <string name="etws_primary_default_message_earthquake" msgid="6322509321590329419">"ప్రశాంతంగా ఉండండి మరియు దగ్గర్లో తలదాచుకోండి."</string>
     <string name="etws_primary_default_message_tsunami" msgid="2521384573822842618">"వెంటనే తీర ప్రాంతాలు మరియు నదీ పరీవాహక ప్రాంతాలను ఖాళీ చేసి మెట్ట ప్రాంతాలకు తరలి వెళ్లండి."</string>
     <string name="etws_primary_default_message_earthquake_and_tsunami" msgid="7826176257527823396">"ప్రశాంతంగా ఉండండి మరియు దగ్గర్లో తలదాచుకోండి."</string>
-    <string name="etws_primary_default_message_test" msgid="2739829278266087553">"అత్యవసర సందేశాల పరీక్ష"</string>
+    <string name="etws_primary_default_message_test" msgid="2739829278266087553">"అత్యవసర మెసేజ్‌ల పరీక్ష"</string>
     <string name="etws_primary_default_message_others" msgid="3271611843755121534">"స్థానిక ప్రభుత్వం‌చే అలర్ట్ జారీ చేయబడింది. మరింత సమాచారం త్వరలో వస్తుంది."</string>
 </resources>

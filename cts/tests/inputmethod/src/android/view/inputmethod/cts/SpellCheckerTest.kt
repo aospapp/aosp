@@ -424,8 +424,9 @@ class SpellCheckerTest : EndToEndImeTestBase() {
             MockSpellCheckerClient.create(context, configuration).use {
                 val (activity, editText) = startTestActivity()
                 CtsTouchUtils.emulateTapOnViewCenter(instrumentation, null, editText)
-                waitOnMainUntil({ editText.hasFocus() }, TIMEOUT)
                 val imm = activity.getSystemService(InputMethodManager::class.java)
+                waitOnMainUntil({ editText.hasFocus() &&
+                    imm.hasActiveInputConnection(editText) }, TIMEOUT)
                 assertThat(imm?.isInputMethodSuppressingSpellChecker).isTrue()
 
                 // SpellCheckerSession should return empty results if suppressed.
@@ -451,8 +452,9 @@ class SpellCheckerTest : EndToEndImeTestBase() {
 
             val (activity, editText) = startTestActivity()
             CtsTouchUtils.emulateTapOnViewCenter(instrumentation, null, editText)
-            waitOnMainUntil({ editText.hasFocus() }, TIMEOUT)
             val imm = activity.getSystemService(InputMethodManager::class.java)
+            waitOnMainUntil({ editText.hasFocus() &&
+                imm.hasActiveInputConnection(editText) }, TIMEOUT)
             assertThat(imm?.isInputMethodSuppressingSpellChecker).isFalse()
         }
     }

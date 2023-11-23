@@ -15,6 +15,7 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name">CTS Verifier</string>
+    <string name="module_id">noabi CtsVerifier</string>
 
     <string name="title_version">CTS Verifier %1$s</string>
 
@@ -143,7 +144,31 @@
         Do not enter or disturb the vehicle for at least 15 minutes.\n\n
         Enter the vehicle. Re-launch the CTS-Verifier app if it is not running.\n\n
         If Garage Mode ran as required, the pass button will be enabled.</string>
+    <string name="car_component_power_on_policy_check">Verify Component Power On Policy</string>
+    <string name="car_component_power_off_policy_check">Verify Component Power Off Policy</string>
+    <string name="car_power_policy_test">Car Power Policy Test</string>
+    <string name="car_power_policy_test_desc">
+        This test verifies that Wi-Fi, Bluetooth and Location settings UI behaviors with respect
+        to their power policy. If the policy sets components power off, the component settings UI
+        shall be disabled. Otherwise, the settings UI shall be enabled as default.\n\n
+        First execute the\n
+        "  adb shell cmd car_service apply-cts-verifier-power-off-policy"\n
+        adb shell command first and then sequentialy click first 4 buttons to check each component
+        settings UI are disabled.\n\n
+        Then, execute the\n
+        "  adb shell cmd car_service apply-cts-verifier-power-on-policy"\n
+        shell command and sequential click the remaining 4 buttons to check if each component
+        settings UI is enabled.\n\n
+        For the detailed instructions, please refer to\n
+        "  https://source.android.com/compatibility/cts/power-policy".
+        </string>
     <string name="car_wifi_settings">Go to Wi-Fi settings</string>
+    <string name="car_wifi_settings_disable">Check Wi-Fi Settings Disabled</string>
+    <string name="car_bluetooth_settings_disable">Check Bluetooth Settings Disabled</string>
+    <string name="car_location_settings_disable">Check Location Settings Disabled</string>
+    <string name="car_wifi_settings_enable">Check Wi-Fi Settings Enabled</string>
+    <string name="car_bluetooth_settings_enable">Check Bluetooth Settings Enabled</string>
+    <string name="car_location_settings_enable">Check Location Settings Enabled</string>
     <string name="car_dock_test">Car Dock Test</string>
     <string name="car_dock_test_desc">This test ensures that car mode opens the app associated with
         car dock when going into car mode.\n\n
@@ -162,12 +187,6 @@
       implemented gears then the pass button will be enabled.</string>
     <string name="expected_gear_selection_title">Expected Gear Selection</string>
     <string name="current_gear_selection_title">Current Gear Selection</string>
-    <string name="night_mode_test">NIGHT_MODE Test</string>
-    <string name="night_mode_test_desc">This test ensures that the NIGHT_MODE vehicle property is
-      implemented correctly.\n\nFollow the instructions on the screen to engage and disengage
-      NIGHT_MODE through the vehicle HAL. When the instructions are completed, the pass button
-      will be enabled.</string>
-    <string name="current_night_mode_value_title">Current NIGHT_MODE Value:</string>
     <string name="parking_brake_on_test">PARKING_BRAKE_ON Test</string>
     <string name="parking_brake_on_test_desc">This test ensures that the
       PARKING_BRAKE_ON property is implemented correctly.\n\nFollow the
@@ -223,6 +242,15 @@
         2. Wait for an overlaying transparent activity to show up obscuring the device admin details window.\n
         3. The button to activate the admin should be disabled and should not register any taps.\n
         4. Press \'back\' to exit the overlaying transparent activity.\n
+        5. Press \'back\' to exit the device admin details and return to this screen.\n
+        Pass the test if the device admin could not be activated while the details
+        window was being obscured.
+    </string>
+    <string name="da_tapjacking_instructions" product="automotive">
+        1. Launch the device admin add screen by pressing the button below.\n
+        2. Wait for an overlaying transparent activity to show up obscuring the device admin details window.\n
+        3. The button to activate the admin should be disabled and should not register any taps.\n
+        4. Wait for the overlaying activity to finish.\n
         5. Press \'back\' to exit the device admin details and return to this screen.\n
         Pass the test if the device admin could not be activated while the details
         window was being obscured.
@@ -875,7 +903,8 @@
     <string name="ibo_test">Ignore Battery Optimizations Test</string>
     <string name="ibo_test_info">
         This test verifies that the device provides a user affordance to ask the user if the system
-        should disable battery optimizations for an app.
+        should disable battery optimizations for an app and to allow a user to remove the app from
+        the exemption list.
     </string>
     <string name="ibo_test_start_unexempt_app">
         Remove the test app from the ignore battery optimizations list to begin the test. (Try going
@@ -887,8 +916,9 @@
     <string name="ibo_next_to_confirm">Press next to confirm.</string>
     <string name="ibo_app_not_exempted">The app is not exempted from battery optimizations.</string>
     <string name="ibo_unexempt_app">
-        Remove the test app from the ignore battery optimizations list. (Try going
-        to the App Info page and make sure the system is optimizing battery for the app.)
+        Remove the test app from the ignore battery optimizations list. (Either run \"adb shell cmd
+        deviceidle whitelist -com.android.cts.verifier\" or open the list of apps and their
+        exemption statuses. Find the test app in the list and remove the app\'s exemption.)
     </string>
     <string name="ibo_app_is_exempted">The app is exempted from battery optimizations.</string>
     <string name="ibo_exempt_app_list">
@@ -2277,12 +2307,50 @@
         on the lockscreen</string>
     <string name="nls_restore_visibility">Please change the lock screen setting to show all
         content on the lockscreen</string>
-    <string name="add_screen_lock">Add a secure screen lock of any type</string>
+    <string name="add_screen_lock">Add a secure screen lock of any type.\nLet all notification content be shown.</string>
+    <string name="set_global_visibility_public">Update notification settings to ensure that all notification content is shown.</string>
+    <string name="set_global_visibility_private">Update notification settings to ensure that sensitive notification content is shown only when unlocked.</string>
+    <string name="set_global_visibility_secret">Update notification settings to ensure that all notifications are hidden on the lock screen.</string>
     <string name="remove_screen_lock">Remove the added screen lock</string>
     <string name="secure_action_lockscreen">Lock the screen and find the SecureActionOnLockScreenTest
         notification. Tap on its action. Verify that the keyguard displays on tap, and that the
         notification text does not update until the passcode is entered. Ensure that the notification
         text does update once the device is unlocked.</string>
+    <string name="np_start_channel_settings">Launch Channel Settings</string>
+    <string name="np_start_security_settings">Launch Security Settings</string>
+    <string name="np_start_notif_settings">Launch Notification Settings</string>
+    <string name="np_when_locked_see_redacted">Lock the screen and find the NotifPrivacyTest notification.\n
+        Pass the test if the notification content is REDACTED.</string>
+    <string name="np_when_locked_see_private">Lock the screen and find the NotifPrivacyTest notification.\n
+        Pass the test if the notification content is EXPOSED.</string>
+    <string name="np_when_locked_hidden">Lock the screen and look for the NotifPrivacyTest notification.\n
+        Fail the test if it can be found without unlocking the device.</string>
+    <string name="np_start_occluding">Launch CallSimulator</string>
+    <string name="np_occluding_instructions">Launch the CallSimulator and follow the instructions on that screen.</string>
+    <string name="np_occluding_see_redacted">CallSimulator
+        \n\n(Like a call, this screen will be visible even when the device is locked.)
+        \n\nLock the screen, then come back here without unlocking.
+        \nPull down the notification shade and find the NotifPrivacyTest notification.
+        \nPass the test if the notification content is REDACTED.
+        \n\nGo back when ready to Pass/Fail the step.</string>
+    <string name="np_occluding_see_private">CallSimulator
+        \n\n(Like a call, this screen will be visible even when the device is locked.)
+        \n\nLock the screen, then come back here without unlocking.
+        \nPull down the notification shade and find the NotifPrivacyTest notification.
+        \nPass the test if the notification content is EXPOSED.
+        \n\nGo back when ready to Pass/Fail the step.</string>
+    <string name="np_occluding_hidden">CallSimulator
+        \n\n(Like a call, this screen will be visible even when the device is locked.)
+        \n\nLock the screen, then come back here without unlocking.
+        \nPull down the notification shade and look for the NotifPrivacyTest notification.
+        \nFail the test if it can be found without unlocking the device.
+        \n\nGo back when ready to Pass/Fail the step.</string>
+    <string name="np_public_version_text">NotifPrivacyTest: REDACTED</string>
+    <string name="np_private_version_text">NotifPrivacyTest: EXPOSED</string>
+    <string name="notif_privacy_test">Notification Privacy Test</string>
+    <string name="notif_privacy_info">This test checks that Notification privacy is correctly
+        handled on the insecure and secure lockscreen.
+    </string>
     <string name="msg_extras_preserved">Check that Message extras Bundle was preserved.</string>
     <string name="conversation_section_ordering">If this device supports conversation notifications,
         and groups them into a separate section from alerting and silent non-conversation
@@ -3531,7 +3599,10 @@ You should be prompted to select credentials; choose the ones you just installed
             Then you need to set this app as the device owner by running\n
             adb shell dpm set-device-owner --user 0 com.android.cts.emptydeviceowner/.EmptyDeviceAdmin
     </string>
-
+    <string name="set_device_owner_headless_dialog_text">
+            For this test you need to set the device owner by running\n
+            adb shell dpm set-device-owner --user 0 com.android.cts.verifier/.managedprovisioning.DeviceAdminTestReceiver
+    </string>
     <string name="device_owner_remove_device_owner_test">Remove device owner</string>
     <string name="device_owner_remove_device_owner_test_info">
             Please check in Settings &gt; Security &gt; Device Administrators if CTSVerifier is
@@ -3571,8 +3642,21 @@ You should be prompted to select credentials; choose the ones you just installed
             Please make sure you can connect to it. The test is successful if the config is editable
             and can be connected to.
     </string>
+    <string name="device_owner_wifi_config_unlocked_modification_test_info" product="automotive">
+            Please press the button to ensure WiFi config lockdown is NOT in effect. Then go to
+            Settings &gt; WiFi and see if the CTSVerifier created WiFi configuration is editable
+            (it\'s ok if it\'s not editable, but then take note so the next test can be skipped).
+            Please make sure you can connect to it. The test is successful if the config can be
+            connected to.
+    </string>
     <string name="device_owner_wifi_config_locked_modification_test">Locked config is not modifiable in Settings</string>
     <string name="device_owner_wifi_config_locked_modification_test_info">
+            Please press the button to ensure WiFi config lockdown is in effect. Then go to
+            Settings &gt; WiFi and see if the CTSVerifier created WiFi configuration can NOT be edited
+            or removed. The test is successful if the config is NOT modifiable.
+    </string>
+    <string name="device_owner_wifi_config_locked_modification_test_info" product="automotive">
+            NOTE: if the WiFi was not editable in the previous step, please skip this test.
             Please press the button to ensure WiFi config lockdown is in effect. Then go to
             Settings &gt; WiFi and see if the CTSVerifier created WiFi configuration can NOT be edited
             or removed. The test is successful if the config is NOT modifiable.
@@ -4039,7 +4123,7 @@ You should be prompted to select credentials; choose the ones you just installed
         1. <xliff:g id="set_step" example="Set policy by turning the switch on">%1$s</xliff:g>\n
         2. Open Settings app by clicking the "Open settings" button below. Note that this will open the personal Settings app. If this device has the work settings in a different app or screen, then navigate there, ignoring the button if necessary.\n
         3. Verify that performing the following action will trigger a support dialog:\n
-           <xliff:g id="user_action" example="Adding an account">%2$s</xliff:g>.\n
+           <xliff:g id="user_action" example="Adding an account">%2$s</xliff:g>.<xliff:g id="exception_node" example="NOTE: if the device doesn't support the action...">%3$s</xliff:g>\n
         4. Verify that the support dialog displays the short support message set earlier.\n
         5. Verify that clicking the "Learn more" link will either launch a help web page with more
            information or redirect to Device administrators page in Settings app which displays the
@@ -4048,6 +4132,7 @@ You should be prompted to select credentials; choose the ones you just installed
            from Settings -> Security, open the work profile \'CTS Verifier\' enabled admin and
            verify that the page displays the long support message set earlier.\n
     </string>
+    <string name="optional_policy_transparency_test_note">\n\t<b>NOTE</b>: if the device doesn\'t support this action please skip this test and mark it as passing.</string>
     <string name="user_restriction_set_step">
         Set \'%s\' user restriction by turning on the switch below.
     </string>
@@ -4250,6 +4335,27 @@ You should be prompted to select credentials; choose the ones you just installed
         14) Press the Uninstall button.\n
         15) Issue the following command on the host:\n
             adb shell rm /sdcard/NotificationBot.apk
+    </string>
+    <string name="enterprise_privacy_enterprise_installed_apps_info_headless_system_user">
+        Please do the following:\n
+        1) You should have received NotificationBot.apk together with the CTS verifier. If you built the CTS verifier yourself, build the NotificationBot.apk by issuing the following command on the host:\n
+        \tmake NotificationBot\n
+        2) Install the NotificationBot for <b>user 0 only</b>. For example:\n
+        \tadb install --user 0 $ANDROID_PRODUCT_OUT/testcases/NotificationBot/*/NotificationBot.apk\n
+        3) Make sure the app is <b>not</b> installed for the current user:\n
+        \tadb shell pm list packages --user cur |grep com.android.cts.robot || echo \'Not installed\'\n
+        4) Press the Open Settings button.\n
+        5) In the screen that opens, verify that you are not told that your administrator installed any apps (other than CtsVerifier itself).\n
+        6) Use the Back button to return to this page.\n
+        7) Press the Install button.\n
+        8) Press the Open Settings button.\n
+        9) In the screen that opens, verify that you are told now that your administrator installed at least one app.\n
+        10) Tap on that information. Verify that a list of apps installed shows.\n
+        11) Verify that the list contains the CTS Robot app.\n
+        12) Use the Back button to return to this page.\n
+        13) Press the Uninstall button.\n
+        14) Issue the following command on the host:\n
+        \tadb uninstall --user all com.android.cts.robot\n
     </string>
     <string name="enterprise_privacy_install">Install</string>
     <string name="enterprise_privacy_uninstall">Uninstall</string>
@@ -4527,6 +4633,13 @@ You should be prompted to select credentials; choose the ones you just installed
         \n
         Press Go button to create a managed user, and you will be switched to the managed user
         automatically. Dismiss the keyguard and a \'Managed User Tests\' should launch.\n
+        Follow the test instructions and press \'pass\' or \'fail\' to return to this screen.\n
+    </string>
+    <string name="managed_user_positive_tests_instructions" product="automotive">
+        The positive managed user tests verify policies on a managed user created by a device owner.
+        \n
+        Press Go button to create a managed user, and you will be switched to the managed user
+        automatically; a \'Managed User Tests\' should launch.\n
         Follow the test instructions and press \'pass\' or \'fail\' to return to this screen.\n
     </string>
     <string name="managed_user_positive_tests_info">
@@ -5086,8 +5199,8 @@ You should be prompted to select credentials; choose the ones you just installed
         To pass the test, the device need only achieve this on one of the following audio paths:\n
           - a <a href="https://source.android.com/devices/audio/latency/loopback">Loopback Plug</a>  connected to a 3.5mm headset jack.\n
           - a <a href="https://source.android.com/devices/audio/latency/loopback">Loopback Plug</a>  connected to a USB audio adapter.\n
-          - a USB interface with patch cords connecting the input and output jacks.\n
-          Please connect one of these Loopback mechanisms, and proceed with the instructions
+          - a USB interface with patch cords connecting the input and output jacks.
+          \nPlease connect one of these Loopback mechanisms, and proceed with the instructions
           on the screen. The required &amp; recommended latencies will be displayed.
           The system will measure the input-output audio latency by injecting an audio signal to
           the output and compute the time between generating the signal and recording it back.
@@ -5113,11 +5226,34 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="audio_coldstart_in_latency_test">Audio Cold Start Input Latency Test</string>
 
     <string name="audio_coldstart_output_info">
-        This test measures the time required to output audio from a suspended \"cold\" audio system.
-        It requires that touch-sounds be disabled in the device \"Sound &amp; Vibration\" settings
+        This test measures the time required to play audio from a suspended \"cold\" audio system.
+        This time is defined as the \"cold start latency\". To pass this test, a maximum
+        cold start latency time of 500ms or less is REQUIRED, while a time of 100ms or less
+        is STRONGLY RECOMMENDED. (See <a href="https://source.android.com/compatibility/android-cdd#5_6_audio_latency">Android CDD § 5.6. Audio Latency</a>)
+        \n\nTo run this test, it is required to have touch-sounds disabled in the device
+        \"Sound &amp; Vibration\" settings
         panel.
+        \n\nThe \"Java API\" and \"Native API\" allow for capturing performance data from the
+        two streaming APIs. The cold start latency measurement need only pass for one API.
+        The Native API generally gives the best performance.
+        \n\nAlthough not part of the pass criteria, the test will also report \"open\" &amp;
+        \"start\" times. Open time is the time taken to allocate and prepare the player for the
+        specified stream attributes. Start time is the time taken to start playing audio on an
+        open stream.
     </string>
-    <string name="audio_coldstart_input_info">Info Here</string>
+    <string name="audio_coldstart_input_info">
+        This test measures the time required to record audio from a suspended \"cold\" audio system.
+        This time is defined as the \"cold start latency\". To pass this test, a maximum
+        cold start latency time of 500ms or less is REQUIRED, while a time of 100ms or less
+        is STRONGLY RECOMMENDED. (See <a href="https://source.android.com/compatibility/android-cdd#5_6_audio_latency">Android CDD § 5.6. Audio Latency</a>)
+        \n\nThe \"Java API\" and \"Native API\" allow for capturing performance data from the
+        two streaming APIs. The cold start latency measurement need only pass for one API.
+        The Native API generally gives the best performance.
+        \n\nAlthough not part of the pass criteria, the test will also report \"open\" &amp;
+        \"start\" times. Open time is the time taken to allocate and prepare the recorder for the
+        specified stream attributes. Start time is the time taken to start recording audio on an
+        open stream.
+    </string>
     <string name="audio_coldstart_outputlbl">Output Cold Start Latency</string>
     <string name="audio_coldstart_inputlbl">Input Cold Start Latency</string>
     <string name="audio_coldstart_touchsounds_message">
@@ -5245,18 +5381,34 @@ Follow the instructions on the screen to measure the frequency response for the 
     <string name="analog_headset_query">Does this Android device have an analog headset jack?</string>
     <string name="analog_headset_play">Play</string>
     <string name="analog_headset_stop">Stop</string>
-    <string name="analog_headset_success_question">Was the audio correctly played through the headset/headphones?</string>
-    <string name="analog_headset_keycodes_label">Headset Keycodes</string>
+    <string name="analog_headset_playback_prompt">Play a test tone and verify correct playback</string>
+    <string name="analog_headset_playback_query">Was the audio correctly played through the headset?</string>
+    <string name="analog_headset_keycodes_label">Headset key codes</string>
     <string name="analog_headset_headsethook">HEADSETHOOK</string>
     <string name="analog_headset_volup">VOLUME_UP</string>
     <string name="analog_headset_voldown">VOLUME_DOWN</string>
     <string name="analog_headset_test">Analog Headset Test</string>
-    <string name="analog_headset_test_info">
-        This test tests the following functionality with respect to wired analog headset/headphones.\n
+    <string name="analog_headset_pass_noheadset">"PASS. No headset port available."</string>
+    <string name="analog_headset_pass">PASS.</string>
+    <string name="analog_headset_port_detected">"Analog port detected."</string>
+    <string name="analog_headset_press_buttons">Press headset buttons to verify recognition.</string>
+    <string name="analog_headset_headset_connected">Headset connected.</string>
+    <string name="analog_headset_no_headset">No Headset. Connect headset to 3.5mm analog jack.</string>
+    <string name="analog_headset_action_received">ACTION_HEADSET_PLUG received - </string>
+    <string name="analog_headset_unplugged">Unplugged</string>
+    <string name="analog_headset_plugged">Plugged</string>
+    <string name="analog_headset_mic"> [mic]</string>
+    <string name="analog_headset_test_info">This test tests the following functionality with respect to wired analog headsets.\n
         1. Correct audio playback.\n
         2. Plug intents.\n
         3. Headset keycodes.\n
-        To run this test it is necessary to have an Android device with a 3.5mm analog headset jack and a compatible analog headset with Hook, Volume Up and Volume Down buttons.
+        \nTo execute test:\n
+        1. Plug in an Android-compatible, analog headset. Verify connection/recognition.\n
+        2. Play test tone and verify correct behavior.\n
+        3. Press headset buttons until all are recognized on the test screen.\n
+        \nTo run this test it is necessary to have an Android device with a 3.5mm analog headset jack and a compatible analog headset with Hook, Volume Up and Volume Down buttons.\n
+        \n(see <a href="https://source.android.com/devices/accessories/headset/plug-headset-spec">3.5 mm Headset: Accessory Specification</a> and
+        <a href="https://source.android.com/compatibility/android-cdd#7_8_2_1_analog_audio_ports">Android CDD § 7.8.2.1. Analog Audio Ports</a>)
     </string>
     <!-- Audio AEC Test -->
     <string name="audio_aec_test">Audio Acoustic Echo Cancellation (AEC) Test</string>

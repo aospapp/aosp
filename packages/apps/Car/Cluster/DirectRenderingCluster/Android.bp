@@ -40,7 +40,6 @@ android_app {
         "android.car.cluster.navigation",
         "androidx.legacy_legacy-support-v4",
         "androidx-constraintlayout_constraintlayout",
-        "car-arch-common",
         "car-media-common",
         "car-telephony-common",
         "car-apps-common",

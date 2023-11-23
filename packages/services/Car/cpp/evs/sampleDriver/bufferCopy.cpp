@@ -19,6 +19,14 @@
 #include <android-base/logging.h>
 #include <libyuv.h>
 
+namespace {
+
+inline constexpr size_t kYuv422BytesPerPixel = 2;
+inline constexpr size_t kRgbaBytesPerPixel = 4;
+
+}; // anonymous namespace
+
+
 namespace android {
 namespace hardware {
 namespace automotive {
@@ -38,7 +46,8 @@ int align(int value) {
 }
 
 
-void fillNV21FromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned) {
+void fillNV21FromNV21(
+        const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void*, unsigned) {
     // The NV21 format provides a Y array of 8bit values, followed by a 1/2 x 1/2 interleave U/V array.
     // It assumes an even width and height for the overall image, and a horizontal stride that is
     // an even multiple of 16 bytes for both the Y and UV arrays.
@@ -57,7 +66,8 @@ void fillNV21FromNV21(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 }
 
 
-void fillNV21FromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride) {
+void fillNV21FromYUYV(
+        const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void*, unsigned imgStride) {
     // The YUYV format provides an interleaved array of pixel values with U and V subsampled in
     // the horizontal direction only.  Also known as interleaved 422 format.  A 4 byte
     // "macro pixel" provides the Y value for two adjacent pixels and the U and V values shared
@@ -120,15 +130,17 @@ void fillNV21FromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 }
 
 
-void fillRGBAFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride) {
+void fillRGBAFromYUYV(
+        const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void* buf, unsigned imgStride) {
     const AHardwareBuffer_Desc* pDesc =
         reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
     // Converts YUY2ToARGB (little endian).  Please note that libyuv uses the
     // little endian while we're using the big endian in RGB format names.
-    const auto dstStrideInBytes = pDesc->stride * 4;  // 4-byte per pixel
+    const auto srcStrideInBytes = imgStride * kYuv422BytesPerPixel;
+    const auto dstStrideInBytes = pDesc->stride * kRgbaBytesPerPixel;
     auto result = libyuv::YUY2ToARGB((const uint8_t*)imgData,
-                                     imgStride,             // input stride in bytes
-                                     tgt,
+                                     srcStrideInBytes,      // input stride in bytes
+                                     (uint8_t*)buf,
                                      dstStrideInBytes,      // output stride in bytes
                                      pDesc->width,
                                      pDesc->height);
@@ -137,10 +149,8 @@ void fillRGBAFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
         return;
     }
 
-    // Swaps R and B pixels to convert BGRA to RGBA in place.
-    // TODO(b/190783702): Consider allocating an extra space to store ARGB data
-    //                    temporarily if below operation is too slow.
-    result = libyuv::ABGRToARGB(tgt, dstStrideInBytes, tgt, dstStrideInBytes,
+    // Swaps R and B pixels to convert BGRA to RGBA
+    result = libyuv::ABGRToARGB((uint8_t*)buf, dstStrideInBytes, tgt, dstStrideInBytes,
                                 pDesc->width, pDesc->height);
     if (result) {
         LOG(ERROR) << "Failed to convert BGRA to RGBA.";
@@ -148,31 +158,60 @@ void fillRGBAFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, un
 }
 
 
-void fillYUYVFromYUYV(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride) {
+void fillRGBAFromUYVY(
+        const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void* buf, unsigned imgStride) {
     const AHardwareBuffer_Desc* pDesc =
         reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
-    unsigned width = pDesc->width;
-    unsigned height = pDesc->height;
-    uint8_t* src = (uint8_t*)imgData;
-    uint8_t* dst = (uint8_t*)tgt;
-    unsigned srcStrideBytes = imgStride;
-    unsigned dstStrideBytes = pDesc->stride * 2;
+    // Converts UYVYToARGB (little endian).  Please note that libyuv uses the
+    // little endian while we're using the big endian in RGB format names.
+    const auto srcStrideInBytes = imgStride * kYuv422BytesPerPixel;
+    const auto dstStrideInBytes = pDesc->stride * kRgbaBytesPerPixel;
+    auto result = libyuv::UYVYToARGB(static_cast<const uint8_t*>(imgData),
+                                     srcStrideInBytes,      // input stride in bytes
+                                     static_cast<uint8_t*>(buf),
+                                     dstStrideInBytes,      // output stride in bytes
+                                     pDesc->width,
+                                     pDesc->height);
+    if (result) {
+        LOG(ERROR) << "Failed to convert UYVY to BGRA.";
+        return;
+    }
 
-    for (unsigned r=0; r<height; r++) {
-        // Copy a pixel row at a time (2 bytes per pixel, averaged over a YUYV macro pixel)
-        memcpy(dst+r*dstStrideBytes, src+r*srcStrideBytes, width*2);
+    // Swaps R and B pixels to convert BGRA to RGBA
+    result = libyuv::ABGRToARGB(static_cast<uint8_t*>(buf), dstStrideInBytes, tgt,
+                                dstStrideInBytes, pDesc->width, pDesc->height);
+    if (result) {
+        LOG(WARNING) << "Failed to convert BGRA to RGBA.";
     }
 }
 
 
-void fillYUYVFromUYVY(const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, unsigned imgStride) {
+void fillYUYVFromYUYV(
+        const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void *, unsigned imgStride) {
+    const AHardwareBuffer_Desc* pDesc =
+        reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
+    const auto height = pDesc->height;
+    uint8_t* src = (uint8_t*)imgData;
+    uint8_t* dst = (uint8_t*)tgt;
+    const auto srcStrideBytes = imgStride * kYuv422BytesPerPixel;
+    const auto dstStrideBytes = pDesc->stride * kYuv422BytesPerPixel;
+
+    for (unsigned r=0; r<height; r++) {
+        // Copy a pixel row at a time (2 bytes per pixel, averaged over a YUYV macro pixel)
+        memcpy(dst+r*dstStrideBytes, src+r*srcStrideBytes, srcStrideBytes);
+    }
+}
+
+
+void fillYUYVFromUYVY(
+        const BufferDesc& tgtBuff, uint8_t* tgt, void* imgData, void *, unsigned imgStride) {
     const AHardwareBuffer_Desc* pDesc =
         reinterpret_cast<const AHardwareBuffer_Desc*>(&tgtBuff.buffer.description);
     unsigned width = pDesc->width;
     unsigned height = pDesc->height;
     uint32_t* src = (uint32_t*)imgData;
     uint32_t* dst = (uint32_t*)tgt;
-    unsigned srcStridePixels = imgStride / 2;
+    unsigned srcStridePixels = imgStride;
     unsigned dstStridePixels = pDesc->stride;
 
     const int srcRowPadding32 = srcStridePixels/2 - width/2;  // 2 bytes per pixel, 4 bytes per word

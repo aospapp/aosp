@@ -84,7 +84,7 @@
     <string name="enable_full_screen_public_safety_messages_summary" msgid="1305786776090796715">"የሕዝባዊ ደህንነት መልዕክቶች ወደ እርስዎ ኤስኤምኤስ መተግበሪያ ብቻ እንዲላኩልዎ ያጥፉ"</string>
     <string name="enable_state_local_test_alerts_title" msgid="1012930918171302720">"የግዛት እና አካባቢያዊ ሙከራዎች"</string>
     <string name="enable_state_local_test_alerts_summary" msgid="780298327377950187">"ከግዛት እና የአካባቢ ባለሥልጣናት የሙከራ መልዕክቶችን ተቀበል"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"የድንገተኛ አደጋ ማንቂያዎች"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="661894007489847468">"አስቸኳይ ማንቂያዎች"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="7574617515441602546">"ሕይወትን አደጋ ስለሚያጋልጡ ክስተቶችን አስጠንቀቅ"</string>
     <string name="enable_cmas_test_alerts_title" msgid="7194966927004755266">"የሙከራ ማንቂያዎች"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2083089933271720217">"የአገልግሎት አቅራቢ ሙከራዎችን እና ወርሃዊ ሙከራዎችን ከደህንነት ማንቂያ ስርዓቱ ይቀበሉ"</string>

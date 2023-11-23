@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"Permisos de la app"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Apps que no usas"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"No hay ninguna app sin usar"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"0 apps en desuso"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Inhabilitar app"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Si inhabilitas esta app, es posible que Android y otras apps ya no funcionen correctamente. Ten en cuenta que no puedes borrar esta app, ya que vino preinstalada en el dispositivo. Si la inhabilitas, se desactivará y se ocultará en tu dispositivo."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Administrador de permisos"</string>
@@ -344,7 +345,7 @@
     <string name="no_apps_allowed" msgid="7718822655254468631">"No se le otorgó permiso a ninguna app"</string>
     <string name="no_apps_allowed_full" msgid="8011716991498934104">"Ninguna app tiene el permiso para todos los archivos"</string>
     <string name="no_apps_allowed_scoped" msgid="4908850477787659501">"Ninguna app tiene el permiso solo para contenido multimedia"</string>
-    <string name="no_apps_denied" msgid="7663435886986784743">"No se le rechazó el permiso a ninguna app"</string>
+    <string name="no_apps_denied" msgid="7663435886986784743">"No hay permisos rechazados"</string>
     <string name="car_permission_selected" msgid="180837028920791596">"Seleccionado"</string>
     <string name="settings" msgid="5409109923158713323">"Configuración"</string>
     <string name="accessibility_service_dialog_title_single" msgid="7956432823014102366">"<xliff:g id="SERVICE_NAME">%s</xliff:g> tiene acceso completo a tu dispositivo"</string>
@@ -481,7 +482,7 @@
     <string name="permgroupupgraderequestdetail_camera" msgid="6642747548010962597">"Esta app quiere tomar fotos y grabar videos todo el tiempo, incluso cuando no la uses. "<annotation id="link">"Permite el acceso en Configuración."</annotation></string>
     <string name="permgrouprequest_calllog" msgid="2065327180175371397">"¿Permitir que &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; acceda al registro de las llamadas telefónicas?"</string>
     <string name="permgrouprequest_phone" msgid="1829234136997316752">"¿Permitir que &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; haga y administre las llamadas telefónicas?"</string>
-    <string name="permgrouprequest_sensors" msgid="4397358316850652235">"¿Permitir que &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; acceda a los datos del sensor de tus signos vitales?"</string>
+    <string name="permgrouprequest_sensors" msgid="4397358316850652235">"¿Permitir que &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; acceda a los datos de sensores de tus signos vitales?"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"Permisos controlados"</string>
     <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Se puede acceder a la ubicación"</string>
     <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"Tu administrador de TI permite que <xliff:g id="APP_NAME">%s</xliff:g> acceda a tu ubicación"</string>

@@ -21,6 +21,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.inputmethodservice.InputMethodService;
 import android.os.Bundle;
+import android.os.UserManager;
 import android.provider.Settings;
 import android.util.ArrayMap;
 import android.view.View;
@@ -35,6 +36,8 @@ import android.widget.TextView;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 public class PolicyTransparencyTestActivity extends PassFailButtons.Activity implements
@@ -69,6 +72,13 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
             "com.android.cts.verifier.managedprovisioning.extra.TEST_ID";
 
     private static final Map<String, PolicyTestItem> POLICY_TEST_ITEMS = new ArrayMap<>();
+
+    /**
+     * List of restrictions that might not have an optional for user to change on Settings.
+     */
+    private static final List<String> OPTIONAL_USER_RESTRICTION_ACTIONS = Arrays
+            .asList(UserManager.DISALLOW_CONFIG_CELL_BROADCASTS);
+
     static {
         POLICY_TEST_ITEMS.put(TEST_CHECK_AUTO_TIME_REQUIRED, new PolicyTestItem(
                 R.string.auto_time_required_set_step,
@@ -138,6 +148,7 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
         String userAction = null;
         String widgetLabel = null;
         int widgetId = 0;
+        String note = "";
         if (TEST_CHECK_USER_RESTRICTION.equals(mTest)) {
             setStep = getString(R.string.user_restriction_set_step, mTitle);
             final String userRestriction = getIntent().getStringExtra(
@@ -145,6 +156,9 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
             userAction = UserRestrictions.getUserAction(this, userRestriction);
             widgetLabel = mTitle;
             widgetId = R.id.switch_widget;
+            if (OPTIONAL_USER_RESTRICTION_ACTIONS.contains(userRestriction)) {
+                note = getString(R.string.optional_policy_transparency_test_note);
+            }
         } else {
             final PolicyTestItem testItem = POLICY_TEST_ITEMS.get(mTest);
             setStep = getString(testItem.setStep);
@@ -154,7 +168,8 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
         }
         ((TextView) findViewById(R.id.widget_label)).setText(widgetLabel);
         ((TextView) findViewById(R.id.test_instructions)).setText(
-                getString(R.string.policy_transparency_test_instructions, setStep, userAction));
+                getString(R.string.policy_transparency_test_instructions,
+                        setStep, userAction, note));
         updateWidget(widgetId);
     }
 
@@ -212,6 +227,8 @@ public class PolicyTransparencyTestActivity extends PassFailButtons.Activity imp
             final PolicyTestItem testItem = POLICY_TEST_ITEMS.get(mTest);
             intent.putExtra(CommandReceiverActivity.EXTRA_COMMAND, testItem.command);
             intent.putExtra(CommandReceiverActivity.EXTRA_ENFORCED, isChecked);
+            intent.putExtra(CommandReceiverActivity.EXTRA_USE_CURRENT_USER_DPM,
+                    mForceCurrentUserDpm);
         }
         startActivity(intent);
     }

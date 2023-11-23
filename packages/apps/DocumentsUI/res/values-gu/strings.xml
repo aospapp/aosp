@@ -229,7 +229,7 @@
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> આઇટમ કાઢી નાખીએ?</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> આઇટમ કાઢી નાખીએ?</item>
     </plurals>
-    <string name="images_shortcut_label" msgid="2545168016070493574">"Images"</string>
+    <string name="images_shortcut_label" msgid="2545168016070493574">"છબીઓ"</string>
     <string name="archive_loading_failed" msgid="7243436722828766996">"બ્રાઉઝ કરવા માટે આર્કાઇવ ખોલવામાં અસમર્થ. ફાઇલ કાં તો દૂષિત છે અથવા તો ફોર્મેટ અસમર્થિત છે."</string>
     <string name="name_conflict" msgid="28407269328862986">"આ નામવાળી ફાઇલ પહેલેથી જ અસ્તિત્વમાં છે."</string>
     <string name="authentication_required" msgid="8030880723643436099">"આ નિર્દેશિકા જોવા માટે, <xliff:g id="NAME">%1$s</xliff:g>માં સાઇન ઇન કરો"</string>
@@ -250,13 +250,13 @@
     <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g>માંથી ફાઇલો"</string>
     <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>માંથી ફાઇલો"</string>
     <string name="root_info_header_image_recent" msgid="7494373563753926014">"તાજેતરની છબીઓ"</string>
-    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"Images"</string>
+    <string name="root_info_header_image_global_search" msgid="7307009823489854697">"છબીઓ"</string>
     <string name="root_info_header_image_downloads" msgid="7072252612657612307">"ડાઉનલોડમાંની છબીઓ"</string>
     <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g> પરની છબીઓ"</string>
     <string name="root_info_header_image_folder" msgid="5980430877636279667">"<xliff:g id="FOLDER">%1$s</xliff:g>માંની છબીઓ"</string>
     <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>ની છબીઓ"</string>
     <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>ની છબીઓ"</string>
-    <string name="chip_title_images" msgid="7838299046109841015">"Images"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"છબીઓ"</string>
     <string name="chip_title_audio" msgid="1032801828748235436">"ઑડિયો"</string>
     <string name="chip_title_videos" msgid="7011260091979776447">"વીડિયો"</string>
     <string name="chip_title_documents" msgid="7432457563000753983">"દસ્તાવેજો"</string>

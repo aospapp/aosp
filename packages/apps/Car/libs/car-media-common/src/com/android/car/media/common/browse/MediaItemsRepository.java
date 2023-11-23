@@ -16,7 +16,7 @@
 
 package com.android.car.media.common.browse;
 
-import static com.android.car.arch.common.LiveDataFunctions.dataOf;
+import static com.android.car.apps.common.util.LiveDataFunctions.dataOf;
 
 import static java.util.stream.Collectors.toList;
 
@@ -34,7 +34,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
-import com.android.car.arch.common.FutureData;
+import com.android.car.apps.common.util.FutureData;
 import com.android.car.media.common.MediaItemMetadata;
 import com.android.car.media.common.source.MediaBrowserConnector.BrowsingState;
 import com.android.car.media.common.source.MediaSource;

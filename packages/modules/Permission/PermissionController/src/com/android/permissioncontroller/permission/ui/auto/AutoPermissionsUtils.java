@@ -59,4 +59,14 @@ public final class AutoPermissionsUtils {
         preference.setTitle(Utils.getFullAppLabel(appInfo, context));
         return preference;
     }
+
+    /** Creates a {@link Preference} which shows the app icon and app name. */
+    public static Preference createHeaderPreference(Context context, Drawable packageIcon,
+            String packageName, String packageLabel) {
+        Preference preference = new Preference(context);
+        preference.setIcon(packageIcon);
+        preference.setKey(packageName);
+        preference.setTitle(packageLabel);
+        return preference;
+    }
 }

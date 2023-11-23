@@ -53,7 +53,7 @@ public class MatchContentFrameRateTest {
                     Manifest.permission.MODIFY_REFRESH_RATE_SWITCHING_TYPE,
                     Manifest.permission.HDMI_CEC);
 
-    private int mInitialMatchContentFrameRate;
+    private int mInitialRefreshRateSwitchingType;
     private DisplayManager mDisplayManager;
 
     @Before
@@ -68,14 +68,13 @@ public class MatchContentFrameRateTest {
         mDisplayManager = activity.getSystemService(DisplayManager.class);
         mDisplayManager.setShouldAlwaysRespectAppRequestedMode(true);
 
-        mInitialMatchContentFrameRate = toSwitchingType(
-                mDisplayManager.getMatchContentFrameRateUserPreference());
+        mInitialRefreshRateSwitchingType = DisplayUtil.getRefreshRateSwitchingType(mDisplayManager);
     }
 
     @After
     public void tearDown() {
         if (mDisplayManager != null) {
-            mDisplayManager.setRefreshRateSwitchingType(mInitialMatchContentFrameRate);
+            mDisplayManager.setRefreshRateSwitchingType(mInitialRefreshRateSwitchingType);
             mDisplayManager.setShouldAlwaysRespectAppRequestedMode(false);
         }
     }
@@ -109,18 +108,4 @@ public class MatchContentFrameRateTest {
         FrameRateCtsActivity activity = mActivityRule.getActivity();
         activity.testMatchContentFramerate_Always();
     }
-
-    private int toSwitchingType(int matchContentFrameRateUserPreference) {
-        switch (matchContentFrameRateUserPreference) {
-            case DisplayManager.MATCH_CONTENT_FRAMERATE_NEVER:
-                return DisplayManager.SWITCHING_TYPE_NONE;
-            case DisplayManager.MATCH_CONTENT_FRAMERATE_SEAMLESSS_ONLY:
-                return DisplayManager.SWITCHING_TYPE_WITHIN_GROUPS;
-            case DisplayManager.MATCH_CONTENT_FRAMERATE_ALWAYS:
-                return DisplayManager.SWITCHING_TYPE_ACROSS_AND_WITHIN_GROUPS;
-            default:
-                return -1;
-        }
-    }
-
 }

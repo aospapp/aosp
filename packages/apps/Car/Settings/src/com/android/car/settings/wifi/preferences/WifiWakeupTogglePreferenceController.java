@@ -16,7 +16,6 @@
 
 package com.android.car.settings.wifi.preferences;
 
-import android.app.Service;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -74,7 +73,7 @@ public class WifiWakeupTogglePreferenceController extends PreferenceController<T
     public WifiWakeupTogglePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mLocationManager = (LocationManager) context.getSystemService(Service.LOCATION_SERVICE);
+        mLocationManager = context.getSystemService(LocationManager.class);
         mWifiManager = context.getSystemService(WifiManager.class);
     }
 

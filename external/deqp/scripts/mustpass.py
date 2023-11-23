@@ -318,6 +318,7 @@ def genAndroidTestXml (mustpass):
 	ElementTree.SubElement(configElement, "option", key="parameter", name="config-descriptor:metadata", value="not_instant_app")
 	ElementTree.SubElement(configElement, "option", key="parameter", name="config-descriptor:metadata", value="multi_abi")
 	ElementTree.SubElement(configElement, "option", key="parameter", name="config-descriptor:metadata", value="secondary_user")
+	ElementTree.SubElement(configElement, "option", key="parameter", name="config-descriptor:metadata", value="no_foldable_states")
 	controllerElement = ElementTree.SubElement(configElement, "object")
 	controllerElement.set("class", "com.android.tradefed.testtype.suite.module.TestFailureModuleController")
 	controllerElement.set("type", "module_controller")

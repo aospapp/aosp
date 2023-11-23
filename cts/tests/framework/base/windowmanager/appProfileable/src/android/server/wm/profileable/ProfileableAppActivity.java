@@ -61,7 +61,14 @@ public class ProfileableAppActivity extends BasicTestActivity {
 
     /** Monitor the close event of trace file. */
     private static class TraceFileObserver extends FileObserver {
-        private static final long TIMEOUT_MS = TimeUnit.SECONDS.toMillis(5);
+        /**
+         * The timeout for the close event of trace file. Although the trace file may take longer
+         * than 3 seconds, it is enough because the test only checks the first line of the file.
+         * Note that this timeout must be less than the value of
+         * {@link android.server.wm.CommandSession.ActivitySession.Response#TIMEOUT_MILLIS}.
+         * Otherwise the caller who sent {@link COMMAND_WAIT_FOR_PROFILE_OUTPUT} may get exception.
+         */
+        private static final long TIMEOUT_MS = TimeUnit.SECONDS.toMillis(3);
         private volatile boolean mDone;
 
         TraceFileObserver() {

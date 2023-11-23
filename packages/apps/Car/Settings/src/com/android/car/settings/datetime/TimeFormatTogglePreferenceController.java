@@ -24,7 +24,7 @@ import android.content.IntentFilter;
 import android.provider.Settings;
 import android.text.format.DateFormat;
 
-import androidx.preference.TwoStatePreference;
+import androidx.preference.SwitchPreference;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
@@ -34,7 +34,7 @@ import java.util.Calendar;
 /**
  * Business logic for toggle which chooses between 12 hour or 24 hour formats.
  */
-public class TimeFormatTogglePreferenceController extends PreferenceController<TwoStatePreference> {
+public class TimeFormatTogglePreferenceController extends PreferenceController<SwitchPreference> {
     public static final String HOURS_12 = "12";
     public static final String HOURS_24 = "24";
 
@@ -57,8 +57,15 @@ public class TimeFormatTogglePreferenceController extends PreferenceController<T
     }
 
     @Override
-    protected Class<TwoStatePreference> getPreferenceType() {
-        return TwoStatePreference.class;
+    protected Class<SwitchPreference> getPreferenceType() {
+        return SwitchPreference.class;
+    }
+
+    @Override
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p ->
+                DatetimeUtils.runClickableWhileDisabled(getContext(), getFragmentController()));
     }
 
     /** Starts the broadcast receiver which listens for time changes */
@@ -77,7 +84,7 @@ public class TimeFormatTogglePreferenceController extends PreferenceController<T
     }
 
     @Override
-    protected void updateState(TwoStatePreference preference) {
+    protected void updateState(SwitchPreference preference) {
         Calendar now = Calendar.getInstance();
         mTimeFormatDemoDate.setTimeZone(now.getTimeZone());
         // We use December 31st because it's unambiguous when demonstrating the date format.
@@ -90,7 +97,7 @@ public class TimeFormatTogglePreferenceController extends PreferenceController<T
     }
 
     @Override
-    protected boolean handlePreferenceChanged(TwoStatePreference preference, Object newValue) {
+    protected boolean handlePreferenceChanged(SwitchPreference preference, Object newValue) {
         boolean isUse24HourFormatEnabled = (boolean) newValue;
         Settings.System.putString(getContext().getContentResolver(),
                 Settings.System.TIME_12_24,
@@ -103,6 +110,11 @@ public class TimeFormatTogglePreferenceController extends PreferenceController<T
                 timeFormatPreference);
         getContext().sendBroadcast(timeChanged);
         return true;
+    }
+
+    @Override
+    public int getAvailabilityStatus() {
+        return DatetimeUtils.getAvailabilityStatus(getContext());
     }
 
     private boolean is24Hour() {

@@ -13,6 +13,7 @@ on boot
     chown system system /sys/class/leds/vibrator_1/state
 
     chown system system /sys/class/leds/vibrator_1/device/asp_enable
+    chown system system /sys/class/leds/vibrator_1/device/available_pwle_segments
     chown system system /sys/class/leds/vibrator_1/device/clab_enable
     chown system system /sys/class/leds/vibrator_1/device/comp_enable
     chown system system /sys/class/leds/vibrator_1/device/cp_dig_scale
@@ -35,6 +36,7 @@ on boot
     chown system system /sys/class/leds/vibrator_1/device/heartbeat
     chown system system /sys/class/leds/vibrator_1/device/hw_reset
     chown system system /sys/class/leds/vibrator_1/device/num_waves
+    chown system system /sys/class/leds/vibrator_1/device/pwle
     chown system system /sys/class/leds/vibrator_1/device/q_stored
     chown system system /sys/class/leds/vibrator_1/device/redc_comp_enable
     chown system system /sys/class/leds/vibrator_1/device/redc_stored
@@ -56,6 +58,7 @@ service vendor.vibrator.cs40l25-dual /vendor/bin/hw/android.hardware.vibrator-se
     setenv HWAPI_PATH_PREFIX /sys/class/leds/vibrator_1/
     setenv HWAPI_DEBUG_PATHS "
         device/asp_enable
+        device/available_pwle_segments
 	device/clab_enable
         device/f0_stored
 	device/f0_offset
@@ -66,6 +69,7 @@ service vendor.vibrator.cs40l25-dual /vendor/bin/hw/android.hardware.vibrator-se
         device/gpio1_rise_index
         device/heartbeat
         device/num_waves
+        device/pwle
         device/q_stored
         device/redc_stored
         state

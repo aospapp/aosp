@@ -24,12 +24,13 @@ import com.android.compatibility.common.util.ReadElf;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 
 import junit.framework.TestCase;
 
 public class AbiTest extends TestCase {
-    public void testNo64() throws Exception {
+    public void testNoUnsupportedAbis() throws Exception {
         ArraySet<String> abiDirs = new ArraySet<>();
         abiDirs.addAll(Arrays.asList(
             "/sbin",
@@ -60,7 +61,7 @@ public class AbiTest extends TestCase {
             return;
         }
 
-        if (isSymbolicLink(dir)) {
+        if (Files.isSymbolicLink(dir.toPath())) {
             return;
         }
 
@@ -93,9 +94,5 @@ public class AbiTest extends TestCase {
                 }
             }
         }
-    }
-
-    private static boolean isSymbolicLink(File f) throws Exception {
-        return !f.getAbsolutePath().equals(f.getCanonicalPath());
     }
 }

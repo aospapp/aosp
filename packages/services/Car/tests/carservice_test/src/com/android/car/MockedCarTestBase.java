@@ -559,7 +559,7 @@ public class MockedCarTestBase {
         }
 
         @Override
-        public void notifyPowerPolicyChange(String policyId) {
+        public void notifyPowerPolicyChange(String policyId, boolean force) {
             // do nothing
         }
 

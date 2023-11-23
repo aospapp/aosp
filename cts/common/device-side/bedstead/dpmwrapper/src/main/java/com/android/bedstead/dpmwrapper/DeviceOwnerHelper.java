@@ -104,7 +104,9 @@ public final class DeviceOwnerHelper {
                         "Could not find method " + methodName + " using reflection"));
                 return true;
             }
-            Object manager = context.getSystemService(managerClass);
+            Object manager = managerClass.equals(GenericManager.class)
+                    ? new GenericManagerImpl(context)
+                    : context.getSystemService(managerClass);
             // Must handle in a separate thread as some APIs will fail when called from main's
             Object result = callOnHandlerThread(() -> method.invoke(manager, args));
 

@@ -18,5 +18,5 @@
 # Use generic_64bitonly_x86_64 BoardConfig as base
 include build/make/target/board/generic_64bitonly_x86_64/BoardConfig.mk
 
-# Override BOARD_SUPER_PARTITION_SIZE to inclease the mounted system partition.
+# Override BOARD_SUPER_PARTITION_SIZE to increase the mounted system partition.
 BOARD_SUPER_PARTITION_SIZE := 5856296960

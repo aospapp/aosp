@@ -30,6 +30,8 @@ import java.time.Instant;
  */
 public abstract class Event implements Serializable {
 
+    private static final long serialVersionUID = 1;
+
     // This class should contain all standard data applicable to all Events.
 
     protected String mPackageName;

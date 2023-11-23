@@ -20,6 +20,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.android.car.messenger.core.util.CarStateListener;
 
 /**
  * The AppFactory provides singleton instances to be used throughout the app.
@@ -33,6 +36,9 @@ public abstract class AppFactory {
     @NonNull private static AppFactory sInstance;
     protected static boolean sRegistered;
     protected static boolean sInitialized;
+
+    // Context is required to initialize
+    @Nullable protected CarStateListener mCarStateListener;
 
     /** Returns the Factory instance for the Application. */
     @NonNull
@@ -51,6 +57,14 @@ public abstract class AppFactory {
             return;
         }
         sInstance = factory;
+    }
+
+    /** Gets the Car State Listener */
+    public final CarStateListener getCarStateListener() {
+        if (mCarStateListener == null) {
+            mCarStateListener = new CarStateListener(AppFactory.get().getContext());
+        }
+        return mCarStateListener;
     }
 
     /** Returns context most appropriate for UI context-requiring tasks. */

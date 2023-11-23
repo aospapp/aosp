@@ -34,6 +34,10 @@ public final class CreateUsersPermissionTest extends BaseMultiUserTest {
 
     @Test
     public void testCanCreateGuestUser() throws Exception {
+        // The device may already have a guest present if it is configured with
+        // config_guestUserAutoCreated. If so, skip the test.
+        assumeGuestDoesNotExist();
+
         createGuestUser();
     }
 

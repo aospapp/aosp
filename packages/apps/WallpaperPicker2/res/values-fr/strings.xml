@@ -95,7 +95,14 @@
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Aperçu du fond d\'écran"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"Cette collection n\'existe pas"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"Masquer l\'aperçu de l\'UI"</string>
+    <string name="hint_hide_ui_preview" msgid="4527603797714586070">"UI masquée dans aperçu. Appuyez 2 fois pour afficher"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"Afficher l\'aperçu de l\'UI"</string>
+    <string name="hint_show_ui_preview" msgid="2744155435325318349">"UI affichée dans aperçu. Appuyez 2 fois pour masquer"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Changer de fond d\'écran"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Aperçu du fond d\'écran de verrouillage"</string>
+    <string name="apply_btn" msgid="5764555565943538528">"Appliquer"</string>
+    <string name="accessibility_customize_hidden" msgid="6320568529768181691">"Panneau de personnalisation masqué"</string>
+    <string name="accessibility_customize_shown" msgid="590964727831547651">"Panneau de personnalisation affiché"</string>
+    <string name="accessibility_info_hidden" msgid="2288603712350168107">"Panneau d\'information masqué"</string>
+    <string name="accessibility_info_shown" msgid="6626025722456105632">"Panneau d\'information affiché"</string>
 </resources>

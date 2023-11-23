@@ -71,6 +71,7 @@ public abstract class AudioColdStartBaseActivity
     TextView mAttributesTxt;
     TextView mOpenTimeTxt;
     TextView mStartTimeTxt;
+    TextView mLatencyTxt;
     TextView mResultsTxt;
 
     // Time-base conversions
@@ -109,13 +110,24 @@ public abstract class AudioColdStartBaseActivity
     }
 
     void showColdStartLatency() {
-        mResultsTxt.setText("latency: " + mColdStartlatencyMS);
+        mLatencyTxt.setText("Latency: " + mColdStartlatencyMS);
+
+        if (mColdStartlatencyMS <= getRecommendedTimeMS()) {
+            mResultsTxt.setText("PASS. Meets RECOMMENDED latency of "
+                    + getRecommendedTimeMS() + "ms");
+        } else if (mColdStartlatencyMS <= getRequiredTimeMS()) {
+            mResultsTxt.setText("PASS. Meets REQUIRED latency of " + getRequiredTimeMS() + "ms");
+        } else {
+            mResultsTxt.setText("FAIL. Did not meet REQUIRED latency of " + getRequiredTimeMS()
+                    + "ms");
+        }
     }
 
     protected void clearResults() {
         mAttributesTxt.setText("");
         mOpenTimeTxt.setText("");
         mStartTimeTxt.setText("");
+        mLatencyTxt.setText("");
         mResultsTxt.setText("");
     }
 
@@ -137,8 +149,12 @@ public abstract class AudioColdStartBaseActivity
         mAttributesTxt = ((TextView) findViewById(R.id.coldstart_attributesTxt));
         mOpenTimeTxt = ((TextView) findViewById(R.id.coldstart_openTimeTxt));
         mStartTimeTxt = ((TextView) findViewById(R.id.coldstart_startTimeTxt));
-        mResultsTxt = (TextView) findViewById(R.id.coldstart_coldLatencyTxt);
+        mLatencyTxt = (TextView) findViewById(R.id.coldstart_coldLatencyTxt);
+        mResultsTxt = (TextView) findViewById(R.id.coldstart_coldResultsTxt);
     }
+
+    abstract int getRequiredTimeMS();
+    abstract int getRecommendedTimeMS();
 
     abstract boolean startAudioTest();
     abstract void stopAudioTest();

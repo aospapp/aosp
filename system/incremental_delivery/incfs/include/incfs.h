@@ -41,6 +41,7 @@ enum Features {
     none = INCFS_FEATURE_NONE,
     core = INCFS_FEATURE_CORE,
     v2 = INCFS_FEATURE_V2,
+    mappingFilesProgressFixed = INCFS_FEATURE_MAPPING_FILES_PROGRESS_FIXED,
 };
 
 enum class HashAlgorithm {

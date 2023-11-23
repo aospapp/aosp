@@ -75,9 +75,9 @@ pub enum SuperEncryptionAlgorithm {
 /// A particular user may have several superencryption keys in the database, each for a
 /// different purpose, distinguished by alias. Each is associated with a static
 /// constant of this type.
-pub struct SuperKeyType {
+pub struct SuperKeyType<'a> {
     /// Alias used to look the key up in the `persistent.keyentry` table.
-    pub alias: &'static str,
+    pub alias: &'a str,
     /// Encryption algorithm
     pub algorithm: SuperEncryptionAlgorithm,
 }

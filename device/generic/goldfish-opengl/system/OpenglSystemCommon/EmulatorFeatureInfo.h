@@ -129,12 +129,17 @@ static const char kVulkanQueueSubmitWithCommands[] = "ANDROID_EMU_vulkan_queue_s
 // Synchronized glBufferData call
 static const char kSyncBufferData[] = "ANDROID_EMU_sync_buffer_data";
 
-
 // Batched descriptor set update
 static const char kVulkanBatchedDescriptorSetUpdate[] = "ANDROID_EMU_vulkan_batched_descriptor_set_update";
 
+// Async QSRI
+static const char kVulkanAsyncQsri[] = "ANDROID_EMU_vulkan_async_qsri";
+
 // DMA for readback
 static const char kReadColorBufferDma[] = "ANDROID_EMU_read_color_buffer_dma";
+
+// HWC multiple display configs
+static const char kHWCMultiConfigs[] = "ANDROID_EMU_hwc_multi_configs";
 
 // Struct describing available emulator features
 struct EmulatorFeatureInfo {
@@ -163,7 +168,9 @@ struct EmulatorFeatureInfo {
         hasVulkanQueueSubmitWithCommands(false),
         hasVulkanBatchedDescriptorSetUpdate(false),
         hasSyncBufferData(false),
-        hasReadColorBufferDma(false)
+        hasVulkanAsyncQsri(false),
+        hasReadColorBufferDma(false),
+        hasHWCMultiConfigs(false)
     { }
 
     SyncImpl syncImpl;
@@ -189,7 +196,9 @@ struct EmulatorFeatureInfo {
     bool hasVulkanQueueSubmitWithCommands;
     bool hasVulkanBatchedDescriptorSetUpdate;
     bool hasSyncBufferData;
+    bool hasVulkanAsyncQsri;
     bool hasReadColorBufferDma;
+    bool hasHWCMultiConfigs;
 };
 
 enum HostConnectionType {

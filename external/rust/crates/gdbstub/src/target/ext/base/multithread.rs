@@ -5,32 +5,24 @@ use crate::common::*;
 use crate::target::ext::breakpoints::WatchKind;
 use crate::target::{Target, TargetResult};
 
-// Convenient re-exports
-pub use super::ResumeAction;
+use super::{ReplayLogPosition, SingleRegisterAccessOps};
 
-/// Selects a thread corresponding to a ResumeAction.
-// NOTE: this is a subset of the internal `IdKind` type, albeit without an `Any` variant. Selecting
-// `Any` thread is something that's handled by `gdbstub` internally, and shouldn't be exposed to the
-// end user.
-#[derive(PartialEq, Eq, Debug, Clone, Copy)]
-pub enum TidSelector {
-    /// Thread with a specific ID.
-    WithID(Tid),
-    /// All (other) threads.
-    All,
-}
+// Convenient re-exports
+pub use super::{GdbInterrupt, ResumeAction};
 
 /// Base debugging operations for multi threaded targets.
 #[allow(clippy::type_complexity)]
 pub trait MultiThreadOps: Target {
     /// Resume execution on the target.
     ///
-    /// `actions` is an iterator over `(TidSelector, ResumeAction)` pairs which
-    /// specify how various threads should be resumed (i.e: single-step vs.
-    /// resume). It is _guaranteed_ to contain at least one action. It is not
-    /// guaranteed to be exhaustive over all live threads, and any threads
-    /// without a corresponding `TidSelector` should be left in the same state
-    /// (if possible).
+    /// Prior to calling `resume`, `gdbstub` will call `clear_resume_actions`,
+    /// followed by zero or more calls to `set_resume_action`, specifying any
+    /// thread-specific resume actions.
+    ///
+    /// The `default_action` parameter specifies the "fallback" resume action
+    /// for any threads that did not have a specific resume action set via
+    /// `set_resume_action`. The GDB client typically sets this to
+    /// `ResumeAction::Continue`, though this is not guaranteed.
     ///
     /// The `check_gdb_interrupt` callback can be invoked to check if GDB sent
     /// an Interrupt packet (i.e: the user pressed Ctrl-C). It's recommended to
@@ -55,16 +47,9 @@ pub trait MultiThreadOps: Target {
     /// > address.
     ///
     /// Omitting PC adjustment may result in unexpected execution flow and/or
-    /// breakpoints not appearing to work correctly.
+    /// breakpoints not working correctly.
     ///
     /// # Additional Considerations
-    ///
-    /// ### "Non-stop" mode
-    ///
-    /// At the moment, `gdbstub` only supports GDB's
-    /// ["All-Stop" mode](https://sourceware.org/gdb/current/onlinedocs/gdb/All_002dStop-Mode.html),
-    /// whereby _all_ threads should be stopped when returning from `resume`
-    /// (not just the thread associated with the `ThreadStopReason`).
     ///
     /// ### Bare-Metal Targets
     ///
@@ -75,11 +60,67 @@ pub trait MultiThreadOps: Target {
     ///
     /// In this case, the `Tid` argument of `read/write_addrs` becomes quite
     /// relevant, as different cores may have different memory maps.
+    ///
+    /// ### Running in "Non-stop" mode
+    ///
+    /// At the moment, `gdbstub` only supports GDB's
+    /// ["All-Stop" mode](https://sourceware.org/gdb/current/onlinedocs/gdb/All_002dStop-Mode.html),
+    /// whereby _all_ threads must be stopped when returning from `resume`
+    /// (not just the thread associated with the `ThreadStopReason`).
     fn resume(
         &mut self,
-        actions: Actions<'_>,
-        check_gdb_interrupt: &mut dyn FnMut() -> bool,
+        default_resume_action: ResumeAction,
+        gdb_interrupt: GdbInterrupt<'_>,
     ) -> Result<ThreadStopReason<<Self::Arch as Arch>::Usize>, Self::Error>;
+
+    /// Clear all previously set resume actions.
+    fn clear_resume_actions(&mut self) -> Result<(), Self::Error>;
+
+    /// Specify what action each thread should take when
+    /// [`resume`](Self::resume) is called.
+    ///
+    /// A simple implementation of this method would simply update an internal
+    /// `HashMap<Tid, ResumeAction>`.
+    ///
+    /// Aside from the four "base" resume actions handled by this method (i.e:
+    /// `Step`, `Continue`, `StepWithSignal`, and `ContinueWithSignal`),
+    /// there are also two additional resume actions which are only set if the
+    /// target implements their corresponding protocol extension:
+    ///
+    /// Action                     | Protocol Extension
+    /// ---------------------------|---------------------------
+    /// Optimized [Range Stepping] | See [`support_range_step()`]
+    /// "Stop"                     | Used in "Non-Stop" mode \*
+    ///
+    /// \* "Non-Stop" mode is currently unimplemented
+    ///
+    /// [Range Stepping]: https://sourceware.org/gdb/current/onlinedocs/gdb/Continuing-and-Stepping.html#range-stepping
+    /// [`support_range_step()`]: Self::support_range_step
+    fn set_resume_action(&mut self, tid: Tid, action: ResumeAction) -> Result<(), Self::Error>;
+
+    /// Support for the optimized [range stepping] resume action.
+    ///
+    /// [range stepping]: https://sourceware.org/gdb/current/onlinedocs/gdb/Continuing-and-Stepping.html#range-stepping
+    #[inline(always)]
+    fn support_range_step(&mut self) -> Option<MultiThreadRangeSteppingOps<Self>> {
+        None
+    }
+
+    /// Support for [reverse stepping] a target.
+    ///
+    /// [reverse stepping]: https://sourceware.org/gdb/current/onlinedocs/gdb/Reverse-Execution.html
+    #[inline(always)]
+    fn support_reverse_step(&mut self) -> Option<MultiThreadReverseStepOps<Self>> {
+        None
+    }
+
+    /// Support for [reverse continuing] a target.
+    ///
+    /// [reverse continuing]: https://sourceware.org/gdb/current/onlinedocs/gdb/Reverse-Execution.html
+    #[inline(always)]
+    fn support_reverse_cont(&mut self) -> Option<MultiThreadReverseContOps<Self>> {
+        None
+    }
 
     /// Read the target's registers.
     ///
@@ -101,49 +142,16 @@ pub trait MultiThreadOps: Target {
         tid: Tid,
     ) -> TargetResult<(), Self>;
 
-    /// Read to a single register on the target.
+    /// Support for single-register access.
+    /// See [`SingleRegisterAccess`](super::SingleRegisterAccess) for more
+    /// details.
     ///
-    /// Implementations should write the value of the register using target's
-    /// native byte order in the buffer `dst`.
-    ///
-    /// If the requested register could not be accessed, an appropriate
-    /// non-fatal error should be returned.
-    ///
-    /// _Note:_ This method includes a stubbed default implementation which
-    /// simply returns `Ok(())`. This is due to the fact that several built-in
-    /// `arch` implementations haven't been updated with proper `RegId`
-    /// implementations.
-    fn read_register(
-        &mut self,
-        reg_id: <Self::Arch as Arch>::RegId,
-        dst: &mut [u8],
-        tid: Tid,
-    ) -> TargetResult<(), Self> {
-        let _ = (reg_id, dst, tid);
-        Ok(())
-    }
-
-    /// Write from a single register on the target.
-    ///
-    /// The `val` buffer contains the new value of the register in the target's
-    /// native byte order. It is guaranteed to be the exact length as the target
-    /// register.
-    ///
-    /// If the requested register could not be accessed, an appropriate
-    /// non-fatal error should be returned.
-    ///
-    /// _Note:_ This method includes a stubbed default implementation which
-    /// simply returns `Ok(())`. This is due to the fact that several built-in
-    /// `arch` implementations haven't been updated with proper `RegId`
-    /// implementations.
-    fn write_register(
-        &mut self,
-        reg_id: <Self::Arch as Arch>::RegId,
-        val: &[u8],
-        tid: Tid,
-    ) -> TargetResult<(), Self> {
-        let _ = (reg_id, val, tid);
-        Ok(())
+    /// While this is an optional feature, it is **highly recommended** to
+    /// implement it when possible, as it can significantly improve performance
+    /// on certain architectures.
+    #[inline(always)]
+    fn single_register_access(&mut self) -> Option<SingleRegisterAccessOps<Tid, Self>> {
+        None
     }
 
     /// Read bytes from the specified address range.
@@ -196,24 +204,110 @@ pub trait MultiThreadOps: Target {
     }
 }
 
+/// Target Extension - [Reverse continue] for multi threaded targets.
+///
+/// Reverse continue allows the target to run backwards until it reaches the end
+/// of the replay log.
+///
+/// [Reverse continue]: https://sourceware.org/gdb/current/onlinedocs/gdb/Reverse-Execution.html
+pub trait MultiThreadReverseCont: Target + MultiThreadOps {
+    /// Reverse-continue the target.
+    fn reverse_cont(
+        &mut self,
+        gdb_interrupt: GdbInterrupt<'_>,
+    ) -> Result<ThreadStopReason<<Self::Arch as Arch>::Usize>, Self::Error>;
+}
+
+define_ext!(MultiThreadReverseContOps, MultiThreadReverseCont);
+
+/// Target Extension - [Reverse stepping] for multi threaded targets.
+///
+/// Reverse stepping allows the target to run backwards by one step.
+///
+/// [Reverse stepping]: https://sourceware.org/gdb/current/onlinedocs/gdb/Reverse-Execution.html
+pub trait MultiThreadReverseStep: Target + MultiThreadOps {
+    /// Reverse-step the specified [`Tid`].
+    fn reverse_step(
+        &mut self,
+        tid: Tid,
+        gdb_interrupt: GdbInterrupt<'_>,
+    ) -> Result<ThreadStopReason<<Self::Arch as Arch>::Usize>, Self::Error>;
+}
+
+define_ext!(MultiThreadReverseStepOps, MultiThreadReverseStep);
+
+/// Target Extension - Optimized [range stepping] for multi threaded targets.
+/// See [`MultiThreadOps::support_range_step`].
+///
+/// Range Stepping will step the target once, and keep stepping the target as
+/// long as execution remains between the specified start (inclusive) and end
+/// (exclusive) addresses, or another stop condition is met (e.g: a breakpoint
+/// it hit).
+///
+/// If the range is empty (`start` == `end`), then the action becomes
+/// equivalent to the ‘s’ action. In other words, single-step once, and
+/// report the stop (even if the stepped instruction jumps to start).
+///
+/// _Note:_ A stop reply may be sent at any point even if the PC is still
+/// within the stepping range; for example, it is valid to implement range
+/// stepping in a degenerate way as a single instruction step operation.
+///
+/// [range stepping]: https://sourceware.org/gdb/current/onlinedocs/gdb/Continuing-and-Stepping.html#range-stepping
+pub trait MultiThreadRangeStepping: Target + MultiThreadOps {
+    /// See [`MultiThreadOps::set_resume_action`].
+    fn set_resume_action_range_step(
+        &mut self,
+        tid: Tid,
+        start: <Self::Arch as Arch>::Usize,
+        end: <Self::Arch as Arch>::Usize,
+    ) -> Result<(), Self::Error>;
+}
+
+define_ext!(MultiThreadRangeSteppingOps, MultiThreadRangeStepping);
+
 /// Describes why a thread stopped.
+///
+/// Targets MUST only respond with stop reasons that correspond to IDETs that
+/// target has implemented.
+///
+/// e.g: A target which has not implemented the [`HwBreakpoint`] IDET must not
+/// return a `HwBreak` stop reason. While this is not enforced at compile time,
+/// doing so will result in a runtime `UnsupportedStopReason` error.
+///
+/// [`HwBreakpoint`]: crate::target::ext::breakpoints::HwBreakpoint
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ThreadStopReason<U> {
     /// Completed the single-step request.
     DoneStep,
-    /// `check_gdb_interrupt` returned `true`
+    /// `check_gdb_interrupt` returned `true`.
     GdbInterrupt,
-    /// Halted
-    Halted,
+    /// The process exited with the specified exit status.
+    Exited(u8),
+    /// The process terminated with the specified signal number.
+    Terminated(u8),
+    /// The program received a signal.
+    Signal(u8),
     /// A thread hit a software breakpoint (e.g. due to a trap instruction).
+    ///
+    /// Requires: [`SwBreakpoint`].
     ///
     /// NOTE: This does not necessarily have to be a breakpoint configured by
     /// the client/user of the current GDB session.
+    ///
+    /// [`SwBreakpoint`]: crate::target::ext::breakpoints::SwBreakpoint
     SwBreak(Tid),
     /// A thread hit a hardware breakpoint.
+    ///
+    /// Requires: [`HwBreakpoint`].
+    ///
+    /// [`HwBreakpoint`]: crate::target::ext::breakpoints::HwBreakpoint
     HwBreak(Tid),
     /// A thread hit a watchpoint.
+    ///
+    /// Requires: [`HwWatchpoint`].
+    ///
+    /// [`HwWatchpoint`]: crate::target::ext::breakpoints::HwWatchpoint
     Watch {
         /// Which thread hit the watchpoint
         tid: Tid,
@@ -222,35 +316,13 @@ pub enum ThreadStopReason<U> {
         /// Address of watched memory
         addr: U,
     },
-    /// The program received a signal
-    Signal(u8),
-}
-
-/// An iterator of `(TidSelector, ResumeAction)` used to specify how threads
-/// should be resumed when running in multi threaded mode. It is _guaranteed_ to
-/// contain at least one action.
-///
-/// See the documentation for
-/// [`Target::resume`](trait.Target.html#tymethod.resume) for more details.
-pub struct Actions<'a> {
-    inner: &'a mut dyn Iterator<Item = (TidSelector, ResumeAction)>,
-}
-
-impl core::fmt::Debug for Actions<'_> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Actions {{ .. }}")
-    }
-}
-
-impl Actions<'_> {
-    pub(crate) fn new(iter: &mut dyn Iterator<Item = (TidSelector, ResumeAction)>) -> Actions<'_> {
-        Actions { inner: iter }
-    }
-}
-
-impl Iterator for Actions<'_> {
-    type Item = (TidSelector, ResumeAction);
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
-    }
+    /// The program has reached the end of the logged replay events.
+    ///
+    /// Requires: [`MultiThreadReverseCont`] or [`MultiThreadReverseStep`].
+    ///
+    /// This is used for GDB's reverse execution. When playing back a recording,
+    /// you may hit the end of the buffer of recorded events, and as such no
+    /// further execution can be done. This stop reason tells GDB that this has
+    /// occurred.
+    ReplayLog(ReplayLogPosition),
 }

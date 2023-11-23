@@ -15,8 +15,6 @@
  */
 package android.media.cts;
 
-import static android.Manifest.permission.MEDIA_CONTENT_CONTROL;
-
 import android.media.AudioManager;
 import android.platform.test.annotations.AppModeFull;
 import com.android.compatibility.common.util.ApiLevelUtil;
@@ -42,6 +40,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
 import android.platform.test.annotations.AppModeFull;
+import android.provider.Settings;
 import android.test.InstrumentationTestCase;
 import android.test.UiThreadTest;
 import android.util.Log;
@@ -62,7 +61,9 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
     private static final String TAG = "MediaSessionManagerTest";
     private static final int TIMEOUT_MS = 3000;
     private static final int WAIT_MS = 500;
+    private static final String ENABLED_NOTIFICATION_LISTENERS = "enabled_notification_listeners";
 
+    private Context mContext;
     private AudioManager mAudioManager;
     private MediaSessionManager mSessionManager;
 
@@ -71,6 +72,7 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        mContext = getInstrumentation().getTargetContext();
         mAudioManager = (AudioManager) getInstrumentation().getTargetContext()
                 .getSystemService(Context.AUDIO_SERVICE);
         mSessionManager = (MediaSessionManager) getInstrumentation().getTargetContext()
@@ -107,8 +109,9 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
         // The permission can be held only on S+
         if (!MediaUtils.check(sIsAtLeastS, "test invalid before Android 12")) return;
 
-        getInstrumentation().getUiAutomation()
-                .adoptShellPermissionIdentity(Manifest.permission.MEDIA_CONTENT_CONTROL);
+        getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
+                Manifest.permission.MEDIA_CONTENT_CONTROL,
+                Manifest.permission.MANAGE_EXTERNAL_STORAGE);
 
         MediaKeyEventSessionListener keyEventSessionListener = new MediaKeyEventSessionListener();
         mSessionManager.addOnMediaKeyEventSessionChangedListener(
@@ -141,8 +144,9 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
         // The permission can be held only on S+
         if (!MediaUtils.check(sIsAtLeastS, "test invalid before Android 12")) return;
 
-        getInstrumentation().getUiAutomation()
-                .adoptShellPermissionIdentity(Manifest.permission.MEDIA_CONTENT_CONTROL);
+        getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
+                Manifest.permission.MEDIA_CONTENT_CONTROL,
+                Manifest.permission.MANAGE_EXTERNAL_STORAGE);
 
         MediaKeyEventDispatchedListener keyEventDispatchedListener =
                 new MediaKeyEventDispatchedListener();
@@ -510,6 +514,27 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
         }
     }
 
+    public void testIsTrustedForMediaControl_withEnabledNotificationListener() throws Exception {
+        List<String> packageNames = getEnabledNotificationListenerPackages();
+        for (String packageName : packageNames) {
+            int packageUid =
+                    mContext.getPackageManager().getPackageUid(packageName, /* flags= */ 0);
+            MediaSessionManager.RemoteUserInfo info =
+                    new MediaSessionManager.RemoteUserInfo(packageName, /* pid= */ 0, packageUid);
+            assertTrue(mSessionManager.isTrustedForMediaControl(info));
+        }
+    }
+
+    public void testIsTrustedForMediaControl_withInvalidUid() throws Exception {
+        List<String> packageNames = getEnabledNotificationListenerPackages();
+        for (String packageName : packageNames) {
+            MediaSessionManager.RemoteUserInfo info =
+                    new MediaSessionManager.RemoteUserInfo(
+                            packageName, /* pid= */ 0, Process.myUid());
+            assertFalse(mSessionManager.isTrustedForMediaControl(info));
+        }
+    }
+
     private boolean listContainsToken(List<Session2Token> tokens, Session2Token token) {
         for (int i = 0; i < tokens.size(); i++) {
             if (tokens.get(i).equals(token)) {
@@ -540,6 +565,24 @@ public class MediaSessionManagerTest extends InstrumentationTestCase {
                 new KeyEvent(downTime, downTime, KeyEvent.ACTION_DOWN, keyCode, 0));
         mAudioManager.dispatchMediaKeyEvent(
                 new KeyEvent(downTime, System.currentTimeMillis(), KeyEvent.ACTION_UP, keyCode, 0));
+    }
+
+    private List<String> getEnabledNotificationListenerPackages() {
+        List<String> listeners = new ArrayList<>();
+        String enabledNotificationListeners =
+                Settings.Secure.getString(
+                        mContext.getContentResolver(),
+                        ENABLED_NOTIFICATION_LISTENERS);
+        if (enabledNotificationListeners != null) {
+            String[] components = enabledNotificationListeners.split(":");
+            for (String componentString : components) {
+                ComponentName component = ComponentName.unflattenFromString(componentString);
+                if (component != null) {
+                    listeners.add(component.getPackageName());
+                }
+            }
+        }
+        return listeners;
     }
 
     private class VolumeKeyLongPressListener

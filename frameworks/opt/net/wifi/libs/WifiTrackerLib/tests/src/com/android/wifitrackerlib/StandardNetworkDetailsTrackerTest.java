@@ -62,18 +62,13 @@ public class StandardNetworkDetailsTrackerTest {
     private static final long MAX_SCAN_AGE_MILLIS = 15_000;
     private static final long SCAN_INTERVAL_MILLIS = 10_000;
 
-    @Mock
-    private Lifecycle mMockLifecycle;
-    @Mock
-    private Context mMockContext;
-    @Mock
-    private WifiManager mMockWifiManager;
-    @Mock
-    private ConnectivityManager mMockConnectivityManager;
-    @Mock
-    private NetworkScoreManager mMockNetworkScoreManager;
-    @Mock
-    private Clock mMockClock;
+    @Mock private WifiTrackerInjector mInjector;
+    @Mock private Lifecycle mMockLifecycle;
+    @Mock private Context mMockContext;
+    @Mock private WifiManager mMockWifiManager;
+    @Mock private ConnectivityManager mMockConnectivityManager;
+    @Mock private NetworkScoreManager mMockNetworkScoreManager;
+    @Mock private Clock mMockClock;
 
     private TestLooper mTestLooper;
 
@@ -84,7 +79,10 @@ public class StandardNetworkDetailsTrackerTest {
             String key) {
         final Handler testHandler = new Handler(mTestLooper.getLooper());
 
-        return new StandardNetworkDetailsTracker(mMockLifecycle, mMockContext,
+        return new StandardNetworkDetailsTracker(
+                mInjector,
+                mMockLifecycle,
+                mMockContext,
                 mMockWifiManager,
                 mMockConnectivityManager,
                 mMockNetworkScoreManager,

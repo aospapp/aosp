@@ -40,6 +40,15 @@ import java.util.function.BiConsumer;
 public class PolicyComplianceUtils {
 
     /**
+     * Returns whether the DPC handles the policy compliance activity on the managed user.
+     */
+    public boolean isPolicyComplianceActivityResolvableForManagedUser(
+            Context context, ProvisioningParams params, Utils utils) {
+        UserHandle userHandle = getPolicyComplianceUserHandle(context, params, utils);
+        return getPolicyComplianceIntentIfResolvable(context, params, utils, userHandle) != null;
+    }
+
+    /**
      * Returns whether the DPC handles the policy compliance activity on a given user.
      */
     public boolean isPolicyComplianceActivityResolvableForUser(

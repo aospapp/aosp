@@ -61,6 +61,7 @@ import com.android.car.CarServiceUtils;
 import com.android.car.R;
 import com.android.car.user.CarUserService;
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.List;
 
@@ -417,12 +418,20 @@ public final class FixedActivityService implements CarServiceBase {
                 return false;
             }
             for (int i = mRunningActivities.size() - 1; i >= 0; i--) {
+                int displayIdForActivity = mRunningActivities.keyAt(i);
+                Display display = mDm.getDisplay(displayIdForActivity);
+                if (display == null) {
+                    Slog.e(TAG_AM, "Stop fixed activity for non-available display"
+                            + displayIdForActivity);
+                    mRunningActivities.removeAt(i);
+                    continue;
+                }
+
                 RunningActivityInfo activityInfo = mRunningActivities.valueAt(i);
                 activityInfo.isVisible = false;
                 if (isUserAllowedToLaunchActivity(activityInfo.userId)) {
                     continue;
                 }
-                final int displayIdForActivity = mRunningActivities.keyAt(i);
                 if (activityInfo.taskId != INVALID_TASK_ID) {
                     Slog.i(TAG_AM, "Finishing fixed activity on user switching:"
                             + activityInfo);
@@ -432,12 +441,6 @@ public final class FixedActivityService implements CarServiceBase {
                         Slog.e(TAG_AM, "remote exception from AM", e);
                     }
                     CarServiceUtils.runOnMain(() -> {
-                        Display display = mDm.getDisplay(displayIdForActivity);
-                        if (display == null) {
-                            Slog.e(TAG_AM, "Display not available, cannot launnch window:"
-                                    + displayIdForActivity);
-                            return;
-                        }
                         Presentation p = new Presentation(mContext, display,
                                 android.R.style.Theme_Black_NoTitleBar_Fullscreen,
                                 // TYPE_PRESENTATION can't be used in the internal display.
@@ -546,7 +549,8 @@ public final class FixedActivityService implements CarServiceBase {
         }
     }
 
-    private void launchIfNecessary() {
+    @VisibleForTesting
+    void launchIfNecessary() {
         launchIfNecessary(Display.INVALID_DISPLAY);
     }
 
@@ -607,6 +611,13 @@ public final class FixedActivityService implements CarServiceBase {
             return false;
         }
         return true;
+    }
+
+    @VisibleForTesting
+    RunningActivityInfo getRunningFixedActivity(int displayId) {
+        synchronized (mLock) {
+            return mRunningActivities.get(displayId);
+        }
     }
 
     /**

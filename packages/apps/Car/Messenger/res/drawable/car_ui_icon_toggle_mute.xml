@@ -20,7 +20,7 @@
     android:viewportHeight="32"
     android:viewportWidth="32">
     <path
-        android:fillColor="@color/car_ui_toolbar_menu_item_icon_color"
+        android:fillColor="@color/secondary_text_color"
         android:pathData="M2.295,0L0,2.2788L7.7252,10.004H2.602V19.701H9.0667L17.1475,
         27.7818V19.4263L22.5131,24.7919C21.8343,25.1636 21.1394,25.4707
         20.3798,25.697V29.0263C21.996,28.6545 23.499,27.9919 24.8566,27.1354L29.7212,32L32,

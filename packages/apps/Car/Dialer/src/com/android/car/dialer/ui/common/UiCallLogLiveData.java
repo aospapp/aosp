@@ -34,7 +34,6 @@ import com.android.car.telephony.common.PhoneCallLog;
 import com.android.car.telephony.common.TelecomUtils;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -119,7 +118,7 @@ public class UiCallLogLiveData extends MediatorLiveData<List<Object>> {
 
         InMemoryPhoneBook inMemoryPhoneBook = InMemoryPhoneBook.get();
         for (PhoneCallLog phoneCallLog : phoneCallLogs) {
-            String header = getHeader(phoneCallLog.getLastCallEndTimestamp());
+            String header = getHeader(phoneCallLog.getTimeRange());
             if (preHeader == null || (!header.equals(preHeader))) {
                 uiCallLogs.add(header);
             }
@@ -159,21 +158,15 @@ public class UiCallLogLiveData extends MediatorLiveData<List<Object>> {
                 DateUtils.FORMAT_ABBREV_RELATIVE).toString() : "";
     }
 
-    private String getHeader(long calllogTime) {
-        // Calllog times are acquired before getting currentTime, so calllogTime is always
-        // less than currentTime
-        if (DateUtils.isToday(calllogTime)) {
-            return mContext.getResources().getString(R.string.call_log_header_today);
+    private String getHeader(@PhoneCallLog.TimeRange int timeRange) {
+        switch (timeRange) {
+            case PhoneCallLog.TimeRange.TODAY:
+                return mContext.getResources().getString(R.string.call_log_header_today);
+            case PhoneCallLog.TimeRange.YESTERDAY:
+                return mContext.getResources().getString(R.string.call_log_header_yesterday);
+            case PhoneCallLog.TimeRange.OLDER:
+            default:
+                return mContext.getResources().getString(R.string.call_log_header_older);
         }
-
-        Calendar callLogCalender = Calendar.getInstance();
-        callLogCalender.setTimeInMillis(calllogTime);
-        callLogCalender.add(Calendar.DAY_OF_YEAR, 1);
-
-        if (DateUtils.isToday(callLogCalender.getTimeInMillis())) {
-            return mContext.getResources().getString(R.string.call_log_header_yesterday);
-        }
-
-        return mContext.getResources().getString(R.string.call_log_header_older);
     }
 }

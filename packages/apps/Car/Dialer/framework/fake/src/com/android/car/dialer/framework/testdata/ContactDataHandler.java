@@ -83,7 +83,6 @@ public class ContactDataHandler {
             String accountType) {
         ArrayList<ContentProviderOperation> ops = new ArrayList<>();
 
-        String id = contactRawData.getId();
         Integer starred = contactRawData.getStarred();
         String displayName = contactRawData.getDisplayName();
         String number = contactRawData.getNumber();
@@ -95,12 +94,11 @@ public class ContactDataHandler {
         ops.add(ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
                 .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, accountName)
                 .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, accountType)
-                .withValue(ContactsContract.RawContacts._ID, id)
                 .withValue(ContactsContract.RawContacts.STARRED, starred)
                 .build());
 
         ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
-                .withValue(ContactsContract.Data.RAW_CONTACT_ID, id)
+                .withValueBackReference(ContactsContract.RawContacts.Data.RAW_CONTACT_ID, 0)
                 .withValue(ContactsContract.Data.MIMETYPE,
                         ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
                 .withValue(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME,
@@ -108,7 +106,7 @@ public class ContactDataHandler {
                 .build());
 
         ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
-                .withValue(ContactsContract.Data.RAW_CONTACT_ID, id)
+                .withValueBackReference(ContactsContract.RawContacts.Data.RAW_CONTACT_ID, 0)
                 .withValue(ContactsContract.Data.MIMETYPE,
                         ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE)
                 .withValue(ContactsContract.CommonDataKinds.Phone.NUMBER, number)
@@ -118,7 +116,7 @@ public class ContactDataHandler {
 
         if (!TextUtils.isEmpty(address)) {
             ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
-                    .withValue(ContactsContract.Data.RAW_CONTACT_ID, id)
+                    .withValueBackReference(ContactsContract.RawContacts.Data.RAW_CONTACT_ID, 0)
                     .withValue(ContactsContract.Data.MIMETYPE,
                             ContactsContract.CommonDataKinds.StructuredPostal.CONTENT_ITEM_TYPE)
                     .withValue(ContactsContract.CommonDataKinds.StructuredPostal.FORMATTED_ADDRESS,
@@ -143,21 +141,32 @@ public class ContactDataHandler {
      * Tears down the instance.
      */
     public void tearDown() {
-        removeAddedContactsAsync();
+        removeAllContacts();
     }
 
     /**
      * Removes contacts that are added to contacts2 database after this instance is created.
      */
-    public void removeAddedContactsAsync() {
-        // to be implemented.
+    public void removeAddedContactsAsync(String accountName, String accountType) {
+        Runnable removeContacts = () -> {
+            mContext.getContentResolver().delete(ContactsContract.RawContacts.CONTENT_URI,
+                    ContactsContract.RawContacts.ACCOUNT_NAME
+                            + " = ? AND " + ContactsContract.RawContacts.ACCOUNT_TYPE + " = ?",
+                    new String[]{accountName, accountType});
+        };
+        mWorkerExecutor.run(removeContacts);
     }
 
     /**
-     * Remove every contact data piece in the contact database.
+     * Remove every fake contact data piece in the contact database.
      */
     public void removeAllContacts() {
-        // to be implemented.
+        Runnable removeContacts = () -> {
+            mContext.getContentResolver().delete(ContactsContract.RawContacts.CONTENT_URI,
+                    ContactsContract.RawContacts.ACCOUNT_TYPE + " = ?",
+                    new String[]{TestData.ACCOUNT_TYPE});
+        };
+        mWorkerExecutor.run(removeContacts);
     }
 
     /**

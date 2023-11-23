@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:alpha="0">
+
+    <View
+        android:id="@+id/toolbar_dialog_shade"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#99000000"/>
+
+    <!-- This ConstraintLayout is the grey box of the dialog.
+         It's clickable in order to block clicks before they reach the shade. -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="750dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:minHeight="48dp"
+        android:background="#ff282a2d"
+        android:orientation="vertical"
+        android:clickable="true">
+
+        <ScrollView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:clipToPadding="false"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/toolbar_dialog_dismiss_button"
+            app:layout_constraintHeight_max="400dp"
+            app:layout_constrainedHeight="true">
+            <LinearLayout
+                android:id="@+id/toolbar_dialog_linear_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"/>
+        </ScrollView>
+
+        <Button
+            android:id="@+id/toolbar_dialog_dismiss_button"
+            android:layout_width="wrap_content"
+            android:layout_height="76dp"
+            android:minWidth="79dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="@string/dialog_dismiss_button"
+            android:textAllCaps="false"
+            android:textSize="26sp"
+            style="@android:style/Widget.Material.Button.Borderless.Colored"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintLeft_toLeftOf="parent"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</FrameLayout>

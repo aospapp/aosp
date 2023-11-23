@@ -35,7 +35,7 @@
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"Your call used the phone app that came with your device"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"Call muted."</string>
     <string name="accessibility_speakerphone_enabled" msgid="555386652061614267">"Speakerphone enabled."</string>
-    <string name="respond_via_sms_canned_response_1" msgid="6332561460870382561">"Can\'t talk now. What\'s going on?"</string>
+    <string name="respond_via_sms_canned_response_1" msgid="6332561460870382561">"I am so sorry, I can\'t answer the phone right now. How can I help you?"</string>
     <string name="respond_via_sms_canned_response_2" msgid="2052951316129952406">"I\'ll call you back."</string>
     <string name="respond_via_sms_canned_response_3" msgid="6656147963478092035">"I\'ll call you later."</string>
     <string name="respond_via_sms_canned_response_4" msgid="9141132488345561047">"Can\'t talk now. Call me later?"</string>

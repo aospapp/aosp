@@ -22,10 +22,10 @@
     <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"অনাতাঁৰ জৰুৰীকালীন সতৰ্কবাৰ্তাসমূহ"</string>
     <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"অনাতাঁৰ জৰুৰীকালীন সতৰ্কবাৰ্তাসমূহ"</string>
     <string name="sms_cb_sender_name_public_safety" msgid="5230033387708907922">"তথ্যসমৃদ্ধ জাননী"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"এই ব্যৱহাৰকাৰীৰ বাবে অনাতাঁৰ জৰুৰীকালীন সতৰ্কবাৰ্তাৰ ছেটিংসমূহ উপলব্ধ নহয়"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"এই ব্যৱহাৰকাৰীৰ বাবে অনাতাঁৰ জৰুৰীকালীন সতৰ্কবাৰ্তাৰ ছেটিং উপলব্ধ নহয়"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"ঠিক আছে"</string>
     <string name="no_cell_broadcasts" msgid="7554779730107421769">"পূৰ্বৰ কোনো সতৰ্কবাণী নাই"</string>
-    <string name="menu_preferences" msgid="3596514894131599202">"ছেটিংসমূহ"</string>
+    <string name="menu_preferences" msgid="3596514894131599202">"ছেটিং"</string>
     <string name="menu_delete_all" msgid="3940997343921149800">"সম্প্ৰচাৰসমূহ মচক"</string>
     <string name="message_options" msgid="3178489901903589574">"বাৰ্তাৰ বিকল্পসমূহ"</string>
     <string name="menu_view_details" msgid="1040989019045280975">"সবিশেষ চাওক"</string>
@@ -33,7 +33,7 @@
     <string name="view_details_title" msgid="1780427629491781473">"সতৰ্কবাণীৰ সবিশেষ"</string>
     <string name="view_details_debugging_title" msgid="5699927030805114173">"ডিবাগিঙৰ বাবে সতর্কবার্তাৰ সবিশেষ"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"এই সম্প্ৰচাৰটো মচিবনে?"</string>
-    <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"আপুনি লাভ কৰা সকলোবোৰ সম্প্ৰচাৰ বাৰ্তা মচিবনে?"</string>
+    <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"আপুনি লাভ কৰা আটাইবোৰ সম্প্ৰচাৰ বাৰ্তা মচিবনে?"</string>
     <string name="button_delete" msgid="4672451757925194350">"মচক"</string>
     <string name="button_cancel" msgid="7479958360523246140">"বাতিল কৰক"</string>
     <string name="etws_earthquake_warning" msgid="6428741104423152511">"ভূমিকম্পৰ সতর্কবাণী"</string>
@@ -97,7 +97,7 @@
     <string name="enable_alert_vibrate_title" msgid="5421032189422312508">"কম্পন"</string>
     <string name="enable_alert_vibrate_summary" msgid="4733669825477146614"></string>
     <string name="override_dnd_title" msgid="5120805993144214421">"সদায় সম্পূর্ণ ভলিউমত সতর্ক কৰক"</string>
-    <string name="override_dnd_summary" msgid="9026675822792800258">"অসুবিধা নিদিব আৰু অন্য ধ্বনিৰ ছেটিংসমূহ উপেক্ষা কৰক"</string>
+    <string name="override_dnd_summary" msgid="9026675822792800258">"অসুবিধা নিদিব আৰু অন্য ভলিউমৰ ছেটিং উপেক্ষা কৰক"</string>
     <string name="enable_area_update_info_alerts_title" msgid="3442042268424617226">"এলেকা আপডে’ট সম্প্ৰচাৰসমূহ"</string>
     <string name="enable_area_update_info_alerts_summary" msgid="6437816607144264910">"ছিমৰ স্থিতিত আপডেটৰ তথ্য় দেখুৱাওক"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"সতৰ্কবাণীৰ প্ৰকাৰ:"</string>
@@ -155,7 +155,7 @@
     <string name="alerts_header_summary" msgid="4700985191868591788"></string>
     <string name="testing_mode_enabled" msgid="8296556666392297467">"চেল সম্প্ৰচাৰ পৰীক্ষণ ম’ড সক্ষম কৰা হৈছে।"</string>
     <string name="testing_mode_disabled" msgid="8381408377958182661">"চেল সম্প্ৰচাৰ পৰীক্ষণ ম’ড অক্ষম কৰা হৈছে।"</string>
-    <string name="show_all_messages" msgid="3780970968167139836">"সকলো বার্তা দেখুৱাওক"</string>
+    <string name="show_all_messages" msgid="3780970968167139836">"আটাইবোৰ বার্তা দেখুৱাওক"</string>
     <string name="show_regular_messages" msgid="7376885150513522515">"নিয়মীয়া বার্তাসমূহ দেখুৱাওক"</string>
     <string name="message_identifier" msgid="5558338496219327850">"চিনাক্তকাৰী:"</string>
     <string name="message_serial_number" msgid="3386553658712978964">"ক্ৰমিক নম্বৰ:"</string>
@@ -168,5 +168,5 @@
     <string name="seconds" msgid="141450721520515025">"ছেকেণ্ড"</string>
     <string name="message_copied" msgid="6922953753733166675">"বাৰ্তা প্ৰতিলিপি কৰা হ\'ল"</string>
     <string name="notification_cb_settings_changed_title" msgid="7664799881479966932">"বাহকে ছেটিং সলনি কৰিছে"</string>
-    <string name="notification_cb_settings_changed_text" msgid="1397646219615654933">"অনাতাঁৰ জৰুৰীকালীন সতৰ্কবাৰ্তা চাবলৈ টিপক"</string>
+    <string name="notification_cb_settings_changed_text" msgid="1397646219615654933">"অনাতাঁৰ জৰুৰীকালীন সতৰ্কবাৰ্তাৰ ছেটিং চাবলৈ টিপক"</string>
 </resources>

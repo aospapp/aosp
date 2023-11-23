@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"Dozvole za aplikacije"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Aplikacije koje se ne koriste"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"Nema aplik. koje se ne koriste"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"0 aplikac. koje se ne koriste"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Onemogući aplikaciju"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Ako onemogućite ovu aplikaciju, Android i druge aplikacije možda više neće raditi ispravno. Imajte na umu da ne možete da izbrišete ovu aplikaciju jer je bila unapred instalirana na uređaju. Ako je onemogućite, isključićete je i sakriti na uređaju."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"Menadžer dozvola"</string>

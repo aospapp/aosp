@@ -54,9 +54,11 @@ use android_system_keystore2::aidl::android::system::keystore2::{
     Domain::Domain, EphemeralStorageKeyResponse::EphemeralStorageKeyResponse,
     IKeystoreOperation::IKeystoreOperation, IKeystoreSecurityLevel::BnKeystoreSecurityLevel,
     IKeystoreSecurityLevel::IKeystoreSecurityLevel, KeyDescriptor::KeyDescriptor,
-    KeyMetadata::KeyMetadata, KeyParameters::KeyParameters,
+    KeyMetadata::KeyMetadata, KeyParameters::KeyParameters, ResponseCode::ResponseCode,
 };
 use anyhow::{anyhow, Context, Result};
+use std::convert::TryInto;
+use std::time::SystemTime;
 
 /// Implementation of the IKeystoreSecurityLevel Interface.
 pub struct KeystoreSecurityLevel {
@@ -386,25 +388,50 @@ impl KeystoreSecurityLevel {
         })
     }
 
-    fn add_certificate_parameters(
+    fn add_required_parameters(
         &self,
         uid: u32,
         params: &[KeyParameter],
         key: &KeyDescriptor,
     ) -> Result<Vec<KeyParameter>> {
         let mut result = params.to_vec();
+
+        // Unconditionally add the CREATION_DATETIME tag and prevent callers from
+        // specifying it.
+        if params.iter().any(|kp| kp.tag == Tag::CREATION_DATETIME) {
+            return Err(Error::Rc(ResponseCode::INVALID_ARGUMENT)).context(
+                "In KeystoreSecurityLevel::add_required_parameters: \
+                Specifying Tag::CREATION_DATETIME is not allowed.",
+            );
+        }
+
+        result.push(KeyParameter {
+            tag: Tag::CREATION_DATETIME,
+            value: KeyParameterValue::DateTime(
+                SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .context(
+                        "In KeystoreSecurityLevel::add_required_parameters: \
+                        Failed to get epoch time.",
+                    )?
+                    .as_millis()
+                    .try_into()
+                    .context(
+                        "In KeystoreSecurityLevel::add_required_parameters: \
+                        Failed to convert epoch time.",
+                    )?,
+            ),
+        });
+
         // If there is an attestation challenge we need to get an application id.
         if params.iter().any(|kp| kp.tag == Tag::ATTESTATION_CHALLENGE) {
             let aaid = {
                 let _wp = self.watch_millis(
-                    "In KeystoreSecurityLevel::add_certificate_parameters calling: get_aaid",
+                    "In KeystoreSecurityLevel::add_required_parameters calling: get_aaid",
                     500,
                 );
                 keystore2_aaid::get_aaid(uid).map_err(|e| {
-                    anyhow!(format!(
-                        "In add_certificate_parameters: get_aaid returned status {}.",
-                        e
-                    ))
+                    anyhow!(format!("In add_required_parameters: get_aaid returned status {}.", e))
                 })
             }?;
 
@@ -416,13 +443,13 @@ impl KeystoreSecurityLevel {
 
         if params.iter().any(|kp| kp.tag == Tag::INCLUDE_UNIQUE_ID) {
             check_key_permission(KeyPerm::gen_unique_id(), key, &None).context(concat!(
-                "In add_certificate_parameters: ",
+                "In add_required_parameters: ",
                 "Caller does not have the permission to generate a unique ID"
             ))?;
             if self.id_rotation_state.had_factory_reset_since_id_rotation().context(
-                "In add_certificate_parameters: Call to had_factory_reset_since_id_rotation failed."
+                "In add_required_parameters: Call to had_factory_reset_since_id_rotation failed.",
             )? {
-                result.push(KeyParameter{
+                result.push(KeyParameter {
                     tag: Tag::RESET_SINCE_ID_ROTATION,
                     value: KeyParameterValue::BoolValue(true),
                 })
@@ -433,7 +460,7 @@ impl KeystoreSecurityLevel {
         // correct Android permission.
         if params.iter().any(|kp| is_device_id_attestation_tag(kp.tag)) {
             check_device_attestation_permissions().context(concat!(
-                "In add_certificate_parameters: ",
+                "In add_required_parameters: ",
                 "Caller does not have the permission to attest device identifiers."
             ))?;
         }
@@ -505,7 +532,7 @@ impl KeystoreSecurityLevel {
                 .context("In generate_key: Trying to get an attestation key")?,
         };
         let params = self
-            .add_certificate_parameters(caller_uid, params, &key)
+            .add_required_parameters(caller_uid, params, &key)
             .context("In generate_key: Trying to get aaid.")?;
 
         let km_dev: Strong<dyn IKeyMintDevice> = self.keymint.get_interface()?;
@@ -606,7 +633,7 @@ impl KeystoreSecurityLevel {
         check_key_permission(KeyPerm::rebind(), &key, &None).context("In import_key.")?;
 
         let params = self
-            .add_certificate_parameters(caller_uid, params, &key)
+            .add_required_parameters(caller_uid, params, &key)
             .context("In import_key: Trying to get aaid.")?;
 
         let format = params

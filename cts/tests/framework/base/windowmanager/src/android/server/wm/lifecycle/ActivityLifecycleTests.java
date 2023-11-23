@@ -22,9 +22,9 @@ import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
 import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NO_USER_ACTION;
+import static android.server.wm.UiDeviceUtils.pressBackButton;
 import static android.server.wm.WindowManagerState.STATE_PAUSED;
 import static android.server.wm.WindowManagerState.STATE_STOPPED;
-import static android.server.wm.UiDeviceUtils.pressBackButton;
 import static android.server.wm.lifecycle.ActivityLifecycleClientTestBase.LaunchForResultActivity.EXTRA_LAUNCH_ON_RESULT;
 import static android.server.wm.lifecycle.ActivityLifecycleClientTestBase.LaunchForResultActivity.EXTRA_LAUNCH_ON_RESUME_AFTER_RESULT;
 import static android.server.wm.lifecycle.ActivityLifecycleClientTestBase.NoDisplayActivity.EXTRA_LAUNCH_ACTIVITY;
@@ -59,7 +59,6 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.platform.test.annotations.Presubmit;
 
-import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
 
 import com.android.compatibility.common.util.AmUtils;
@@ -317,21 +316,16 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
                 transition(LaunchForResultActivity.class, ON_START),
                 transition(LaunchForResultActivity.class, ON_POST_CREATE),
                 transition(LaunchForResultActivity.class, ON_RESUME),
-                transition(LaunchForResultActivity.class, ON_TOP_POSITION_GAINED),
                 // An activity is automatically launched for result.
-                transition(LaunchForResultActivity.class, ON_TOP_POSITION_LOST),
                 transition(LaunchForResultActivity.class, ON_PAUSE),
                 transition(ResultActivity.class, ON_CREATE),
                 transition(ResultActivity.class, ON_START),
                 transition(ResultActivity.class, ON_RESUME),
-                transition(ResultActivity.class, ON_TOP_POSITION_GAINED),
                 // Activity that was launched for result is finished automatically - the base
                 // launching activity is brought to front.
                 transition(LaunchForResultActivity.class, ON_ACTIVITY_RESULT),
                 transition(LaunchForResultActivity.class, ON_RESUME),
-                transition(LaunchForResultActivity.class, ON_TOP_POSITION_GAINED),
                 // New activity is launched after receiving result in base activity.
-                transition(LaunchForResultActivity.class, ON_TOP_POSITION_LOST),
                 transition(LaunchForResultActivity.class, ON_PAUSE),
                 transition(CallbackTrackingActivity.class, ON_CREATE),
                 transition(CallbackTrackingActivity.class, ON_START),
@@ -562,7 +556,7 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
         final List<LifecycleLog.ActivityCallback> expectedSequence =
                 Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
                         ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST, ON_PAUSE, ON_STOP,
-                        ON_ACTIVITY_RESULT, ON_RESTART, ON_START, ON_RESUME,
+                        ON_RESTART, ON_START, ON_ACTIVITY_RESULT, ON_RESUME,
                         ON_TOP_POSITION_GAINED);
         LifecycleVerifier.assertSequence(LaunchForwardResultActivity.class, getLifecycleLog(),
                 expectedSequence, "becomingVisibleResumed");
@@ -571,35 +565,23 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
     @Test
     public void testOnActivityResult() throws Exception {
         new Launcher(LaunchForResultActivity.class)
-                .customizeIntent(LaunchForResultActivity.forwardFlag(EXTRA_FINISH_IN_ON_RESUME))
+                .customizeIntent(LaunchForResultActivity.forwardFlag(EXTRA_FINISH_IN_ON_RESUME,
+                        EXTRA_SKIP_TOP_RESUMED_STATE))
+                .setSkipTopResumedStateCheck()
                 .launch();
 
         final List<LifecycleLog.ActivityCallback> expectedSequence =
                 Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
-                        ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST,
-                        ON_PAUSE, ON_ACTIVITY_RESULT, ON_RESUME, ON_TOP_POSITION_GAINED);
+                        ON_PAUSE, ON_ACTIVITY_RESULT, ON_RESUME);
         waitForActivityTransitions(LaunchForResultActivity.class, expectedSequence);
 
         // TODO(b/79218023): First activity might also be stopped before getting result.
         final List<LifecycleLog.ActivityCallback> sequenceWithStop =
                 Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
-                        ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST,
-                        ON_PAUSE, ON_STOP, ON_ACTIVITY_RESULT, ON_RESTART, ON_START, ON_RESUME,
-                        ON_TOP_POSITION_GAINED);
-        final List<LifecycleLog.ActivityCallback> thirdSequence =
-                Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
-                        ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST,
-                        ON_PAUSE, ON_STOP, ON_ACTIVITY_RESULT, ON_RESTART, ON_START, ON_RESUME,
-                        ON_TOP_POSITION_GAINED);
-        final List<LifecycleLog.ActivityCallback> fourthSequence =
-                Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
-                        ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST,
-                        ON_PAUSE, ON_STOP, ON_RESTART, ON_START, ON_ACTIVITY_RESULT, ON_RESUME,
-                        ON_TOP_POSITION_GAINED);
+                        ON_PAUSE, ON_STOP, ON_RESTART, ON_START, ON_ACTIVITY_RESULT, ON_RESUME);
         LifecycleVerifier.assertSequenceMatchesOneOf(LaunchForResultActivity.class,
                 getLifecycleLog(),
-                Arrays.asList(expectedSequence, sequenceWithStop, thirdSequence, fourthSequence),
-                "activityResult");
+                Arrays.asList(expectedSequence, sequenceWithStop), "activityResult");
     }
 
     @Test
@@ -612,6 +594,7 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
                 // TODO (b/127741025) temporarily use setNoInstance, because startActivitySync will
                 // cause launch timeout when more than 2 activities start consecutively.
                 .setNoInstance()
+                .setSkipTopResumedStateCheck()
                 .setExpectedState(ON_STOP)
                 .launch();
         final Activity activity = getInstrumentation()
@@ -624,28 +607,17 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
 
         final boolean isTranslucent = isTranslucent(activity);
 
-        final List<List<LifecycleLog.ActivityCallback>> expectedSequences;
+        final List<LifecycleLog.ActivityCallback> expectedSequences;
         if (isTranslucent) {
-            expectedSequences = Arrays.asList(
-                    Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
-                            ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST, ON_PAUSE,
-                            ON_ACTIVITY_RESULT, ON_RESUME, ON_TOP_POSITION_GAINED)
-            );
+            expectedSequences = Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
+                    ON_PAUSE, ON_ACTIVITY_RESULT, ON_RESUME);
         } else {
-            expectedSequences = Arrays.asList(
-                    Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
-                            ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST,
-                            ON_PAUSE, ON_STOP, ON_RESTART, ON_START, ON_ACTIVITY_RESULT, ON_RESUME,
-                            ON_TOP_POSITION_GAINED),
-                    Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
-                            ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST,
-                            ON_PAUSE, ON_STOP, ON_ACTIVITY_RESULT, ON_RESTART, ON_START, ON_RESUME,
-                            ON_TOP_POSITION_GAINED)
-            );
+            expectedSequences = Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
+                    ON_PAUSE, ON_STOP, ON_RESTART, ON_START, ON_ACTIVITY_RESULT, ON_RESUME);
         }
-        waitForActivityTransitions(LaunchForResultActivity.class, expectedSequences.get(0));
+        waitForActivityTransitions(LaunchForResultActivity.class, expectedSequences);
 
-        LifecycleVerifier.assertSequenceMatchesOneOf(LaunchForResultActivity.class,
+        LifecycleVerifier.assertSequence(LaunchForResultActivity.class,
                 getLifecycleLog(), expectedSequences, "activityResult");
     }
 
@@ -757,7 +729,8 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
     @Test
     public void testLocalRecreate() throws Exception {
         // Launch the activity that will recreate itself
-        final Activity recreatingActivity = launchActivityAndWait(SingleTopActivity.class);
+        final Activity recreatingActivity = new Launcher(SingleTopActivity.class)
+                .launch();
 
         // Launch second activity to cover and stop first
         final Activity secondActivity = new Launcher(SecondActivity.class)
@@ -773,19 +746,19 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
         new Launcher(SingleTopActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK)
                 .setExtraFlags(EXTRA_RECREATE)
+                // There is no guarantee that the activity will be relaunched after on top resume
+                // state received. Skip recording the top resume state to simplify the verification.
+                .setSkipTopResumedStateCheck()
                 .launch();
 
         // Wait for activity to relaunch and resume
         final List<LifecycleLog.ActivityCallback> expectedRelaunchSequence;
         if (isTranslucent(secondActivity)) {
             expectedRelaunchSequence = Arrays.asList(ON_NEW_INTENT, ON_RESUME,
-                    ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST,
-                    ON_PAUSE, ON_STOP, ON_DESTROY, ON_CREATE, ON_START,
-                    ON_POST_CREATE, ON_RESUME, ON_TOP_POSITION_GAINED);
+                    ON_PAUSE, ON_STOP, ON_DESTROY, ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME);
         } else {
             expectedRelaunchSequence = Arrays.asList(ON_RESTART, ON_START, ON_NEW_INTENT, ON_RESUME,
-                    ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST, ON_PAUSE, ON_STOP, ON_DESTROY,
-                    ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME, ON_TOP_POSITION_GAINED);
+                    ON_PAUSE, ON_STOP, ON_DESTROY, ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME);
         }
 
         waitForActivityTransitions(SingleTopActivity.class, expectedRelaunchSequence);
@@ -876,7 +849,7 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
 
     @Test
     public void testFinishInOnCreate() throws Exception {
-        verifyFinishAtStage( ResultActivity.class, EXTRA_FINISH_IN_ON_CREATE,
+        verifyFinishAtStage(ResultActivity.class, EXTRA_FINISH_IN_ON_CREATE,
                 Arrays.asList(ON_CREATE, ON_DESTROY), "onCreate");
     }
 
@@ -903,27 +876,38 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
     @Test
     public void testFinishInOnResume() throws Exception {
         verifyFinishAtStage(ResultActivity.class, EXTRA_FINISH_IN_ON_RESUME,
-                Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
-                        ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST, ON_PAUSE, ON_STOP,
+                true /* skipTopResumedState */,
+                Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME, ON_PAUSE, ON_STOP,
                         ON_DESTROY), "onResume");
     }
 
     @Test
     public void testFinishInOnResumeNoDisplay() throws Exception {
         verifyFinishAtStage(NoDisplayActivity.class, EXTRA_FINISH_IN_ON_RESUME,
-                Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
-                        ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST, ON_PAUSE, ON_STOP,
+                true /* skipTopResumedState */,
+                Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME, ON_PAUSE, ON_STOP,
                         ON_DESTROY), "onResume");
     }
 
     private void verifyFinishAtStage(Class<? extends Activity> activityClass,
             String finishStageExtra, List<LifecycleLog.ActivityCallback> expectedSequence,
             String stageName) throws Exception {
-        new Launcher(activityClass)
+        verifyFinishAtStage(activityClass, finishStageExtra, false /* skipTopResumedState */,
+                expectedSequence, stageName);
+    }
+
+    private void verifyFinishAtStage(Class<? extends Activity> activityClass,
+            String finishStageExtra, boolean skipTopResumedState,
+            List<LifecycleLog.ActivityCallback> expectedSequence,
+            String stageName) throws Exception {
+        final Launcher launcher = new Launcher(activityClass)
                 .setExpectedState(ON_DESTROY)
                 .setExtraFlags(finishStageExtra)
-                .setNoInstance()
-                .launch();
+                .setNoInstance();
+        if (skipTopResumedState) {
+            launcher.setSkipTopResumedStateCheck();
+        }
+        launcher.launch();
 
         waitAndAssertActivityTransitions(activityClass, expectedSequence, "finish in " + stageName);
     }

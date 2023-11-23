@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"차량 전원 정책을 관리합니다."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"템플릿 렌더링"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"템플릿 렌더링"</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"애플리케이션 실행을 제어합니다."</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"애플리케이션 실행을 제어합니다."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"내 기기"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"게스트"</string>
     <string name="importance_default" msgid="8587741629268312938">"중요도가 기본인 알림 채널"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"나중에 초기화"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"다음에 차 시동이 걸리면 인포테인먼트 시스템이 초기화됩니다."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"초기화하려면 차량이 주차된 상태여야 합니다."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> 앱이 시스템 성능에 영향을 미침"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"앱을 사용 중지하여 시스템 성능을 개선하세요. 설정에서 앱을 다시 한번 사용 설정할 수 있습니다."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"앱을 계속 사용하려면 앱을 우선순위로 지정하세요."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"앱을 제거하여 시스템 성능을 개선하세요."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"앱 사용 중지"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"앱 우선순위 지정"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"앱 제거"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> 앱이 사용 중지되었습니다. 설정에서 다시 사용 설정할 수 있습니다."</string>
 </resources>

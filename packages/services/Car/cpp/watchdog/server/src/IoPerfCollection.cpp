@@ -45,229 +45,281 @@ using ::android::base::WriteStringToFd;
 
 namespace {
 
-const int32_t kDefaultTopNStatsPerCategory = 10;
-const int32_t kDefaultTopNStatsPerSubcategory = 5;
+constexpr int32_t kDefaultTopNStatsPerCategory = 10;
+constexpr int32_t kDefaultTopNStatsPerSubcategory = 5;
+constexpr const char kBootTimeCollectionTitle[] = "%s\nBoot-time I/O performance report:\n%s\n";
+constexpr const char kPeriodicCollectionTitle[] =
+        "%s\nLast N minutes I/O performance report:\n%s\n";
+constexpr const char kCustomCollectionTitle[] = "%s\nCustom I/O performance data report:\n%s\n";
+constexpr const char kCollectionTitle[] =
+        "Collection duration: %.f seconds\nNumber of collections: %zu\n";
+constexpr const char kRecordTitle[] = "\nCollection %zu: <%s>\n%s\n%s";
+constexpr const char kIoReadsTitle[] = "\nTop N Reads:\n%s\n";
+constexpr const char kIoWritesTitle[] = "\nTop N Writes:\n%s\n";
+constexpr const char kIoStatsHeader[] =
+        "Android User ID, Package Name, Foreground Bytes, Foreground Bytes %%, Foreground Fsync, "
+        "Foreground Fsync %%, Background Bytes, Background Bytes %%, Background Fsync, "
+        "Background Fsync %%\n";
+constexpr const char kIoBlockedTitle[] = "\nTop N I/O waiting UIDs:\n%s\n";
+constexpr const char kIoBlockedHeader[] =
+        "Android User ID, Package Name, Number of owned tasks waiting for I/O, Percentage of owned "
+        "tasks waiting for I/O\n\tCommand, Number of I/O waiting tasks, Percentage of UID's tasks "
+        "waiting for I/O\n";
+constexpr const char kMajorPageFaultsTitle[] = "\nTop N major page faults:\n%s\n";
+constexpr const char kMajorFaultsHeader[] =
+        "Android User ID, Package Name, Number of major page faults, Percentage of total major "
+        "page faults\n\tCommand, Number of major page faults, Percentage of UID's major page "
+        "faults\n";
+constexpr const char kMajorFaultsSummary[] =
+        "Number of major page faults since last collection: %" PRIu64 "\n"
+        "Percentage of change in major page faults since last collection: %.2f%%\n";
 
 double percentage(uint64_t numer, uint64_t denom) {
     return denom == 0 ? 0.0 : (static_cast<double>(numer) / static_cast<double>(denom)) * 100.0;
 }
 
-struct UidProcessStats {
-    struct ProcessInfo {
-        std::string comm = "";
-        uint64_t count = 0;
+void addUidIoStats(const int64_t entry[][UID_STATES], int64_t total[][UID_STATES]) {
+    const auto sum = [](int64_t lhs, int64_t rhs) -> int64_t {
+        return std::numeric_limits<int64_t>::max() - lhs > rhs
+                ? lhs + rhs
+                : std::numeric_limits<int64_t>::max();
     };
-    uint64_t uid = 0;
-    uint32_t ioBlockedTasksCnt = 0;
-    uint32_t totalTasksCnt = 0;
-    uint64_t majorFaults = 0;
-    std::vector<ProcessInfo> topNIoBlockedProcesses = {};
-    std::vector<ProcessInfo> topNMajorFaultProcesses = {};
-};
-
-std::unique_ptr<std::unordered_map<uid_t, UidProcessStats>> getUidProcessStats(
-        const std::vector<ProcessStats>& processStats, int topNStatsPerSubCategory) {
-    std::unique_ptr<std::unordered_map<uid_t, UidProcessStats>> uidProcessStats(
-            new std::unordered_map<uid_t, UidProcessStats>());
-    for (const auto& stats : processStats) {
-        if (stats.uid < 0) {
-            continue;
-        }
-        uid_t uid = static_cast<uid_t>(stats.uid);
-        if (uidProcessStats->find(uid) == uidProcessStats->end()) {
-            (*uidProcessStats)[uid] = UidProcessStats{
-                    .uid = uid,
-                    .topNIoBlockedProcesses = std::vector<
-                            UidProcessStats::ProcessInfo>(topNStatsPerSubCategory,
-                                                          UidProcessStats::ProcessInfo{}),
-                    .topNMajorFaultProcesses = std::vector<
-                            UidProcessStats::ProcessInfo>(topNStatsPerSubCategory,
-                                                          UidProcessStats::ProcessInfo{}),
-            };
-        }
-        auto& curUidProcessStats = (*uidProcessStats)[uid];
-        // Top-level process stats has the aggregated major page faults count and this should be
-        // persistent across thread creation/termination. Thus use the value from this field.
-        curUidProcessStats.majorFaults += stats.process.majorFaults;
-        curUidProcessStats.totalTasksCnt += stats.threads.size();
-        // The process state is the same as the main thread state. Thus to avoid double counting
-        // ignore the process state.
-        uint32_t ioBlockedTasksCnt = 0;
-        for (const auto& threadStat : stats.threads) {
-            ioBlockedTasksCnt += threadStat.second.state == "D" ? 1 : 0;
-        }
-        curUidProcessStats.ioBlockedTasksCnt += ioBlockedTasksCnt;
-        for (auto it = curUidProcessStats.topNIoBlockedProcesses.begin();
-             it != curUidProcessStats.topNIoBlockedProcesses.end(); ++it) {
-            if (it->count < ioBlockedTasksCnt) {
-                curUidProcessStats.topNIoBlockedProcesses
-                        .emplace(it,
-                                 UidProcessStats::ProcessInfo{
-                                         .comm = stats.process.comm,
-                                         .count = ioBlockedTasksCnt,
-                                 });
-                curUidProcessStats.topNIoBlockedProcesses.pop_back();
-                break;
-            }
-        }
-        for (auto it = curUidProcessStats.topNMajorFaultProcesses.begin();
-             it != curUidProcessStats.topNMajorFaultProcesses.end(); ++it) {
-            if (it->count < stats.process.majorFaults) {
-                curUidProcessStats.topNMajorFaultProcesses
-                        .emplace(it,
-                                 UidProcessStats::ProcessInfo{
-                                         .comm = stats.process.comm,
-                                         .count = stats.process.majorFaults,
-                                 });
-                curUidProcessStats.topNMajorFaultProcesses.pop_back();
-                break;
-            }
-        }
-    }
-    return uidProcessStats;
+    total[READ_BYTES][FOREGROUND] =
+            sum(total[READ_BYTES][FOREGROUND], entry[READ_BYTES][FOREGROUND]);
+    total[READ_BYTES][BACKGROUND] =
+            sum(total[READ_BYTES][BACKGROUND], entry[READ_BYTES][BACKGROUND]);
+    total[WRITE_BYTES][FOREGROUND] =
+            sum(total[WRITE_BYTES][FOREGROUND], entry[WRITE_BYTES][FOREGROUND]);
+    total[WRITE_BYTES][BACKGROUND] =
+            sum(total[WRITE_BYTES][BACKGROUND], entry[WRITE_BYTES][BACKGROUND]);
+    total[FSYNC_COUNT][FOREGROUND] =
+            sum(total[FSYNC_COUNT][FOREGROUND], entry[FSYNC_COUNT][FOREGROUND]);
+    total[FSYNC_COUNT][BACKGROUND] =
+            sum(total[FSYNC_COUNT][BACKGROUND], entry[FSYNC_COUNT][BACKGROUND]);
+    return;
 }
 
-Result<void> checkDataCollectors(const wp<UidIoStats>& uidIoStats, const wp<ProcStat>& procStat,
-                                 const wp<ProcPidStat>& procPidStat) {
-    if (uidIoStats != nullptr && procStat != nullptr && procPidStat != nullptr) {
+UserPackageStats toUserPackageStats(MetricType metricType, const UidStats& uidStats) {
+    const UidIoStats& ioStats = uidStats.ioStats;
+    return UserPackageStats{
+            .uid = uidStats.uid(),
+            .genericPackageName = uidStats.genericPackageName(),
+            .stats = UserPackageStats::
+                    IoStats{.bytes = {ioStats.metrics[metricType][UidState::FOREGROUND],
+                                      ioStats.metrics[metricType][UidState::BACKGROUND]},
+                            .fsync =
+                                    {ioStats.metrics[MetricType::FSYNC_COUNT][UidState::FOREGROUND],
+                                     ioStats.metrics[MetricType::FSYNC_COUNT]
+                                                    [UidState::BACKGROUND]}},
+    };
+}
+
+void cacheTopNIoStats(MetricType metricType, const UidStats& uidStats,
+                      std::vector<UserPackageStats>* topNIoStats) {
+    if (metricType != MetricType::READ_BYTES && metricType != MetricType::WRITE_BYTES) {
+        return;
+    }
+    int64_t totalBytes = metricType == MetricType::READ_BYTES ? uidStats.ioStats.sumReadBytes()
+                                                              : uidStats.ioStats.sumWriteBytes();
+    if (totalBytes == 0) {
+        return;
+    }
+    for (auto it = topNIoStats->begin(); it != topNIoStats->end(); ++it) {
+        if (const auto* ioStats = std::get_if<UserPackageStats::IoStats>(&it->stats);
+            ioStats == nullptr || totalBytes > ioStats->totalBytes()) {
+            topNIoStats->emplace(it, toUserPackageStats(metricType, uidStats));
+            topNIoStats->pop_back();
+            break;
+        }
+    }
+    return;
+}
+
+enum ProcStatType {
+    IO_BLOCKED_TASKS_COUNT = 0,
+    MAJOR_FAULTS,
+    PROC_STAT_TYPES,
+};
+
+bool cacheTopNProcessStats(ProcStatType procStatType, const ProcessStats& processStats,
+                           std::vector<UserPackageStats::ProcStats::ProcessCount>* topNProcesses) {
+    uint64_t count = procStatType == IO_BLOCKED_TASKS_COUNT ? processStats.ioBlockedTasksCount
+                                                            : processStats.totalMajorFaults;
+    if (count == 0) {
+        return false;
+    }
+    for (auto it = topNProcesses->begin(); it != topNProcesses->end(); ++it) {
+        if (count > it->count) {
+            topNProcesses->emplace(it,
+                                   UserPackageStats::ProcStats::ProcessCount{
+                                           .comm = processStats.comm,
+                                           .count = count,
+                                   });
+            topNProcesses->pop_back();
+            return true;
+        }
+    }
+    return false;
+}
+
+UserPackageStats toUserPackageStats(ProcStatType procStatType, const UidStats& uidStats,
+                                    int topNProcessCount) {
+    uint64_t count = procStatType == IO_BLOCKED_TASKS_COUNT ? uidStats.procStats.ioBlockedTasksCount
+                                                            : uidStats.procStats.totalMajorFaults;
+    UserPackageStats userPackageStats = {
+            .uid = uidStats.uid(),
+            .genericPackageName = uidStats.genericPackageName(),
+            .stats = UserPackageStats::ProcStats{.count = count},
+    };
+    auto& procStats = std::get<UserPackageStats::ProcStats>(userPackageStats.stats);
+    procStats.topNProcesses.resize(topNProcessCount);
+    int cachedProcessCount = 0;
+    for (const auto& [_, processStats] : uidStats.procStats.processStatsByPid) {
+        if (cacheTopNProcessStats(procStatType, processStats, &procStats.topNProcesses)) {
+            ++cachedProcessCount;
+        }
+    }
+    if (cachedProcessCount < topNProcessCount) {
+        procStats.topNProcesses.erase(procStats.topNProcesses.begin() + cachedProcessCount,
+                                      procStats.topNProcesses.end());
+    }
+    return userPackageStats;
+}
+
+bool cacheTopNProcStats(ProcStatType procStatType, const UidStats& uidStats, int topNProcessCount,
+                        std::vector<UserPackageStats>* topNProcStats) {
+    uint64_t count = procStatType == IO_BLOCKED_TASKS_COUNT ? uidStats.procStats.ioBlockedTasksCount
+                                                            : uidStats.procStats.totalMajorFaults;
+    if (count == 0) {
+        return false;
+    }
+    for (auto it = topNProcStats->begin(); it != topNProcStats->end(); ++it) {
+        if (const auto* procStats = std::get_if<UserPackageStats::ProcStats>(&it->stats);
+            procStats == nullptr || count > procStats->count) {
+            topNProcStats->emplace(it,
+                                   toUserPackageStats(procStatType, uidStats, topNProcessCount));
+            topNProcStats->pop_back();
+            return true;
+        }
+    }
+    return false;
+}
+
+Result<void> checkDataCollectors(const sp<UidStatsCollectorInterface>& uidStatsCollector,
+                                 const sp<ProcStat>& procStat) {
+    if (uidStatsCollector != nullptr && procStat != nullptr) {
         return {};
     }
     std::string error;
-    if (uidIoStats == nullptr) {
-        error = "Per-UID I/O stats collector must not be empty";
+    if (uidStatsCollector == nullptr) {
+        error = "Per-UID stats collector must not be null";
     }
     if (procStat == nullptr) {
         StringAppendF(&error, "%s%s", error.empty() ? "" : ", ",
-                      "Proc stats collector must not be empty");
+                      "Proc stats collector must not be null");
     }
-    if (procPidStat == nullptr) {
-        StringAppendF(&error, "%s%s", error.empty() ? "" : ", ",
-                      "Per-process stats collector must not be empty");
-    }
-
     return Error() << "Invalid data collectors: " << error;
 }
 
 }  // namespace
 
-std::string toString(const UidIoPerfData& data) {
+std::string UserPackageStats::toString(MetricType metricsType,
+                                       const int64_t totalIoStats[][UID_STATES]) const {
     std::string buffer;
-    if (data.topNReads.size() > 0) {
-        StringAppendF(&buffer, "\nTop N Reads:\n%s\n", std::string(12, '-').c_str());
-        StringAppendF(&buffer,
-                      "Android User ID, Package Name, Foreground Bytes, Foreground Bytes %%, "
-                      "Foreground Fsync, Foreground Fsync %%, Background Bytes, "
-                      "Background Bytes %%, Background Fsync, Background Fsync %%\n");
+    StringAppendF(&buffer, "%" PRIu32 ", %s", multiuser_get_user_id(uid),
+                  genericPackageName.c_str());
+    const auto& ioStats = std::get<UserPackageStats::IoStats>(stats);
+    for (int i = 0; i < UID_STATES; ++i) {
+        StringAppendF(&buffer, ", %" PRIi64 ", %.2f%%, %" PRIi64 ", %.2f%%", ioStats.bytes[i],
+                      percentage(ioStats.bytes[i], totalIoStats[metricsType][i]), ioStats.fsync[i],
+                      percentage(ioStats.fsync[i], totalIoStats[FSYNC_COUNT][i]));
     }
-    for (const auto& stat : data.topNReads) {
-        StringAppendF(&buffer, "%" PRIu32 ", %s", stat.userId, stat.packageName.c_str());
-        for (int i = 0; i < UID_STATES; ++i) {
-            StringAppendF(&buffer, ", %" PRIi64 ", %.2f%%, %" PRIi64 ", %.2f%%", stat.bytes[i],
-                          percentage(stat.bytes[i], data.total[READ_BYTES][i]), stat.fsync[i],
-                          percentage(stat.fsync[i], data.total[FSYNC_COUNT][i]));
-        }
-        StringAppendF(&buffer, "\n");
-    }
-    if (data.topNWrites.size() > 0) {
-        StringAppendF(&buffer, "\nTop N Writes:\n%s\n", std::string(13, '-').c_str());
-        StringAppendF(&buffer,
-                      "Android User ID, Package Name, Foreground Bytes, Foreground Bytes %%, "
-                      "Foreground Fsync, Foreground Fsync %%, Background Bytes, "
-                      "Background Bytes %%, Background Fsync, Background Fsync %%\n");
-    }
-    for (const auto& stat : data.topNWrites) {
-        StringAppendF(&buffer, "%" PRIu32 ", %s", stat.userId, stat.packageName.c_str());
-        for (int i = 0; i < UID_STATES; ++i) {
-            StringAppendF(&buffer, ", %" PRIi64 ", %.2f%%, %" PRIi64 ", %.2f%%", stat.bytes[i],
-                          percentage(stat.bytes[i], data.total[WRITE_BYTES][i]), stat.fsync[i],
-                          percentage(stat.fsync[i], data.total[FSYNC_COUNT][i]));
-        }
-        StringAppendF(&buffer, "\n");
+    StringAppendF(&buffer, "\n");
+    return buffer;
+}
+
+std::string UserPackageStats::toString(int64_t totalCount) const {
+    std::string buffer;
+    const auto& procStats = std::get<UserPackageStats::ProcStats>(stats);
+    StringAppendF(&buffer, "%" PRIu32 ", %s, %" PRIu64 ", %.2f%%\n", multiuser_get_user_id(uid),
+                  genericPackageName.c_str(), procStats.count,
+                  percentage(procStats.count, totalCount));
+    for (const auto& processCount : procStats.topNProcesses) {
+        StringAppendF(&buffer, "\t%s, %" PRIu64 ", %.2f%%\n", processCount.comm.c_str(),
+                      processCount.count, percentage(processCount.count, procStats.count));
     }
     return buffer;
 }
 
-std::string toString(const SystemIoPerfData& data) {
+std::string UserPackageSummaryStats::toString() const {
     std::string buffer;
-    StringAppendF(&buffer, "CPU I/O wait time/percent: %" PRIu64 " / %.2f%%\n", data.cpuIoWaitTime,
-                  percentage(data.cpuIoWaitTime, data.totalCpuTime));
+    if (!topNIoReads.empty()) {
+        StringAppendF(&buffer, kIoReadsTitle, std::string(12, '-').c_str());
+        StringAppendF(&buffer, kIoStatsHeader);
+        for (const auto& stats : topNIoReads) {
+            StringAppendF(&buffer, "%s",
+                          stats.toString(MetricType::READ_BYTES, totalIoStats).c_str());
+        }
+    }
+    if (!topNIoWrites.empty()) {
+        StringAppendF(&buffer, kIoWritesTitle, std::string(13, '-').c_str());
+        StringAppendF(&buffer, kIoStatsHeader);
+        for (const auto& stats : topNIoWrites) {
+            StringAppendF(&buffer, "%s",
+                          stats.toString(MetricType::WRITE_BYTES, totalIoStats).c_str());
+        }
+    }
+    if (!topNIoBlocked.empty()) {
+        StringAppendF(&buffer, kIoBlockedTitle, std::string(23, '-').c_str());
+        StringAppendF(&buffer, kIoBlockedHeader);
+        for (const auto& stats : topNIoBlocked) {
+            const auto it = taskCountByUid.find(stats.uid);
+            if (it == taskCountByUid.end()) {
+                continue;
+            }
+            StringAppendF(&buffer, "%s", stats.toString(it->second).c_str());
+        }
+    }
+    if (!topNMajorFaults.empty()) {
+        StringAppendF(&buffer, kMajorPageFaultsTitle, std::string(24, '-').c_str());
+        StringAppendF(&buffer, kMajorFaultsHeader);
+        for (const auto& stats : topNMajorFaults) {
+            StringAppendF(&buffer, "%s", stats.toString(totalMajorFaults).c_str());
+        }
+        StringAppendF(&buffer, kMajorFaultsSummary, totalMajorFaults, majorFaultsPercentChange);
+    }
+    return buffer;
+}
+
+std::string SystemSummaryStats::toString() const {
+    std::string buffer;
+    StringAppendF(&buffer, "CPU I/O wait time/percent: %" PRIu64 " / %.2f%%\n", cpuIoWaitTime,
+                  percentage(cpuIoWaitTime, totalCpuTime));
     StringAppendF(&buffer, "Number of I/O blocked processes/percent: %" PRIu32 " / %.2f%%\n",
-                  data.ioBlockedProcessesCnt,
-                  percentage(data.ioBlockedProcessesCnt, data.totalProcessesCnt));
+                  ioBlockedProcessCount, percentage(ioBlockedProcessCount, totalProcessCount));
     return buffer;
 }
 
-std::string toString(const ProcessIoPerfData& data) {
+std::string PerfStatsRecord::toString() const {
     std::string buffer;
-    StringAppendF(&buffer, "Number of major page faults since last collection: %" PRIu64 "\n",
-                  data.totalMajorFaults);
-    StringAppendF(&buffer,
-                  "Percentage of change in major page faults since last collection: %.2f%%\n",
-                  data.majorFaultsPercentChange);
-    if (data.topNMajorFaultUids.size() > 0) {
-        StringAppendF(&buffer, "\nTop N major page faults:\n%s\n", std::string(24, '-').c_str());
-        StringAppendF(&buffer,
-                      "Android User ID, Package Name, Number of major page faults, "
-                      "Percentage of total major page faults\n");
-        StringAppendF(&buffer,
-                      "\tCommand, Number of major page faults, Percentage of UID's major page "
-                      "faults\n");
-    }
-    for (const auto& uidStats : data.topNMajorFaultUids) {
-        StringAppendF(&buffer, "%" PRIu32 ", %s, %" PRIu64 ", %.2f%%\n", uidStats.userId,
-                      uidStats.packageName.c_str(), uidStats.count,
-                      percentage(uidStats.count, data.totalMajorFaults));
-        for (const auto& procStats : uidStats.topNProcesses) {
-            StringAppendF(&buffer, "\t%s, %" PRIu64 ", %.2f%%\n", procStats.comm.c_str(),
-                          procStats.count, percentage(procStats.count, uidStats.count));
-        }
-    }
-    if (data.topNIoBlockedUids.size() > 0) {
-        StringAppendF(&buffer, "\nTop N I/O waiting UIDs:\n%s\n", std::string(23, '-').c_str());
-        StringAppendF(&buffer,
-                      "Android User ID, Package Name, Number of owned tasks waiting for I/O, "
-                      "Percentage of owned tasks waiting for I/O\n");
-        StringAppendF(&buffer,
-                      "\tCommand, Number of I/O waiting tasks, Percentage of UID's tasks waiting "
-                      "for I/O\n");
-    }
-    for (size_t i = 0; i < data.topNIoBlockedUids.size(); ++i) {
-        const auto& uidStats = data.topNIoBlockedUids[i];
-        StringAppendF(&buffer, "%" PRIu32 ", %s, %" PRIu64 ", %.2f%%\n", uidStats.userId,
-                      uidStats.packageName.c_str(), uidStats.count,
-                      percentage(uidStats.count, data.topNIoBlockedUidsTotalTaskCnt[i]));
-        for (const auto& procStats : uidStats.topNProcesses) {
-            StringAppendF(&buffer, "\t%s, %" PRIu64 ", %.2f%%\n", procStats.comm.c_str(),
-                          procStats.count, percentage(procStats.count, uidStats.count));
-        }
-    }
+    StringAppendF(&buffer, "%s%s", systemSummaryStats.toString().c_str(),
+                  userPackageSummaryStats.toString().c_str());
     return buffer;
 }
 
-std::string toString(const IoPerfRecord& record) {
-    std::string buffer;
-    StringAppendF(&buffer, "%s%s%s", toString(record.systemIoPerfData).c_str(),
-                  toString(record.processIoPerfData).c_str(),
-                  toString(record.uidIoPerfData).c_str());
-    return buffer;
-}
-
-std::string toString(const CollectionInfo& collectionInfo) {
-    if (collectionInfo.records.empty()) {
+std::string CollectionInfo::toString() const {
+    if (records.empty()) {
         return kEmptyCollectionMessage;
     }
     std::string buffer;
-    double duration =
-            difftime(collectionInfo.records.back().time, collectionInfo.records.front().time);
-    StringAppendF(&buffer, "Collection duration: %.f seconds\nNumber of collections: %zu\n",
-                  duration, collectionInfo.records.size());
-
-    for (size_t i = 0; i < collectionInfo.records.size(); ++i) {
-        const auto& record = collectionInfo.records[i];
+    double duration = difftime(records.back().time, records.front().time);
+    StringAppendF(&buffer, kCollectionTitle, duration, records.size());
+    for (size_t i = 0; i < records.size(); ++i) {
+        const auto& record = records[i];
         std::stringstream timestamp;
         timestamp << std::put_time(std::localtime(&record.time), "%c %Z");
-        StringAppendF(&buffer, "\nCollection %zu: <%s>\n%s\n%s", i, timestamp.str().c_str(),
-                      std::string(45, '=').c_str(), toString(record).c_str());
+        StringAppendF(&buffer, kRecordTitle, i, timestamp.str().c_str(),
+                      std::string(45, '=').c_str(), record.toString().c_str());
     }
     return buffer;
 }
@@ -313,16 +365,16 @@ void IoPerfCollection::terminate() {
     mCustomCollection = {};
 }
 
-Result<void> IoPerfCollection::onDump(int fd) {
+Result<void> IoPerfCollection::onDump(int fd) const {
     Mutex::Autolock lock(mMutex);
-    if (!WriteStringToFd(StringPrintf("%s\nBoot-time I/O performance report:\n%s\n",
-                                      std::string(75, '-').c_str(), std::string(33, '=').c_str()),
+    if (!WriteStringToFd(StringPrintf(kBootTimeCollectionTitle, std::string(75, '-').c_str(),
+                                      std::string(33, '=').c_str()),
                          fd) ||
-        !WriteStringToFd(toString(mBoottimeCollection), fd) ||
-        !WriteStringToFd(StringPrintf("%s\nLast N minutes I/O performance report:\n%s\n",
-                                      std::string(75, '-').c_str(), std::string(38, '=').c_str()),
+        !WriteStringToFd(mBoottimeCollection.toString(), fd) ||
+        !WriteStringToFd(StringPrintf(kPeriodicCollectionTitle, std::string(75, '-').c_str(),
+                                      std::string(38, '=').c_str()),
                          fd) ||
-        !WriteStringToFd(toString(mPeriodicCollection), fd)) {
+        !WriteStringToFd(mPeriodicCollection.toString(), fd)) {
         return Error(FAILED_TRANSACTION)
                 << "Failed to dump the boot-time and periodic collection reports.";
     }
@@ -340,70 +392,70 @@ Result<void> IoPerfCollection::onCustomCollectionDump(int fd) {
         return {};
     }
 
-    if (!WriteStringToFd(StringPrintf("%s\nCustom I/O performance data report:\n%s\n",
-                                      std::string(75, '-').c_str(), std::string(75, '-').c_str()),
+    if (!WriteStringToFd(StringPrintf(kCustomCollectionTitle, std::string(75, '-').c_str(),
+                                      std::string(75, '-').c_str()),
                          fd) ||
-        !WriteStringToFd(toString(mCustomCollection), fd)) {
+        !WriteStringToFd(mCustomCollection.toString(), fd)) {
         return Error(FAILED_TRANSACTION) << "Failed to write custom I/O collection report.";
     }
 
     return {};
 }
 
-Result<void> IoPerfCollection::onBoottimeCollection(time_t time, const wp<UidIoStats>& uidIoStats,
-                                                    const wp<ProcStat>& procStat,
-                                                    const wp<ProcPidStat>& procPidStat) {
-    auto result = checkDataCollectors(uidIoStats, procStat, procPidStat);
+Result<void> IoPerfCollection::onBoottimeCollection(
+        time_t time, const wp<UidStatsCollectorInterface>& uidStatsCollector,
+        const wp<ProcStat>& procStat) {
+    const sp<UidStatsCollectorInterface> uidStatsCollectorSp = uidStatsCollector.promote();
+    const sp<ProcStat> procStatSp = procStat.promote();
+    auto result = checkDataCollectors(uidStatsCollectorSp, procStatSp);
     if (!result.ok()) {
         return result;
     }
     Mutex::Autolock lock(mMutex);
-    return processLocked(time, std::unordered_set<std::string>(), uidIoStats, procStat, procPidStat,
+    return processLocked(time, std::unordered_set<std::string>(), uidStatsCollectorSp, procStatSp,
                          &mBoottimeCollection);
 }
 
-Result<void> IoPerfCollection::onPeriodicCollection(time_t time,
-                                                    [[maybe_unused]] SystemState systemState,
-                                                    const wp<UidIoStats>& uidIoStats,
-                                                    const wp<ProcStat>& procStat,
-                                                    const wp<ProcPidStat>& procPidStat) {
-    auto result = checkDataCollectors(uidIoStats, procStat, procPidStat);
+Result<void> IoPerfCollection::onPeriodicCollection(
+        time_t time, [[maybe_unused]] SystemState systemState,
+        const wp<UidStatsCollectorInterface>& uidStatsCollector, const wp<ProcStat>& procStat) {
+    const sp<UidStatsCollectorInterface> uidStatsCollectorSp = uidStatsCollector.promote();
+    const sp<ProcStat> procStatSp = procStat.promote();
+    auto result = checkDataCollectors(uidStatsCollectorSp, procStatSp);
     if (!result.ok()) {
         return result;
     }
     Mutex::Autolock lock(mMutex);
-    return processLocked(time, std::unordered_set<std::string>(), uidIoStats, procStat, procPidStat,
+    return processLocked(time, std::unordered_set<std::string>(), uidStatsCollectorSp, procStatSp,
                          &mPeriodicCollection);
 }
 
 Result<void> IoPerfCollection::onCustomCollection(
         time_t time, [[maybe_unused]] SystemState systemState,
-        const std::unordered_set<std::string>& filterPackages, const wp<UidIoStats>& uidIoStats,
-        const wp<ProcStat>& procStat, const wp<ProcPidStat>& procPidStat) {
-    auto result = checkDataCollectors(uidIoStats, procStat, procPidStat);
+        const std::unordered_set<std::string>& filterPackages,
+        const wp<UidStatsCollectorInterface>& uidStatsCollector, const wp<ProcStat>& procStat) {
+    const sp<UidStatsCollectorInterface> uidStatsCollectorSp = uidStatsCollector.promote();
+    const sp<ProcStat> procStatSp = procStat.promote();
+    auto result = checkDataCollectors(uidStatsCollectorSp, procStatSp);
     if (!result.ok()) {
         return result;
     }
     Mutex::Autolock lock(mMutex);
-    return processLocked(time, filterPackages, uidIoStats, procStat, procPidStat,
-                         &mCustomCollection);
+    return processLocked(time, filterPackages, uidStatsCollectorSp, procStatSp, &mCustomCollection);
 }
 
-Result<void> IoPerfCollection::processLocked(time_t time,
-                                             const std::unordered_set<std::string>& filterPackages,
-                                             const wp<UidIoStats>& uidIoStats,
-                                             const wp<ProcStat>& procStat,
-                                             const wp<ProcPidStat>& procPidStat,
-                                             CollectionInfo* collectionInfo) {
+Result<void> IoPerfCollection::processLocked(
+        time_t time, const std::unordered_set<std::string>& filterPackages,
+        const sp<UidStatsCollectorInterface>& uidStatsCollector, const sp<ProcStat>& procStat,
+        CollectionInfo* collectionInfo) {
     if (collectionInfo->maxCacheSize == 0) {
         return Error() << "Maximum cache size cannot be 0";
     }
-    IoPerfRecord record{
+    PerfStatsRecord record{
             .time = time,
     };
-    processSystemIoPerfData(procStat, &record.systemIoPerfData);
-    processProcessIoPerfDataLocked(filterPackages, procPidStat, &record.processIoPerfData);
-    processUidIoPerfData(filterPackages, uidIoStats, &record.uidIoPerfData);
+    processUidStatsLocked(filterPackages, uidStatsCollector, &record.userPackageSummaryStats);
+    processProcStatLocked(procStat, &record.systemSummaryStats);
     if (collectionInfo->records.size() > collectionInfo->maxCacheSize) {
         collectionInfo->records.erase(collectionInfo->records.begin());  // Erase the oldest record.
     }
@@ -411,220 +463,82 @@ Result<void> IoPerfCollection::processLocked(time_t time,
     return {};
 }
 
-void IoPerfCollection::processUidIoPerfData(const std::unordered_set<std::string>& filterPackages,
-                                            const wp<UidIoStats>& uidIoStats,
-                                            UidIoPerfData* uidIoPerfData) const {
-    const std::unordered_map<uid_t, UidIoUsage>& usages = uidIoStats.promote()->deltaStats();
-
-    // Fetch only the top N reads and writes from the usage records.
-    UidIoUsage tempUsage = {};
-    std::vector<const UidIoUsage*> topNReads(mTopNStatsPerCategory, &tempUsage);
-    std::vector<const UidIoUsage*> topNWrites(mTopNStatsPerCategory, &tempUsage);
-    std::vector<uid_t> uids;
-
-    for (const auto& uIt : usages) {
-        const UidIoUsage& curUsage = uIt.second;
-        uids.push_back(curUsage.uid);
-        uidIoPerfData->total[READ_BYTES][FOREGROUND] +=
-                curUsage.ios.metrics[READ_BYTES][FOREGROUND];
-        uidIoPerfData->total[READ_BYTES][BACKGROUND] +=
-                curUsage.ios.metrics[READ_BYTES][BACKGROUND];
-        uidIoPerfData->total[WRITE_BYTES][FOREGROUND] +=
-                curUsage.ios.metrics[WRITE_BYTES][FOREGROUND];
-        uidIoPerfData->total[WRITE_BYTES][BACKGROUND] +=
-                curUsage.ios.metrics[WRITE_BYTES][BACKGROUND];
-        uidIoPerfData->total[FSYNC_COUNT][FOREGROUND] +=
-                curUsage.ios.metrics[FSYNC_COUNT][FOREGROUND];
-        uidIoPerfData->total[FSYNC_COUNT][BACKGROUND] +=
-                curUsage.ios.metrics[FSYNC_COUNT][BACKGROUND];
-
-        for (auto it = topNReads.begin(); it != topNReads.end(); ++it) {
-            const UidIoUsage* curRead = *it;
-            if (curRead->ios.sumReadBytes() < curUsage.ios.sumReadBytes()) {
-                topNReads.emplace(it, &curUsage);
-                if (filterPackages.empty()) {
-                    topNReads.pop_back();
-                }
-                break;
-            }
-        }
-        for (auto it = topNWrites.begin(); it != topNWrites.end(); ++it) {
-            const UidIoUsage* curWrite = *it;
-            if (curWrite->ios.sumWriteBytes() < curUsage.ios.sumWriteBytes()) {
-                topNWrites.emplace(it, &curUsage);
-                if (filterPackages.empty()) {
-                    topNWrites.pop_back();
-                }
-                break;
-            }
-        }
+void IoPerfCollection::processUidStatsLocked(
+        const std::unordered_set<std::string>& filterPackages,
+        const sp<UidStatsCollectorInterface>& uidStatsCollector,
+        UserPackageSummaryStats* userPackageSummaryStats) {
+    const std::vector<UidStats>& uidStats = uidStatsCollector->deltaStats();
+    if (uidStats.empty()) {
+        return;
     }
-
-    const auto& uidToPackageNameMapping = mPackageInfoResolver->getPackageNamesForUids(uids);
-
-    // Convert the top N I/O usage to UidIoPerfData.
-    for (const auto& usage : topNReads) {
-        if (usage->ios.isZero()) {
-            // End of non-zero usage records. This case occurs when the number of UIDs with active
-            // I/O operations is < |ro.carwatchdog.top_n_stats_per_category|.
-            break;
-        }
-        UidIoPerfData::Stats stats = {
-                .userId = multiuser_get_user_id(usage->uid),
-                .packageName = std::to_string(usage->uid),
-                .bytes = {usage->ios.metrics[READ_BYTES][FOREGROUND],
-                          usage->ios.metrics[READ_BYTES][BACKGROUND]},
-                .fsync = {usage->ios.metrics[FSYNC_COUNT][FOREGROUND],
-                          usage->ios.metrics[FSYNC_COUNT][BACKGROUND]},
-        };
-        if (uidToPackageNameMapping.find(usage->uid) != uidToPackageNameMapping.end()) {
-            stats.packageName = uidToPackageNameMapping.at(usage->uid);
-        }
-        if (!filterPackages.empty() &&
-            filterPackages.find(stats.packageName) == filterPackages.end()) {
+    if (filterPackages.empty()) {
+        userPackageSummaryStats->topNIoReads.resize(mTopNStatsPerCategory);
+        userPackageSummaryStats->topNIoWrites.resize(mTopNStatsPerCategory);
+        userPackageSummaryStats->topNIoBlocked.resize(mTopNStatsPerCategory);
+        userPackageSummaryStats->topNMajorFaults.resize(mTopNStatsPerCategory);
+    }
+    for (const auto& curUidStats : uidStats) {
+        uid_t uid = curUidStats.uid();
+        addUidIoStats(curUidStats.ioStats.metrics, userPackageSummaryStats->totalIoStats);
+        userPackageSummaryStats->totalMajorFaults += curUidStats.procStats.totalMajorFaults;
+        if (filterPackages.empty()) {
+            cacheTopNIoStats(MetricType::READ_BYTES, curUidStats,
+                             &userPackageSummaryStats->topNIoReads);
+            cacheTopNIoStats(MetricType::WRITE_BYTES, curUidStats,
+                             &userPackageSummaryStats->topNIoWrites);
+            if (cacheTopNProcStats(IO_BLOCKED_TASKS_COUNT, curUidStats, mTopNStatsPerSubcategory,
+                                   &userPackageSummaryStats->topNIoBlocked)) {
+                userPackageSummaryStats->taskCountByUid[uid] =
+                        curUidStats.procStats.totalTasksCount;
+            }
+            cacheTopNProcStats(MAJOR_FAULTS, curUidStats, mTopNStatsPerSubcategory,
+                               &userPackageSummaryStats->topNMajorFaults);
             continue;
         }
-        uidIoPerfData->topNReads.emplace_back(stats);
-    }
-
-    for (const auto& usage : topNWrites) {
-        if (usage->ios.isZero()) {
-            // End of non-zero usage records. This case occurs when the number of UIDs with active
-            // I/O operations is < |ro.carwatchdog.top_n_stats_per_category|.
-            break;
-        }
-        UidIoPerfData::Stats stats = {
-                .userId = multiuser_get_user_id(usage->uid),
-                .packageName = std::to_string(usage->uid),
-                .bytes = {usage->ios.metrics[WRITE_BYTES][FOREGROUND],
-                          usage->ios.metrics[WRITE_BYTES][BACKGROUND]},
-                .fsync = {usage->ios.metrics[FSYNC_COUNT][FOREGROUND],
-                          usage->ios.metrics[FSYNC_COUNT][BACKGROUND]},
-        };
-        if (uidToPackageNameMapping.find(usage->uid) != uidToPackageNameMapping.end()) {
-            stats.packageName = uidToPackageNameMapping.at(usage->uid);
-        }
-        if (!filterPackages.empty() &&
-            filterPackages.find(stats.packageName) == filterPackages.end()) {
-            continue;
-        }
-        uidIoPerfData->topNWrites.emplace_back(stats);
-    }
-}
-
-void IoPerfCollection::processSystemIoPerfData(const wp<ProcStat>& procStat,
-                                               SystemIoPerfData* systemIoPerfData) const {
-    const ProcStatInfo& procStatInfo = procStat.promote()->deltaStats();
-    systemIoPerfData->cpuIoWaitTime = procStatInfo.cpuStats.ioWaitTime;
-    systemIoPerfData->totalCpuTime = procStatInfo.totalCpuTime();
-    systemIoPerfData->ioBlockedProcessesCnt = procStatInfo.ioBlockedProcessesCnt;
-    systemIoPerfData->totalProcessesCnt = procStatInfo.totalProcessesCnt();
-}
-
-void IoPerfCollection::processProcessIoPerfDataLocked(
-        const std::unordered_set<std::string>& filterPackages, const wp<ProcPidStat>& procPidStat,
-        ProcessIoPerfData* processIoPerfData) {
-    const std::vector<ProcessStats>& processStats = procPidStat.promote()->deltaStats();
-
-    const auto& uidProcessStats = getUidProcessStats(processStats, mTopNStatsPerSubcategory);
-    std::vector<uid_t> uids;
-    // Fetch only the top N I/O blocked UIDs and UIDs with most major page faults.
-    UidProcessStats temp = {};
-    std::vector<const UidProcessStats*> topNIoBlockedUids(mTopNStatsPerCategory, &temp);
-    std::vector<const UidProcessStats*> topNMajorFaultUids(mTopNStatsPerCategory, &temp);
-    processIoPerfData->totalMajorFaults = 0;
-    for (const auto& it : *uidProcessStats) {
-        const UidProcessStats& curStats = it.second;
-        uids.push_back(curStats.uid);
-        processIoPerfData->totalMajorFaults += curStats.majorFaults;
-        for (auto it = topNIoBlockedUids.begin(); it != topNIoBlockedUids.end(); ++it) {
-            const UidProcessStats* topStats = *it;
-            if (topStats->ioBlockedTasksCnt < curStats.ioBlockedTasksCnt) {
-                topNIoBlockedUids.emplace(it, &curStats);
-                if (filterPackages.empty()) {
-                    topNIoBlockedUids.pop_back();
-                }
-                break;
-            }
-        }
-        for (auto it = topNMajorFaultUids.begin(); it != topNMajorFaultUids.end(); ++it) {
-            const UidProcessStats* topStats = *it;
-            if (topStats->majorFaults < curStats.majorFaults) {
-                topNMajorFaultUids.emplace(it, &curStats);
-                if (filterPackages.empty()) {
-                    topNMajorFaultUids.pop_back();
-                }
-                break;
-            }
+        if (filterPackages.count(curUidStats.genericPackageName()) != 0) {
+            userPackageSummaryStats->topNIoReads.emplace_back(
+                    toUserPackageStats(MetricType::READ_BYTES, curUidStats));
+            userPackageSummaryStats->topNIoWrites.emplace_back(
+                    toUserPackageStats(MetricType::WRITE_BYTES, curUidStats));
+            userPackageSummaryStats->topNIoBlocked.emplace_back(
+                    toUserPackageStats(IO_BLOCKED_TASKS_COUNT, curUidStats,
+                                       mTopNStatsPerSubcategory));
+            userPackageSummaryStats->topNMajorFaults.emplace_back(
+                    toUserPackageStats(MAJOR_FAULTS, curUidStats, mTopNStatsPerSubcategory));
+            userPackageSummaryStats->taskCountByUid[uid] = curUidStats.procStats.totalTasksCount;
         }
     }
-
-    const auto& uidToPackageNameMapping = mPackageInfoResolver->getPackageNamesForUids(uids);
-
-    // Convert the top N uid process stats to ProcessIoPerfData.
-    for (const auto& it : topNIoBlockedUids) {
-        if (it->ioBlockedTasksCnt == 0) {
-            // End of non-zero elements. This case occurs when the number of UIDs with I/O blocked
-            // processes is < |ro.carwatchdog.top_n_stats_per_category|.
-            break;
-        }
-        ProcessIoPerfData::UidStats stats = {
-                .userId = multiuser_get_user_id(it->uid),
-                .packageName = std::to_string(it->uid),
-                .count = it->ioBlockedTasksCnt,
-        };
-        if (uidToPackageNameMapping.find(it->uid) != uidToPackageNameMapping.end()) {
-            stats.packageName = uidToPackageNameMapping.at(it->uid);
-        }
-        if (!filterPackages.empty() &&
-            filterPackages.find(stats.packageName) == filterPackages.end()) {
-            continue;
-        }
-        for (const auto& pIt : it->topNIoBlockedProcesses) {
-            if (pIt.count == 0) {
-                break;
-            }
-            stats.topNProcesses.emplace_back(
-                    ProcessIoPerfData::UidStats::ProcessStats{pIt.comm, pIt.count});
-        }
-        processIoPerfData->topNIoBlockedUids.emplace_back(stats);
-        processIoPerfData->topNIoBlockedUidsTotalTaskCnt.emplace_back(it->totalTasksCnt);
-    }
-    for (const auto& it : topNMajorFaultUids) {
-        if (it->majorFaults == 0) {
-            // End of non-zero elements. This case occurs when the number of UIDs with major faults
-            // is < |ro.carwatchdog.top_n_stats_per_category|.
-            break;
-        }
-        ProcessIoPerfData::UidStats stats = {
-                .userId = multiuser_get_user_id(it->uid),
-                .packageName = std::to_string(it->uid),
-                .count = it->majorFaults,
-        };
-        if (uidToPackageNameMapping.find(it->uid) != uidToPackageNameMapping.end()) {
-            stats.packageName = uidToPackageNameMapping.at(it->uid);
-        }
-        if (!filterPackages.empty() &&
-            filterPackages.find(stats.packageName) == filterPackages.end()) {
-            continue;
-        }
-        for (const auto& pIt : it->topNMajorFaultProcesses) {
-            if (pIt.count == 0) {
-                break;
-            }
-            stats.topNProcesses.emplace_back(
-                    ProcessIoPerfData::UidStats::ProcessStats{pIt.comm, pIt.count});
-        }
-        processIoPerfData->topNMajorFaultUids.emplace_back(stats);
-    }
-    if (mLastMajorFaults == 0) {
-        processIoPerfData->majorFaultsPercentChange = 0;
-    } else {
-        int64_t increase = processIoPerfData->totalMajorFaults - mLastMajorFaults;
-        processIoPerfData->majorFaultsPercentChange =
+    if (mLastMajorFaults != 0) {
+        int64_t increase = userPackageSummaryStats->totalMajorFaults - mLastMajorFaults;
+        userPackageSummaryStats->majorFaultsPercentChange =
                 (static_cast<double>(increase) / static_cast<double>(mLastMajorFaults)) * 100.0;
     }
-    mLastMajorFaults = processIoPerfData->totalMajorFaults;
+    mLastMajorFaults = userPackageSummaryStats->totalMajorFaults;
+
+    const auto removeEmptyStats = [](std::vector<UserPackageStats>& userPackageStats) {
+        for (auto it = userPackageStats.begin(); it != userPackageStats.end(); ++it) {
+            /* std::monostate is the first alternative in the variant. When the variant is
+             * uninitialized, the index points to this alternative.
+             */
+            if (it->stats.index() == 0) {
+                userPackageStats.erase(it, userPackageStats.end());
+                break;
+            }
+        }
+    };
+    removeEmptyStats(userPackageSummaryStats->topNIoReads);
+    removeEmptyStats(userPackageSummaryStats->topNIoWrites);
+    removeEmptyStats(userPackageSummaryStats->topNIoBlocked);
+    removeEmptyStats(userPackageSummaryStats->topNMajorFaults);
+}
+
+void IoPerfCollection::processProcStatLocked(const sp<ProcStat>& procStat,
+                                             SystemSummaryStats* systemSummaryStats) const {
+    const ProcStatInfo& procStatInfo = procStat->deltaStats();
+    systemSummaryStats->cpuIoWaitTime = procStatInfo.cpuStats.ioWaitTime;
+    systemSummaryStats->totalCpuTime = procStatInfo.totalCpuTime();
+    systemSummaryStats->ioBlockedProcessCount = procStatInfo.ioBlockedProcessCount;
+    systemSummaryStats->totalProcessCount = procStatInfo.totalProcessCount();
 }
 
 }  // namespace watchdog

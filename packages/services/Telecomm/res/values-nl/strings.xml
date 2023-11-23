@@ -72,9 +72,9 @@
     <string name="block_button" msgid="485080149164258770">"Blokkeren"</string>
     <string name="non_primary_user" msgid="315564589279622098">"Alleen de eigenaar van het apparaat kan geblokkeerd nummers bekijken en beheren."</string>
     <string name="delete_icon_description" msgid="5335959254954774373">"Blokkering opheffen"</string>
-    <string name="blocked_numbers_butter_bar_title" msgid="582982373755950791">"Blokkering tijdelijk uitgeschakeld"</string>
+    <string name="blocked_numbers_butter_bar_title" msgid="582982373755950791">"Blokkering tijdelijk uitgezet"</string>
     <string name="blocked_numbers_butter_bar_body" msgid="1261213114919301485">"Als je een noodnummer belt of er een sms naartoe stuurt, wordt de blokkering uitgeschakeld om te zorgen dat hulpdiensten contact met je kunnen opnemen."</string>
-    <string name="blocked_numbers_butter_bar_button" msgid="2704456308072489793">"Nu opnieuw inschakelen"</string>
+    <string name="blocked_numbers_butter_bar_button" msgid="2704456308072489793">"Nu opnieuw aanzetten"</string>
     <string name="blocked_numbers_number_blocked_message" msgid="4314736791180919167">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> geblokkeerd"</string>
     <string name="blocked_numbers_number_unblocked_message" msgid="2933071624674945601">"Blokkering van <xliff:g id="UNBLOCKED_NUMBER">%1$s</xliff:g> opgeheven"</string>
     <string name="blocked_numbers_block_emergency_number_message" msgid="4198550501500893890">"Kan alarmnummer niet blokkeren."</string>
@@ -115,9 +115,9 @@
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Onbekend"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Gesprekken van onbekende bellers blokkeren"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Gesprekken blokkeren"</string>
-    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Gesprekken blokkeren uitgeschakeld"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Gesprekken blokkeren staat uit"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Noodoproep geplaatst"</string>
-    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Gesprekken blokkeren is uitgeschakeld zodat nooddiensten je kunnen bereiken."</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Gesprekken blokkeren is uitgezet zodat nooddiensten je kunnen bereiken."</string>
     <string name="developer_title" msgid="9146088855661672353">"Telecomontwikkelaarsmenu"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Gesprekken kunnen niet worden aangenomen tijdens een noodoproep."</string>
 </resources>

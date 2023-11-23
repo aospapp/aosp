@@ -26,6 +26,8 @@ import com.android.tradefed.log.LogUtil.CLog;
  */
 abstract class BaseDeviceOwnerTest extends BaseDevicePolicyTest {
 
+    private static final String PROPERTY_STOP_BG_USERS_ON_SWITCH = "fw.stop_bg_users_on_switch";
+
     protected static final String DEVICE_OWNER_PKG = "com.android.cts.deviceowner";
     protected static final String DEVICE_OWNER_APK = "CtsDeviceOwnerApp.apk";
 
@@ -97,6 +99,16 @@ abstract class BaseDeviceOwnerTest extends BaseDevicePolicyTest {
     protected final void executeDeviceTestMethod(String className, String testName)
             throws Exception {
         executeDeviceOwnerPackageTestMethod(className, testName, mPrimaryUserId);
+    }
+
+    protected final String getStopBgUsersOnSwitchProperty() throws Exception {
+        return executeShellCommand("getprop %s", PROPERTY_STOP_BG_USERS_ON_SWITCH).trim();
+    }
+
+    protected final void setStopBgUsersOnSwitchProperty(String value) throws Exception  {
+        CLog.d("Value of %s before: %s", PROPERTY_STOP_BG_USERS_ON_SWITCH,
+                getStopBgUsersOnSwitchProperty());
+        executeShellCommand("setprop %s '%s'", PROPERTY_STOP_BG_USERS_ON_SWITCH, value);
     }
 
     private void executeDeviceOwnerPackageTestMethod(String className, String testName,

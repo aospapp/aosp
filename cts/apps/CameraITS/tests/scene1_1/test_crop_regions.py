@@ -17,14 +17,13 @@
 import logging
 import os.path
 
-from mobly import test_runner
-import numpy as np
-
-import its_base_test
 import camera_properties_utils
 import capture_request_utils
 import image_processing_utils
+import its_base_test
 import its_session_utils
+from mobly import test_runner
+import numpy as np
 import target_exposure_utils
 
 # 5 regions specified in normalized (x, y, w, h) coords.
@@ -64,7 +63,7 @@ class CropRegionsTest(its_base_test.ItsBaseTest):
       ax, ay = a['left'], a['top']
       aw, ah = a['right'] - a['left'], a['bottom'] - a['top']
       e, s = target_exposure_utils.get_target_exposure_combos(
-          props, cam)['minSensitivity']
+          log_path, cam)['minSensitivity']
       logging.debug('Active sensor region (%d,%d %dx%d)', ax, ay, aw, ah)
 
       # Uses a 2x digital zoom.

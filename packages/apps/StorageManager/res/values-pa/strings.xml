@@ -62,6 +62,6 @@
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"ਤੁਹਾਡੀ ਸਟੋਰੇਜ ਦਾ ਪ੍ਰਬੰਧਨ ਹੁਣ ਸਟੋਰੇਜ ਪ੍ਰਬੰਧਕ ਦੁਆਰਾ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"ਹਟਾਉਣ ਲਈ ਕੁਝ ਨਹੀਂ"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"ਹਾਲੀਆ ਆਈਟਮਾਂ ਦੀ ਸਮੀਖਿਆ ਕਰੋ"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"ਹਟਾਉਣ ਲਈ ਕੋਈ ਵੀ ਵਧੇਰੇ ਪੁਰਾਣੀਆਂ ਫ਼ਾਈਲਾਂ ਨਹੀਂ ਹਨ। ਜਗ੍ਹਾ ਬਣਾਉਣ ਲਈ, ਹਾਲੀਆ ਫ਼ੋਟੋਆਂ, ਵੀਡੀਓ ਅਤੇ ਐਪਾਂ ਨੂੰ ਹਟਾਓ।"</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"ਹਟਾਉਣ ਲਈ ਹੋਰ ਕੋਈ ਵੀ ਪੁਰਾਣੀਆਂ ਫ਼ਾਈਲਾਂ ਨਹੀਂ ਹਨ। ਜਗ੍ਹਾ ਬਣਾਉਣ ਲਈ, ਹਾਲੀਆ ਫ਼ੋਟੋਆਂ, ਵੀਡੀਓ ਅਤੇ ਐਪਾਂ ਨੂੰ ਹਟਾਓ।"</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> ਨੂੰ <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> ਜਗ੍ਹਾ ਦੀ ਲੋੜ ਹੈ"</string>
 </resources>

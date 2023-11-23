@@ -63,6 +63,9 @@ import com.android.wallpaper.util.WallpaperConnection;
 import com.android.wallpaper.util.WallpaperSurfaceCallback;
 import com.android.wallpaper.widget.LockScreenPreviewer;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+
 /** The class to control the wallpaper section view. */
 public class WallpaperSectionController implements
         CustomizationSectionController<WallpaperSectionView>,
@@ -162,8 +165,12 @@ public class WallpaperSectionController implements
         mWorkspaceSurfaceCallback = new WorkspaceSurfaceHolderCallback(
                 mWorkspaceSurface, mAppContext);
         mHomeWallpaperSurface = mHomePreviewCard.findViewById(R.id.wallpaper_surface);
+
+        Future<Integer> placeholderColor = CompletableFuture.completedFuture(
+                ResourceUtils.getColorAttr(mActivity, android.R.attr.colorSecondary));
+
         mHomeWallpaperSurfaceCallback = new WallpaperSurfaceCallback(mActivity, mHomePreviewCard,
-                mHomeWallpaperSurface, () -> {
+                mHomeWallpaperSurface, placeholderColor, () -> {
             if (mHomePreviewWallpaperInfo != null) {
                 maybeLoadThumbnail(mHomePreviewWallpaperInfo, mHomeWallpaperSurfaceCallback);
             }
@@ -177,7 +184,7 @@ public class WallpaperSectionController implements
         mLockscreenPreviewCard.findViewById(R.id.workspace_surface).setVisibility(View.GONE);
         mLockWallpaperSurface = mLockscreenPreviewCard.findViewById(R.id.wallpaper_surface);
         mLockWallpaperSurfaceCallback = new WallpaperSurfaceCallback(mActivity,
-                mLockscreenPreviewCard, mLockWallpaperSurface, () -> {
+                mLockscreenPreviewCard, mLockWallpaperSurface, placeholderColor, () -> {
             if (mLockPreviewWallpaperInfo != null) {
                 maybeLoadThumbnail(mLockPreviewWallpaperInfo, mLockWallpaperSurfaceCallback);
             }

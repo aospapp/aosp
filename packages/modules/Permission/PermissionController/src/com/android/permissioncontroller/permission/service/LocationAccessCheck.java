@@ -20,6 +20,7 @@ import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission_group.LOCATION;
 import static android.app.AppOpsManager.OPSTR_FINE_LOCATION;
 import static android.app.NotificationManager.IMPORTANCE_LOW;
+import static android.app.PendingIntent.FLAG_IMMUTABLE;
 import static android.app.PendingIntent.FLAG_ONE_SHOT;
 import static android.app.PendingIntent.FLAG_UPDATE_CURRENT;
 import static android.app.PendingIntent.getBroadcast;
@@ -603,9 +604,9 @@ public class LocationAccessCheck {
                 .setColor(mContext.getColor(android.R.color.system_notification_accent_color))
                 .setAutoCancel(true)
                 .setDeleteIntent(getBroadcast(mContext, 0, deleteIntent,
-                        FLAG_ONE_SHOT | FLAG_UPDATE_CURRENT))
+                        FLAG_ONE_SHOT | FLAG_UPDATE_CURRENT | FLAG_IMMUTABLE))
                 .setContentIntent(getBroadcast(mContext, 0, clickIntent,
-                        FLAG_ONE_SHOT | FLAG_UPDATE_CURRENT));
+                        FLAG_ONE_SHOT | FLAG_UPDATE_CURRENT | FLAG_IMMUTABLE));
 
         if (appName != null) {
             Bundle extras = new Bundle();

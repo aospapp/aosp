@@ -19,7 +19,7 @@ package com.android.car.cluster.home;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_UNDEFINED;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.car.CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER;
-import static android.car.cluster.ClusterHomeManager.ClusterHomeCallback;
+import static android.car.cluster.ClusterHomeManager.ClusterStateListener;
 import static android.car.cluster.ClusterHomeManager.UI_TYPE_CLUSTER_HOME;
 import static android.car.cluster.ClusterHomeManager.UI_TYPE_CLUSTER_NONE;
 import static android.car.user.CarUserManager.USER_LIFECYCLE_EVENT_TYPE_STARTING;
@@ -114,14 +114,14 @@ public final class ClusterHomeApplication extends Application {
     }
 
     private void initClusterHome() {
-        mHomeManager.registerClusterHomeCallback(getMainExecutor(),mClusterHomeCalback);
+        mHomeManager.registerClusterStateListener(getMainExecutor(), mClusterHomeListener);
         mClusterState = mHomeManager.getClusterState();
         if (!mClusterState.on) {
             mHomeManager.requestDisplay(UI_TYPE_HOME);
         }
         mUiAvailability = buildUiAvailability();
         mHomeManager.reportState(mClusterState.uiType, UI_TYPE_CLUSTER_NONE, mUiAvailability);
-        mHomeManager.registerClusterHomeCallback(getMainExecutor(), mClusterHomeCalback);
+        mHomeManager.registerClusterStateListener(getMainExecutor(), mClusterHomeListener);
 
         mUserManager.addListener(getMainExecutor(), mUserLifecycleListener);
 
@@ -143,7 +143,7 @@ public final class ClusterHomeApplication extends Application {
     public void onTerminate() {
         mCarInputManager.releaseInputEventCapture(DISPLAY_TYPE_INSTRUMENT_CLUSTER);
         mUserManager.removeListener(mUserLifecycleListener);
-        mHomeManager.unregisterClusterHomeCallback(mClusterHomeCalback);
+        mHomeManager.unregisterClusterStateListener(mClusterHomeListener);
         try {
             mAtm.unregisterTaskStackListener(mTaskStackListener);
         } catch (RemoteException e) {
@@ -189,7 +189,7 @@ public final class ClusterHomeApplication extends Application {
         };
     }
 
-    private final ClusterHomeCallback mClusterHomeCalback = new ClusterHomeCallback() {
+    private final ClusterStateListener mClusterHomeListener = new ClusterStateListener() {
         @Override
         public void onClusterStateChanged(
                 ClusterState state, @ClusterHomeManager.Config int changes) {
@@ -202,10 +202,6 @@ public final class ClusterHomeApplication extends Application {
                             && mLastLaunchedUiType != state.uiType)) {
                 startClusterActivity(state.uiType);
             }
-        }
-        @Override
-        public void onNavigationState(byte[] navigationState) {
-            // TODO(b/173454430): handle onNavigationState
         }
     };
 

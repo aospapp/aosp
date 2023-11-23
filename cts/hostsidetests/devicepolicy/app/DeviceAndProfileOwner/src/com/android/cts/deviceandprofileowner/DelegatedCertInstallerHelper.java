@@ -19,7 +19,6 @@ package com.android.cts.deviceandprofileowner;
 import static android.app.admin.DevicePolicyManager.DELEGATION_CERT_INSTALL;
 import static android.app.admin.DevicePolicyManager.DELEGATION_CERT_SELECTION;
 
-import android.app.admin.DevicePolicyManager;
 import android.keystore.cts.KeyGenerationUtils;
 
 import java.util.Arrays;
@@ -38,48 +37,36 @@ public class DelegatedCertInstallerHelper extends BaseDeviceAdminTest {
     // MUST match the alias in PreSelectedKeyAccessTest
     private static final String PRE_SELECTED_ALIAS = "pre-selected-rsa";
 
-    private DevicePolicyManager mDpm;
-
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        mDpm = mContext.getSystemService(DevicePolicyManager.class);
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
-    }
-
     public void testManualSetCertInstallerDelegate() {
-        mDpm.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT, CERT_INSTALLER_PACKAGE,
-                CERT_INSTALL_SCOPES);
-        assertTrue(mDpm.getDelegatePackages(ADMIN_RECEIVER_COMPONENT,
+        setDelegatedScopes(CERT_INSTALLER_PACKAGE, CERT_INSTALL_SCOPES);
+        assertTrue(mDevicePolicyManager.getDelegatePackages(ADMIN_RECEIVER_COMPONENT,
                 DELEGATION_CERT_INSTALL).contains(CERT_INSTALLER_PACKAGE));
-        assertTrue(mDpm.getDelegatePackages(ADMIN_RECEIVER_COMPONENT,
+        assertTrue(mDevicePolicyManager.getDelegatePackages(ADMIN_RECEIVER_COMPONENT,
                 DELEGATION_CERT_SELECTION).contains(CERT_INSTALLER_PACKAGE));
     }
 
     public void testManualClearCertInstallerDelegate() {
-        mDpm.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT, CERT_INSTALLER_PACKAGE, Arrays.asList());
-        assertFalse(mDpm.getDelegatePackages(ADMIN_RECEIVER_COMPONENT,
+        setDelegatedScopes(CERT_INSTALLER_PACKAGE, Arrays.asList());
+        assertFalse(mDevicePolicyManager.getDelegatePackages(ADMIN_RECEIVER_COMPONENT,
                 DELEGATION_CERT_INSTALL).contains(CERT_INSTALLER_PACKAGE));
-        assertFalse(mDpm.getDelegatePackages(ADMIN_RECEIVER_COMPONENT,
+        assertFalse(mDevicePolicyManager.getDelegatePackages(ADMIN_RECEIVER_COMPONENT,
                 DELEGATION_CERT_SELECTION).contains(CERT_INSTALLER_PACKAGE));
     }
 
     public void testManualGenerateKeyAndGrantAccess() {
-        KeyGenerationUtils.generateRsaKey(mDpm, ADMIN_RECEIVER_COMPONENT, PRE_SELECTED_ALIAS);
-        assertTrue(mDpm.grantKeyPairToApp(ADMIN_RECEIVER_COMPONENT, PRE_SELECTED_ALIAS,
-                    CERT_INSTALLER_PACKAGE));
+        KeyGenerationUtils.generateRsaKey(mDevicePolicyManager, ADMIN_RECEIVER_COMPONENT,
+                PRE_SELECTED_ALIAS);
+        assertTrue(mDevicePolicyManager.grantKeyPairToApp(ADMIN_RECEIVER_COMPONENT,
+                PRE_SELECTED_ALIAS, CERT_INSTALLER_PACKAGE));
     }
 
     public void testManualRemoveKeyGrant() {
-        assertTrue(mDpm.revokeKeyPairFromApp(ADMIN_RECEIVER_COMPONENT, PRE_SELECTED_ALIAS,
-                CERT_INSTALLER_PACKAGE));
+        assertTrue(mDevicePolicyManager.revokeKeyPairFromApp(ADMIN_RECEIVER_COMPONENT,
+                PRE_SELECTED_ALIAS, CERT_INSTALLER_PACKAGE));
     }
 
     public void testManualClearGeneratedKey() {
-        assertTrue(mDpm.removeKeyPair(ADMIN_RECEIVER_COMPONENT, PRE_SELECTED_ALIAS));
+        assertTrue(mDevicePolicyManager
+                .removeKeyPair(ADMIN_RECEIVER_COMPONENT, PRE_SELECTED_ALIAS));
     }
 }

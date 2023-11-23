@@ -114,6 +114,12 @@ public final class TestResultTable {
             return strBuilder.append(mData).toString();
         }
 
+        public boolean equalsIgnoreSubject(RecordEntry peerEntry) {
+            return mTestcase.equals(peerEntry.mTestcase)
+                    && mAction.equals(peerEntry.mAction)
+                    && mData.equals(peerEntry.mData);
+        }
+
         public boolean equalsWithPowerPolicyData(RecordEntry peerEntry) {
             PowerPolicyDef peerPolicy;
             try {

@@ -15,8 +15,10 @@
  */
 package com.android.car.ui.toolbar;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.utils.CarUiUtils.requireViewByRefId;
 
+import android.annotation.TargetApi;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,9 +35,10 @@ import com.android.car.ui.uxr.DrawableStateView;
 import java.util.function.Consumer;
 
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(MIN_TARGET_API)
 class MenuItemRenderer implements MenuItem.Listener {
 
-    private static final int[] RESTRICTED_STATE = new int[] {R.attr.state_ux_restricted};
+    private static final int[] RESTRICTED_STATE = new int[]{R.attr.state_ux_restricted};
 
     private final int mMenuItemIconSize;
 
@@ -81,7 +84,7 @@ class MenuItemRenderer implements MenuItem.Listener {
                 ? R.layout.car_ui_toolbar_menu_item_primary
                 : R.layout.car_ui_toolbar_menu_item;
         inflater.inflate(layout, mParentView, (View view, int resid,
-                ViewGroup parent) -> {
+                                               ViewGroup parent) -> {
             mView = view;
 
             mIconContainer =

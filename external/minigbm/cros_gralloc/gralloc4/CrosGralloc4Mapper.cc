@@ -16,8 +16,6 @@
 #include "cros_gralloc/cros_gralloc_helpers.h"
 #include "cros_gralloc/gralloc4/CrosGralloc4Utils.h"
 
-#include "helpers.h"
-
 using aidl::android::hardware::graphics::common::BlendMode;
 using aidl::android::hardware::graphics::common::Dataspace;
 using aidl::android::hardware::graphics::common::PlaneLayout;
@@ -30,62 +28,6 @@ using android::hardware::graphics::common::V1_2::BufferUsage;
 using android::hardware::graphics::common::V1_2::PixelFormat;
 using android::hardware::graphics::mapper::V4_0::Error;
 using android::hardware::graphics::mapper::V4_0::IMapper;
-
-namespace {
-
-// Provides a single instance of cros_gralloc_driver to all active instances of
-// CrosGralloc4Mapper in a single process while destroying the cros_gralloc_driver
-// when there are no active instances of CrosGralloc4Mapper.
-class DriverProvider {
-  public:
-    static DriverProvider* Get() {
-        static DriverProvider* instance = new DriverProvider();
-        return instance;
-    }
-
-    cros_gralloc_driver* GetAndReferenceDriver() {
-        std::lock_guard<std::mutex> lock(mMutex);
-        if (!mDriver) {
-            mDriver = std::make_unique<cros_gralloc_driver>();
-            if (mDriver->init()) {
-                drv_log("Failed to initialize driver.\n");
-                mDriver.reset();
-                return nullptr;
-            }
-        }
-
-        ++mReferenceCount;
-        return mDriver.get();
-    }
-
-    void UnreferenceDriver() {
-        std::lock_guard<std::mutex> lock(mMutex);
-
-        --mReferenceCount;
-
-        if (mReferenceCount == 0) {
-            mDriver.reset();
-        }
-    }
-
-  private:
-    DriverProvider() = default;
-
-    std::mutex mMutex;
-    std::unique_ptr<cros_gralloc_driver> mDriver;
-    std::size_t mReferenceCount = 0;
-};
-
-}  // namespace
-
-CrosGralloc4Mapper::CrosGralloc4Mapper() {
-    mDriver = DriverProvider::Get()->GetAndReferenceDriver();
-}
-
-CrosGralloc4Mapper::~CrosGralloc4Mapper() {
-    mDriver = nullptr;
-    DriverProvider::Get()->UnreferenceDriver();
-}
 
 Return<void> CrosGralloc4Mapper::createDescriptor(const BufferDescriptorInfo& description,
                                                   createDescriptor_cb hidlCb) {
@@ -448,13 +390,7 @@ Return<void> CrosGralloc4Mapper::isSupported(const BufferDescriptorInfo& descrip
         return Void();
     }
 
-    bool supported = mDriver->is_supported(&crosDescriptor);
-    if (!supported) {
-        crosDescriptor.use_flags &= ~BO_USE_SCANOUT;
-        supported = mDriver->is_supported(&crosDescriptor);
-    }
-
-    hidlCb(Error::NONE, supported);
+    hidlCb(Error::NONE, mDriver->is_supported(&crosDescriptor));
     return Void();
 }
 

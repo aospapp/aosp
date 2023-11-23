@@ -1,0 +1,11 @@
+type hal_uwb_default, domain;
+type hal_uwb_default_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(hal_uwb_default)
+
+add_service(hal_uwb_default, hal_uwb_service)
+
+hal_server_domain(hal_uwb_default, hal_uwb)
+binder_call(hal_uwb_default, uwb_vendor_app)
+
+allow hal_uwb_default uwb_data_vendor:dir create_dir_perms;
+allow hal_uwb_default uwb_data_vendor:file create_file_perms;

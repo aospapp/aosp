@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#define ATRACE_TAG (ATRACE_TAG_POWER | ATRACE_TAG_HAL)
 #define LOG_TAG "libperfmgr"
 
 #include "perfmgr/HintManager.h"
@@ -23,6 +24,7 @@
 #include <android-base/stringprintf.h>
 #include <json/reader.h>
 #include <json/value.h>
+#include <utils/Trace.h>
 
 #include <inttypes.h>
 #include <algorithm>
@@ -86,6 +88,8 @@ void HintManager::DoHintStatus(const std::string &hint_type, std::chrono::millis
     std::lock_guard<std::mutex> lock(actions_.at(hint_type).status->mutex);
     actions_.at(hint_type).status->stats.count.fetch_add(1);
     auto now = std::chrono::steady_clock::now();
+    ATRACE_INT(hint_type.c_str(), (timeout_ms == kMilliSecondZero) ? std::numeric_limits<int>::max()
+                                                                   : timeout_ms.count());
     if (now > actions_.at(hint_type).status->end_time) {
         actions_.at(hint_type).status->stats.duration_ms.fetch_add(
                 std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -102,6 +106,7 @@ void HintManager::EndHintStatus(const std::string &hint_type) {
     std::lock_guard<std::mutex> lock(actions_.at(hint_type).status->mutex);
     // Update HintStats if the hint ends earlier than expected end_time
     auto now = std::chrono::steady_clock::now();
+    ATRACE_INT(hint_type.c_str(), 0);
     if (now < actions_.at(hint_type).status->end_time) {
         actions_.at(hint_type).status->stats.duration_ms.fetch_add(
                 std::chrono::duration_cast<std::chrono::milliseconds>(

@@ -18,10 +18,8 @@ package com.android.queryable.queries;
 
 import com.android.queryable.Queryable;
 
-import java.io.Serializable;
-
 /** Query for a {@link Long}. */
-public interface LongQuery<E extends Queryable> extends Serializable {
+public interface LongQuery<E extends Queryable> extends Query<Long> {
     /** Require the {@link Long} is equal to {@code i}. */
     E isEqualTo(long i);
 

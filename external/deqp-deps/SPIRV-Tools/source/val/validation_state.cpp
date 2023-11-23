@@ -520,16 +520,38 @@ void ValidationState_t::RegisterDebugInstruction(const Instruction* inst) {
 void ValidationState_t::RegisterInstruction(Instruction* inst) {
   if (inst->id()) all_definitions_.insert(std::make_pair(inst->id(), inst));
 
-  // If the instruction is using an OpTypeSampledImage as an operand, it should
-  // be recorded. The validator will ensure that all usages of an
-  // OpTypeSampledImage and its definition are in the same basic block.
+  // Some validation checks are easier by getting all the consumers
   for (uint16_t i = 0; i < inst->operands().size(); ++i) {
     const spv_parsed_operand_t& operand = inst->operand(i);
-    if (SPV_OPERAND_TYPE_ID == operand.type) {
+    if ((SPV_OPERAND_TYPE_ID == operand.type) ||
+        (SPV_OPERAND_TYPE_TYPE_ID == operand.type)) {
       const uint32_t operand_word = inst->word(operand.offset);
       Instruction* operand_inst = FindDef(operand_word);
-      if (operand_inst && SpvOpSampledImage == operand_inst->opcode()) {
+      if (!operand_inst) {
+        continue;
+      }
+
+      // If the instruction is using an OpTypeSampledImage as an operand, it
+      // should be recorded. The validator will ensure that all usages of an
+      // OpTypeSampledImage and its definition are in the same basic block.
+      if ((SPV_OPERAND_TYPE_ID == operand.type) &&
+          (SpvOpSampledImage == operand_inst->opcode())) {
         RegisterSampledImageConsumer(operand_word, inst);
+      }
+
+      // In order to track storage classes (not Function) used per execution
+      // model we can't use RegisterExecutionModelLimitation on instructions
+      // like OpTypePointer which are going to be in the pre-function section.
+      // Instead just need to register storage class usage for consumers in a
+      // function block.
+      if (inst->function()) {
+        if (operand_inst->opcode() == SpvOpTypePointer) {
+          RegisterStorageClassConsumer(
+              operand_inst->GetOperandAs<SpvStorageClass>(1), inst);
+        } else if (operand_inst->opcode() == SpvOpVariable) {
+          RegisterStorageClassConsumer(
+              operand_inst->GetOperandAs<SpvStorageClass>(2), inst);
+        }
       }
     }
   }
@@ -548,6 +570,57 @@ std::vector<Instruction*> ValidationState_t::getSampledImageConsumers(
 void ValidationState_t::RegisterSampledImageConsumer(uint32_t sampled_image_id,
                                                      Instruction* consumer) {
   sampled_image_consumers_[sampled_image_id].push_back(consumer);
+}
+
+void ValidationState_t::RegisterStorageClassConsumer(
+    SpvStorageClass storage_class, Instruction* consumer) {
+  if (spvIsVulkanEnv(context()->target_env)) {
+    if (storage_class == SpvStorageClassOutput) {
+      std::string errorVUID = VkErrorID(4644);
+      function(consumer->function()->id())
+          ->RegisterExecutionModelLimitation([errorVUID](
+              SpvExecutionModel model, std::string* message) {
+            if (model == SpvExecutionModelGLCompute ||
+                model == SpvExecutionModelRayGenerationKHR ||
+                model == SpvExecutionModelIntersectionKHR ||
+                model == SpvExecutionModelAnyHitKHR ||
+                model == SpvExecutionModelClosestHitKHR ||
+                model == SpvExecutionModelMissKHR ||
+                model == SpvExecutionModelCallableKHR) {
+              if (message) {
+                *message =
+                    errorVUID +
+                    "in Vulkan evironment, Output Storage Class must not be "
+                    "used in GLCompute, RayGenerationKHR, IntersectionKHR, "
+                    "AnyHitKHR, ClosestHitKHR, MissKHR, or CallableKHR "
+                    "execution models";
+              }
+              return false;
+            }
+            return true;
+          });
+    }
+
+    if (storage_class == SpvStorageClassWorkgroup) {
+      std::string errorVUID = VkErrorID(4645);
+      function(consumer->function()->id())
+          ->RegisterExecutionModelLimitation([errorVUID](
+              SpvExecutionModel model, std::string* message) {
+            if (model != SpvExecutionModelGLCompute &&
+                model != SpvExecutionModelTaskNV &&
+                model != SpvExecutionModelMeshNV) {
+              if (message) {
+                *message =
+                    errorVUID +
+                    "in Vulkan evironment, Workgroup Storage Class is limited "
+                    "to MeshNV, TaskNV, and GLCompute execution model";
+              }
+              return false;
+            }
+            return true;
+          });
+    }
+  }
 }
 
 uint32_t ValidationState_t::getIdBound() const { return id_bound_; }
@@ -1255,12 +1328,12 @@ bool ValidationState_t::IsValidStorageClass(
       case SpvStorageClassFunction:
       case SpvStorageClassPushConstant:
       case SpvStorageClassPhysicalStorageBuffer:
-      case SpvStorageClassRayPayloadNV:
-      case SpvStorageClassIncomingRayPayloadNV:
-      case SpvStorageClassHitAttributeNV:
-      case SpvStorageClassCallableDataNV:
-      case SpvStorageClassIncomingCallableDataNV:
-      case SpvStorageClassShaderRecordBufferNV:
+      case SpvStorageClassRayPayloadKHR:
+      case SpvStorageClassIncomingRayPayloadKHR:
+      case SpvStorageClassHitAttributeKHR:
+      case SpvStorageClassCallableDataKHR:
+      case SpvStorageClassIncomingCallableDataKHR:
+      case SpvStorageClassShaderRecordBufferKHR:
         return true;
       default:
         return false;
@@ -1676,16 +1749,30 @@ std::string ValidationState_t::VkErrorID(uint32_t id,
       return VUID_WRAP(VUID-ShadingRateKHR-ShadingRateKHR-04492);
     case 4633:
       return VUID_WRAP(VUID-StandaloneSpirv-None-04633);
+    case 4634:
+      return VUID_WRAP(VUID-StandaloneSpirv-None-04634);
     case 4635:
       return VUID_WRAP(VUID-StandaloneSpirv-None-04635);
+    case 4636:
+      return VUID_WRAP(VUID-StandaloneSpirv-None-04636);
+    case 4637:
+      return VUID_WRAP(VUID-StandaloneSpirv-None-04637);
     case 4638:
       return VUID_WRAP(VUID-StandaloneSpirv-None-04638);
     case 4639:
       return VUID_WRAP(VUID-StandaloneSpirv-None-04639);
     case 4640:
       return VUID_WRAP(VUID-StandaloneSpirv-None-04640);
+    case 4641:
+      return VUID_WRAP(VUID-StandaloneSpirv-None-04641);
     case 4642:
       return VUID_WRAP(VUID-StandaloneSpirv-None-04642);
+    case 4643:
+      return VUID_WRAP(VUID-StandaloneSpirv-None-04643);
+    case 4644:
+      return VUID_WRAP(VUID-StandaloneSpirv-None-04644);
+    case 4645:
+      return VUID_WRAP(VUID-StandaloneSpirv-None-04645);
     case 4651:
       return VUID_WRAP(VUID-StandaloneSpirv-OpVariable-04651);
     case 4652:
@@ -1694,6 +1781,8 @@ std::string ValidationState_t::VkErrorID(uint32_t id,
       return VUID_WRAP(VUID-StandaloneSpirv-OriginLowerLeft-04653);
     case 4654:
       return VUID_WRAP(VUID-StandaloneSpirv-PixelCenterInteger-04654);
+    case 4655:
+      return VUID_WRAP(VUID-StandaloneSpirv-UniformConstant-04655);
     case 4656:
       return VUID_WRAP(VUID-StandaloneSpirv-OpTypeImage-04656);
     case 4657:
@@ -1706,12 +1795,18 @@ std::string ValidationState_t::VkErrorID(uint32_t id,
       return VUID_WRAP(VUID-StandaloneSpirv-Offset-04662);
     case 4663:
       return VUID_WRAP(VUID-StandaloneSpirv-Offset-04663);
+    case 4664:
+      return VUID_WRAP(VUID-StandaloneSpirv-OpImageGather-04664);
+    case 4667:
+      return VUID_WRAP(VUID-StandaloneSpirv-None-04667);
     case 4669:
       return VUID_WRAP(VUID-StandaloneSpirv-GLSLShared-04669);
     case 4675:
       return VUID_WRAP(VUID-StandaloneSpirv-FPRoundingMode-04675);
     case 4677:
       return VUID_WRAP(VUID-StandaloneSpirv-Invariant-04677);
+    case 4682:
+      return VUID_WRAP(VUID-StandaloneSpirv-OpControlBarrier-04682);
     case 4683:
       return VUID_WRAP(VUID-StandaloneSpirv-LocalSize-04683);
     case 4685:
@@ -1730,9 +1825,11 @@ std::string ValidationState_t::VkErrorID(uint32_t id,
       return VUID_WRAP(VUID-StandaloneSpirv-OpMemoryBarrier-04732);
     case 4733:
       return VUID_WRAP(VUID-StandaloneSpirv-OpMemoryBarrier-04733);
+    case 4780:
+      return VUID_WRAP(VUID-StandaloneSpirv-Result-04780);
     default:
       return "";  // unknown id
-  };
+  }
   // clang-format on
 }
 

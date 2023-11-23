@@ -43,5 +43,5 @@
     <string name="metadata_artist" msgid="8972421485694988540">"Kunstner"</string>
     <string name="metadata_composer" msgid="4696926808308256056">"Komponist"</string>
     <string name="metadata_album" msgid="1661699531214720236">"Album"</string>
-    <string name="metadata_address" msgid="1849921023707744640">"Placering"</string>
+    <string name="metadata_address" msgid="1849921023707744640">"Lokation"</string>
 </resources>

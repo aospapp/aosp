@@ -31,7 +31,7 @@ import com.android.car.settings.testutils.BaseTestSettingsFragment;
 import com.android.car.settings.testutils.DualPaneTestActivity;
 import com.android.car.settings.testutils.EmptySettingsFragment;
 import com.android.car.settings.testutils.TestTopLevelMenuFragment;
-import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.NavButtonMode;
 import com.android.car.ui.toolbar.ToolbarController;
 
 import org.junit.Rule;
@@ -140,7 +140,7 @@ public class DualPaneBaseCarSettingsActivityTest
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
         assertThat(toolbar.getNavButtonMode()).isEquivalentAccordingToCompareTo(
-                Toolbar.NavButtonMode.DISABLED);
+                NavButtonMode.DISABLED);
 
         mActivityTestRule.runOnUiThread(() -> {
             BaseTestSettingsFragment fragment2 = new BaseTestSettingsFragment();
@@ -148,13 +148,13 @@ public class DualPaneBaseCarSettingsActivityTest
         });
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
-        assertThat(toolbar.getNavButtonMode()).isEqualTo(Toolbar.NavButtonMode.BACK);
+        assertThat(toolbar.getNavButtonMode()).isEqualTo(NavButtonMode.BACK);
 
         mActivityTestRule.runOnUiThread(() -> mActivity.goBack());
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
         assertThat(toolbar.getNavButtonMode()).isEquivalentAccordingToCompareTo(
-                Toolbar.NavButtonMode.DISABLED);
+                NavButtonMode.DISABLED);
     }
 
     @Test

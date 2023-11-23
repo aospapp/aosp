@@ -30,8 +30,8 @@ import com.android.internal.os.nano.StatsdConfigProto.FieldValueMatcher;
 import com.android.internal.os.nano.StatsdConfigProto.SimpleAtomMatcher;
 import com.android.internal.os.nano.StatsdConfigProto.StatsdConfig;
 import com.android.os.nano.AtomsProto;
+import com.android.os.nano.StatsLog;
 import com.android.os.nano.StatsLog.ConfigMetricsReportList;
-import com.android.queryable.Queryable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,7 +53,7 @@ import java.util.stream.Collectors;
  *
  * }</pre>
  */
-public class EnterpriseMetricsRecorder implements AutoCloseable, Queryable {
+public class EnterpriseMetricsRecorder implements AutoCloseable {
 
     /** Create a {@link EnterpriseMetricsRecorder} and begin listening for metrics. */
     public static EnterpriseMetricsRecorder create() {
@@ -184,7 +184,10 @@ public class EnterpriseMetricsRecorder implements AutoCloseable, Queryable {
         return Arrays.stream(reportList.reports)
                 .flatMap(s -> Arrays.stream(s.metrics.clone()))
                 .filter(s -> s.getEventMetrics() != null && s.getEventMetrics().data != null)
-                .flatMap(statsLogReport -> Arrays.stream(statsLogReport.getEventMetrics().data.clone()))
+                .flatMap(statsLogReport -> Arrays.stream(
+                        statsLogReport.getEventMetrics().data.clone()))
+                .flatMap(eventMetricData -> Arrays.stream(
+                        backfillAggregatedAtomsinEventMetric(eventMetricData)))
                 .sorted(Comparator.comparing(e -> e.elapsedTimestampNanos))
                 .map(e -> e.atom)
                 .filter((Objects::nonNull))
@@ -192,5 +195,21 @@ public class EnterpriseMetricsRecorder implements AutoCloseable, Queryable {
                 .filter((Objects::nonNull))
                 .map(EnterpriseMetricInfo::new)
                 .collect(Collectors.toList());
+    }
+
+    private StatsLog.EventMetricData[] backfillAggregatedAtomsinEventMetric(
+            StatsLog.EventMetricData metricData) {
+        if (metricData.aggregatedAtomInfo == null) {
+            return new StatsLog.EventMetricData[]{metricData};
+        }
+        List<StatsLog.EventMetricData> data = new ArrayList<>();
+        StatsLog.AggregatedAtomInfo atomInfo = metricData.aggregatedAtomInfo;
+        for (long timestamp : atomInfo.elapsedTimestampNanos) {
+            StatsLog.EventMetricData newMetricData = new StatsLog.EventMetricData();
+            newMetricData.atom = atomInfo.atom;
+            newMetricData.elapsedTimestampNanos = timestamp;
+            data.add(newMetricData);
+        }
+        return data.toArray(new StatsLog.EventMetricData[0]);
     }
 }

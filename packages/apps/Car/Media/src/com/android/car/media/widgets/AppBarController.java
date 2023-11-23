@@ -4,27 +4,32 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
-import android.view.View;
+import android.util.Size;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.car.media.MediaAppConfig;
 import com.android.car.media.R;
 import com.android.car.media.common.MediaItemMetadata;
 import com.android.car.media.common.source.MediaSource;
 import com.android.car.ui.toolbar.MenuItem;
-import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.NavButtonMode;
+import com.android.car.ui.toolbar.SearchCapabilities;
+import com.android.car.ui.toolbar.SearchConfig;
+import com.android.car.ui.toolbar.SearchMode;
 import com.android.car.ui.toolbar.ToolbarController;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
- * Media template application bar. The callers should set properties via the public methods (e.g.,
- * {@link #setItems}, {@link #setTitle}, {@link #setHasSettings}), and set the visibility of the
- * views via {@link #setState}. A detailed explanation of all possible states of this application
- * bar can be seen at {@link Toolbar.State}.
+ * Media template application bar. This class wraps a {@link ToolbarController} and
+ * adds media-specific methods to it like {@link #setItems} and {@link #setSearchSupported}.
  */
 public class AppBarController {
 
@@ -32,23 +37,25 @@ public class AppBarController {
             CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP;
     private static final int MEDIA_UX_RESTRICTION_NONE = CarUxRestrictions.UX_RESTRICTIONS_BASELINE;
 
-    private int mMaxTabs;
+    private final int mMaxTabs;
+    private final ArrayList<TabBinder<MediaItemMetadata.ArtworkRef>> mTabs = new ArrayList<>();
     private final ToolbarController mToolbarController;
+    private final Context mApplicationContext;
 
     private final boolean mUseSourceLogoForAppSelector;
 
+    private final MenuItem mSearch;
+    private final MenuItem mSettings;
+    private final MenuItem mEqualizer;
+    private final MenuItem mAppSelector;
+
     @NonNull
     private AppBarListener mListener = new AppBarListener();
-    private MenuItem mSearch;
-    private MenuItem mSettings;
-    private MenuItem mEqualizer;
-    private MenuItem mAppSelector;
-
     private boolean mSearchSupported;
     private boolean mShowSearchIfSupported;
     private String mSearchQuery;
-
-    private Intent mAppSelectorIntent;
+    private int mSelectedTab = -1;
+    private Drawable mLogo;
 
     /**
      * Application bar listener
@@ -82,20 +89,19 @@ public class AppBarController {
 
     public AppBarController(Context context, ToolbarController controller) {
         mToolbarController = controller;
+        mApplicationContext = context.getApplicationContext();
         mMaxTabs = context.getResources().getInteger(R.integer.max_tabs);
 
         mUseSourceLogoForAppSelector =
                 context.getResources().getBoolean(R.bool.use_media_source_logo_for_app_selector);
 
-        mAppSelectorIntent = MediaSource.getSourceSelectorIntent(context, false);
+        Intent appSelectorIntent = MediaSource.getSourceSelectorIntent(context, false);
 
-        mToolbarController.registerOnTabSelectedListener(tab ->
-                mListener.onTabSelected(((MediaItemTab) tab).getItem()));
-        mToolbarController.registerOnSearchListener(query -> {
+        mToolbarController.registerSearchListener(query -> {
             mSearchQuery = query;
             mListener.onSearch(query);
         });
-        mToolbarController.registerOnSearchCompletedListener(
+        mToolbarController.registerSearchCompletedListener(
                 () -> mListener.onSearch(mSearchQuery));
         mSearch = MenuItem.builder(context)
                 .setToSearch()
@@ -116,19 +122,19 @@ public class AppBarController {
                 .setTinted(!mUseSourceLogoForAppSelector)
                 .setIcon(mUseSourceLogoForAppSelector
                         ? null : context.getDrawable(R.drawable.ic_app_switch))
-                .setOnClickListener(m -> context.startActivity(mAppSelectorIntent))
+                .setOnClickListener(m -> context.startActivity(appSelectorIntent))
                 .build();
         mToolbarController.setMenuItems(
                 Arrays.asList(mSearch, mEqualizer, mSettings, mAppSelector));
 
-        setAppLauncherSupported(mAppSelectorIntent != null);
+        mAppSelector.setVisible(appSelectorIntent != null);
     }
 
     /**
      * Sets a listener of this application bar events. In order to avoid memory leaks, consumers
      * must reset this reference by setting the listener to null.
      */
-    public void setListener(AppBarListener listener) {
+    public void setListener(@NonNull AppBarListener listener) {
         mListener = listener;
     }
 
@@ -138,18 +144,45 @@ public class AppBarController {
      * @param items list of tabs to show, or null if no tabs should be shown.
      */
     public void setItems(@Nullable List<MediaItemMetadata> items) {
-        mToolbarController.clearAllTabs();
+        if (items == null) {
+            items = Collections.emptyList();
+        }
 
-        if (items != null && !items.isEmpty()) {
-            int count = 0;
-            for (MediaItemMetadata item : items) {
-                mToolbarController.addTab(new MediaItemTab(item));
+        for (TabBinder<MediaItemMetadata.ArtworkRef> tabBinder : mTabs) {
+            tabBinder.setUpdateListener(null);
+            tabBinder.setImage(mApplicationContext, null);
+        }
 
-                count++;
-                if (count >= mMaxTabs) {
-                    break;
-                }
-            }
+        mTabs.clear();
+
+        Size maxArtSize = MediaAppConfig.getMediaItemsBitmapMaxSize(mApplicationContext);
+        for (MediaItemMetadata item : items.subList(0, Math.min(items.size(), mMaxTabs))) {
+            TabBinder<MediaItemMetadata.ArtworkRef> newTab = new TabBinder<>(
+                    mApplicationContext,
+                    maxArtSize,
+                    item,
+                    item2 -> {
+                        mSelectedTab = mTabs.indexOf(item2);
+                        mListener.onTabSelected(item2.getMediaItemMetadata());
+                    });
+            newTab.setImage(mApplicationContext, item.getArtworkKey());
+            mTabs.add(newTab);
+        }
+        mSelectedTab = mTabs.isEmpty() ? -1 : 0;
+        for (TabBinder<MediaItemMetadata.ArtworkRef> tabBinder : mTabs) {
+            tabBinder.setUpdateListener(x -> updateTabs());
+        }
+        updateTabs();
+    }
+
+    private void updateTabs() {
+        if (mToolbarController.getNavButtonMode() != NavButtonMode.DISABLED) {
+            mToolbarController.setTabs(Collections.emptyList());
+        } else {
+            mToolbarController.setTabs(mTabs.stream()
+                            .map(TabBinder::getToolbarTab)
+                            .collect(Collectors.toList()),
+                    mSelectedTab);
         }
     }
 
@@ -189,21 +222,14 @@ public class AppBarController {
     }
 
     /**
-     * Sets whether launching app selector is supported
-     */
-    private void setAppLauncherSupported(boolean supported) {
-        mAppSelector.setVisible(supported);
-    }
-
-    /**
      * Updates the currently active item
      */
     public void setActiveItem(MediaItemMetadata item) {
-        for (int i = 0; i < mToolbarController.getTabCount(); i++) {
-            MediaItemTab mediaItemTab = (MediaItemTab) mToolbarController.getTab(i);
+        for (int i = 0; i < mTabs.size(); i++) {
+            MediaItemMetadata mediaItemMetadata = mTabs.get(i).getMediaItemMetadata();
             boolean match = item != null && Objects.equals(
                     item.getId(),
-                    mediaItemTab.getItem().getId());
+                    mediaItemMetadata.getId());
             if (match) {
                 mToolbarController.selectTab(i);
                 return;
@@ -216,10 +242,19 @@ public class AppBarController {
     }
 
     public void setLogo(Drawable drawable) {
-        if (mUseSourceLogoForAppSelector) {
-            mAppSelector.setIcon(drawable);
+        mLogo = drawable;
+        updateLogo();
+    }
+
+    private void updateLogo() {
+        if (mToolbarController.getSearchMode() == SearchMode.DISABLED) {
+            if (mUseSourceLogoForAppSelector) {
+                mAppSelector.setIcon(mLogo);
+            } else {
+                mToolbarController.setLogo(mLogo);
+            }
         } else {
-            mToolbarController.setLogo(drawable);
+            mToolbarController.setLogo(null);
         }
     }
 
@@ -235,10 +270,6 @@ public class AppBarController {
         mToolbarController.setTitle(title);
     }
 
-    public void setState(Toolbar.State state) {
-        mToolbarController.setState(state);
-    }
-
     public void setMenuItems(List<MenuItem> items) {
         mToolbarController.setMenuItems(items);
     }
@@ -247,17 +278,30 @@ public class AppBarController {
         mToolbarController.setBackgroundShown(shown);
     }
 
-    public void setNavButtonMode(Toolbar.NavButtonMode mode) {
-        mToolbarController.setNavButtonMode(mode);
+    /** Proxies to {@link ToolbarController#setSearchMode(SearchMode)} */
+    public void setSearchMode(SearchMode mode) {
+        if (mToolbarController.getSearchMode() != mode) {
+            mToolbarController.setSearchMode(mode);
+            updateTabs();
+            updateLogo();
+        }
     }
 
-    /** See {@link ToolbarController#canShowSearchResultItems}. */
-    public boolean canShowSearchResultsView() {
-        return mToolbarController.canShowSearchResultsView();
+    /** Proxies to {@link ToolbarController#setNavButtonMode(NavButtonMode)} */
+    public void setNavButtonMode(NavButtonMode mode) {
+        if (mode != mToolbarController.getNavButtonMode()) {
+            mToolbarController.setNavButtonMode(mode);
+            updateTabs();
+        }
     }
 
-    /** See {@link ToolbarController#setSearchResultsView}. */
-    public void setSearchResultsView(View view) {
-        mToolbarController.setSearchResultsView(view);
+    /** Proxies to {@link ToolbarController#getSearchCapabilities()} */
+    public SearchCapabilities getSearchCapabilities() {
+        return mToolbarController.getSearchCapabilities();
+    }
+
+    /** Proxies to {@link ToolbarController#setSearchConfig(SearchConfig)} */
+    public void setSearchConfig(SearchConfig searchConfig) {
+        mToolbarController.setSearchConfig(searchConfig);
     }
 }

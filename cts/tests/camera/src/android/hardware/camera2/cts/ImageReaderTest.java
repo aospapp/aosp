@@ -837,9 +837,9 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
         int[] output = new int[w * h];
 
         // TODO: Optimize this with renderscript intrinsics
-        byte[] yRow = new byte[yPixStride * w];
-        byte[] cbRow = new byte[cbPixStride * w / 2];
-        byte[] crRow = new byte[crPixStride * w / 2];
+        byte[] yRow = new byte[yPixStride * (w - 1) + 1];
+        byte[] cbRow = new byte[cbPixStride * (w / 2 - 1) + 1];
+        byte[] crRow = new byte[crPixStride * (w / 2 - 1) + 1];
         yBuf.mark();
         cbBuf.mark();
         crBuf.mark();

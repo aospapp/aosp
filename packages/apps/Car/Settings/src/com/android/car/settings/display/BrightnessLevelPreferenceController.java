@@ -16,31 +16,54 @@
 
 package com.android.car.settings.display;
 
+import static android.os.UserManager.DISALLOW_CONFIG_BRIGHTNESS;
+
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
 import static com.android.settingslib.display.BrightnessUtils.GAMMA_SPACE_MAX;
 import static com.android.settingslib.display.BrightnessUtils.convertGammaToLinear;
 import static com.android.settingslib.display.BrightnessUtils.convertLinearToGamma;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.database.ContentObserver;
+import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.os.UserHandle;
 import android.provider.Settings;
+import android.widget.Toast;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.common.SeekBarPreference;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 
 /** Business logic for changing the brightness of the display. */
 public class BrightnessLevelPreferenceController extends PreferenceController<SeekBarPreference> {
 
     private static final Logger LOG = new Logger(BrightnessLevelPreferenceController.class);
+    private static final Uri BRIGHTNESS_URI = Settings.System.getUriFor(
+            Settings.System.SCREEN_BRIGHTNESS);
     private final int mMaximumBacklight;
     private final int mMinimumBacklight;
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+
+    private final ContentObserver mBrightnessObserver = new ContentObserver(mHandler) {
+        @Override
+        public void onChange(boolean selfChange) {
+            refreshUi();
+        }
+    };
 
     public BrightnessLevelPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
+
         PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         mMaximumBacklight = powerManager.getMaximumScreenBrightnessSetting();
         mMinimumBacklight = powerManager.getMinimumScreenBrightnessSetting();
@@ -49,6 +72,33 @@ public class BrightnessLevelPreferenceController extends PreferenceController<Se
     @Override
     protected Class<SeekBarPreference> getPreferenceType() {
         return SeekBarPreference.class;
+    }
+
+    @Override
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> {
+            if (hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_BRIGHTNESS)) {
+                showActionDisabledByAdminDialog();
+            } else {
+                Toast.makeText(getContext(),
+                        getContext().getString(R.string.action_unavailable),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    @Override
+    protected void onStartInternal() {
+        super.onStartInternal();
+        getContext().getContentResolver().registerContentObserver(BRIGHTNESS_URI,
+                /* notifyForDescendants= */ false, mBrightnessObserver);
+    }
+
+    @Override
+    protected void onStopInternal() {
+        super.onStopInternal();
+        getContext().getContentResolver().unregisterContentObserver(mBrightnessObserver);
     }
 
     @Override
@@ -77,5 +127,21 @@ public class BrightnessLevelPreferenceController extends PreferenceController<Se
             LOG.w("Can't find setting for SCREEN_BRIGHTNESS.");
         }
         return gamma;
+    }
+
+    @Override
+    public int getAvailabilityStatus() {
+        if (hasUserRestrictionByUm(getContext(), DISALLOW_CONFIG_BRIGHTNESS)
+                || hasUserRestrictionByDpm(getContext(), DISALLOW_CONFIG_BRIGHTNESS)) {
+            return AVAILABLE_FOR_VIEWING;
+        }
+        return AVAILABLE;
+    }
+
+    private void showActionDisabledByAdminDialog() {
+        getFragmentController().showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(getContext(),
+                        DISALLOW_CONFIG_BRIGHTNESS),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
     }
 }

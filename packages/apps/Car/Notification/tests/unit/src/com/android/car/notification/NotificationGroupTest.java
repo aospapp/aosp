@@ -212,6 +212,20 @@ public class NotificationGroupTest {
     }
 
     @Test
+    public void isDismissible_isRecents_returnsTrue() {
+        mNotificationGroup.setRecentsHeader(true);
+
+        assertThat(mNotificationGroup.isDismissible()).isTrue();
+    }
+
+    @Test
+    public void isDismissible_isOlder_returnsTrue() {
+        mNotificationGroup.setOlderHeader(true);
+
+        assertThat(mNotificationGroup.isDismissible()).isTrue();
+    }
+
+    @Test
     public void isDismissible_onlyContainsDismissibleNotification_returnsTrue() {
         mNotificationGroup.addNotification(mNotification1);
 

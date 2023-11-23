@@ -43,7 +43,9 @@ public class VerifiedBootTest {
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
         // This feature name check only applies to devices that first shipped with
         // SC or later.
-        if (PropertyUtil.getFirstApiLevel() >= Build.VERSION_CODES.S) {
+        final int firstApiLevel =
+                Math.min(PropertyUtil.getFirstApiLevel(), PropertyUtil.getVendorApiLevel());
+        if (firstApiLevel >= Build.VERSION_CODES.S) {
             // Assumes every test in this file asserts a requirement of CDD section 9.
             assumeTrue("Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.",
                     mContext.getPackageManager()

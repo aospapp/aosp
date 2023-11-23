@@ -21,7 +21,6 @@
 
 #include "WatchdogServiceHelper.h"
 
-#include <android-base/chrono_utils.h>
 #include <android-base/file.h>
 #include <android-base/macros.h>
 #include <android-base/properties.h>
@@ -50,6 +49,7 @@ using ::android::IBinder;
 using ::android::sp;
 using ::android::String16;
 using ::android::base::Error;
+using ::android::base::GetIntProperty;
 using ::android::base::GetProperty;
 using ::android::base::ReadFileToString;
 using ::android::base::Result;
@@ -83,11 +83,14 @@ const std::vector<TimeoutLength> kTimeouts = {TimeoutLength::TIMEOUT_CRITICAL,
 const int32_t MSG_VHAL_WATCHDOG_ALIVE = static_cast<int>(TimeoutLength::TIMEOUT_NORMAL) + 1;
 const int32_t MSG_VHAL_HEALTH_CHECK = MSG_VHAL_WATCHDOG_ALIVE + 1;
 
-// VHAL sends heart beat every 3s. Car watchdog checks if there is the latest heart beat from VHAL
-// with 1s marginal time.
-constexpr std::chrono::nanoseconds kVhalHealthCheckDelayNs = 4s;
-constexpr int64_t kVhalHeartBeatIntervalMs = 3000;
+// VHAL is supposed to send heart beat every 3s. Car watchdog checks if there is the latest heart
+// beat from VHAL within 3s, allowing 1s marginal time.
+// If {@code ro.carwatchdog.vhal_healthcheck.interval} is set, car watchdog checks VHAL health at
+// the given interval. The lower bound of the interval is 3s.
+constexpr int32_t kDefaultVhalCheckIntervalSec = 3;
+constexpr std::chrono::milliseconds kHealthCheckDelayMs = 1s;
 
+constexpr const char kPropertyVhalCheckInterval[] = "ro.carwatchdog.vhal_healthcheck.interval";
 constexpr const char kServiceName[] = "WatchdogProcessService";
 constexpr const char kVhalInterfaceName[] = "android.hardware.automotive.vehicle@2.0::IVehicle";
 
@@ -139,6 +142,10 @@ WatchdogProcessService::WatchdogProcessService(const sp<Looper>& handlerLooper) 
         mClients.insert(std::make_pair(timeout, std::vector<ClientInfo>()));
         mPingedClients.insert(std::make_pair(timeout, PingedClientMap()));
     }
+    int32_t vhalHealthCheckIntervalSec =
+            GetIntProperty(kPropertyVhalCheckInterval, kDefaultVhalCheckIntervalSec);
+    vhalHealthCheckIntervalSec = std::max(vhalHealthCheckIntervalSec, kDefaultVhalCheckIntervalSec);
+    mVhalHealthCheckWindowMs = std::chrono::seconds(vhalHealthCheckIntervalSec);
 }
 Result<void> WatchdogProcessService::registerWatchdogServiceHelper(
         const sp<IWatchdogServiceHelper>& helper) {
@@ -282,24 +289,14 @@ void WatchdogProcessService::setEnabled(bool isEnabled) {
     }
 }
 
-Status WatchdogProcessService::notifyUserStateChange(userid_t userId, aawi::UserState state) {
+void WatchdogProcessService::notifyUserStateChange(userid_t userId, bool isStarted) {
     std::string buffer;
     Mutex::Autolock lock(mMutex);
-    switch (state) {
-        case aawi::UserState::USER_STATE_STARTED:
-            mStoppedUserIds.erase(userId);
-            buffer = StringPrintf("user(%d) is started", userId);
-            break;
-        case aawi::UserState::USER_STATE_STOPPED:
-            mStoppedUserIds.insert(userId);
-            buffer = StringPrintf("user(%d) is stopped", userId);
-            break;
-        default:
-            ALOGW("Unsupported user state: %d", state);
-            return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT, "Unsupported user state");
+    if (isStarted) {
+        mStoppedUserIds.erase(userId);
+    } else {
+        mStoppedUserIds.insert(userId);
     }
-    ALOGI("Received user state change: %s", buffer.c_str());
-    return Status::ok();
 }
 
 Result<void> WatchdogProcessService::dump(int fd, const Vector<String16>& /*args*/) {
@@ -338,6 +335,9 @@ Result<void> WatchdogProcessService::dump(int fd, const Vector<String16>& /*args
         }
     }
     WriteStringToFd(StringPrintf("%sStopped users: %s\n", indent, buffer.c_str()), fd);
+    WriteStringToFd(StringPrintf("%sVHAL health check interval: %lldms\n", indent,
+                                 mVhalHealthCheckWindowMs.count()),
+                    fd);
     return {};
 }
 
@@ -763,7 +763,8 @@ void WatchdogProcessService::subscribeToVhalHeartBeatLocked() {
         ALOGW("Failed to subscribe to VHAL_HEARTBEAT. Checking VHAL health is disabled.");
         return;
     }
-    mHandlerLooper->sendMessageDelayed(kVhalHealthCheckDelayNs.count(), mMessageHandler,
+    std::chrono::nanoseconds intervalNs = mVhalHealthCheckWindowMs + kHealthCheckDelayMs;
+    mHandlerLooper->sendMessageDelayed(intervalNs.count(), mMessageHandler,
                                        Message(MSG_VHAL_HEALTH_CHECK));
 }
 
@@ -788,7 +789,8 @@ void WatchdogProcessService::updateVhalHeartBeat(int64_t value) {
         terminateVhal();
         return;
     }
-    mHandlerLooper->sendMessageDelayed(kVhalHealthCheckDelayNs.count(), mMessageHandler,
+    std::chrono::nanoseconds intervalNs = mVhalHealthCheckWindowMs + kHealthCheckDelayMs;
+    mHandlerLooper->sendMessageDelayed(intervalNs.count(), mMessageHandler,
                                        Message(MSG_VHAL_HEALTH_CHECK));
 }
 
@@ -799,7 +801,7 @@ void WatchdogProcessService::checkVhalHealth() {
         Mutex::Autolock lock(mMutex);
         lastEventTime = mVhalHeartBeat.eventTime;
     }
-    if (currentUptime > lastEventTime + kVhalHeartBeatIntervalMs) {
+    if (currentUptime > lastEventTime + mVhalHealthCheckWindowMs.count()) {
         ALOGW("VHAL failed to update heart beat within timeout. Terminating VHAL...");
         terminateVhal();
     }

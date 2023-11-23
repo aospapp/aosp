@@ -58,6 +58,7 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
             CarrierXmlParser.SsEntry.SSAction.UNKNOWN;
     private int mAction;
     private HashMap<String, String> mCfInfo;
+    private long mDelayMillisAfterUssdSet = 1000;
 
     public CallForwardEditPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -488,8 +489,9 @@ public class CallForwardEditPreference extends EditPhoneNumberPreference {
                 mPhone.getCallForwardingOption(reason, mServiceClass,
                         obtainMessage(MESSAGE_GET_CF, msg.arg1, MESSAGE_SET_CF, ar.exception));
             } else {
-                mHandler.sendMessage(mHandler.obtainMessage(mHandler.MESSAGE_GET_CF_USSD,
-                        msg.arg1, MyHandler.MESSAGE_SET_CF, ar.exception));
+                mHandler.sendMessageDelayed(mHandler.obtainMessage(mHandler.MESSAGE_GET_CF_USSD,
+                        msg.arg1, MyHandler.MESSAGE_SET_CF, ar.exception),
+                        mDelayMillisAfterUssdSet);
             }
         }
 

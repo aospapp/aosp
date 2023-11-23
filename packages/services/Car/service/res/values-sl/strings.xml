@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"Nadziranje pravilnika o delovanju komponent v avtomobilu."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"upodabljanje predlog"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Upodabljanje predlog."</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"nadziranje zaganjanja aplikacij"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Nadziranje zaganjanja aplikacij"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Moja naprava"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Gost"</string>
     <string name="importance_default" msgid="8587741629268312938">"Privzeta pomembnost"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"Ponastavi pozneje"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"Informativno-razvedrilni sistem se bo ponastavil ob naslednjem zagonu avta."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"Za začetek ponastavitve mora biti avto parkiran."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"Aplikacija <xliff:g id="ID_1">^1</xliff:g> vpliva na delovanje sistema"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Onemogočite aplikacijo zaradi izboljšanja delovanja sistema. Aplikacijo lahko znova omogočite v nastavitvah."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Če želite še naprej uporabljati aplikacijo, ji dajte prednost."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Odmestite aplikacijo zaradi izboljšanja delovanja sistema."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"Onemogočanje aplikacije"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"Dajanje prednosti aplikaciji"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"Odmestitev aplikacije"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"Aplikacija <xliff:g id="ID_1">^1</xliff:g> je onemogočena. Znova jo lahko omogočite v nastavitvah."</string>
 </resources>

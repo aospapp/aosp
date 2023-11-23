@@ -19,11 +19,17 @@ package com.android.queryable.queries;
 import com.android.queryable.Queryable;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-public final class EnumQueryHelper <E extends Queryable, F> implements EnumQuery<E, F>, Serializable {
+public final class EnumQueryHelper <E extends Queryable, F> implements EnumQuery<E, F>,
+        Serializable {
+
+    private static final long serialVersionUID = 1;
 
     private final E mQuery;
     private Set<F> mIsEqualTo = null;
@@ -116,5 +122,31 @@ public final class EnumQueryHelper <E extends Queryable, F> implements EnumQuery
         }
 
         return true;
+    }
+
+    @Override
+    public String describeQuery(String fieldName) {
+        List<String> queryStrings = new ArrayList<>();
+        if (mIsEqualTo != null) {
+            if (mIsEqualTo.size() == 1) {
+                queryStrings.add(fieldName + "=" + mIsEqualTo);
+            } else {
+                queryStrings.add(fieldName + " in {"
+                        + mIsEqualTo.stream().map(Object::toString).collect(Collectors.joining(", "))
+                        + "}");
+            }
+        }
+
+        if (mIsNotEqualTo != null) {
+            if (mIsNotEqualTo.size() == 1) {
+                queryStrings.add(fieldName + "!=" + mIsNotEqualTo);
+            } else {
+                queryStrings.add(fieldName + " not in {"
+                        + mIsNotEqualTo.stream().map(Object::toString).collect(Collectors.joining(", "))
+                        + "}");
+            }
+        }
+
+        return Queryable.joinQueryStrings(queryStrings);
     }
 }

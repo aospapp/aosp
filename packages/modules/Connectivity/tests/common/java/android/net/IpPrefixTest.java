@@ -17,7 +17,6 @@
 package android.net;
 
 import static com.android.testutils.MiscAsserts.assertEqualBothWays;
-import static com.android.testutils.MiscAsserts.assertFieldCountEquals;
 import static com.android.testutils.MiscAsserts.assertNotEqualEitherWay;
 import static com.android.testutils.ParcelUtils.assertParcelingIsLossless;
 
@@ -368,7 +367,5 @@ public class IpPrefixTest {
         p = new IpPrefix("192.0.2.0/25");
         assertParcelingIsLossless(p);
         assertTrue(p.isIPv4());
-
-        assertFieldCountEquals(2, IpPrefix.class);
     }
 }

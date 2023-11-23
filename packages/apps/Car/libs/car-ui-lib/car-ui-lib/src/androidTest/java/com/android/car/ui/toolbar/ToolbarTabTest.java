@@ -19,14 +19,18 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.matchers.ViewMatchers.doesNotExistOrIsNotDisplayed;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 
 import androidx.core.content.ContextCompat;
@@ -34,7 +38,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.car.ui.core.CarUi;
-import com.android.car.ui.sharedlibrarysupport.SharedLibraryFactorySingleton;
+import com.android.car.ui.pluginsupport.PluginFactorySingleton;
 import com.android.car.ui.test.R;
 
 import org.junit.Rule;
@@ -48,17 +52,18 @@ import java.util.function.Consumer;
 
 @SuppressWarnings("AndroidJdkLibsChecker")
 @RunWith(Parameterized.class)
+@TargetApi(MIN_TARGET_API)
 public class ToolbarTabTest {
 
     @Parameterized.Parameters
     public static Object[] data() {
-        // It's important to do no shared library first, so that the shared library will
+        // It's important to do no plugin first, so that the plugin will
         // still be enabled when this test finishes
         return new Object[] { false, true };
     }
 
-    public ToolbarTabTest(boolean sharedLibEnabled) {
-        SharedLibraryFactorySingleton.setSharedLibEnabled(sharedLibEnabled);
+    public ToolbarTabTest(boolean pluginEnabled) {
+        PluginFactorySingleton.setPluginEnabledForTesting(pluginEnabled);
     }
 
     @Rule
@@ -143,6 +148,23 @@ public class ToolbarTabTest {
 
         onView(withText("Tab 1")).check(doesNotExistOrIsNotDisplayed());
         onView(withText("Tab 2")).check(doesNotExistOrIsNotDisplayed());
+    }
+
+    @Test
+    public void test_selectTab_onEmptyToolbars() {
+        runWithToolbar(toolbar -> {
+            toolbar.setTabs(null);
+            assertThrows(IllegalArgumentException.class, () -> toolbar.selectTab(0));
+        });
+    }
+
+    @Test
+    public void test_getSelectedTab_onEmptyToolbars() {
+        runWithToolbar(toolbar -> {
+            toolbar.setTabs(null);
+            assertThrows(IllegalArgumentException.class, () -> toolbar.selectTab(0));
+            assertEquals(-1, toolbar.getSelectedTab());
+        });
     }
 
     private void runWithToolbar(Consumer<ToolbarController> toRun) {

@@ -17,6 +17,7 @@
 package com.android.bedstead.harrier.annotations.meta;
 
 import static com.android.bedstead.harrier.OptionalBoolean.ANY;
+import static com.android.bedstead.harrier.OptionalBoolean.TRUE;
 
 import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.harrier.OptionalBoolean;
@@ -44,4 +45,9 @@ public @interface RequireRunOnProfile {
      */
     // NOTE: This field is only required if hasProfileOwner=true
     String[] affiliationIds() default {};
+
+    /**
+     * Should we ensure that we are switched to the parent of the profile.
+     */
+    OptionalBoolean switchedToParentUser() default TRUE;
 }

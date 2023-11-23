@@ -29,7 +29,8 @@ import its_session_utils
 import opencv_processing_utils
 
 CIRCLE_COLOR = 0  # [0: black, 255: white]
-CIRCLE_TOL = 0.05  # contour area vs ideal circle area pi*((w+h)/4)**2
+CIRCLE_AR_RTOL = 0.15  # contour width vs height (aspect ratio)
+CIRCLISH_RTOL = 0.05  # contour area vs ideal circle area pi*((w+h)/4)**2
 LINE_COLOR = (255, 0, 0)  # red
 LINE_THICKNESS = 5
 MIN_AREA_RATIO = 0.00015  # based on 2000/(4000x3000) pixels
@@ -153,8 +154,7 @@ def find_center_circle(img, img_name, color, min_area, debug):
       np.uint8(gray), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
   # use OpenCV to find contours (connected components)
-  _, contours, _ = cv2.findContours(255 - img_bw, cv2.RETR_TREE,
-                                    cv2.CHAIN_APPROX_SIMPLE)
+  contours = opencv_processing_utils.find_all_contours(255-img_bw)
 
   # check contours and find the best circle candidates
   circles = []
@@ -166,7 +166,10 @@ def find_center_circle(img, img_name, color, min_area, debug):
       radius = (shape['width'] + shape['height']) / 4
       colour = img_bw[shape['cty']][shape['ctx']]
       circlish = round((math.pi * radius**2) / area, 4)
-      if colour == color and (1 - CIRCLE_TOL <= circlish <= 1 + CIRCLE_TOL):
+      if (colour == color and
+          (1 - CIRCLISH_RTOL <= circlish <= 1 + CIRCLISH_RTOL) and
+          math.isclose(shape['width'], shape['height'],
+                       rel_tol=CIRCLE_AR_RTOL)):
         circles.append([shape['ctx'], shape['cty'], radius, circlish, area])
 
   if not circles:
@@ -237,7 +240,6 @@ class ZoomTest(its_base_test.ItsBaseTest):
       logging.debug('test TOLs: %s', str(test_tols))
 
       # do captures over zoom range and find circles with cv2
-      logging.debug('cv2_version: %s', cv2.__version__)
       cam.do_3a()
       req = capture_request_utils.auto_capture_request()
       for i, z in enumerate(z_list):
@@ -272,10 +274,12 @@ class ZoomTest(its_base_test.ItsBaseTest):
 
     # assert some range is tested before circles get too big
     zoom_max_thresh = ZOOM_MAX_THRESH
-    if z_max < ZOOM_MAX_THRESH:
-      zoom_max_thresh = z_max
-    test_data_max_z = test_data[max(test_data.keys())]['z']
-    logging.debug('zoom data max: %.2f', test_data_max_z)
+    z_max_ratio = z_max / z_min
+    if z_max_ratio < ZOOM_MAX_THRESH:
+      zoom_max_thresh = z_max_ratio
+    test_data_max_z = (test_data[max(test_data.keys())]['z'] /
+                       test_data[min(test_data.keys())]['z'])
+    logging.debug('test zoom ratio max: %.2f', test_data_max_z)
     if test_data_max_z < zoom_max_thresh:
       raise AssertionError(f'Max zoom ratio tested: {test_data_max_z:.4f}, '
                            f'range advertised min: {z_min}, max: {z_max} '

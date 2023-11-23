@@ -68,7 +68,7 @@ class IoOveruseConfigsPeer;
 
 }  // namespace internal
 
-/*
+/**
  * Defines the methods that the I/O overuse configs module should implement.
  */
 class IIoOveruseConfigs : public android::RefBase {
@@ -80,18 +80,18 @@ public:
     // Returns the existing configurations.
     virtual void get(
             std::vector<android::automotive::watchdog::internal::ResourceOveruseConfiguration>*
-                    resourceOveruseConfigs) = 0;
+                    resourceOveruseConfigs) const = 0;
 
     // Writes the cached configs to disk.
     virtual android::base::Result<void> writeToDisk() = 0;
 
-    /*
+    /**
      * Returns the list of vendor package prefixes. Any pre-installed package matching one of these
      * prefixes should be classified as a vendor package.
      */
     virtual const std::unordered_set<std::string>& vendorPackagePrefixes() = 0;
 
-    /*
+    /**
      * Returns the package names to application category mappings.
      */
     virtual const std::unordered_map<
@@ -129,7 +129,7 @@ public:
 
 class IoOveruseConfigs;
 
-/*
+/**
  * ComponentSpecificConfig represents the I/O overuse config defined per component.
  */
 class ComponentSpecificConfig final {
@@ -141,32 +141,32 @@ protected:
         mSafeToKillPackages.clear();
     }
 
-    /*
+    /**
      * Updates |mPerPackageThresholds|.
      */
     android::base::Result<void> updatePerPackageThresholds(
             const std::vector<android::automotive::watchdog::internal::PerStateIoOveruseThreshold>&
                     thresholds,
             const std::function<void(const std::string&)>& maybeAppendVendorPackagePrefixes);
-    /*
+    /**
      * Updates |mSafeToKillPackages|.
      */
     android::base::Result<void> updateSafeToKillPackages(
             const std::vector<std::string>& packages,
             const std::function<void(const std::string&)>& maybeAppendVendorPackagePrefixes);
 
-    /*
+    /**
      * I/O overuse configurations for all packages under the component that are not covered by
      * |mPerPackageThresholds| or |IoOveruseConfigs.mPerCategoryThresholds|.
      */
     android::automotive::watchdog::internal::PerStateIoOveruseThreshold mGeneric;
-    /*
+    /**
      * I/O overuse configurations for specific packages under the component.
      */
     std::unordered_map<std::string,
                        android::automotive::watchdog::internal::PerStateIoOveruseThreshold>
             mPerPackageThresholds;
-    /*
+    /**
      * List of safe to kill packages under the component in the event of I/O overuse.
      */
     std::unordered_set<std::string> mSafeToKillPackages;
@@ -175,7 +175,7 @@ private:
     friend class IoOveruseConfigs;
 };
 
-/*
+/**
  * IoOveruseConfigs represents the I/O overuse configuration defined by system and vendor
  * applications. This class is not thread safe for performance purposes. The caller is responsible
  * for calling the methods in a thread safe manner.
@@ -194,7 +194,7 @@ public:
                    configs) override;
 
     void get(std::vector<android::automotive::watchdog::internal::ResourceOveruseConfiguration>*
-                     resourceOveruseConfigs) override;
+                     resourceOveruseConfigs) const override;
 
     android::base::Result<void> writeToDisk();
 
@@ -245,7 +245,8 @@ private:
                     thresholds);
 
     std::optional<android::automotive::watchdog::internal::ResourceOveruseConfiguration> get(
-            const ComponentSpecificConfig& componentSpecificConfig, const int32_t componentFilter);
+            const ComponentSpecificConfig& componentSpecificConfig,
+            const int32_t componentFilter) const;
 
     // System component specific configuration.
     ComponentSpecificConfig mSystemConfig;

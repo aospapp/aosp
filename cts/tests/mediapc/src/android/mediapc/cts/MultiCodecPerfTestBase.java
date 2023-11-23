@@ -53,13 +53,11 @@ public class MultiCodecPerfTestBase {
         mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_AVC, "bbb_1280x720_3mbps_30fps_avc.mp4");
         mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_HEVC, "bbb_1280x720_3mbps_30fps_hevc.mp4");
 
-        // Test VP8, VP9 and AV1 as well for Build.VERSION_CODES.S
+        // Test VP9 and AV1 as well for Build.VERSION_CODES.S
         if (Utils.isSPerfClass()) {
-            mMimeList.add(MediaFormat.MIMETYPE_VIDEO_VP8);
             mMimeList.add(MediaFormat.MIMETYPE_VIDEO_VP9);
             mMimeList.add(MediaFormat.MIMETYPE_VIDEO_AV1);
 
-            mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_VP8, "bbb_1280x720_3mbps_30fps_vp8.webm");
             mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_VP9, "bbb_1280x720_3mbps_30fps_vp9.webm");
             mTestFiles.put(MediaFormat.MIMETYPE_VIDEO_AV1, "bbb_1280x720_3mbps_30fps_av1.mp4");
         }

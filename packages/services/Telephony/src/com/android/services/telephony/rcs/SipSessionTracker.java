@@ -24,6 +24,7 @@ import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.SipMessageParsingUtils;
+import com.android.internal.telephony.metrics.RcsStats;
 import com.android.internal.util.IndentingPrintWriter;
 
 import java.io.PrintWriter;
@@ -66,6 +67,14 @@ public class SipSessionTracker {
     // associated pending operation.
     private final ArrayMap<String, Runnable> mPendingAck = new ArrayMap<>();
 
+    private final RcsStats mRcsStats;
+    int mSubId;
+
+    public SipSessionTracker(int subId, RcsStats rcsStats) {
+        mSubId = subId;
+        mRcsStats = rcsStats;
+    }
+
     /**
      * Filter a SIP message to determine if it will result in a new SIP dialog. This will need to be
      * successfully acknowledged by the remote IMS stack using
@@ -73,10 +82,10 @@ public class SipSessionTracker {
      *
      * @param message The Incoming SIP message.
      */
-    public void filterSipMessage(SipMessage message) {
+    public void filterSipMessage(int direction, SipMessage message) {
         final Runnable r;
         if (startsEarlyDialog(message)) {
-            r = getCreateDialogRunnable(message);
+            r = getCreateDialogRunnable(direction, message);
         } else if (closesDialog(message)) {
             r = getCloseDialogRunnable(message);
         } else if (SipMessageParsingUtils.isSipResponse(message.getStartLine())) {
@@ -137,6 +146,8 @@ public class SipSessionTracker {
         if (dialogsToCleanup.isEmpty()) return;
         logi("Cleanup dialogs associated with call id: " + callId);
         for (SipDialog d : dialogsToCleanup) {
+            mRcsStats.onSipTransportSessionClosed(mSubId, callId, 0,
+                    d.getState() == d.STATE_CLOSED);
             d.close();
             logi("Dialog closed: " + d);
         }
@@ -197,6 +208,9 @@ public class SipSessionTracker {
      * Clears all tracked sessions.
      */
     public void clearAllSessions() {
+        for (SipDialog d : mTrackedDialogs) {
+            mRcsStats.onSipTransportSessionClosed(mSubId, d.getCallId(), 0, false);
+        }
         mTrackedDialogs.clear();
         mPendingAck.clear();
     }
@@ -262,7 +276,7 @@ public class SipSessionTracker {
         return SIP_CLOSE_DIALOG_REQUEST_METHOD.equalsIgnoreCase(startLineSegments[0]);
     }
 
-    private Runnable getCreateDialogRunnable(SipMessage m) {
+    private Runnable getCreateDialogRunnable(int direction, SipMessage m) {
         return () -> {
             List<SipDialog> duplicateDialogs = mTrackedDialogs.stream()
                     .filter(d -> d.getCallId().equals(m.getCallIdParameter()))
@@ -273,6 +287,10 @@ public class SipSessionTracker {
                 return;
             }
             SipDialog dialog = SipDialog.fromSipMessage(m);
+            String[] startLineSegments =
+                    SipMessageParsingUtils.splitStartLineAndVerify(m.getStartLine());
+            mRcsStats.earlySipTransportSession(startLineSegments[0], dialog.getCallId(),
+                    direction);
             logi("Starting new SipDialog: " + dialog);
             mTrackedDialogs.add(dialog);
         };
@@ -285,6 +303,7 @@ public class SipSessionTracker {
                     .collect(Collectors.toList());
             if (dialogsToClose.isEmpty()) return;
             logi("Closing dialogs associated with: " + m);
+            mRcsStats.onSipTransportSessionClosed(mSubId, m.getCallIdParameter(), 0, true);
             for (SipDialog d : dialogsToClose) {
                 d.close();
                 logi("Dialog closed: " + d);
@@ -344,11 +363,13 @@ public class SipSessionTracker {
         if (statusCode <= 100) return;
         // If 300+, then this dialog has received an error response and should move to closed state.
         if (statusCode >= 300) {
+            mRcsStats.onSipTransportSessionClosed(mSubId, m.getCallIdParameter(), statusCode, true);
             d.close();
             return;
         }
         if (toTag == null) logw("updateSipDialogState: No to tag for message: " + m);
         if (statusCode >= 200) {
+            mRcsStats.confirmedSipTransportSession(m.getCallIdParameter(), statusCode);
             d.confirm(toTag);
             return;
         }

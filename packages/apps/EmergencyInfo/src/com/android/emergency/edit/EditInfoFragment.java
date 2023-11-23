@@ -91,7 +91,8 @@ public class EditInfoFragment extends PreferenceFragment {
                 // presented with a list of contacts, with one entry per phone number.
                 // The selected contact is guaranteed to have a name and phone number.
                 Intent contactPickerIntent = new Intent(Intent.ACTION_PICK,
-                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
+                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 try {
                     startActivityForResult(contactPickerIntent, CONTACT_PICKER_RESULT);
                     return true;

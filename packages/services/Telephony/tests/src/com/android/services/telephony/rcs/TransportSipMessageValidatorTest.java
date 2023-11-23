@@ -16,6 +16,9 @@
 
 package com.android.services.telephony.rcs;
 
+import static com.android.internal.telephony.TelephonyStatsLog.SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__INCOMING;
+import static com.android.internal.telephony.TelephonyStatsLog.SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__OUTGOING;
+
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
@@ -23,6 +26,7 @@ import static junit.framework.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -37,6 +41,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.TelephonyTestBase;
 import com.android.TestExecutorService;
+import com.android.internal.telephony.metrics.RcsStats;
 import com.android.services.telephony.rcs.validator.IncomingTransportStateValidator;
 import com.android.services.telephony.rcs.validator.OutgoingTransportStateValidator;
 import com.android.services.telephony.rcs.validator.ValidationResult;
@@ -76,6 +81,8 @@ public class TransportSipMessageValidatorTest extends TelephonyTestBase {
     private IncomingTransportStateValidator mIncomingStateValidator;
     @Mock
     private OutgoingTransportStateValidator mOutgoingStateValidator;
+    @Mock
+    private RcsStats mRcsStats;
 
     @Before
     public void setUp() throws Exception {
@@ -117,12 +124,50 @@ public class TransportSipMessageValidatorTest extends TelephonyTestBase {
     }
 
     @Test
+    public void testMetricsResponse() {
+        String testSipInviteMethod = "INVITE";
+        String testSipMessageMethod = "MESSAGE";
+        int testSipResponseCode = 200;
+        int testMessageError = 0;
+
+        TestExecutorService executor = new TestExecutorService();
+        TransportSipMessageValidator tracker = openTransport(executor);
+        // Since the incoming/outgoing messages were verified, there should have been two calls
+        // to filter the message.
+        verify(mSipSessionTracker).filterSipMessage(
+                SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__OUTGOING, TEST_MESSAGE);
+        verify(mSipSessionTracker).filterSipMessage(
+                SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__INCOMING, TEST_MESSAGE);
+
+        assertTrue(tracker.verifyOutgoingMessage(generateSipRequest("INVITE",
+                "testId1"), TEST_CONFIG_VERSION).isValidated);
+        verify(mRcsStats).onSipMessageRequest(eq("testId1"),
+                eq(testSipInviteMethod),
+                eq(SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__OUTGOING));
+
+        assertTrue(tracker.verifyOutgoingMessage(generateSipRequest("MESSAGE",
+                "testId2"), TEST_CONFIG_VERSION).isValidated);
+        verify(mRcsStats).onSipMessageRequest(eq("testId2"),
+                eq(testSipMessageMethod),
+                eq(SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__OUTGOING));
+
+        assertTrue(tracker.verifyIncomingMessage(
+                 generateSipResponse("200", "OK", "testId2"))
+                 .isValidated);
+        verify(mRcsStats).onSipMessageResponse(eq(TEST_SUB_ID), eq("testId2"),
+                eq(testSipResponseCode), eq(testMessageError));
+    }
+
+    @Test
     public void testSessionTrackerFiltering() {
         TestExecutorService executor = new TestExecutorService();
         TransportSipMessageValidator tracker = openTransport(executor);
         // Since the incoming/outgoing messages were verified, there should have been two calls
         // to filter the message.
-        verify(mSipSessionTracker, times(2)).filterSipMessage(TEST_MESSAGE);
+        verify(mSipSessionTracker).filterSipMessage(
+                SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__OUTGOING, TEST_MESSAGE);
+        verify(mSipSessionTracker).filterSipMessage(
+                SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__INCOMING, TEST_MESSAGE);
         // ensure pass through methods are working
         tracker.acknowledgePendingMessage("abc");
         verify(mSipSessionTracker).acknowledgePendingMessage("abc");
@@ -140,7 +185,10 @@ public class TransportSipMessageValidatorTest extends TelephonyTestBase {
         assertFalse(tracker.verifyOutgoingMessage(TEST_MESSAGE, TEST_CONFIG_VERSION).isValidated);
         // The number of times the filter method was called should still only be two after these
         // messages were not validated.
-        verify(mSipSessionTracker, times(2)).filterSipMessage(TEST_MESSAGE);
+        verify(mSipSessionTracker).filterSipMessage(
+                SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__OUTGOING, TEST_MESSAGE);
+        verify(mSipSessionTracker).filterSipMessage(
+                SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__INCOMING, TEST_MESSAGE);
     }
 
 
@@ -482,6 +530,27 @@ public class TransportSipMessageValidatorTest extends TelephonyTestBase {
         doReturn(ValidationResult.SUCCESS).when(mIncomingStateValidator).validate(any());
         doReturn(mIncomingStateValidator).when(mIncomingStateValidator).andThen(any());
         return new TransportSipMessageValidator(TEST_SUB_ID, executor, mSipSessionTracker,
-                mOutgoingStateValidator, mIncomingStateValidator);
+                mOutgoingStateValidator, mIncomingStateValidator, mRcsStats);
+    }
+
+    private SipMessage generateSipResponse(String statusCode, String statusString, String callId) {
+        String fromHeader = "Alice <sip:alice@atlanta.com>;tag=1928301774";
+        String toHeader = "Bob <sip:bob@biloxi.com>";
+        String branchId = "AAAA";
+        String fromTag = "tag=1928301774";
+        String toTag = "";
+        return SipMessageUtils.generateSipResponse(statusCode, statusString, fromHeader,
+            toHeader, branchId, callId, fromTag, toTag);
+    }
+
+    private SipMessage generateSipRequest(String requestMethod, String callId) {
+        String fromHeader = "Alice <sip:alice@atlanta.com>;tag=1928301774";
+        String toHeader = "Bob <sip:bob@biloxi.com>";
+        String branchId = "AAAA";
+        String fromTag = "tag=1928301774";
+        String toTag = "";
+        String toUri = "sip:bob@biloxi.com";
+        return SipMessageUtils.generateSipRequest(requestMethod, fromHeader, toHeader,
+                toUri, branchId, callId, fromTag, toTag);
     }
 }

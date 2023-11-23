@@ -16,7 +16,7 @@
 
 package android.net.apf;
 
-import static com.android.testutils.ParcelUtils.assertParcelSane;
+import static com.android.testutils.ParcelUtils.assertParcelingIsLossless;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -62,7 +62,7 @@ public class ApfCapabilitiesTest {
         assertEquals(456, caps.maximumApfProgramSize);
         assertEquals(789, caps.apfPacketFormat);
 
-        assertParcelSane(caps, 3);
+        assertParcelingIsLossless(caps);
     }
 
     @Test

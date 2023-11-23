@@ -22,8 +22,8 @@ fi
 
 PROJECT_TOP=$ANDROID_BUILD_TOP/packages/apps/Car/Media
 
-python $ANDROID_BUILD_TOP/packages/apps/Car/tests/tools/rro/generate-overlayable.py \
+python3 $ANDROID_BUILD_TOP/packages/apps/Car/tests/tools/rro/generate-overlayable.py \
     -n CarMediaApp \
     -r $PROJECT_TOP/res \
-    -e $PROJECT_TOP/res/values/overlayable.xml $PROJECT_TOP/res/xml/automotive_app_desc.xml \
+    -e $PROJECT_TOP/res/values/overlayable.xml $PROJECT_TOP/res/xml/automotive_app_desc.xml $PROJECT_TOP/res/values/colors.xml $PROJECT_TOP/res/values/dimens.xml $PROJECT_TOP/res/color/progress_bar_thumb_inner_ring_color.xml $PROJECT_TOP/res/color/progress_bar_thumb_outer_ring_color.xml \
     -o $PROJECT_TOP/res/values/overlayable.xml

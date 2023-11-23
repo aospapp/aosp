@@ -16,9 +16,19 @@
 package android.contentcaptureservice.cts2;
 
 import android.app.Activity;
+import android.os.Handler;
+import android.os.Looper;
 
 /**
  * This activity is used to test temporary Content Capture Service interactions with activities
  * outside of its own package. It is intentionally empty.
  */
-public class OutsideOfPackageActivity extends Activity { }
+public class OutsideOfPackageActivity extends Activity {
+
+    @Override
+    public void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        // finish activity after displayed.
+        new Handler(Looper.getMainLooper()).post(() -> finish());
+    }
+}

@@ -140,9 +140,6 @@ private:
     ::base::Thread mDecoderThread{"V4L2DecodeComponentDecoderThread"};
     scoped_refptr<::base::SequencedTaskRunner> mDecoderTaskRunner;
 
-    // Hold a weak_ptr of |*this| when |mDecoderThread| is running.
-    std::weak_ptr<V4L2DecodeComponent> mStdWeakThis;
-
     ::base::WeakPtrFactory<V4L2DecodeComponent> mWeakThisFactory{this};
     ::base::WeakPtr<V4L2DecodeComponent> mWeakThis;
 };

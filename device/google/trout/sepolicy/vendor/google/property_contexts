@@ -1,1 +1,3 @@
 persist.vendor.verbose_logging_enabled  u:object_r:vendor_hal_dumpstate_prop:s0
+
+vendor.ser.bt-uart  u:object_r:vendor_ser_prop:s0

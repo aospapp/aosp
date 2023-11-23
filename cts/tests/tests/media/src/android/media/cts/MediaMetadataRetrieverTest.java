@@ -1073,12 +1073,20 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
 
     public void testGetImageAtIndexAvif() throws Exception {
         if (!MediaUtils.check(mIsAtLeastS, "test needs Android 12")) return;
+        if (!MediaUtils.canDecodeVideo("AV1", 1920, 1080, 30)) {
+            MediaUtils.skipTest("No AV1 codec for 1080p");
+            return;
+        }
         testGetImage("sample.avif", 1920, 1080, "image/avif", 0 /*rotation*/,
                 1 /*imageCount*/, 0 /*primary*/, false /*useGrid*/, true /*checkColor*/);
     }
 
     public void testGetImageAtIndexAvifGrid() throws Exception {
         if (!MediaUtils.check(mIsAtLeastS, "test needs Android 12")) return;
+        if (!MediaUtils.canDecodeVideo("AV1", 512, 512, 30)) {
+            MediaUtils.skipTest("No AV1 codec for 512p");
+            return;
+        }
         testGetImage("sample_grid2x4.avif", 1920, 1080, "image/avif", 0 /*rotation*/,
                 1 /*imageCount*/, 0 /*primary*/, true /*useGrid*/, true /*checkColor*/);
     }

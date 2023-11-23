@@ -56,6 +56,13 @@ public class DatePickerPreferenceController extends PreferenceController<Prefere
     }
 
     @Override
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p ->
+                DatetimeUtils.runClickableWhileDisabled(getContext(), getFragmentController()));
+    }
+
+    @Override
     protected Class<Preference> getPreferenceType() {
         return Preference.class;
     }
@@ -76,7 +83,13 @@ public class DatePickerPreferenceController extends PreferenceController<Prefere
     public void updateState(Preference preference) {
         preference.setSummary(DateFormat.getLongDateFormat(getContext()).format(
                 Calendar.getInstance().getTime()));
-        preference.setEnabled(!autoDatetimeIsEnabled());
+        // When the status is AVAILABLE_FOR_VIEWING, this preference should always be disabled
+        preference.setEnabled(!autoDatetimeIsEnabled() && getAvailabilityStatus() == AVAILABLE);
+    }
+
+    @Override
+    public int getAvailabilityStatus() {
+        return DatetimeUtils.getAvailabilityStatus(getContext());
     }
 
     private boolean autoDatetimeIsEnabled() {

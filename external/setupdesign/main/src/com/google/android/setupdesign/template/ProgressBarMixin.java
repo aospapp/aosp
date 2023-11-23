@@ -16,12 +16,14 @@
 
 package com.google.android.setupdesign.template;
 
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.util.AttributeSet;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.ProgressBar;
 import androidx.annotation.AttrRes;
@@ -30,6 +32,8 @@ import androidx.annotation.Nullable;
 import com.google.android.setupcompat.internal.TemplateLayout;
 import com.google.android.setupcompat.template.Mixin;
 import com.google.android.setupdesign.R;
+import com.google.android.setupdesign.util.HeaderAreaStyler;
+import com.google.android.setupdesign.util.PartnerStyleHelper;
 
 /** A {@link Mixin} for showing a progress bar. */
 public class ProgressBarMixin implements Mixin {
@@ -177,5 +181,35 @@ public class ProgressBarMixin implements Mixin {
   @Nullable
   public ColorStateList getColor() {
     return color;
+  }
+
+  /**
+   * Tries to apply the partner customizations to the progress bar. Use the default values if
+   * partner config isn't enable.
+   */
+  public void tryApplyPartnerCustomizationStyle() {
+    ProgressBar progressBar = peekProgressBar();
+    if (!useBottomProgressBar || progressBar == null) {
+      return;
+    }
+
+    boolean partnerHeavyThemeLayout = PartnerStyleHelper.isPartnerHeavyThemeLayout(templateLayout);
+
+    if (partnerHeavyThemeLayout) {
+      HeaderAreaStyler.applyPartnerCustomizationProgressBarStyle(progressBar);
+    } else {
+      Context context = progressBar.getContext();
+      final ViewGroup.LayoutParams lp = progressBar.getLayoutParams();
+
+      if (lp instanceof ViewGroup.MarginLayoutParams) {
+        int marginTop =
+            (int) context.getResources().getDimension(R.dimen.sud_progress_bar_margin_top);
+        int marginBottom =
+            (int) context.getResources().getDimension(R.dimen.sud_progress_bar_margin_bottom);
+
+        final ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) lp;
+        mlp.setMargins(mlp.leftMargin, marginTop, mlp.rightMargin, marginBottom);
+      }
+    }
   }
 }

@@ -18,6 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assist_action_play_label" msgid="6278705468288338172">"Pokreni"</string>
+    <string name="assist_action_reply_label" msgid="6946087036560525072">"Odgovori"</string>
     <string name="action_mute_short" msgid="5239851786101022633">"Isključi zvuk"</string>
     <string name="action_mute_long" msgid="6846675719189989477">"Isključi zvuk za razgovor"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"Uključi zvuk"</string>
@@ -31,14 +32,23 @@
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
     <string name="show_more" msgid="7291378544926443344">"Prikaži više"</string>
     <string name="notification_header" msgid="324550431063568049">"Obavještenja"</string>
+    <string name="notification_recents" msgid="5855769440781958546">"Nedavna obavještenja"</string>
+    <string name="notification_older" msgid="8162161020296499690">"Starija obavještenja"</string>
     <string name="empty_notification_header" msgid="4928379791607839720">"Nema obavještenja"</string>
-    <string name="show_less" msgid="7342677676229302829">"Prikaži manje"</string>
+    <string name="collapse_group" msgid="4923097735600949715">"Suzi grupu"</string>
+    <string name="show_more_from_app" msgid="4270626118092846628">"Još <xliff:g id="COUNT">%1$d</xliff:g> iz aplikacije <xliff:g id="APP">%2$s</xliff:g>"</string>
     <string name="show_count_more" msgid="480555295700318609">"Prikaži još <xliff:g id="COUNT">%d</xliff:g>"</string>
-    <string name="message_unshown_count" msgid="2234421277246741233">" Još <xliff:g id="COUNT">%d</xliff:g> "</string>
-    <plurals name="restricted_message_text" formatted="false" msgid="507312322886633308">
-      <item quantity="one"><xliff:g id="COUNT">%d</xliff:g> nova poruka</item>
-      <item quantity="few"><xliff:g id="COUNT">%d</xliff:g> nove poruke</item>
-      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> novih poruka</item>
+    <plurals name="message_unshown_count" formatted="false" msgid="2454776257150137504">
+      <item quantity="one">Još <xliff:g id="COUNT_1">%d</xliff:g> poruka</item>
+      <item quantity="few">Još <xliff:g id="COUNT_1">%d</xliff:g> poruke</item>
+      <item quantity="other">Još <xliff:g id="COUNT_1">%d</xliff:g> poruka</item>
     </plurals>
+    <plurals name="restricted_numbered_message_content" formatted="false" msgid="232398073855919710">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> nova poruka</item>
+      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> nove poruke</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> novih poruka</item>
+    </plurals>
+    <string name="see_more_message" msgid="6343183827924395955">"Prikaži više"</string>
+    <string name="restricted_hun_message_content" msgid="631111937988857716">"Nova poruka"</string>
     <string name="manage_text" msgid="4225197445283791757">"Upravljaj"</string>
 </resources>

@@ -70,8 +70,7 @@ public final class ManagedDeviceTextView extends TextView {
             if (DEBUG) {
                 Log.d(TAG, "organization name not set, using device owner app name instead");
             }
-            return res.getString(R.string.car_admin_ui_managed_device_message_by_app,
-                    dpm.getDeviceOwnerNameOnAnyUser());
+            return res.getString(R.string.car_admin_ui_managed_device_message_generic);
         } catch (Exception e) {
             Log.w(TAG, "error getting name of device owner organization", e);
             return res.getString(R.string.car_admin_ui_managed_device_message_generic);

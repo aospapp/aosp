@@ -31,6 +31,8 @@ import java.lang.annotation.RetentionPolicy;
   PartnerConfigKey.KEY_NAVIGATION_BAR_DIVIDER_COLOR,
   PartnerConfigKey.KEY_FOOTER_BAR_BG_COLOR,
   PartnerConfigKey.KEY_FOOTER_BAR_MIN_HEIGHT,
+  PartnerConfigKey.KEY_FOOTER_BAR_PADDING_START,
+  PartnerConfigKey.KEY_FOOTER_BAR_PADDING_END,
   PartnerConfigKey.KEY_FOOTER_BUTTON_FONT_FAMILY,
   PartnerConfigKey.KEY_FOOTER_BUTTON_ICON_ADD_ANOTHER,
   PartnerConfigKey.KEY_FOOTER_BUTTON_ICON_CANCEL,
@@ -47,15 +49,21 @@ import java.lang.annotation.RetentionPolicy;
   PartnerConfigKey.KEY_FOOTER_BUTTON_TEXT_SIZE,
   PartnerConfigKey.KEY_FOOTER_BUTTON_TEXT_STYLE,
   PartnerConfigKey.KEY_FOOTER_BUTTON_MIN_HEIGHT,
+  PartnerConfigKey.KEY_FOOTER_BUTTON_ALIGNED_END,
   PartnerConfigKey.KEY_FOOTER_BUTTON_DISABLED_ALPHA,
   PartnerConfigKey.KEY_FOOTER_BUTTON_DISABLED_BG_COLOR,
   PartnerConfigKey.KEY_FOOTER_PRIMARY_BUTTON_BG_COLOR,
   PartnerConfigKey.KEY_FOOTER_PRIMARY_BUTTON_TEXT_COLOR,
+  PartnerConfigKey.KEY_FOOTER_PRIMARY_BUTTON_MARGIN_START,
+  PartnerConfigKey.KEY_PRIMARY_BUTTON_DISABLED_TEXT_COLOR,
   PartnerConfigKey.KEY_FOOTER_SECONDARY_BUTTON_BG_COLOR,
   PartnerConfigKey.KEY_FOOTER_SECONDARY_BUTTON_TEXT_COLOR,
+  PartnerConfigKey.KEY_FOOTER_SECONDARY_BUTTON_MARGIN_START,
+  PartnerConfigKey.KEY_SECONDARY_BUTTON_DISABLED_TEXT_COLOR,
   PartnerConfigKey.KEY_LAYOUT_BACKGROUND_COLOR,
   PartnerConfigKey.KEY_LAYOUT_MARGIN_START,
   PartnerConfigKey.KEY_LAYOUT_MARGIN_END,
+  PartnerConfigKey.KEY_LAND_MIDDLE_HORIZONTAL_SPACING,
   PartnerConfigKey.KEY_HEADER_TEXT_SIZE,
   PartnerConfigKey.KEY_HEADER_TEXT_COLOR,
   PartnerConfigKey.KEY_HEADER_FONT_FAMILY,
@@ -75,6 +83,7 @@ import java.lang.annotation.RetentionPolicy;
   PartnerConfigKey.KEY_DESCRIPTION_TEXT_COLOR,
   PartnerConfigKey.KEY_DESCRIPTION_LINK_TEXT_COLOR,
   PartnerConfigKey.KEY_DESCRIPTION_FONT_FAMILY,
+  PartnerConfigKey.KEY_DESCRIPTION_LINK_FONT_FAMILY,
   PartnerConfigKey.KEY_DESCRIPTION_TEXT_MARGIN_TOP,
   PartnerConfigKey.KEY_DESCRIPTION_TEXT_MARGIN_BOTTOM,
   PartnerConfigKey.KEY_CONTENT_TEXT_SIZE,
@@ -128,6 +137,9 @@ import java.lang.annotation.RetentionPolicy;
   PartnerConfigKey.KEY_LOADING_LAYOUT_CONTENT_PADDING_END,
   PartnerConfigKey.KEY_LOADING_LAYOUT_CONTENT_PADDING_BOTTOM,
   PartnerConfigKey.KEY_LOADING_LAYOUT_HEADER_HEIGHT,
+  PartnerConfigKey.KEY_LOADING_LAYOUT_FULL_SCREEN_ILLUSTRATION_ENABLED,
+  PartnerConfigKey.KEY_PROGRESS_BAR_MARGIN_TOP,
+  PartnerConfigKey.KEY_PROGRESS_BAR_MARGIN_BOTTOM,
 })
 // TODO: can be removed and always reference PartnerConfig.getResourceName()?
 @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
@@ -154,6 +166,12 @@ public @interface PartnerConfigKey {
 
   // The min height of the footer bar
   String KEY_FOOTER_BAR_MIN_HEIGHT = "setup_compat_footer_bar_min_height";
+
+  // The padding start of the footer bar
+  String KEY_FOOTER_BAR_PADDING_START = "setup_compat_footer_bar_padding_start";
+
+  // The padding end of the footer bar
+  String KEY_FOOTER_BAR_PADDING_END = "setup_compat_footer_bar_padding_end";
 
   // The font face used in footer buttons. This must be a string reference to a font that is
   // available in the system. Font references (@font or @xml) are not allowed.
@@ -204,6 +222,9 @@ public @interface PartnerConfigKey {
   // The min height of the footer buttons
   String KEY_FOOTER_BUTTON_MIN_HEIGHT = "setup_compat_footer_button_min_height";
 
+  // Make the footer buttons all aligned the end
+  String KEY_FOOTER_BUTTON_ALIGNED_END = "setup_compat_footer_button_aligned_end";
+
   // Disabled background alpha of the footer buttons
   String KEY_FOOTER_BUTTON_DISABLED_ALPHA = "setup_compat_footer_button_disabled_alpha";
 
@@ -216,11 +237,25 @@ public @interface PartnerConfigKey {
   // Text color of the primary footer button
   String KEY_FOOTER_PRIMARY_BUTTON_TEXT_COLOR = "setup_compat_footer_primary_button_text_color";
 
+  // Margin start of the primary footer button
+  String KEY_FOOTER_PRIMARY_BUTTON_MARGIN_START = "setup_compat_footer_primary_button_margin_start";
+
+  // Disabled text color of the primary footer button
+  String KEY_PRIMARY_BUTTON_DISABLED_TEXT_COLOR = "setup_compat_primary_button_disabled_text_color";
+
   // Background color of the secondary footer button
   String KEY_FOOTER_SECONDARY_BUTTON_BG_COLOR = "setup_compat_footer_secondary_button_bg_color";
 
   // Text color of the secondary footer button
   String KEY_FOOTER_SECONDARY_BUTTON_TEXT_COLOR = "setup_compat_footer_secondary_button_text_color";
+
+  // Margin start of the secondary footer button
+  String KEY_FOOTER_SECONDARY_BUTTON_MARGIN_START =
+      "setup_compat_footer_secondary_button_margin_start";
+
+  // Disabled text color of the secondary footer button
+  String KEY_SECONDARY_BUTTON_DISABLED_TEXT_COLOR =
+      "setup_compat_secondary_button_disabled_text_color";
 
   // Background color of layout
   String KEY_LAYOUT_BACKGROUND_COLOR = "setup_design_layout_bg_color";
@@ -230,6 +265,9 @@ public @interface PartnerConfigKey {
 
   // Margin end of the layout
   String KEY_LAYOUT_MARGIN_END = "setup_design_layout_margin_end";
+
+  // Middle horizontal spacing of the landscape layout
+  String KEY_LAND_MIDDLE_HORIZONTAL_SPACING = "setup_design_land_middle_horizontal_spacing";
 
   // Text size of the header
   String KEY_HEADER_TEXT_SIZE = "setup_design_header_text_size";
@@ -289,6 +327,9 @@ public @interface PartnerConfigKey {
 
   // Font family of the description
   String KEY_DESCRIPTION_FONT_FAMILY = "setup_design_description_font_family";
+
+  // Font family of the link text
+  String KEY_DESCRIPTION_LINK_FONT_FAMILY = "setup_design_description_link_font_family";
 
   // Margin top of the header text
   String KEY_DESCRIPTION_TEXT_MARGIN_TOP = "setup_design_description_text_margin_top";
@@ -474,4 +515,14 @@ public @interface PartnerConfigKey {
 
   // A height of the header of loading layout.
   String KEY_LOADING_LAYOUT_HEADER_HEIGHT = "loading_layout_header_height";
+
+  // Use the fullscreen style lottie animation.
+  String KEY_LOADING_LAYOUT_FULL_SCREEN_ILLUSTRATION_ENABLED =
+      "loading_layout_full_screen_illustration_enabled";
+
+  // A margin top of the content frame of progress bar.
+  String KEY_PROGRESS_BAR_MARGIN_TOP = "setup_design_progress_bar_margin_top";
+
+  // A margin bottom of the content frame of progress bar.
+  String KEY_PROGRESS_BAR_MARGIN_BOTTOM = "setup_design_progress_bar_margin_bottom";
 }

@@ -68,6 +68,17 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
     private static final TvContentRating DUMMY_RATING = TvContentRating.createRating(
             "com.android.tv", "US_TV", "US_TV_PG", "US_TV_D", "US_TV_L");
 
+    private static final String PERMISSION_ACCESS_WATCHED_PROGRAMS =
+            "com.android.providers.tv.permission.ACCESS_WATCHED_PROGRAMS";
+    private static final String PERMISSION_WRITE_EPG_DATA =
+            "com.android.providers.tv.permission.WRITE_EPG_DATA";
+    private static final String PERMISSION_ACCESS_TUNED_INFO =
+            "android.permission.ACCESS_TUNED_INFO";
+    private static final String PERMISSION_TV_INPUT_HARDWARE =
+            "android.permission.TV_INPUT_HARDWARE";
+    private static final String PERMISSION_TUNER_RESOURCE_ACCESS =
+            "android.permission.TUNER_RESOURCE_ACCESS";
+
     private String mStubId;
     private TvInputManager mManager;
     private LoggingCallback mCallback = new LoggingCallback();
@@ -98,6 +109,16 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
         if (!Utils.hasTvInputFramework(mActivity)) {
             return;
         }
+
+        InstrumentationRegistry
+                .getInstrumentation()
+                .getUiAutomation()
+                .adoptShellPermissionIdentity(
+                        PERMISSION_ACCESS_WATCHED_PROGRAMS,
+                        PERMISSION_WRITE_EPG_DATA,
+                        PERMISSION_ACCESS_TUNED_INFO,
+                        PERMISSION_TUNER_RESOURCE_ACCESS);
+
         mInstrumentation = getInstrumentation();
         mTvView = findTvViewById(R.id.tvview);
         mManager = (TvInputManager) mActivity.getSystemService(Context.TV_INPUT_SERVICE);
@@ -113,9 +134,6 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
         }
         assertNotNull(mStubTunerTvInputInfo);
         mTvView.setCallback(mMockCallback);
-
-        InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .adoptShellPermissionIdentity();
     }
 
     @Override
@@ -141,7 +159,6 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
 
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .dropShellPermissionIdentity();
-
         super.tearDown();
     }
 
@@ -397,6 +414,14 @@ public class TvInputManagerTest extends ActivityInstrumentationTestCase2<TvViewS
         if (mManager == null) {
             return;
         }
+
+        InstrumentationRegistry
+                .getInstrumentation()
+                .getUiAutomation()
+                .adoptShellPermissionIdentity(
+                        PERMISSION_WRITE_EPG_DATA,
+                        PERMISSION_TV_INPUT_HARDWARE);
+
         // Update hardware device list
         int deviceId = 0;
         boolean hardwareDeviceAdded = false;

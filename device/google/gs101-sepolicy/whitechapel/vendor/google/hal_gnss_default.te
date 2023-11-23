@@ -1,0 +1,4 @@
+# Allow hal_gnss_default access data vendor gps files
+allow hal_gnss_default vendor_gps_file:dir create_dir_perms;
+allow hal_gnss_default vendor_gps_file:file create_file_perms;
+allow hal_gnss_default vendor_gps_file:fifo_file create_file_perms;

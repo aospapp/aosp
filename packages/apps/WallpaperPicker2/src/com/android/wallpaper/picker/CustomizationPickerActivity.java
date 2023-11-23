@@ -17,6 +17,7 @@ package com.android.wallpaper.picker;
 
 import static com.android.wallpaper.util.ActivityUtils.isSUWMode;
 import static com.android.wallpaper.util.ActivityUtils.isWallpaperOnlyMode;
+import static com.android.wallpaper.util.ActivityUtils.startActivityForResultSafely;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -41,6 +42,8 @@ import com.android.wallpaper.model.WallpaperPreviewNavigator;
 import com.android.wallpaper.module.DailyLoggingAlarmScheduler;
 import com.android.wallpaper.module.Injector;
 import com.android.wallpaper.module.InjectorProvider;
+import com.android.wallpaper.module.LargeScreenMultiPanesChecker;
+import com.android.wallpaper.module.MultiPanesChecker;
 import com.android.wallpaper.module.NetworkStatusNotifier;
 import com.android.wallpaper.module.NetworkStatusNotifier.NetworkStatus;
 import com.android.wallpaper.module.UserEventLogger;
@@ -49,6 +52,7 @@ import com.android.wallpaper.picker.CategoryFragment.CategoryFragmentHost;
 import com.android.wallpaper.picker.CategorySelectorFragment.CategorySelectorFragmentHost;
 import com.android.wallpaper.picker.MyPhotosStarter.PermissionChangedListener;
 import com.android.wallpaper.picker.individual.IndividualPickerFragment.IndividualPickerFragmentHost;
+import com.android.wallpaper.util.ActivityUtils;
 import com.android.wallpaper.util.DeepLinkUtils;
 import com.android.wallpaper.util.LaunchUtils;
 import com.android.wallpaper.widget.BottomActionBar;
@@ -84,6 +88,18 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
 
         // Restore this Activity's state before restoring contained Fragments state.
         super.onCreate(savedInstanceState);
+        // Trampoline for the two panes
+        final MultiPanesChecker mMultiPanesChecker = new LargeScreenMultiPanesChecker();
+        if (mMultiPanesChecker.isMultiPanesEnabled(this)) {
+            Intent intent = getIntent();
+            if (!ActivityUtils.isLaunchedFromSettingsTrampoline(intent)
+                    && !ActivityUtils.isLaunchedFromSettingsRelated(intent)) {
+                startActivityForResultSafely(this,
+                        mMultiPanesChecker.getMultiPanesIntent(intent), /* requestCode= */ 0);
+                finish();
+            }
+        }
+
         setContentView(R.layout.activity_customization_picker);
         mBottomActionBar = findViewById(R.id.bottom_actionbar);
 
@@ -101,8 +117,8 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
 
             // Switch to the target fragment.
             switchFragment(isWallpaperOnlyMode(getIntent())
-                    ? WallpaperOnlyFragment.newInstance(getString(R.string.wallpaper_app_name))
-                    : CustomizationPickerFragment.newInstance(getString(R.string.app_name)));
+                    ? new WallpaperOnlyFragment()
+                    : new CustomizationPickerFragment());
         }
 
         // Deep link case
@@ -258,7 +274,7 @@ public class CustomizationPickerActivity extends FragmentActivity implements App
 
     @Override
     public void fetchCategories() {
-        mDelegate.initialize(!mDelegate.getCategoryProvider().isCategoriesFetched());
+        mDelegate.initialize(mDelegate.getCategoryProvider().shouldForceReload(this));
     }
 
     @Override

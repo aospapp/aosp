@@ -15,9 +15,18 @@
  */
 package com.android.wallpaper.asset;
 
+import android.app.Activity;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.drawable.ColorDrawable;
+import android.widget.ImageView;
 
+import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.Key;
+import com.bumptech.glide.load.MultiTransformation;
+import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
+import com.bumptech.glide.load.resource.bitmap.FitCenter;
+import com.bumptech.glide.request.RequestOptions;
 
 /**
  * Image asset representing a Partner stub APK resource.
@@ -40,6 +49,19 @@ public final class SystemStaticAsset extends ResourceAsset {
             mKey = new PackageResourceKey(mRes, mResId, mResName);
         }
         return mKey;
+    }
+
+    @Override
+    public void loadLowResDrawable(Activity activity, ImageView imageView, int placeholderColor,
+            BitmapTransformation transformation) {
+        MultiTransformation<Bitmap> multiTransformation =
+                new MultiTransformation<>(new FitCenter(), transformation);
+        Glide.with(activity)
+                .asDrawable()
+                .load(this)
+                .apply(RequestOptions.bitmapTransform(multiTransformation)
+                        .placeholder(new ColorDrawable(placeholderColor)))
+                .into(imageView);
     }
 
     /**

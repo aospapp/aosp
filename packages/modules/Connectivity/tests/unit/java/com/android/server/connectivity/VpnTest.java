@@ -16,6 +16,9 @@
 
 package com.android.server.connectivity;
 
+import static android.Manifest.permission.CONTROL_VPN;
+import static android.content.pm.PackageManager.PERMISSION_DENIED;
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.content.pm.UserInfo.FLAG_ADMIN;
 import static android.content.pm.UserInfo.FLAG_MANAGED_PROFILE;
 import static android.content.pm.UserInfo.FLAG_PRIMARY;
@@ -25,12 +28,16 @@ import static android.net.INetd.IF_STATE_DOWN;
 import static android.net.INetd.IF_STATE_UP;
 import static android.os.UserHandle.PER_USER_RANGE;
 
+import static com.android.modules.utils.build.SdkLevel.isAtLeastT;
+import static com.android.testutils.MiscAsserts.assertThrows;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -252,6 +259,10 @@ public class VpnTest {
                         IpSecManager.Status.OK, TEST_TUNNEL_RESOURCE_ID, TEST_IFACE_NAME);
         when(mIpSecService.createTunnelInterface(any(), any(), any(), any(), any()))
                 .thenReturn(tunnelResp);
+        // The unit test should know what kind of permission it needs and set the permission by
+        // itself, so set the default value of Context#checkCallingOrSelfPermission to
+        // PERMISSION_DENIED.
+        doReturn(PERMISSION_DENIED).when(mContext).checkCallingOrSelfPermission(any());
     }
 
     private <T> void mockService(Class<T> clazz, String name, T service) {
@@ -504,6 +515,7 @@ public class VpnTest {
 
     @Test
     public void testLockdownRuleReversibility() throws Exception {
+        doReturn(PERMISSION_GRANTED).when(mContext).checkCallingOrSelfPermission(CONTROL_VPN);
         final Vpn vpn = createVpn(primaryUser.id);
         final UidRangeParcel[] entireUser = {
             new UidRangeParcel(PRI_USER_RANGE.getLower(), PRI_USER_RANGE.getUpper())
@@ -528,6 +540,27 @@ public class VpnTest {
         vpn.prepare(null, VpnConfig.LEGACY_VPN, VpnManager.TYPE_VPN_SERVICE);
         order.verify(mConnectivityManager).setRequireVpnForUids(false, toRanges(exceptPkg0));
         order.verify(mConnectivityManager).setRequireVpnForUids(true, toRanges(entireUser));
+    }
+
+    @Test
+    public void testPrepare_throwSecurityExceptionWhenGivenPackageDoesNotBelongToTheCaller()
+            throws Exception {
+        assumeTrue(isAtLeastT());
+        final Vpn vpn = createVpnAndSetupUidChecks();
+        assertThrows(SecurityException.class,
+                () -> vpn.prepare("com.not.vpn.owner", null, VpnManager.TYPE_VPN_SERVICE));
+        assertThrows(SecurityException.class,
+                () -> vpn.prepare(null, "com.not.vpn.owner", VpnManager.TYPE_VPN_SERVICE));
+        assertThrows(SecurityException.class,
+                () -> vpn.prepare("com.not.vpn.owner1", "com.not.vpn.owner2",
+                        VpnManager.TYPE_VPN_SERVICE));
+    }
+
+    @Test
+    public void testPrepare_bothOldPackageAndNewPackageAreNull() throws Exception {
+        final Vpn vpn = createVpnAndSetupUidChecks();
+        assertTrue(vpn.prepare(null, null, VpnManager.TYPE_VPN_SERVICE));
+
     }
 
     @Test

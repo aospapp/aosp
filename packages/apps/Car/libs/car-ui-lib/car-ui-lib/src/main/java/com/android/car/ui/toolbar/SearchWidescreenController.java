@@ -17,6 +17,7 @@ package com.android.car.ui.toolbar;
 
 import static android.view.WindowInsets.Type.ime;
 
+import static com.android.car.ui.core.CarUi.TARGET_API_R;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.CONTENT_AREA_SURFACE_DISPLAY_ID;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.CONTENT_AREA_SURFACE_HEIGHT;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.CONTENT_AREA_SURFACE_HOST_TOKEN;
@@ -26,6 +27,8 @@ import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.SEAR
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.SEARCH_RESULT_SUPPLEMENTAL_ICON_ID_LIST;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.WIDE_SCREEN_ACTION;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.WIDE_SCREEN_CLEAR_DATA_ACTION;
+import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.WIDE_SCREEN_EXTRACTED_TEXT_ICON;
+import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.WIDE_SCREEN_ON_BACK_CLICKED_ACTION;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.WIDE_SCREEN_POST_LOAD_SEARCH_RESULTS_ACTION;
 import static com.android.car.ui.imewidescreen.CarUiImeWideScreenController.WIDE_SCREEN_SEARCH_RESULTS;
 import static com.android.car.ui.utils.CarUiUtils.getBooleanSystemProperty;
@@ -52,6 +55,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import com.android.car.ui.CarUiText;
 import com.android.car.ui.R;
@@ -59,6 +63,8 @@ import com.android.car.ui.core.SearchResultsProvider;
 import com.android.car.ui.imewidescreen.CarUiImeSearchListItem;
 import com.android.car.ui.recyclerview.CarUiContentListItem;
 import com.android.car.ui.recyclerview.CarUiRecyclerView;
+import com.android.car.ui.toolbar.SearchConfig.OnBackClickedListener;
+import com.android.car.ui.utils.CarUiUtils;
 
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -75,6 +81,7 @@ import java.util.function.BiConsumer;
  * the TextView has been set, it will just wait for the TextView before doing anything.
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
+@RequiresApi(TARGET_API_R)
 public class SearchWidescreenController {
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
@@ -124,7 +131,7 @@ public class SearchWidescreenController {
     private View getSearchResultsView() {
         View view = mSearchConfig.getSearchResultsView();
         if (view instanceof CarUiRecyclerView) {
-            return ((CarUiRecyclerView) view).getContainer();
+            return ((CarUiRecyclerView) view).getView();
         }
         return view;
     }
@@ -324,6 +331,13 @@ public class SearchWidescreenController {
         mSurfaceWidth = width;
 
         Bundle bundle = new Bundle();
+        if (mSearchConfig.getSearchResultsInputViewIcon() != null) {
+            Bitmap bitmap = CarUiUtils.drawableToBitmap(
+                    mSearchConfig.getSearchResultsInputViewIcon());
+            byte[] byteArray = bitmapToByteArray(bitmap);
+            bundle.putByteArray(WIDE_SCREEN_EXTRACTED_TEXT_ICON, byteArray);
+        }
+
         bundle.putParcelable(CONTENT_AREA_SURFACE_PACKAGE,
                 mSurfaceControlViewHost.getSurfacePackage());
         mInputMethodManager.sendAppPrivateCommand(mTextView, WIDE_SCREEN_ACTION, bundle);
@@ -361,6 +375,13 @@ public class SearchWidescreenController {
 
             if (WIDE_SCREEN_POST_LOAD_SEARCH_RESULTS_ACTION.equals(action)) {
                 onPostLoadSearchResults();
+            }
+
+            if (WIDE_SCREEN_ON_BACK_CLICKED_ACTION.equals(action)) {
+                OnBackClickedListener listener = mSearchConfig.getOnBackClickedListener();
+                if (listener != null) {
+                    listener.onClick();
+                }
             }
 
             if (data == null) {

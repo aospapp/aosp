@@ -86,8 +86,6 @@ static const char * const AUDIO_ZONE_KEYWORD = "_audio_zone_";
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
-static bool is_audio_enabled = 1; // Protected by lock
-
 #define SIZE_OF_PARSE_BUFFER 32
 
 static int adev_get_mic_mute(const struct audio_hw_device *dev, bool *state);
@@ -164,18 +162,6 @@ void set_device_address_is_muted(const char *device_address, bool is_muted){
     pthread_mutex_unlock(&out->lock);
 }
 
-void set_audio_enabled(bool is_enabled) {
-    pthread_mutex_lock(&lock);
-    is_audio_enabled = is_enabled;
-    pthread_mutex_unlock(&lock);
-}
-
-bool get_is_audio_enabled() {
-    pthread_mutex_lock(&lock);
-    bool is_enabled = is_audio_enabled;
-    pthread_mutex_unlock(&lock);
-    return is_enabled;
-}
 
 static struct pcm_config pcm_config_out = {
     .channels = 2,
@@ -257,7 +243,6 @@ static int out_set_format(struct audio_stream *stream, audio_format_t format) {
 
 static int out_dump(const struct audio_stream *stream, int fd) {
     struct generic_stream_out *out = (struct generic_stream_out *)stream;
-    bool is_enabled = get_is_audio_enabled();
 
     pthread_mutex_lock(&out->lock);
     dprintf(fd, "\tout_dump:\n"
@@ -283,7 +268,6 @@ static int out_dump(const struct audio_stream *stream, int fd) {
                 out->enabled_channels,
                 _bool_str(out->is_ducked),
                 _bool_str(out->is_muted),
-                _bool_str(is_enabled),
                 out->dev);
     pthread_mutex_unlock(&out->lock);
     return 0;
@@ -521,8 +505,6 @@ static ssize_t out_write(struct audio_stream_out *stream, const void *buffer, si
     const size_t frame_size = audio_stream_out_frame_size(stream);
     const size_t frames =  bytes / frame_size;
 
-    bool is_enabled = get_is_audio_enabled();
-
     pthread_mutex_lock(&out->lock);
 
     if (out->worker_standby) {
@@ -554,7 +536,7 @@ static ssize_t out_write(struct audio_stream_out *stream, const void *buffer, si
         pthread_mutex_lock(&out->lock);
     }
 
-    if (out->dev->master_mute || out->is_muted || !is_enabled) {
+    if (out->dev->master_mute || out->is_muted) {
         ALOGV("%s: ignored due to mute", __func__);
     } else {
         out_apply_gain(out, buffer, bytes);

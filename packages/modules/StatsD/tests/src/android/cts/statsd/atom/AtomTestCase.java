@@ -17,7 +17,6 @@ package android.cts.statsd.atom;
 
 import static android.cts.statsd.atom.DeviceAtomTestCase.DEVICE_SIDE_TEST_APK;
 import static android.cts.statsd.atom.DeviceAtomTestCase.DEVICE_SIDE_TEST_PACKAGE;
-
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -26,7 +25,6 @@ import android.os.StatsDataDumpProto;
 import android.service.battery.BatteryServiceDumpProto;
 import android.service.batterystats.BatteryStatsServiceDumpProto;
 import android.service.procstats.ProcessStatsServiceDumpProto;
-
 import com.android.annotations.Nullable;
 import com.android.internal.os.StatsdConfigProto.AtomMatcher;
 import com.android.internal.os.StatsdConfigProto.EventMetric;
@@ -44,32 +42,30 @@ import com.android.os.AtomsProto.Atom;
 import com.android.os.AtomsProto.ProcessStatsPackageProto;
 import com.android.os.AtomsProto.ProcessStatsProto;
 import com.android.os.AtomsProto.ProcessStatsStateProto;
+import com.android.os.StatsLog;
 import com.android.os.StatsLog.ConfigMetricsReport;
 import com.android.os.StatsLog.ConfigMetricsReportList;
+import com.android.os.StatsLog.CountMetricData;
 import com.android.os.StatsLog.DurationMetricData;
 import com.android.os.StatsLog.EventMetricData;
 import com.android.os.StatsLog.GaugeBucketInfo;
 import com.android.os.StatsLog.GaugeMetricData;
-import com.android.os.StatsLog.CountMetricData;
 import com.android.os.StatsLog.StatsLogReport;
+import com.android.os.StatsLog.StatsLogReport.GaugeMetricDataWrapper;
 import com.android.os.StatsLog.ValueMetricData;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
-
+import com.android.tradefed.util.Pair;
 import com.google.common.collect.Range;
 import com.google.common.io.Files;
 import com.google.protobuf.ByteString;
-
-import perfetto.protos.PerfettoConfig.DataSourceConfig;
-import perfetto.protos.PerfettoConfig.FtraceConfig;
-import perfetto.protos.PerfettoConfig.TraceConfig;
-
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -84,6 +80,9 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import perfetto.protos.PerfettoConfig.DataSourceConfig;
+import perfetto.protos.PerfettoConfig.FtraceConfig;
+import perfetto.protos.PerfettoConfig.TraceConfig;
 
 /**
  * Base class for testing Statsd atoms.
@@ -335,7 +334,14 @@ public class AtomTestCase extends BaseTestCase {
 
         List<EventMetricData> data = new ArrayList<>();
         for (StatsLogReport metric : report.getMetricsList()) {
-            data.addAll(metric.getEventMetrics().getDataList());
+          for (EventMetricData metricData :
+               metric.getEventMetrics().getDataList()) {
+            if (metricData.hasAtom()) {
+              data.add(metricData);
+            } else {
+              data.addAll(backfillAggregatedAtomsInEventMetric(metricData));
+            }
+          }
         }
         data.sort(Comparator.comparing(EventMetricData::getElapsedTimestampNanos));
 
@@ -363,11 +369,15 @@ public class AtomTestCase extends BaseTestCase {
                 report.getMetrics(0).getGaugeMetrics().getDataList()) {
             assertThat(gaugeMetricData.getBucketInfoCount()).isEqualTo(1);
             GaugeBucketInfo bucketInfo = gaugeMetricData.getBucketInfo(0);
-            for (Atom atom : bucketInfo.getAtomList()) {
-                data.add(atom);
+            if (bucketInfo.getAtomCount() != 0) {
+                for (Atom atom : bucketInfo.getAtomList()) {
+                    data.add(atom);
+                }
+            } else {
+                data.addAll(backFillGaugeBucketAtoms(bucketInfo.getAggregatedAtomInfoList()));
             }
             if (checkTimestampTruncated) {
-                for (long timestampNs: bucketInfo.getElapsedTimestampNanosList()) {
+                for (long timestampNs : bucketInfo.getElapsedTimestampNanosList()) {
                     assertTimestampIsTruncated(timestampNs);
                 }
             }
@@ -378,6 +388,55 @@ public class AtomTestCase extends BaseTestCase {
             LogUtil.CLog.d("Atom:\n" + d.toString());
         }
         return data;
+    }
+
+    private List<Atom> backFillGaugeBucketAtoms(
+            List<StatsLog.AggregatedAtomInfo> atomInfoList) {
+        List<Pair<Atom, Long>> atomTimestamp = new ArrayList<>();
+        for (StatsLog.AggregatedAtomInfo atomInfo : atomInfoList) {
+            for (long timestampNs : atomInfo.getElapsedTimestampNanosList()) {
+                atomTimestamp.add(Pair.create(atomInfo.getAtom(), timestampNs));
+            }
+        }
+        atomTimestamp.sort(Comparator.comparing(o -> o.second));
+        return atomTimestamp.stream().map(p -> p.first).collect(Collectors.toList());
+    }
+
+    protected GaugeMetricDataWrapper backfillGaugeMetricData(GaugeMetricDataWrapper dataWrapper) {
+        GaugeMetricDataWrapper.Builder dataWrapperBuilder = dataWrapper.toBuilder();
+        List<GaugeMetricData> backfilledMetricData = new ArrayList<>();
+        for (GaugeMetricData gaugeMetricData : dataWrapperBuilder.getDataList()) {
+            GaugeMetricData.Builder gaugeMetricDataBuilder = gaugeMetricData.toBuilder();
+            List<GaugeBucketInfo> backfilledBuckets = new ArrayList<>();
+            for (GaugeBucketInfo bucketInfo : gaugeMetricData.getBucketInfoList()) {
+                backfilledBuckets.add(backfillGaugeBucket(bucketInfo.toBuilder()));
+            }
+            gaugeMetricDataBuilder.clearBucketInfo();
+            gaugeMetricDataBuilder.addAllBucketInfo(backfilledBuckets);
+            backfilledMetricData.add(gaugeMetricDataBuilder.build());
+        }
+        dataWrapperBuilder.clearData();
+        dataWrapperBuilder.addAllData(backfilledMetricData);
+        return dataWrapperBuilder.build();
+    }
+
+    private GaugeBucketInfo backfillGaugeBucket(GaugeBucketInfo.Builder bucketInfoBuilder) {
+        if (bucketInfoBuilder.getAtomCount() != 0) {
+            return bucketInfoBuilder.build();
+        }
+        List<Pair<Atom, Long>> atomTimestampData = new ArrayList<>();
+        for (StatsLog.AggregatedAtomInfo atomInfo : bucketInfoBuilder.getAggregatedAtomInfoList()) {
+            for (long timestampNs : atomInfo.getElapsedTimestampNanosList()) {
+                atomTimestampData.add(Pair.create(atomInfo.getAtom(), timestampNs));
+            }
+        }
+        atomTimestampData.sort(Comparator.comparing(o -> o.second));
+        bucketInfoBuilder.clearAggregatedAtomInfo();
+        for (Pair<Atom, Long> atomTimestamp : atomTimestampData) {
+            bucketInfoBuilder.addAtom(atomTimestamp.first);
+            bucketInfoBuilder.addElapsedTimestampNanos(atomTimestamp.second);
+        }
+        return bucketInfoBuilder.build();
     }
 
     /**
@@ -1183,5 +1242,21 @@ public class AtomTestCase extends BaseTestCase {
         long fiveMinutesInNs = NS_PER_SEC * 5 * 60;
         assertWithMessage("Timestamp is not truncated")
                 .that(timestampNs % fiveMinutesInNs).isEqualTo(0);
+    }
+
+    protected List<EventMetricData> backfillAggregatedAtomsInEventMetric(
+            EventMetricData metricData) {
+      if (!metricData.hasAggregatedAtomInfo()) {
+        return Collections.singletonList(metricData);
+      }
+      List<EventMetricData> data = new ArrayList<>();
+      StatsLog.AggregatedAtomInfo atomInfo = metricData.getAggregatedAtomInfo();
+      for (long timestamp : atomInfo.getElapsedTimestampNanosList()) {
+        data.add(EventMetricData.newBuilder()
+                     .setAtom(atomInfo.getAtom())
+                     .setElapsedTimestampNanos(timestamp)
+                     .build());
+      }
+      return data;
     }
 }

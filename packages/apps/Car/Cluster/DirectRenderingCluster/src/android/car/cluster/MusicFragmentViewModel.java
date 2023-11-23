@@ -15,7 +15,7 @@
  */
 package android.car.cluster;
 
-import static com.android.car.arch.common.LiveDataFunctions.mapNonNull;
+import static com.android.car.apps.common.util.LiveDataFunctions.mapNonNull;
 
 import android.app.Application;
 import android.graphics.Bitmap;

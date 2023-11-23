@@ -17,8 +17,11 @@
 package android.permission3.cts
 
 import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+import android.Manifest.permission.ACCESS_COARSE_LOCATION
 import android.Manifest.permission.ACCESS_FINE_LOCATION
+import android.support.test.uiautomator.By
 import org.junit.Test
+import org.junit.Assert.assertNull
 
 /**
  * Runtime permission behavior apps targeting API 30
@@ -51,6 +54,25 @@ class PermissionTest30 : BaseUsePermissionTest() {
             clickAllowAlwaysInSettings()
             waitForIdle()
             pressBack()
+        }
+    }
+
+    @Test
+    fun testRequestFgLocationAndNoAccuracyOptions() {
+        installPackage(APP_APK_PATH_30)
+        assertAppHasPermission(ACCESS_FINE_LOCATION, false)
+        assertAppHasPermission(ACCESS_COARSE_LOCATION, false)
+
+        requestAppPermissionsAndAssertResult(ACCESS_FINE_LOCATION to false,
+                ACCESS_COARSE_LOCATION to false) {
+            // Verify there's no location accuracy options
+            val locationAccuracyOptions = waitFindObjectOrNull(By.res(
+                    "com.android.permissioncontroller:id/permission_location_accuracy"), 1000L)
+            assertNull("For apps targetSDK < 31, location permission dialog shouldn't show " +
+                    "accuracy options. Please update the system with " +
+                    "the latest (at least Oct, 2021) mainline modules.",
+                    locationAccuracyOptions)
+            return
         }
     }
 }

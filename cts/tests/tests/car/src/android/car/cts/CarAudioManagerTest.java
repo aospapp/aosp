@@ -22,6 +22,7 @@ import static android.car.media.CarAudioManager.*;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.expectThrows;
@@ -136,6 +137,7 @@ public final class CarAudioManagerTest extends CarApiTestBase {
     @Test
     public void registerCarVolumeCallback_onMasterMuteChanged() throws Exception {
         assumeDynamicRoutingIsEnabled();
+        assumeVolumeGroupMutingIsDisabled();
         mCallback = new SyncCarVolumeCallback();
 
         runWithCarControlAudioVolumePermission(
@@ -241,6 +243,10 @@ public final class CarAudioManagerTest extends CarApiTestBase {
 
     private void assumeVolumeGroupMutingIsEnabled() {
         assumeTrue(mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING));
+    }
+
+    private void assumeVolumeGroupMutingIsDisabled() {
+        assumeFalse(mCarAudioManager.isAudioFeatureEnabled(AUDIO_FEATURE_VOLUME_GROUP_MUTING));
     }
 
     private void runWithCarControlAudioVolumePermission(Runnable runnable) {

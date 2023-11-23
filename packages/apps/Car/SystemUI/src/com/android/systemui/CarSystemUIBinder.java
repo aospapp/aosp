@@ -21,6 +21,7 @@ import com.android.systemui.biometrics.AuthController;
 import com.android.systemui.car.cluster.ClusterDisplayController;
 import com.android.systemui.car.notification.CarNotificationModule;
 import com.android.systemui.car.sideloaded.SideLoadedAppController;
+import com.android.systemui.car.statusicon.ui.QuickControlsEntryPointsModule;
 import com.android.systemui.car.systembar.CarSystemBar;
 import com.android.systemui.car.toast.CarToastUI;
 import com.android.systemui.car.voicerecognition.ConnectedDeviceVoiceRecognitionNotifier;
@@ -49,7 +50,8 @@ import dagger.multibindings.IntoMap;
 
 /** Binder for car specific {@link SystemUI} modules. */
 @Module(includes = {RecentsModule.class, StatusBarModule.class, NotificationsModule.class,
-        KeyguardModule.class, OverlayWindowModule.class, CarNotificationModule.class})
+        KeyguardModule.class, OverlayWindowModule.class, CarNotificationModule.class,
+        QuickControlsEntryPointsModule.class})
 public abstract class CarSystemUIBinder {
     /** Inject into AuthController. */
     @Binds

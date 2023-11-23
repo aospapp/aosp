@@ -16,6 +16,7 @@
 
 package com.android.car.ui.uxr;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.widget.ToggleButton;
@@ -26,6 +27,7 @@ import androidx.annotation.Nullable;
  * A {@link ToggleButton} that implements {@link DrawableStateView}, for allowing additional states
  * such as ux restriction.
  */
+@SuppressLint("AppCompatCustomView")
 public class DrawableStateToggleButton extends ToggleButton implements DrawableStateView {
     private DrawableStateUtil mUtil;
 

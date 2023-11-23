@@ -70,14 +70,9 @@ palette_status_t PaletteSchedSetPriority(int32_t tid, int32_t managed_priority) 
     }
 
     if (new_nice >= ANDROID_PRIORITY_BACKGROUND) {
-        SetTaskProfiles(tid, {"SCHED_SP_BACKGROUND"}, true);
+        SetTaskProfiles(tid, {"SCHED_SP_SYSTEM"}, true);
     } else if (curr_nice >= ANDROID_PRIORITY_BACKGROUND) {
-        SchedPolicy policy;
-        // Change to the sched policy group of the process.
-        if (get_sched_policy(getpid(), &policy) != 0) {
-            policy = SP_FOREGROUND;
-        }
-        SetTaskProfiles(tid, {get_sched_policy_profile_name(policy)}, true);
+        SetTaskProfiles(tid, {"SCHED_SP_FOREGROUND"}, true);
     }
 
     if (setpriority(PRIO_PROCESS, tid, new_nice) != 0) {

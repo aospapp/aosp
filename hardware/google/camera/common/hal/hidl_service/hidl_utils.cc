@@ -20,7 +20,6 @@
 #include <regex>
 
 #include "hidl_camera_device.h"
-#include "hidl_camera_provider.h"
 #include "hidl_utils.h"
 
 namespace android {
@@ -1130,6 +1129,30 @@ status_t ConvertStreamConfigurationV34ToV37(
   config_3_7->operationMode = config_3_4.operationMode;
   config_3_7->sessionParams = config_3_4.sessionParams;
   config_3_7->multiResolutionInputImage = false;
+
+  return OK;
+}
+
+status_t ConvertToHalDeviceState(
+    const hardware::hidl_bitfield<DeviceState> hidl_device_state,
+    google_camera_hal::DeviceState& hal_device_state) {
+  switch (static_cast<DeviceState>(hidl_device_state)) {
+    case DeviceState::NORMAL:
+      hal_device_state = google_camera_hal::DeviceState::kNormal;
+      break;
+    case DeviceState::BACK_COVERED:
+      hal_device_state = google_camera_hal::DeviceState::kBackCovered;
+      break;
+    case DeviceState::FRONT_COVERED:
+      hal_device_state = google_camera_hal::DeviceState::kFrontCovered;
+      break;
+    case DeviceState::FOLDED:
+      hal_device_state = google_camera_hal::DeviceState::kFolded;
+      break;
+    default:
+      ALOGE("%s: Failed unknown device state", __FUNCTION__);
+      return BAD_VALUE;
+  }
 
   return OK;
 }

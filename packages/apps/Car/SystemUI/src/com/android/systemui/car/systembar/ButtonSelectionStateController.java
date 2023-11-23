@@ -127,7 +127,8 @@ public class ButtonSelectionStateController {
         }
         int displayId = validTaskInfo.displayId;
 
-        mSelectedButtons.forEach(carSystemBarButton -> {
+        // Clear all registered views
+        mRegisteredViews.forEach(carSystemBarButton -> {
             if (carSystemBarButton.getDisplayId() == displayId) {
                 carSystemBarButton.setSelected(false);
             }

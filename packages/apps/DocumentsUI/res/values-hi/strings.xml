@@ -218,7 +218,7 @@
     <string name="delete_filename_confirmation_message" msgid="8338069763240613258">"\"<xliff:g id="NAME">%1$s</xliff:g>\" को हटाना चाहते हैं?"</string>
     <string name="delete_foldername_confirmation_message" msgid="9084085260877704140">"फ़ोल्डर \"<xliff:g id="NAME">%1$s</xliff:g>\" और उसकी सामग्रियों को हटाना चाहते हैं?"</string>
     <plurals name="delete_files_confirmation_message" formatted="false" msgid="4866664063250034142">
-      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> फ़ाइलें मिटाएं?</item>
+      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> फ़ाइल मिटाएं?</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> फ़ाइलें मिटाएं?</item>
     </plurals>
     <plurals name="delete_folders_confirmation_message" formatted="false" msgid="1028946402799686388">

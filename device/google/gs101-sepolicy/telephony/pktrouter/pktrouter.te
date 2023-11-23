@@ -1,0 +1,13 @@
+type pktrouter, domain;
+type pktrouter_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(pktrouter)
+net_domain(pktrouter)
+
+domain_auto_trans(pktrouter, netutils_wrapper_exec, netutils_wrapper);
+
+allow pktrouter pktrouter_device:chr_file rw_file_perms;
+allow pktrouter self:netlink_route_socket nlmsg_write;
+allow pktrouter self:packet_socket { bind create read write getattr shutdown};
+allow pktrouter self:capability net_raw;
+
+get_prop(pktrouter, vendor_ims_prop);

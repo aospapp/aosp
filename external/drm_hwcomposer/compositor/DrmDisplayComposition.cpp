@@ -18,33 +18,23 @@
 
 #include "DrmDisplayComposition.h"
 
-#include <log/log.h>
-#include <stdlib.h>
 #include <sync/sync.h>
 #include <xf86drmMode.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <unordered_set>
 
 #include "DrmDisplayCompositor.h"
 #include "Planner.h"
 #include "drm/DrmDevice.h"
+#include "utils/log.h"
 
 namespace android {
 
-DrmDisplayComposition::~DrmDisplayComposition() {
-}
-
-int DrmDisplayComposition::Init(DrmDevice *drm, DrmCrtc *crtc,
-                                Importer *importer, Planner *planner,
-                                uint64_t frame_no) {
-  drm_ = drm;
-  crtc_ = crtc;  // Can be NULL if we haven't modeset yet
-  importer_ = importer;
-  planner_ = planner;
-  frame_no_ = frame_no;
-
-  return 0;
+DrmDisplayComposition::DrmDisplayComposition(DrmCrtc *crtc, Planner *planner)
+    : crtc_(crtc),  // Can be NULL if we haven't modeset yet
+      planner_(planner) {
 }
 
 bool DrmDisplayComposition::validate_composition_type(DrmCompositionType des) {
@@ -75,8 +65,10 @@ int DrmDisplayComposition::SetDpmsMode(uint32_t dpms_mode) {
 }
 
 int DrmDisplayComposition::SetDisplayMode(const DrmMode &display_mode) {
-  if (!validate_composition_type(DRM_COMPOSITION_TYPE_MODESET))
+  if (!validate_composition_type(DRM_COMPOSITION_TYPE_MODESET)) {
+    ALOGE("SetDisplayMode() Failed to validate composition type");
     return -EINVAL;
+  }
   display_mode_ = display_mode;
   dpms_mode_ = DRM_MODE_DPMS_ON;
   type_ = DRM_COMPOSITION_TYPE_MODESET;
@@ -84,8 +76,7 @@ int DrmDisplayComposition::SetDisplayMode(const DrmMode &display_mode) {
 }
 
 int DrmDisplayComposition::AddPlaneDisable(DrmPlane *plane) {
-  composition_planes_.emplace_back(DrmCompositionPlane::Type::kDisable, plane,
-                                   crtc_);
+  composition_planes_.emplace_back(DrmCompositionPlane::Type::kDisable, plane);
   return 0;
 }
 
@@ -104,13 +95,13 @@ int DrmDisplayComposition::Plan(std::vector<DrmPlane *> *primary_planes,
   for (size_t i = 0; i < layers_.size(); ++i)
     to_composite.emplace(std::make_pair(i, &layers_[i]));
 
-  int ret;
+  int ret = 0;
   std::tie(ret,
            composition_planes_) = planner_->ProvisionPlanes(to_composite, crtc_,
                                                             primary_planes,
                                                             overlay_planes);
   if (ret) {
-    ALOGE("Planner failed provisioning planes ret=%d", ret);
+    ALOGV("Planner failed provisioning planes ret=%d", ret);
     return ret;
   }
 
@@ -123,7 +114,7 @@ int DrmDisplayComposition::Plan(std::vector<DrmPlane *> *primary_planes,
     // make sure that source layers are ordered based on zorder
     std::sort(i.source_layers().begin(), i.source_layers().end());
 
-    std::vector<DrmPlane *> *container;
+    std::vector<DrmPlane *> *container = nullptr;
     if (i.plane()->type() == DRM_PLANE_TYPE_PRIMARY)
       container = primary_planes;
     else
@@ -165,14 +156,10 @@ static const char *DPMSModeToString(int dpms_mode) {
   }
 }
 
-static void DumpBuffer(const DrmHwcBuffer &buffer, std::ostringstream *out) {
-  if (!buffer) {
-    *out << "buffer=<invalid>";
-    return;
-  }
-
+static void DumpBuffer(const DrmHwcLayer &layer, std::ostringstream *out) {
   *out << "buffer[w/h/format]=";
-  *out << buffer->width << "/" << buffer->height << "/" << buffer->format;
+  *out << layer.buffer_info.width << "/" << layer.buffer_info.height << "/"
+       << layer.buffer_info.format;
 }
 
 static void DumpTransform(uint32_t transform, std::ostringstream *out) {
@@ -211,7 +198,7 @@ static void DumpTransform(uint32_t transform, std::ostringstream *out) {
     separator = true;
   }
 
-  uint32_t valid_bits = DrmHwcTransform::kFlipH | DrmHwcTransform::kFlipH |
+  uint32_t valid_bits = DrmHwcTransform::kFlipH | DrmHwcTransform::kFlipV |
                         DrmHwcTransform::kRotate90 |
                         DrmHwcTransform::kRotate180 |
                         DrmHwcTransform::kRotate270;
@@ -258,7 +245,7 @@ void DrmDisplayComposition::Dump(std::ostringstream *out) const {
     const DrmHwcLayer &layer = layers_[i];
     *out << "      [" << i << "] ";
 
-    DumpBuffer(layer.buffer, out);
+    DumpBuffer(layer, out);
 
     if (layer.protected_usage())
       *out << " protected";

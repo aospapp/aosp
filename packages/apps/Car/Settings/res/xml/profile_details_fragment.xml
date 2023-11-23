@@ -61,4 +61,9 @@
         android:title="@string/delete_this_profile_text"
         settings:controller="com.android.car.settings.profiles.ProfileDetailsDeletePreferenceController"
         settings:showChevron="false"/>
+    <com.android.car.ui.preference.CarUiPreference
+        android:key="@string/pk_profile_details_end_session"
+        android:title="@*android:string/global_action_logout"
+        settings:controller="com.android.car.settings.profiles.ProfileDetailsEndSessionPreferenceController"
+        settings:showChevron="false"/>
 </PreferenceScreen>

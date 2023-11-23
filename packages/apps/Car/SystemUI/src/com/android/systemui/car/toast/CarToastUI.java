@@ -19,7 +19,7 @@ package com.android.systemui.car.toast;
 import android.app.ActivityManager;
 import android.app.ITransientNotificationCallback;
 import android.content.Context;
-import android.content.pm.PackageInfo;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.os.IBinder;
@@ -88,22 +88,22 @@ public class CarToastUI extends ToastUI {
     }
 
     private boolean isSystemPrivilegedOrPlatformKey(String packageName) {
-        PackageInfo packageInfo = getPackageInfo(packageName);
-        if (packageInfo == null) return false;
+        ApplicationInfo applicationInfo = getApplicationInfo(packageName);
+        if (applicationInfo == null) return false;
 
-        return (packageInfo.applicationInfo.isSignedWithPlatformKey() || (
-                packageInfo.applicationInfo.isSystemApp()
-                        && packageInfo.applicationInfo.isPrivilegedApp()));
+        return (applicationInfo.isSignedWithPlatformKey() || (
+                applicationInfo.isSystemApp()
+                        && applicationInfo.isPrivilegedApp()));
     }
 
-    private PackageInfo getPackageInfo(String packageName) {
-        PackageInfo packageInfo = null;
+    private ApplicationInfo getApplicationInfo(String packageName) {
+        ApplicationInfo applicationInfo = null;
         try {
-            packageInfo = mPackageManager.getPackageInfoAsUser(packageName, /* flags= */ 0,
+            applicationInfo = mPackageManager.getApplicationInfoAsUser(packageName, /* flags= */ 0,
                     ActivityManager.getCurrentUser());
         } catch (PackageManager.NameNotFoundException ex) {
             Log.e(TAG, "package not found: " + packageName);
         }
-        return packageInfo;
+        return applicationInfo;
     }
 }

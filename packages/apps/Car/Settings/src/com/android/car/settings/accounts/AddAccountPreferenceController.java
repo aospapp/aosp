@@ -16,6 +16,10 @@
 
 package com.android.car.settings.accounts;
 
+import static android.os.UserManager.DISALLOW_MODIFY_ACCOUNTS;
+
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByUm;
+
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 
@@ -62,6 +66,13 @@ public class AddAccountPreferenceController extends PreferenceController<Prefere
     }
 
     @Override
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p -> getProfileHelper()
+                .runClickableWhileDisabled(getContext(), getFragmentController()));
+    }
+
+    @Override
     protected boolean handlePreferenceClicked(Preference preference) {
         AccountTypesHelper helper = getAccountTypesHelper();
 
@@ -90,7 +101,11 @@ public class AddAccountPreferenceController extends PreferenceController<Prefere
         if (getProfileHelper().canCurrentProcessModifyAccounts()) {
             return AVAILABLE;
         }
-        return DISABLED_FOR_PROFILE;
+        if (getProfileHelper().isDemoOrGuest()
+                || hasUserRestrictionByUm(getContext(), DISALLOW_MODIFY_ACCOUNTS)) {
+            return DISABLED_FOR_PROFILE;
+        }
+        return AVAILABLE_FOR_VIEWING;
     }
 
     @VisibleForTesting

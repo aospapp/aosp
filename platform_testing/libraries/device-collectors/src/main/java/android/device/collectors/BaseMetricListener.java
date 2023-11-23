@@ -118,7 +118,7 @@ public class BaseMetricListener extends InstrumentationRunListener {
 
     @Override
     public final void testRunStarted(Description description) throws Exception {
-        parseArguments();
+        setUp();
         if (!mLogOnly) {
             try {
                 mRunData = createDataRecord();
@@ -141,6 +141,7 @@ public class BaseMetricListener extends InstrumentationRunListener {
                 Log.e(getTag(), "Exception during onTestRunEnd.", e);
             }
         }
+        cleanUp();
         super.testRunFinished(result);
     }
 
@@ -206,11 +207,44 @@ public class BaseMetricListener extends InstrumentationRunListener {
     }
 
     /**
+     * Set up the metric collector.
+     *
+     * <p>If another class is invoking the metric collector's callbacks directly, it should call
+     * this method to make sure that the metric collector is set up properly.
+     */
+    public final void setUp() {
+        parseArguments();
+        setupAdditionalArgs();
+        onSetUp();
+    }
+
+    /**
+     * Clean up the metric collector.
+     *
+     * <p>If another class is invoking the metric collector's callbacks directly, it should call
+     * this method to make sure that the metric collector is cleaned up properly after collection.
+     */
+    public final void cleanUp() {
+        onCleanUp();
+    }
+
+    /**
      * Create a {@link DataRecord}. Exposed for testing.
      */
     @VisibleForTesting
     DataRecord createDataRecord() {
         return new DataRecord();
+    }
+
+    // ---------- Interfaces that can be implemented to set up and clean up metric collection.
+
+    /** Called if custom set-up is needed for this metric collector. */
+    protected void onSetUp() {
+        // Does nothing by default.
+    }
+
+    protected void onCleanUp() {
+        // Does nothing by default.
     }
 
     // ---------- Interfaces that can be implemented to take action on each test state.
@@ -264,6 +298,14 @@ public class BaseMetricListener extends InstrumentationRunListener {
      */
     public void onTestEnd(DataRecord testData, Description description) {
         // Does nothing
+    }
+
+    /**
+     * To add listener-specific extra args, implement this method in the sub class and add the
+     * listener specific args.
+     */
+    public void setupAdditionalArgs() {
+        // NO-OP by default
     }
 
     /**

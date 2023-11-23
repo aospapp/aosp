@@ -30,6 +30,7 @@ import android.content.Intent;
 import android.location.Criteria;
 import android.location.LocationManager;
 import android.location.cts.common.ProximityPendingIntentCapture;
+import android.os.UserManager;
 import android.util.Log;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -100,6 +101,10 @@ public class GeofencingTest {
 
     @Test
     public void testAddProximityAlert() throws Exception {
+        if (isNotSystemUser()) {
+            Log.i(TAG, "Skipping test on secondary user");
+            return;
+        }
         mManager.addTestProvider(FUSED_PROVIDER,
                 true,
                 false,
@@ -173,6 +178,11 @@ public class GeofencingTest {
 
     @Test
     public void testRemoveProximityAlert() throws Exception {
+        if (isNotSystemUser()) {
+            Log.i(TAG, "Skipping test on secondary user");
+            return;
+        }
+
         mManager.addTestProvider(FUSED_PROVIDER,
                 true,
                 false,
@@ -206,6 +216,11 @@ public class GeofencingTest {
 
     @Test
     public void testAddProximityAlert_StartProximate() throws Exception {
+        if (isNotSystemUser()) {
+            Log.i(TAG, "Skipping test on secondary user");
+            return;
+        }
+
         mManager.addTestProvider(FUSED_PROVIDER,
                 true,
                 false,
@@ -227,6 +242,11 @@ public class GeofencingTest {
 
     @Test
     public void testAddProximityAlert_Multiple() throws Exception {
+        if (isNotSystemUser()) {
+            Log.i(TAG, "Skipping test on secondary user");
+            return;
+        }
+
         mManager.addTestProvider(FUSED_PROVIDER,
                 true,
                 false,
@@ -266,6 +286,11 @@ public class GeofencingTest {
 
     @Test
     public void testAddProximityAlert_Expires() throws Exception {
+        if (isNotSystemUser()) {
+            Log.i(TAG, "Skipping test on secondary user");
+            return;
+        }
+
         mManager.addTestProvider(FUSED_PROVIDER,
                 true,
                 false,
@@ -287,5 +312,9 @@ public class GeofencingTest {
                     createLocation(FUSED_PROVIDER, 0, 0, 10));
             assertThat(capture.getNextProximityChange(FAILURE_TIMEOUT_MS)).isNull();
         }
+    }
+
+    private boolean isNotSystemUser() {
+        return !mContext.getSystemService(UserManager.class).isSystemUser();
     }
 }

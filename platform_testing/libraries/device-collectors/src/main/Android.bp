@@ -26,6 +26,7 @@ java_library {
         "androidx.annotation_annotation",
         "androidx.test.runner",
         "androidx.test.uiautomator",
+        "app-collector-helper",
         "jank-helper",
         "junit",
         "lyric-metric-helper",

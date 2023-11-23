@@ -1350,6 +1350,9 @@ void chppTransportInit(struct ChppTransportState *transportContext,
   chppMutexInit(&transportContext->mutex);
   chppNotifierInit(&transportContext->notifier);
   chppConditionVariableInit(&transportContext->resetCondVar);
+#ifdef CHPP_ENABLE_WORK_MONITOR
+  chppWorkMonitorInit(&transportContext->workMonitor);
+#endif
 
   transportContext->appContext = appContext;
   transportContext->initialized = true;
@@ -1363,6 +1366,9 @@ void chppTransportDeinit(struct ChppTransportState *transportContext) {
                   "CHPP transport already deinitialized");
 
   chppPlatformLinkDeinit(&transportContext->linkParams);
+#ifdef CHPP_ENABLE_WORK_MONITOR
+  chppWorkMonitorDeinit(&transportContext->workMonitor);
+#endif
   chppConditionVariableDeinit(&transportContext->resetCondVar);
   chppNotifierDeinit(&transportContext->notifier);
   chppMutexDeinit(&transportContext->mutex);
@@ -1557,47 +1563,57 @@ void chppWorkThreadStart(struct ChppTransportState *context) {
 
 bool chppWorkThreadHandleSignal(struct ChppTransportState *context,
                                 uint32_t signals) {
+  bool continueProcessing = false;
+
+#ifdef CHPP_ENABLE_WORK_MONITOR
+  chppWorkMonitorPreProcess(&context->workMonitor);
+#endif
+
   if (signals & CHPP_TRANSPORT_SIGNAL_EXIT) {
     CHPP_LOGD("CHPP Work Thread terminated");
-    return false;
-  }
-
-  if (signals & CHPP_TRANSPORT_SIGNAL_EVENT) {
-    chppTransportDoWork(context);
-  }
-
-  if (signals == 0) {
-    // Triggered by timeout
-
-    if (chppGetCurrentTimeNs() - context->txStatus.lastTxTimeNs >=
-        CHPP_TRANSPORT_TX_TIMEOUT_NS) {
-      CHPP_LOGE("ACK timeout. Tx t=%" PRIu64,
-                context->txStatus.lastTxTimeNs / CHPP_NSEC_PER_MSEC);
+  } else {
+    continueProcessing = true;
+    if (signals & CHPP_TRANSPORT_SIGNAL_EVENT) {
       chppTransportDoWork(context);
     }
 
-    if ((context->resetState == CHPP_RESET_STATE_RESETTING) &&
-        (chppGetCurrentTimeNs() - context->resetTimeNs >=
-         CHPP_TRANSPORT_RESET_TIMEOUT_NS)) {
-      if (context->resetCount + 1 < CHPP_TRANSPORT_MAX_RESET) {
-        CHPP_LOGE("RESET-ACK timeout; retrying");
-        context->resetCount++;
-        chppReset(context, CHPP_TRANSPORT_ATTR_RESET,
-                  CHPP_TRANSPORT_ERROR_TIMEOUT);
-      } else {
-        CHPP_LOGE("RESET-ACK timeout; giving up");
-        context->resetState = CHPP_RESET_STATE_PERMANENT_FAILURE;
-        chppClearTxDatagramQueue(context);
+    if (signals == 0) {
+      // Triggered by timeout
+
+      if (chppGetCurrentTimeNs() - context->txStatus.lastTxTimeNs >=
+          CHPP_TRANSPORT_TX_TIMEOUT_NS) {
+        CHPP_LOGE("ACK timeout. Tx t=%" PRIu64,
+                  context->txStatus.lastTxTimeNs / CHPP_NSEC_PER_MSEC);
+        chppTransportDoWork(context);
       }
+
+      if ((context->resetState == CHPP_RESET_STATE_RESETTING) &&
+          (chppGetCurrentTimeNs() - context->resetTimeNs >=
+           CHPP_TRANSPORT_RESET_TIMEOUT_NS)) {
+        if (context->resetCount + 1 < CHPP_TRANSPORT_MAX_RESET) {
+          CHPP_LOGE("RESET-ACK timeout; retrying");
+          context->resetCount++;
+          chppReset(context, CHPP_TRANSPORT_ATTR_RESET,
+                    CHPP_TRANSPORT_ERROR_TIMEOUT);
+        } else {
+          CHPP_LOGE("RESET-ACK timeout; giving up");
+          context->resetState = CHPP_RESET_STATE_PERMANENT_FAILURE;
+          chppClearTxDatagramQueue(context);
+        }
+      }
+    }
+
+    if (signals & CHPP_TRANSPORT_SIGNAL_PLATFORM_MASK) {
+      chppPlatformLinkDoWork(&context->linkParams,
+                             signals & CHPP_TRANSPORT_SIGNAL_PLATFORM_MASK);
     }
   }
 
-  if (signals & CHPP_TRANSPORT_SIGNAL_PLATFORM_MASK) {
-    chppPlatformLinkDoWork(&context->linkParams,
-                           signals & CHPP_TRANSPORT_SIGNAL_PLATFORM_MASK);
-  }
+#ifdef CHPP_ENABLE_WORK_MONITOR
+  chppWorkMonitorPostProcess(&context->workMonitor);
+#endif
 
-  return true;
+  return continueProcessing;
 }
 
 void chppWorkThreadStop(struct ChppTransportState *context) {

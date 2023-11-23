@@ -622,6 +622,46 @@ public class ImsConferenceTest {
     }
 
     /**
+     * Tests a scenario where a handover connection arrives via
+     * {@link TelephonyConnection#onOriginalConnectionRedialed(
+     * com.android.internal.telephony.Connection)}.  During this process, the conference properties
+     * get updated.  Since the original connection is null at this point, we need to verify that
+     * the remotely hosted property is retained from before the original connection was nulled.
+     */
+    @Test
+    public void testIsConferenceRemotelyHostedCachingOnSRVCC() {
+        mConferenceHost.setIsImsConnection(true);
+        when(mConferenceHost.getMockImsPhoneConnection().isMultiparty()).thenReturn(true);
+        when(mConferenceHost.getMockImsPhoneConnection().isConferenceHost()).thenReturn(true);
+
+        // Start out with a valid conference host.
+        ImsConference imsConference = new ImsConference(mMockTelecomAccountRegistry,
+                mMockTelephonyConnectionServiceProxy, mConferenceHost,
+                null /* phoneAccountHandle */, () -> false /* featureFlagProxy */,
+                new ImsConference.CarrierConfiguration.Builder().build());
+
+        // By default it is not remotely hosted.
+        assertFalse(imsConference.isRemotelyHosted());
+        assertEquals(0,
+                imsConference.getConnectionProperties() & Connection.PROPERTY_REMOTELY_HOSTED);
+
+        // Simulate a change to the original connection due to srvcc
+        com.android.internal.telephony.Connection previousOriginalConnection =
+                mConferenceHost.getMockImsPhoneConnection();
+        mConferenceHost.setMockImsPhoneConnection(null);
+
+        // Trigger the property update which takes place when the original connection changes.
+        mConferenceHost.getTelephonyConnectionListeners().forEach(
+                l -> l.onConnectionPropertiesChanged(mConferenceHost,
+                        mConferenceHost.getConnectionProperties()));
+
+        // Should still NOT be remotely hosted based on cached value.
+        assertFalse(imsConference.isRemotelyHosted());
+        assertEquals(0,
+                imsConference.getConnectionProperties() & Connection.PROPERTY_REMOTELY_HOSTED);
+    }
+
+    /**
      * Verifies that an ImsConference can handle SIP and TEL URIs for both the P-Associated-Uri and
      * conference event package identities.
      */

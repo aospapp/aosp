@@ -16,6 +16,7 @@
 <configuration description="Runs CTS tests of userfaultfd-based GC.">
     <option name="config-descriptor:metadata" key="component" value="art" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="test-suite-tag" value="cts" />

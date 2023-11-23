@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 
 import android.os.SystemClock;
 import android.util.Log;
+import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 
@@ -168,6 +169,8 @@ public class VelocityTrackerTest {
             final long eventTime = downTime + i * 10;
             int action = i == 0 ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_MOVE;
             MotionEvent event = MotionEvent.obtain(downTime, eventTime, action, 0, 0, 0);
+            // MotionEvent translation/offset is only applied to pointer sources, like touchscreens.
+            event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
             event.offsetLocation(i * 10, i * 10);
             vt.addMovement(event);
         }

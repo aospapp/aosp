@@ -15,3 +15,7 @@ ro.vendor.build.type                  u:object_r:vendor_build_type_prop:s0
 persist.modem.                        u:object_r:vendor_modem_prop:s0
 persist.vendor.modem.                 u:object_r:vendor_modem_prop:s0
 persist.vendor.mdm.                   u:object_r:vendor_modem_prop:s0
+
+# Logger app
+vendor.pixellogger.                           u:object_r:vendor_logger_prop:s0
+persist.vendor.pixellogger.                   u:object_r:vendor_logger_prop:s0

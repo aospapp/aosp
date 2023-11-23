@@ -25,8 +25,28 @@ checkPath adb
 
 # Allow to specify another java entry point
 CONSOLE_CLASS="com.android.tradefed.command.Console"
-if [ ! -z "${ENTRY_CLASS}" ]; then
+if [ -n "${ENTRY_CLASS}" ]; then
   CONSOLE_CLASS=${ENTRY_CLASS}
+fi
+
+if [ -n "${LOCAL_AUTH}" ]; then
+  if [ -n "${LOCAL_CLIENT_FILE}" ]; then
+    echo "Using user provided LOCAL_CLIENT_FILE"
+  else
+    export LOCAL_CLIENT_FILE="${TF_JAR_DIR}"/client_id_file.json
+  fi
+
+  ${TF_JAVA} -cp "${TF_PATH}" com.android.tradefed.command.LocalDeveloper
+  local_client=$?
+  if [ "${local_client}" -eq 0 ]; then
+    gcloud auth application-default login --scopes=https://www.googleapis.com/auth/androidbuild.internal --client-id-file "$LOCAL_CLIENT_FILE"
+    gcloud_res=$?
+    if [ "${gcloud_res}" -ne 0 ]; then
+        echo "Error with auth. aborting tradefed.sh"
+        rm "$LOCAL_CLIENT_FILE"
+        exit 1
+    fi
+  fi
 fi
 
 # Note: must leave $RDBG_FLAG and $TRADEFED_OPTS unquoted so that they go away

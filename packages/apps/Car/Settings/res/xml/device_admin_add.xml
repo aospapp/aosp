@@ -20,11 +20,11 @@
     android:title="@string/device_admin_add_title"
     android:key="@string/psk_device_admin_add">
 
-    <com.android.car.ui.preference.CarUiPreference
+    <SwitchPreference
         android:key="@string/pk_device_admin_add_header"
-        android:selectable="false"
         settings:controller="com.android.car.settings.enterprise.DeviceAdminAddHeaderPreferenceController"
         settings:searchable="false"/>
+    <com.android.car.settings.common.DividerPreference/>
     <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_device_admin_add_explanation"
         android:selectable="false"
@@ -37,7 +37,7 @@
         settings:singleLineTitle="false"
         settings:controller="com.android.car.settings.enterprise.DeviceAdminAddWarningPreferenceController"
         settings:showChevron="false"/>
-    <com.android.car.settings.common.LogicalPreferenceGroup
+    <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_device_admin_add_policies"
         android:selectable="false"
         settings:singleLineTitle="false"
@@ -48,14 +48,6 @@
         android:selectable="false"
         settings:singleLineTitle="false"
         settings:controller="com.android.car.settings.enterprise.DeviceAdminAddSupportPreferenceController"
-        settings:showChevron="false"/>
-    <com.android.car.ui.preference.CarUiPreference
-        android:key="@string/pk_device_admin_add_action"
-        settings:controller="com.android.car.settings.enterprise.DeviceAdminAddActionPreferenceController"
-        settings:showChevron="false"/>
-    <com.android.car.ui.preference.CarUiPreference
-        android:key="@string/pk_device_admin_add_cancel"
-        settings:controller="com.android.car.settings.enterprise.DeviceAdminAddCancelPreferenceController"
         settings:showChevron="false"/>
 
 </PreferenceScreen>

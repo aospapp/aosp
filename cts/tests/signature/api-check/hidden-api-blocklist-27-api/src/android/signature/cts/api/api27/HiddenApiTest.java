@@ -16,5 +16,7 @@
 
 package android.signature.cts.api.api27;
 
-public class HiddenApiTest extends android.signature.cts.api.HiddenApiTest {
+import android.signature.cts.api.dynamic.DynamicConfigHiddenApiTest;
+
+public class HiddenApiTest extends DynamicConfigHiddenApiTest {
 }

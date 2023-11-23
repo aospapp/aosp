@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <android/hardware/audio/6.0/IPrimaryDevice.h>
+#include <android/hardware/audio/7.0/IPrimaryDevice.h>
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
@@ -23,7 +23,7 @@
 namespace android {
 namespace hardware {
 namespace audio {
-namespace V6_0 {
+namespace V7_0 {
 namespace implementation {
 
 using ::android::sp;
@@ -32,8 +32,8 @@ using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 
-using namespace ::android::hardware::audio::common::V6_0;
-using namespace ::android::hardware::audio::V6_0;
+using namespace ::android::hardware::audio::common::V7_0;
+using namespace ::android::hardware::audio::V7_0;
 
 struct StreamIn;
 struct StreamOut;
@@ -53,13 +53,13 @@ struct PrimaryDevice : public IPrimaryDevice {
     Return<void> openOutputStream(int32_t ioHandle,
                                   const DeviceAddress& device,
                                   const AudioConfig& config,
-                                  hidl_bitfield<AudioOutputFlag> flags,
+                                  const hidl_vec<AudioInOutFlag>& flags,
                                   const SourceMetadata& sourceMetadata,
                                   openOutputStream_cb _hidl_cb) override;
     Return<void> openInputStream(int32_t ioHandle,
                                  const DeviceAddress& device,
                                  const AudioConfig& config,
-                                 hidl_bitfield<AudioInputFlag> flags,
+                                 const hidl_vec<AudioInOutFlag>& flags,
                                  const SinkMetadata& sinkMetadata,
                                  openInputStream_cb _hidl_cb) override;
     Return<bool> supportsAudioPatches() override;
@@ -129,7 +129,7 @@ private:
 };
 
 }  // namespace implementation
-}  // namespace V6_0
+}  // namespace V7_0
 }  // namespace audio
 }  // namespace hardware
 }  // namespace android

@@ -103,28 +103,34 @@ static inline ogg_int32_t vorbis_coslook2_i(long a){
     (COS_LOOKUP_I_SHIFT-LSP_FRACBITS+14);
 }
 
-static const ogg_uint16_t barklook[54]={
+/* Values in barklook are defined such that toBARK(x) is an approximation to
+   POW(2, 15) * ((13.1*ATAN(0.00074*(x)))+(2.24*ATAN((x)*(x)*0.0000000185))+(0.0001*(x))) */
+static const ogg_uint16_t barklook[]={
   0,51,102,154,            206,258,311,365,
   420,477,535,594,         656,719,785,854,
   926,1002,1082,1166,      1256,1352,1454,1564,
   1683,1812,1953,2107,     2276,2463,2670,2900,
   3155,3440,3756,4106,     4493,4919,5387,5901,
   6466,7094,7798,8599,     9528,10623,11935,13524,
-  15453,17775,20517,23667, 27183,31004
+  15453,17775,20517,23667, 27183,31004,35069
 };
 
 /* used in init only; interpolate the long way */
-static inline ogg_int32_t toBARK(int n){
+static inline ogg_int32_t toBARK(ogg_uint16_t n){
   int i;
-  for(i=0;i<54;i++)
-    if(n>=barklook[i] && n<barklook[i+1])break;
-
-  if(i==54){
-    return 54<<14;
-  }else{
-    return (i<<14)+(((n-barklook[i])*
-                     ((1UL<<31)/(barklook[i+1]-barklook[i])))>>17);
+  int barklook_size = (sizeof(barklook) / sizeof(barklook[0]));
+  for(i=1;i<barklook_size;i++){
+    if(n<barklook[i]){
+      i--;
+      return (i<<14)+(((n-barklook[i])*
+                 ((1UL<<31)/(barklook[i+1]-barklook[i])))>>17);
+    }
   }
+  /* for a valid input n, which is half of info->rate (i.e. max 32767
+     as info->rate is 16 bit unsigned value), loop above will return
+     an output. So the following return will be used only when toBARK()
+     is called with invalid value */
+  return (barklook_size-1)<<14;
 }
 
 static const unsigned char MLOOP_1[64]={
@@ -174,6 +180,8 @@ void vorbis_lsp_to_curve(ogg_int32_t *curve,int n,int ln,
 #else
   ogg_uint32_t nextbark=MULT31(imap>>1,tBnyq1);
 #endif
+  /* nextbark is guaranteed to be less than 54 << 14 here and that ensures index
+     to barklook can at max be 53 and 54 here */
   int nextf=barklook[nextbark>>14]+(((nextbark&0x3fff)*
             (barklook[(nextbark>>14)+1]-barklook[nextbark>>14]))>>14);
 
@@ -340,6 +348,8 @@ void vorbis_lsp_to_curve(ogg_int32_t *curve,int n,int ln,
 #else
         nextbark=MULT31((map+1)*(imap>>1),tBnyq1);
 #endif
+        /* nextbark is guaranteed to be less than 54 << 14 here and that ensures index
+           to barklook can at max be 53 and 54 here */
         nextf=barklook[nextbark>>14]+
           (((nextbark&0x3fff)*
             (barklook[(nextbark>>14)+1]-barklook[nextbark>>14]))>>14);
@@ -426,10 +436,9 @@ ogg_int32_t *floor0_inverse1(vorbis_dsp_state *vd,vorbis_info_floor *i,
       }
       ogg_int32_t last=0;
 
-      for(j=0;j<info->order;j+=b->dim)
-        if(vorbis_book_decodev_set(b,lsp+j,&vd->opb,b->dim,-24)==-1)goto eop;
+      if(vorbis_book_decodev_set(b,lsp,&vd->opb,info->order,-24)==-1)goto eop;
       for(j=0;j<info->order;){
-        for(k=0;k<b->dim;k++,j++)lsp[j]+=last;
+        for(k=0;k<b->dim && j<info->order;k++,j++)lsp[j]+=last;
         last=lsp[j-1];
       }
 

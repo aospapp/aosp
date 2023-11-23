@@ -116,7 +116,7 @@ public class OnHoldCallUserProfileFragment extends Hilt_OnHoldCallUserProfileFra
         }
 
         String number = callDetail.getNumber();
-        mTitle.setText(TelecomUtils.getFormattedNumber(getContext(), number));
+        mTitle.setText(TelecomUtils.getReadableNumber(getContext(), number));
 
         TelecomUtils.PhoneNumberInfo phoneNumberInfo = mInCallViewModel.getPhoneNumberInfo(number);
 

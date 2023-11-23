@@ -31,6 +31,7 @@ open class WindowContainer constructor(
     val title: String,
     val token: String,
     val orientation: Int,
+    val layerId: Int,
     _isVisible: Boolean,
     configurationContainer: ConfigurationContainer,
     val children: Array<WindowContainer>
@@ -43,6 +44,7 @@ open class WindowContainer constructor(
         titleOverride ?: windowContainer.title,
         windowContainer.token,
         windowContainer.orientation,
+        windowContainer.layerId,
         isVisibleOverride ?: windowContainer.isVisible,
         windowContainer,
         windowContainer.children
@@ -50,12 +52,9 @@ open class WindowContainer constructor(
 
     open val isVisible: Boolean = _isVisible
     open val name: String = title
-    val stableId: String get() = "${this::class.simpleName} $token $title"
+    open val stableId: String get() = "${this::class.simpleName} $token $title"
     open val isFullscreen: Boolean = false
     open val bounds: Rect = Rect.EMPTY
-
-    val windows: Array<WindowState>
-        get() = this.collectDescendants()
 
     fun traverseTopDown(): List<WindowContainer> {
         val traverseList = mutableListOf(this)
@@ -109,6 +108,33 @@ open class WindowContainer constructor(
         }
 
         return name
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is WindowContainer) return false
+
+        if (title != other.title) return false
+        if (token != other.token) return false
+        if (orientation != other.orientation) return false
+        if (isVisible != other.isVisible) return false
+        if (name != other.name) return false
+        if (isFullscreen != other.isFullscreen) return false
+        if (bounds != other.bounds) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = title.hashCode()
+        result = 31 * result + token.hashCode()
+        result = 31 * result + orientation
+        result = 31 * result + children.contentHashCode()
+        result = 31 * result + isVisible.hashCode()
+        result = 31 * result + name.hashCode()
+        result = 31 * result + isFullscreen.hashCode()
+        result = 31 * result + bounds.hashCode()
+        return result
     }
 
     override val isEmpty: Boolean

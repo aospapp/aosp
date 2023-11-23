@@ -181,10 +181,10 @@ constexpr const char *kSkippedMessages[] = {
     "VUID-vkCmdDrawIndexedIndirectCount-None-04584",
     // https://anglebug.com/5912
     "VUID-VkImageViewCreateInfo-pNext-01585",
-    // http://anglebug.com/6155
-    "VUID-vkCmdDraw-None-02699",
-    // http://anglebug.com/6168
-    "VUID-VkImageViewCreateInfo-None-02273",
+    // https://anglebug.com/6262
+    "VUID-vkCmdClearAttachments-baseArrayLayer-00018",
+    // http://anglebug.com/6355
+    "VUID-vkCmdDraw-blendEnable-04727",
 };
 
 // Suppress validation errors that are known
@@ -850,7 +850,7 @@ angle::Result RendererVk::initialize(DisplayVk *displayVk,
     mLibVulkanLibrary->getAs("vkGetInstanceProcAddr", &vulkanLoaderGetInstanceProcAddr);
 
     // Set all vk* function ptrs
-    ANGLE_VK_TRY(displayVk, volkInitialize());
+    volkInitializeCustom(vulkanLoaderGetInstanceProcAddr);
 
     uint32_t ver = volkGetInstanceVersion();
     if (!IsAndroid() && VK_API_VERSION_MAJOR(ver) == 1 &&
@@ -1894,7 +1894,11 @@ angle::Result RendererVk::initializeDevice(DisplayVk *displayVk, uint32_t queueF
         ANGLE_TRY(mCommandQueue.init(displayVk, graphicsQueueMap));
     }
 
-#if !defined(ANGLE_SHARED_LIBVULKAN)
+#if defined(ANGLE_SHARED_LIBVULKAN)
+    // Avoid compiler warnings on unused-but-set variables.
+    ANGLE_UNUSED_VARIABLE(hasGetMemoryRequirements2KHR);
+    ANGLE_UNUSED_VARIABLE(hasBindMemory2KHR);
+#else
     if (hasGetMemoryRequirements2KHR)
     {
         InitGetMemoryRequirements2KHRFunctions(mDevice);
@@ -2135,12 +2139,6 @@ gl::Version RendererVk::getMaxSupportedESVersion() const
         maxVersion = LimitVersionTo(maxVersion, {2, 0});
     }
 
-    // If the command buffer doesn't support queries, we can't support ES3.
-    if (!vk::CommandBuffer::SupportsQueries(mPhysicalDeviceFeatures))
-    {
-        maxVersion = LimitVersionTo(maxVersion, {2, 0});
-    }
-
     // If independentBlend is not supported, we can't have a mix of has-alpha and emulated-alpha
     // render targets in a framebuffer.  We also cannot perform masked clears of multiple render
     // targets.
@@ -2246,8 +2244,6 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
 
     // http://anglebug.com/2838
     ANGLE_FEATURE_CONDITION(&mFeatures, extraCopyBufferRegion, IsWindows() && isIntel);
-
-    ANGLE_FEATURE_CONDITION(&mFeatures, forceCPUPathForCubeMapCopy, false);
 
     // Work around incorrect NVIDIA point size range clamping.
     // http://anglebug.com/2970#c10
@@ -2364,6 +2360,9 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     ANGLE_FEATURE_CONDITION(&mFeatures, supportsTransformFeedbackExtension,
                             mTransformFeedbackFeatures.transformFeedback == VK_TRUE);
 
+    ANGLE_FEATURE_CONDITION(&mFeatures, supportsGeometryStreamsCapability,
+                            mTransformFeedbackFeatures.geometryStreams == VK_TRUE);
+
     ANGLE_FEATURE_CONDITION(&mFeatures, supportsIndexTypeUint8,
                             mIndexTypeUint8Features.indexTypeUint8 == VK_TRUE);
 
@@ -2384,9 +2383,11 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
                              mPhysicalDeviceFeatures.vertexPipelineStoresAndAtomics == VK_TRUE));
 
     // TODO: http://anglebug.com/5927 - drop dependency on customBorderColorWithoutFormat.
-    ANGLE_FEATURE_CONDITION(&mFeatures, supportsCustomBorderColorEXT,
-                            (mCustomBorderColorFeatures.customBorderColors == VK_TRUE &&
-                             mCustomBorderColorFeatures.customBorderColorWithoutFormat == VK_TRUE));
+    // TODO: http://anglebug.com/6200 - re-enable on SwS when possible
+    ANGLE_FEATURE_CONDITION(
+        &mFeatures, supportsCustomBorderColorEXT,
+        mCustomBorderColorFeatures.customBorderColors == VK_TRUE &&
+            mCustomBorderColorFeatures.customBorderColorWithoutFormat == VK_TRUE && !isSwiftShader);
 
     ANGLE_FEATURE_CONDITION(&mFeatures, disableFifoPresentMode, IsLinux() && isIntel);
 
@@ -2473,7 +2474,7 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     ANGLE_FEATURE_CONDITION(
         &mFeatures, supportsImageFormatList,
         (ExtensionFound(VK_KHR_IMAGE_FORMAT_LIST_EXTENSION_NAME, deviceExtensionNames)) &&
-            (isAMD || isARM));
+            !isSwiftShader);
 
     // Feature disabled due to driver bugs:
     //
@@ -2541,14 +2542,6 @@ void RendererVk::initFeatures(DisplayVk *displayVk,
     // In order to support immutable samplers tied to external formats, we need to overallocate
     // descriptor counts for such immutable samplers
     ANGLE_FEATURE_CONDITION(&mFeatures, useMultipleDescriptorsForExternalFormats, true);
-
-    // When generating SPIR-V, the following workarounds are applied on buggy drivers:
-    //
-    // - AMD/Windows: Function parameters are passed in temporary variables even if they are already
-    //   variables.
-    //
-    // http://anglebug.com/6110
-    ANGLE_FEATURE_CONDITION(&mFeatures, directSPIRVGenerationWorkarounds, IsWindows() && isAMD);
 
     angle::PlatformMethods *platform = ANGLEPlatformCurrent();
     platform->overrideFeaturesVk(platform, &mFeatures);

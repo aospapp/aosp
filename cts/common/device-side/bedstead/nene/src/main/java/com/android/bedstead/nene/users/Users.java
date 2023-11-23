@@ -16,15 +16,24 @@
 
 package com.android.bedstead.nene.users;
 
+import static android.Manifest.permission.CREATE_USERS;
+import static android.Manifest.permission.INTERACT_ACROSS_USERS;
+import static android.Manifest.permission.INTERACT_ACROSS_USERS_FULL;
 import static android.os.Build.VERSION.SDK_INT;
+import static android.os.Build.VERSION_CODES.S;
+import static android.os.Build.VERSION_CODES.S_V2;
 import static android.os.Process.myUserHandle;
 
 import static com.android.bedstead.nene.users.UserType.MANAGED_PROFILE_TYPE_NAME;
 import static com.android.bedstead.nene.users.UserType.SECONDARY_USER_TYPE_NAME;
 import static com.android.bedstead.nene.users.UserType.SYSTEM_USER_TYPE_NAME;
 
+import android.app.ActivityManager;
+import android.content.Context;
+import android.content.pm.UserInfo;
 import android.os.Build;
 import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
@@ -33,40 +42,102 @@ import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.AdbException;
 import com.android.bedstead.nene.exceptions.AdbParseException;
 import com.android.bedstead.nene.exceptions.NeneException;
+import com.android.bedstead.nene.permissions.PermissionContext;
+import com.android.bedstead.nene.permissions.Permissions;
+import com.android.bedstead.nene.utils.Poll;
 import com.android.bedstead.nene.utils.ShellCommand;
-import com.android.compatibility.common.util.PollingCheck;
+import com.android.bedstead.nene.utils.Versions;
 
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class Users {
 
     static final int SYSTEM_USER_ID = 0;
-    private static final long WAIT_FOR_USER_TIMEOUT_MS = 1000 * 60;
+    private static final Duration WAIT_FOR_USER_TIMEOUT = Duration.ofMinutes(4);
 
-    private Map<Integer, User> mCachedUsers = null;
+    private Map<Integer, AdbUser> mCachedUsers = null;
     private Map<String, UserType> mCachedUserTypes = null;
     private Set<UserType> mCachedUserTypeValues = null;
     private final AdbUserParser mParser;
-    private final TestApis mTestApis;
+    private static final UserManager sUserManager =
+            TestApis.context().instrumentedContext().getSystemService(UserManager.class);
 
-    public Users(TestApis testApis) {
-        mTestApis = testApis;
-        mParser = AdbUserParser.get(mTestApis, SDK_INT);
+    public static final Users sInstance = new Users();
+
+    private Users() {
+        mParser = AdbUserParser.get(SDK_INT);
     }
 
-    /** Get all {@link User}s on the device. */
-    public Collection<User> all() {
-        fillCache();
+    /** Get all {@link UserReference}s on the device. */
+    public Collection<UserReference> all() {
+        if (!Versions.meetsMinimumSdkVersionRequirement(S)) {
+            fillCache();
+            return mCachedUsers.keySet().stream().map(UserReference::new)
+                    .collect(Collectors.toSet());
+        }
 
-        return mCachedUsers.values();
+        return users().map(
+                ui -> new UserReference(ui.id)
+        ).collect(Collectors.toSet());
+    }
+
+    /**
+     * Gets a {@link UserReference} for the initial user for the device.
+     *
+     * <p>This will be the {@link #system()} user on most systems.</p>
+     */
+    public UserReference initial() {
+        if (!isHeadlessSystemUserMode()) {
+            return system();
+        }
+        if (TestApis.packages().features().contains("android.hardware.type.automotive")) {
+            try {
+                return ShellCommand.builder("cmd car_service get-initial-user")
+                        .executeAndParseOutput(i -> find(Integer.parseInt(i.trim())));
+            } catch (AdbException e) {
+                throw new NeneException("Error finding initial user on Auto", e);
+            }
+        }
+
+        List<UserReference> users = new ArrayList<>(all());
+        users.sort(Comparator.comparingInt(UserReference::id));
+
+        for (UserReference user : users) {
+            if (user.parent() == null) {
+                return user;
+            }
+        }
+
+        throw new NeneException("No initial user available");
+    }
+
+    /** Get a {@link UserReference} for the user currently switched to. */
+    public UserReference current() {
+        if (Versions.meetsMinimumSdkVersionRequirement(S)) {
+            try (PermissionContext p =
+                         TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
+                return find(ActivityManager.getCurrentUser());
+            }
+        }
+
+        try {
+            return find((int) ShellCommand.builder("am get-current-user")
+                    .executeAndParseOutput(i -> Integer.parseInt(i.trim())));
+        } catch (AdbException e) {
+            throw new NeneException("Error getting current user", e);
+        }
     }
 
     /** Get a {@link UserReference} for the user running the current test process. */
@@ -81,30 +152,23 @@ public final class Users {
 
     /** Get a {@link UserReference} by {@code id}. */
     public UserReference find(int id) {
-        return new UnresolvedUser(mTestApis, id);
+        return new UserReference(id);
     }
 
     /** Get a {@link UserReference} by {@code userHandle}. */
     public UserReference find(UserHandle userHandle) {
-        return new UnresolvedUser(mTestApis, userHandle.getIdentifier());
-    }
-
-    @Nullable
-    User fetchUser(int id) {
-        // TODO(scottjonathan): fillCache probably does more than we need here -
-        //  can we make it more efficient?
-        fillCache();
-
-        return mCachedUsers.get(id);
+        return new UserReference(userHandle.getIdentifier());
     }
 
     /** Get all supported {@link UserType}s. */
     public Set<UserType> supportedTypes() {
+        // TODO(b/203557600): Stop using adb
         ensureSupportedTypesCacheFilled();
         return mCachedUserTypeValues;
     }
 
     /** Get a {@link UserType} with the given {@code typeName}, or {@code null} */
+    @Nullable
     public UserType supportedType(String typeName) {
         ensureSupportedTypesCacheFilled();
         return mCachedUserTypes.get(typeName);
@@ -243,21 +307,28 @@ public final class Users {
      */
     @CheckResult
     public UserBuilder createUser() {
-        return new UserBuilder(mTestApis);
+        return new UserBuilder();
     }
 
     /**
      * Get a {@link UserReference} to a user who does not exist.
      */
     public UserReference nonExisting() {
-        fillCache();
+        Set<Integer> userIds;
+        if (Versions.meetsMinimumSdkVersionRequirement(S)) {
+            userIds = users().map(ui -> ui.id).collect(Collectors.toSet());
+        } else {
+            fillCache();
+            userIds = mCachedUsers.keySet();
+        }
+
         int id = 0;
 
-        while (mCachedUsers.get(id) != null) {
+        while (userIds.contains(id)) {
             id++;
         }
 
-        return new UnresolvedUser(mTestApis, id);
+        return new UserReference(id);
     }
 
     private void fillCache() {
@@ -273,10 +344,10 @@ public final class Users {
                 ensureSupportedTypesCacheFilled();
             }
 
-            Iterator<Map.Entry<Integer, User>> iterator = mCachedUsers.entrySet().iterator();
+            Iterator<Map.Entry<Integer, AdbUser>> iterator = mCachedUsers.entrySet().iterator();
 
             while (iterator.hasNext()) {
-                Map.Entry<Integer, User> entry = iterator.next();
+                Map.Entry<Integer, AdbUser> entry = iterator.next();
 
                 if (entry.getValue().isRemoving()) {
                     // We don't expose users who are currently being removed
@@ -284,13 +355,13 @@ public final class Users {
                     continue;
                 }
 
-                User.MutableUser mutableUser = entry.getValue().mMutableUser;
+                AdbUser.MutableUser mutableUser = entry.getValue().mMutableUser;
 
                 if (SDK_INT < Build.VERSION_CODES.R) {
                     if (entry.getValue().id() == SYSTEM_USER_ID) {
                         mutableUser.mType = supportedType(SYSTEM_USER_TYPE_NAME);
                         mutableUser.mIsPrimary = true;
-                    } else if (entry.getValue().hasFlag(User.FLAG_MANAGED_PROFILE)) {
+                    } else if (entry.getValue().hasFlag(AdbUser.FLAG_MANAGED_PROFILE)) {
                         mutableUser.mType =
                                 supportedType(MANAGED_PROFILE_TYPE_NAME);
                         mutableUser.mIsPrimary = false;
@@ -301,7 +372,7 @@ public final class Users {
                     }
                 }
 
-                if (SDK_INT < Build.VERSION_CODES.S) {
+                if (SDK_INT < S) {
                     if (mutableUser.mType.baseType()
                             .contains(UserType.BaseType.PROFILE)) {
                         // We assume that all profiles before S were on the System User
@@ -319,54 +390,90 @@ public final class Users {
     }
 
     /**
-     * Block until the user with the given {@code userReference} exists and is in the correct state.
-     *
-     * <p>If this cannot be met before a timeout, a {@link NeneException} will be thrown.
-     */
-    User waitForUserToMatch(UserReference userReference, Function<User, Boolean> userChecker) {
-        return waitForUserToMatch(userReference, userChecker, /* waitForExist= */ true);
-    }
-
-    /**
      * Block until the user with the given {@code userReference} to not exist or to be in the
      * correct state.
      *
      * <p>If this cannot be met before a timeout, a {@link NeneException} will be thrown.
      */
     @Nullable
-    User waitForUserToNotExistOrMatch(
-            UserReference userReference, Function<User, Boolean> userChecker) {
+    UserReference waitForUserToNotExistOrMatch(
+            UserReference userReference, Function<UserReference, Boolean> userChecker) {
         return waitForUserToMatch(userReference, userChecker, /* waitForExist= */ false);
     }
 
     @Nullable
-    private User waitForUserToMatch(
-            UserReference userReference, Function<User, Boolean> userChecker,
+    private UserReference waitForUserToMatch(
+            UserReference userReference, Function<UserReference, Boolean> userChecker,
             boolean waitForExist) {
         // TODO(scottjonathan): This is pretty heavy because we resolve everything when we know we
         //  are throwing away everything except one user. Optimise
         try {
-            AtomicReference<User> returnUser = new AtomicReference<>();
-            PollingCheck.waitFor(WAIT_FOR_USER_TIMEOUT_MS, () -> {
-                User user = userReference.resolve();
-                returnUser.set(user);
-                if (user == null) {
-                    return !waitForExist;
-                }
-                return userChecker.apply(user);
-            });
-            return returnUser.get();
+            return Poll.forValue("user", () -> userReference)
+                    .toMeet((user) -> {
+                        if (user == null) {
+                            return !waitForExist;
+                        }
+                        return userChecker.apply(user);
+                    }).timeout(WAIT_FOR_USER_TIMEOUT)
+                    .errorOnFail("Expected user to meet requirement")
+                    .await();
         } catch (AssertionError e) {
-            User user = userReference.resolve();
-
-            if (user == null) {
+            if (!userReference.exists()) {
                 throw new NeneException(
                         "Timed out waiting for user state for user "
                                 + userReference + ". User does not exist.", e);
             }
             throw new NeneException(
-                    "Timed out waiting for user state, current state " + user, e
+                    "Timed out waiting for user state, current state " + userReference, e
             );
+        }
+    }
+
+    /** See {@link UserManager#isHeadlessSystemUserMode()}. */
+    @SuppressWarnings("NewApi")
+    public boolean isHeadlessSystemUserMode() {
+        if (Versions.meetsMinimumSdkVersionRequirement(S)) {
+            return UserManager.isHeadlessSystemUserMode();
+        }
+
+        return false;
+    }
+
+    /**
+     * Set the stopBgUsersOnSwitch property.
+     *
+     * <p>This affects if background users will be swapped when switched away from on some devices.
+     */
+    public void setStopBgUsersOnSwitch(int value) {
+        if (!Versions.meetsMinimumSdkVersionRequirement(S_V2)) {
+            return;
+        }
+        Context context = TestApis.context().instrumentedContext();
+        try (PermissionContext p = TestApis.permissions()
+                .withPermission(INTERACT_ACROSS_USERS)) {
+            context.getSystemService(ActivityManager.class).setStopUserOnSwitch(value);
+        }
+    }
+
+    @Nullable
+    AdbUser fetchUser(int id) {
+        fillCache();
+        return mCachedUsers.get(id);
+    }
+
+    static Stream<UserInfo> users() {
+        if (Permissions.sIgnorePermissions.get()) {
+            return sUserManager.getUsers(
+                    /* excludePartial= */ false,
+                    /* excludeDying= */ true,
+                    /* excludePreCreated= */ false).stream();
+        }
+
+        try (PermissionContext p = TestApis.permissions().withPermission(CREATE_USERS)) {
+            return sUserManager.getUsers(
+                    /* excludePartial= */ false,
+                    /* excludeDying= */ true,
+                    /* excludePreCreated= */ false).stream();
         }
     }
 }

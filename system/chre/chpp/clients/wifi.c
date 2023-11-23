@@ -497,6 +497,20 @@ static void chppWifiRequestScanResult(struct ChppWifiClientState *clientContext,
   } else {
     struct ChppWifiRequestScanResponseParameters *result =
         &((struct ChppWifiRequestScanResponse *)buf)->params;
+
+    // TODO(b/193540354): Remove when resolved
+    {
+      static uint32_t sNumConsecutiveError = 0;
+      if (result->errorCode != CHRE_ERROR_NONE) {
+        sNumConsecutiveError++;
+      } else {
+        sNumConsecutiveError = 0;
+      }
+      if (sNumConsecutiveError > 20) {
+        CHPP_ASSERT("Too many consecutive WiFi scan errors");
+      }
+    }
+
     CHPP_LOGI("Scan request success=%d (at service)", result->pending);
     gCallbacks->scanResponseCallback(result->pending, result->errorCode);
   }

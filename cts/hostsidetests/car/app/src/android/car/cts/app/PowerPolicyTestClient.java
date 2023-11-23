@@ -40,7 +40,7 @@ public final class PowerPolicyTestClient {
     private static final String TEST_CMD_ADD_POLICY_LISTENER = "addlistener";
     private static final String TEST_CMD_REMOVE_POLICY_LISTENER = "removelistener";
     private static final String TEST_CMD_DUMP_POLICY_LISTENER = "dumplistener";
-    private static final String TEST_CMD_WAIT_POLICY_LISTENERS = "waitlisteners";
+    private static final String TEST_CMD_CHECK_POLICY_LISTENERS = "checklisteners";
     private static final String TEST_CMD_RESET_POLICY_LISTENERS = "resetlisteners";
     private static final int MAX_THREAD_POOL_SIZE = 1;
 
@@ -111,8 +111,8 @@ public final class PowerPolicyTestClient {
             case TEST_CMD_DUMP_POLICY_LISTENER:
                 cmd = new PowerPolicyTestCommand.DumpListenerCommand(this, tokens[1]);
                 break;
-            case TEST_CMD_WAIT_POLICY_LISTENERS:
-                cmd = new PowerPolicyTestCommand.WaitListenersCommand(this);
+            case TEST_CMD_CHECK_POLICY_LISTENERS:
+                cmd = new PowerPolicyTestCommand.CheckListenersCommand(this);
                 break;
             case TEST_CMD_RESET_POLICY_LISTENERS:
                 cmd = new PowerPolicyTestCommand.ResetListenersCommand(this);

@@ -39,6 +39,22 @@ class Region(val rects: Array<Rect>) : Rect(
 
     override fun prettyPrint(): String = rects.joinToString(", ") { it.prettyPrint() }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Region) return false
+        if (!super.equals(other)) return false
+
+        if (!rects.contentEquals(other.rects)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + rects.contentHashCode()
+        return result
+    }
+
     companion object {
         val EMPTY = Region()
     }

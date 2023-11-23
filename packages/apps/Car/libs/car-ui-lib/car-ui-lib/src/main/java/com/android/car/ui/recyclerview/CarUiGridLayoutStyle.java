@@ -23,6 +23,7 @@ import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup;
 import androidx.recyclerview.widget.RecyclerView.LayoutManager;
 
 import com.android.car.ui.recyclerview.CarUiRecyclerView.CarUiRecyclerViewLayout;
+import com.android.car.ui.recyclerview.CarUiRecyclerView.Size;
 
 /**
  * CarUi proxy class for {@link GridLayoutManager}
@@ -30,13 +31,12 @@ import com.android.car.ui.recyclerview.CarUiRecyclerView.CarUiRecyclerViewLayout
 public final class CarUiGridLayoutStyle implements CarUiLayoutStyle {
 
     private int mSpanCount = 1;
-    @CarUiRecyclerViewLayout
-    private  int mLayoutType = CarUiRecyclerViewLayout.GRID;
     @Orientation
     private int mLayoutOrientation = VERTICAL;
     private boolean mReverseLayout = false;
+    @Size
     private int mSize = CarUiRecyclerView.SIZE_LARGE;
-    @Nullable
+    @NonNull
     private SpanSizeLookup mSpanSizeLookup = new DefaultSpanSizeLookup();
 
     /**
@@ -57,7 +57,7 @@ public final class CarUiGridLayoutStyle implements CarUiLayoutStyle {
         return layoutStyle;
     }
 
-    /** Returns number of recyclerview spans */
+    @Override
     public int getSpanCount() {
         return mSpanCount;
     }
@@ -70,24 +70,22 @@ public final class CarUiGridLayoutStyle implements CarUiLayoutStyle {
         mSpanCount = spanCount;
     }
 
-    /** Returns {@link CarUiRecyclerViewLayout} */
-    @CarUiRecyclerViewLayout
+    @Override
     public int getLayoutType() {
         return CarUiRecyclerViewLayout.GRID;
     }
 
-    /** Returns layout direction {@link Orientation} */
-    @Orientation
+    @Override
     public int getOrientation() {
         return mLayoutOrientation;
     }
 
-    /** sets layout direction {@link Orientation} */
+    /** sets layout direction {@link CarUiLayoutStyle.Orientation} */
     public void setOrientation(@Orientation int orientation) {
         mLayoutOrientation = orientation;
     }
 
-    /** Returns true if layout is reversed */
+    @Override
     public boolean getReverseLayout() {
         return mReverseLayout;
     }
@@ -98,7 +96,7 @@ public final class CarUiGridLayoutStyle implements CarUiLayoutStyle {
     }
 
     /** Returns a wrapper {@link androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup} */
-    @Nullable
+    @NonNull
     public SpanSizeLookup getSpanSizeLookup() {
         return mSpanSizeLookup;
     }
@@ -108,9 +106,7 @@ public final class CarUiGridLayoutStyle implements CarUiLayoutStyle {
         mSpanSizeLookup = spanSizeLookup;
     }
 
-    /**
-     * @return CarUiRecyclerView size
-     */
+    @Override
     public int getSize() {
         return mSize;
     }

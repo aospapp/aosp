@@ -17,7 +17,9 @@
 package com.android.cts.verifier.bluetooth;
 
 import android.bluetooth.BluetoothAdapter;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.SystemProperties;
 
 import com.android.cts.verifier.ManifestTestListAdapter;
 import com.android.cts.verifier.PassFailButtons;
@@ -40,6 +42,16 @@ public class BleSecureClientTestListActivity extends PassFailButtons.TestListAct
         if (adapter == null || !adapter.isOffloadedFilteringSupported()) {
             disabledTest.add(
                     "com.android.cts.verifier.bluetooth.BleAdvertiserHardwareScanFilterActivity.");
+        }
+
+        // RPA is optional on TVs already released before Android 11
+        boolean isTv = getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+        int firstSdk = SystemProperties.getInt("ro.product.first_api_level", 0);
+        if (isTv && (firstSdk <= 29)) {
+            disabledTest.add(
+                    "com.android.cts.verifier.bluetooth.BleSecureConnectionPriorityClientTestActivity");
+            disabledTest.add(
+                    "com.android.cts.verifier.bluetooth.BleSecureEncryptedClientTestActivity");
         }
 
         setTestListAdapter(new ManifestTestListAdapter(this, getClass().getName(),

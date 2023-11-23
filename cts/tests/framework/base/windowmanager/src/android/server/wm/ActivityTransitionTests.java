@@ -32,6 +32,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.cts.R;
 import android.util.Range;
@@ -44,6 +45,7 @@ import org.junit.Test;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * <p>Build/Install/Run:
@@ -78,15 +80,15 @@ public class ActivityTransitionTests extends ActivityManagerTestBase {
         final Range<Long> durationRange = new Range<>(minDurationMs, maxDurationMs);
 
         final CountDownLatch latch = new CountDownLatch(1);
-        long[] transitionStartTime = new long[1];
-        long[] transitionEndTime = new long[1];
+        AtomicLong transitionStartTime = new AtomicLong();
+        AtomicLong transitionEndTime = new AtomicLong();
 
         final ActivityOptions.OnAnimationStartedListener startedListener = () -> {
-            transitionStartTime[0] = System.currentTimeMillis();
+            transitionStartTime.set(SystemClock.elapsedRealtime());
         };
 
         final ActivityOptions.OnAnimationFinishedListener finishedListener = () -> {
-            transitionEndTime[0] = System.currentTimeMillis();
+            transitionEndTime.set(SystemClock.elapsedRealtime());
             latch.countDown();
         };
 
@@ -105,7 +107,7 @@ public class ActivityTransitionTests extends ActivityManagerTestBase {
                 DEFAULT_DISPLAY, "Activity must be launched");
 
         latch.await(2, TimeUnit.SECONDS);
-        final long totalTime = transitionEndTime[0] - transitionStartTime[0];
+        final long totalTime = transitionEndTime.get() - transitionStartTime.get();
         assertTrue("Actual transition duration should be in the range "
                 + "<" + minDurationMs + ", " + maxDurationMs + "> ms, "
                 + "actual=" + totalTime, durationRange.contains(totalTime));
@@ -121,15 +123,15 @@ public class ActivityTransitionTests extends ActivityManagerTestBase {
         final Range<Long> durationRange = new Range<>(minDurationMs, maxDurationMs);
 
         final CountDownLatch latch = new CountDownLatch(1);
-        long[] transitionStartTime = new long[1];
-        long[] transitionEndTime = new long[1];
+        AtomicLong transitionStartTime = new AtomicLong();
+        AtomicLong transitionEndTime = new AtomicLong();
 
         final ActivityOptions.OnAnimationStartedListener startedListener = () -> {
-            transitionStartTime[0] = System.currentTimeMillis();
+            transitionStartTime.set(SystemClock.elapsedRealtime());
         };
 
         final ActivityOptions.OnAnimationFinishedListener finishedListener = () -> {
-            transitionEndTime[0] = System.currentTimeMillis();
+            transitionEndTime.set(SystemClock.elapsedRealtime());
             latch.countDown();
         };
 
@@ -144,7 +146,7 @@ public class ActivityTransitionTests extends ActivityManagerTestBase {
                 "Activity must be launched");
 
         latch.await(2, TimeUnit.SECONDS);
-        final long totalTime = transitionEndTime[0] - transitionStartTime[0];
+        final long totalTime = transitionEndTime.get() - transitionStartTime.get();
         assertTrue("Actual transition duration should be in the range "
                 + "<" + minDurationMs + ", " + maxDurationMs + "> ms, "
                 + "actual=" + totalTime, durationRange.contains(totalTime));
@@ -160,15 +162,15 @@ public class ActivityTransitionTests extends ActivityManagerTestBase {
         final Range<Long> durationRange = new Range<>(minDurationMs, maxDurationMs);
 
         final CountDownLatch latch = new CountDownLatch(1);
-        long[] transitionStartTime = new long[1];
-        long[] transitionEndTime = new long[1];
+        AtomicLong transitionStartTime = new AtomicLong();
+        AtomicLong transitionEndTime = new AtomicLong();
 
         final ActivityOptions.OnAnimationStartedListener startedListener = () -> {
-            transitionStartTime[0] = System.currentTimeMillis();
+            transitionStartTime.set(SystemClock.elapsedRealtime());
         };
 
         final ActivityOptions.OnAnimationFinishedListener finishedListener = () -> {
-            transitionEndTime[0] = System.currentTimeMillis();
+            transitionEndTime.set(SystemClock.elapsedRealtime());
             latch.countDown();
         };
 
@@ -185,7 +187,7 @@ public class ActivityTransitionTests extends ActivityManagerTestBase {
                 "Activity must be launched");
 
         latch.await(2, TimeUnit.SECONDS);
-        final long totalTime = transitionEndTime[0] - transitionStartTime[0];
+        final long totalTime = transitionEndTime.get() - transitionStartTime.get();
         assertTrue("Actual transition duration should be in the range "
                 + "<" + minDurationMs + ", " + maxDurationMs + "> ms, "
                 + "actual=" + totalTime, durationRange.contains(totalTime));
@@ -201,15 +203,15 @@ public class ActivityTransitionTests extends ActivityManagerTestBase {
         final Range<Long> durationRange = new Range<>(minDurationMs, maxDurationMs);
 
         final CountDownLatch latch = new CountDownLatch(1);
-        long[] transitionStartTime = new long[1];
-        long[] transitionEndTime = new long[1];
+        AtomicLong transitionStartTime = new AtomicLong();
+        AtomicLong transitionEndTime = new AtomicLong();
 
         final ActivityOptions.OnAnimationStartedListener startedListener = () -> {
-            transitionStartTime[0] = System.currentTimeMillis();
+            transitionStartTime.set(SystemClock.elapsedRealtime());
         };
 
         final ActivityOptions.OnAnimationFinishedListener finishedListener = () -> {
-            transitionEndTime[0] = System.currentTimeMillis();
+            transitionEndTime.set(SystemClock.elapsedRealtime());
             latch.countDown();
         };
 
@@ -226,7 +228,7 @@ public class ActivityTransitionTests extends ActivityManagerTestBase {
                     "Activity must be launched");
 
             latch.await(2, TimeUnit.SECONDS);
-            final long totalTime = transitionEndTime[0] - transitionStartTime[0];
+            final long totalTime = transitionEndTime.get() - transitionStartTime.get();
             assertTrue("Actual transition duration should be in the range "
                     + "<" + minDurationMs + ", " + maxDurationMs + "> ms, "
                     + "actual=" + totalTime, durationRange.contains(totalTime));

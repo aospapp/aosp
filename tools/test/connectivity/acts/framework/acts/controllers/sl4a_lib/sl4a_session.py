@@ -55,6 +55,7 @@ class Sl4aSession(object):
                  device_port,
                  get_server_port_func,
                  on_error_callback,
+                 forwarded_port=0,
                  max_connections=None):
         """Creates an SL4A Session.
 
@@ -67,6 +68,8 @@ class Sl4aSession(object):
                 server for its first connection.
             device_port: The SL4A server port to be used as a hint for which
                 SL4A server to connect to.
+            forwarded_port: The server port on host machine forwarded by adb
+                            from Android device to accept SL4A connection
         """
         self._event_dispatcher = None
         self._terminate_lock = threading.Lock()
@@ -79,24 +82,24 @@ class Sl4aSession(object):
 
         self.log = logger.create_logger(_log_formatter)
 
+        self.forwarded_port = forwarded_port
         self.server_port = device_port
         self.uid = UNKNOWN_UID
         self.obtain_server_port = get_server_port_func
         self._on_error_callback = on_error_callback
 
         connection_creator = self._rpc_connection_creator(host_port)
-        self.rpc_client = rpc_client.RpcClient(
-            self.uid,
-            self.adb.serial,
-            self.diagnose_failure,
-            connection_creator,
-            max_connections=max_connections)
+        self.rpc_client = rpc_client.RpcClient(self.uid,
+                                               self.adb.serial,
+                                               self.diagnose_failure,
+                                               connection_creator,
+                                               max_connections=max_connections)
 
     def _rpc_connection_creator(self, host_port):
         def create_client(uid):
-            return self._create_rpc_connection(
-                ports=sl4a_ports.Sl4aPorts(host_port, 0, self.server_port),
-                uid=uid)
+            return self._create_rpc_connection(ports=sl4a_ports.Sl4aPorts(
+                host_port, self.forwarded_port, self.server_port),
+                                               uid=uid)
 
         return create_client
 
@@ -156,10 +159,14 @@ class Sl4aSession(object):
         ports.server_port = self.obtain_server_port(ports.server_port)
         self.server_port = ports.server_port
         # Forward the device port to the host.
-        ports.forwarded_port = self._create_forwarded_port(ports.server_port)
+        ports.forwarded_port = self._create_forwarded_port(
+            ports.server_port, hinted_port=ports.forwarded_port)
         client_socket, fd = self._create_client_side_connection(ports)
-        client = rpc_connection.RpcConnection(
-            self.adb, ports, client_socket, fd, uid=uid)
+        client = rpc_connection.RpcConnection(self.adb,
+                                              ports,
+                                              client_socket,
+                                              fd,
+                                              uid=uid)
         client.open()
         if uid == UNKNOWN_UID:
             self.uid = client.uid
@@ -195,9 +202,9 @@ class Sl4aSession(object):
             except OSError as e:
                 # If the port is in use, log and ask for any open port.
                 if e.errno == errno.EADDRINUSE:
-                    self.log.warning(
-                        'Port %s is already in use on the host. '
-                        'Generating a random port.' % ports.client_port)
+                    self.log.warning('Port %s is already in use on the host. '
+                                     'Generating a random port.' %
+                                     ports.client_port)
                     ports.client_port = 0
                     return self._create_client_side_connection(ports)
                 raise

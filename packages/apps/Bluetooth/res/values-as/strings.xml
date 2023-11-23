@@ -93,8 +93,8 @@
     <string name="status_not_accept" msgid="1695082417193780738">"সমল সমৰ্থিত নহয়।"</string>
     <string name="status_forbidden" msgid="613956401054050725">"নিৰ্দিষ্ট কৰা ডিভাইচটোৱে স্থানান্তৰণ নিষিদ্ধ কৰিছে।"</string>
     <string name="status_canceled" msgid="6664490318773098285">"ব্যৱহাৰকাৰীয়ে স্থানান্তৰণ বাতিল কৰিছে।"</string>
-    <string name="status_file_error" msgid="3671917770630165299">"সঞ্চয়াগাৰৰ সমস্যা।"</string>
-    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"কোনো USB সঞ্চয়াগাৰ নাই।"</string>
+    <string name="status_file_error" msgid="3671917770630165299">"ষ্ট’ৰেজৰ সমস্যা।"</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"কোনো ইউএছবি ষ্ট’ৰেজ নাই।"</string>
     <string name="status_no_sd_card_default" msgid="396564893716701954">"কোনো SD কাৰ্ড নাই। স্থানান্তৰ কৰা ফাইলসমূহ ছেভ কৰিবলৈ SD কাৰ্ড ভৰাওক।"</string>
     <string name="status_connection_error" msgid="947681831523219891">"সংযোগ কৰিব পৰা নগ\'ল।"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"অনুৰোধ সঠিকভাৱে পৰিচালনা কৰিব নোৱাৰি।"</string>
@@ -106,7 +106,7 @@
     <string name="inbound_history_title" msgid="6940914942271327563">"অন্তৰ্গামী স্থানান্তৰণসমূহ"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"বহিৰ্গামী স্থানান্তৰণসমূহ"</string>
     <string name="no_transfers" msgid="3482965619151865672">"স্থানান্তৰণৰ ইতিহাস খালী আছে।"</string>
-    <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"সকলো সমল সূচীৰ পৰা মচা হ\'ব।"</string>
+    <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"আটাইবোৰ সমল সূচীৰ পৰা মচা হ\'ব।"</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"ব্লুটুথ শ্বেয়াৰ: প্ৰেৰণ কৰা ফাইলসমূহ"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"ব্লুটুথ শ্বেয়াৰ: লাভ কৰা ফাইলসমূহ"</string>
     <plurals name="noti_caption_unsuccessful" formatted="false" msgid="2020750076679526122">
@@ -127,7 +127,7 @@
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"ব্লুটুথৰ জৰিয়তে শ্বেয়াৰ কৰিব খোজা একাউণ্টসমূহ বাছক। তথাপিও সংযোগ কৰি থাকোঁতে আপুনি একাউণ্টসমূহক সকলো ধৰণৰ অনুমতি দিবই লাগিব।"</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"বাকী থকা শ্লটবোৰ:"</string>
     <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"এপ্লিকেশ্বন আইকন"</string>
-    <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ব্লুটুথৰ জৰিয়তে বাৰ্তা শ্বেয়াৰ কৰাৰ ছেটিংসমূহ"</string>
+    <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ব্লুটুথৰ জৰিয়তে বাৰ্তা শ্বেয়াৰ কৰাৰ ছেটিং"</string>
     <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"একাউণ্ট বাছনি কৰিব নোৱাৰি। ০টা শ্লটবোৰ বাকী আছে"</string>
     <string name="bluetooth_connected" msgid="6718623220072656906">"ব্লুটুথ অডিঅ’ সংযুক্ত কৰা হ’ল"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ব্লুটুথ অডিঅ\'ৰ সৈতে সংযোগ বিচ্ছিন্ন কৰা হ’ল"</string>

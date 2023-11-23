@@ -18,6 +18,7 @@ package com.android.systemui.doze;
 
 import static com.android.systemui.doze.DozeMachine.State.DOZE;
 import static com.android.systemui.doze.DozeMachine.State.DOZE_AOD;
+import static com.android.systemui.doze.DozeMachine.State.DOZE_AOD_DOCKED;
 import static com.android.systemui.doze.DozeMachine.State.DOZE_AOD_PAUSED;
 import static com.android.systemui.doze.DozeMachine.State.DOZE_AOD_PAUSING;
 import static com.android.systemui.doze.DozeMachine.State.DOZE_PULSE_DONE;
@@ -29,6 +30,7 @@ import static com.android.systemui.doze.DozeMachine.State.UNINITIALIZED;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -42,13 +44,15 @@ import android.os.PowerManager;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.testing.AndroidTestingRunner;
-import android.view.Display;
 
 import androidx.test.filters.SmallTest;
 
 import com.android.systemui.SysuiTestCase;
+import com.android.systemui.dock.DockManager;
 import com.android.systemui.keyguard.WakefulnessLifecycle;
 import com.android.systemui.statusbar.phone.DozeParameters;
+import com.android.systemui.statusbar.phone.UnlockedScreenOffAnimationController;
+import com.android.systemui.statusbar.policy.DevicePostureController;
 import com.android.systemui.util.concurrency.FakeExecutor;
 import com.android.systemui.util.concurrency.FakeThreadFactory;
 import com.android.systemui.util.sensors.AsyncSensorManager;
@@ -58,6 +62,7 @@ import com.android.systemui.util.time.FakeSystemClock;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -74,6 +79,7 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
 
     private DozeServiceFake mServiceFake;
     private FakeSensorManager.FakeGenericSensor mSensor;
+    private FakeSensorManager.FakeGenericSensor mSensorInner;
     private AsyncSensorManager mSensorManager;
     private AlwaysOnDisplayPolicy mAlwaysOnDisplayPolicy;
     @Mock
@@ -82,6 +88,14 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
     WakefulnessLifecycle mWakefulnessLifecycle;
     @Mock
     DozeParameters mDozeParameters;
+    @Mock
+    DockManager mDockManager;
+    @Mock
+    DevicePostureController mDevicePostureController;
+    @Mock
+    DozeLog mDozeLog;
+    @Mock
+    private UnlockedScreenOffAnimationController mUnlockedScreenOffAnimationController;
     private FakeExecutor mFakeExecutor = new FakeExecutor(new FakeSystemClock());
     private FakeThreadFactory mFakeThreadFactory = new FakeThreadFactory(mFakeExecutor);
 
@@ -107,11 +121,20 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
         mAlwaysOnDisplayPolicy.dimBrightness = DIM_BRIGHTNESS;
         mAlwaysOnDisplayPolicy.dimmingScrimArray = SENSOR_TO_OPACITY;
         mSensor = fakeSensorManager.getFakeLightSensor();
-        mScreen = new DozeScreenBrightness(mContext, mServiceFake, mSensorManager,
-                Optional.of(mSensor.getSensor()), mDozeHost, null /* handler */,
-                mAlwaysOnDisplayPolicy, mWakefulnessLifecycle, mDozeParameters);
-
-        mScreen.onScreenState(Display.STATE_ON);
+        mSensorInner = fakeSensorManager.getFakeLightSensor2();
+        mScreen = new DozeScreenBrightness(
+                mContext,
+                mServiceFake,
+                mSensorManager,
+                new Optional[]{Optional.of(mSensor.getSensor())},
+                mDozeHost,
+                null /* handler */,
+                mAlwaysOnDisplayPolicy,
+                mWakefulnessLifecycle,
+                mDozeParameters,
+                mDevicePostureController,
+                mDozeLog,
+                mUnlockedScreenOffAnimationController);
     }
 
     @Test
@@ -123,18 +146,9 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
     }
 
     @Test
-    public void testAod_usesLightSensor() {
-        mScreen.onScreenState(Display.STATE_DOZE);
-        waitForSensorManager();
-
-        mSensor.sendSensorEvent(3);
-
-        assertEquals(3, mServiceFake.screenBrightness);
-    }
-
-    @Test
     public void testAod_usesDebugValue() throws Exception {
-        mScreen.onScreenState(Display.STATE_DOZE);
+        mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
+        mScreen.transitionTo(INITIALIZED, DOZE_AOD);
         waitForSensorManager();
 
         Intent intent = new Intent(DozeScreenBrightness.ACTION_AOD_BRIGHTNESS);
@@ -157,10 +171,53 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
     }
 
     @Test
+    public void doze_doesNotUseLightSensor() {
+        // GIVEN the device is DOZE and the display state changes to ON
+        mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
+        mScreen.transitionTo(INITIALIZED, DOZE);
+        waitForSensorManager();
+
+        // WHEN new sensor event sent
+        mSensor.sendSensorEvent(3);
+
+        // THEN brightness is NOT changed, it's set to the default brightness
+        assertNotSame(3, mServiceFake.screenBrightness);
+        assertEquals(DEFAULT_BRIGHTNESS, mServiceFake.screenBrightness);
+    }
+
+    @Test
+    public void aod_usesLightSensor() {
+        // GIVEN the device is DOZE_AOD and the display state changes to ON
+        mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
+        mScreen.transitionTo(INITIALIZED, DOZE_AOD);
+        waitForSensorManager();
+
+        // WHEN new sensor event sent
+        mSensor.sendSensorEvent(3);
+
+        // THEN brightness is updated
+        assertEquals(3, mServiceFake.screenBrightness);
+    }
+
+    @Test
+    public void docked_usesLightSensor() {
+        // GIVEN the device is docked and the display state changes to ON
+        mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
+        mScreen.transitionTo(INITIALIZED, DOZE_AOD);
+        mScreen.transitionTo(DOZE_AOD, DOZE_AOD_DOCKED);
+        waitForSensorManager();
+
+        // WHEN new sensor event sent
+        mSensor.sendSensorEvent(3);
+
+        // THEN brightness is updated
+        assertEquals(3, mServiceFake.screenBrightness);
+    }
+
+    @Test
     public void testPausingAod_doesNotResetBrightness() throws Exception {
         mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
         mScreen.transitionTo(INITIALIZED, DOZE_AOD);
-        mScreen.onScreenState(Display.STATE_DOZE);
         waitForSensorManager();
 
         mSensor.sendSensorEvent(1);
@@ -173,9 +230,18 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
 
     @Test
     public void testPulsing_withoutLightSensor_setsAoDDimmingScrimTransparent() throws Exception {
-        mScreen = new DozeScreenBrightness(mContext, mServiceFake, mSensorManager,
-                Optional.empty() /* sensor */, mDozeHost, null /* handler */,
-                mAlwaysOnDisplayPolicy, mWakefulnessLifecycle, mDozeParameters);
+        mScreen = new DozeScreenBrightness(
+                mContext,
+                mServiceFake,
+                mSensorManager,
+                new Optional[] {Optional.empty()} /* sensor */,
+                mDozeHost, null /* handler */,
+                mAlwaysOnDisplayPolicy,
+                mWakefulnessLifecycle,
+                mDozeParameters,
+                mDevicePostureController,
+                mDozeLog,
+                mUnlockedScreenOffAnimationController);
         mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
         mScreen.transitionTo(INITIALIZED, DOZE);
         reset(mDozeHost);
@@ -201,36 +267,157 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
     }
 
     @Test
-    public void testOnScreenStateSetBeforeTransition_stillRegistersSensor() {
-        mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
-        mScreen.onScreenState(Display.STATE_DOZE);
-        mScreen.transitionTo(INITIALIZED, DOZE_AOD);
-        waitForSensorManager();
-
-        mSensor.sendSensorEvent(1);
-
-        assertEquals(1, mServiceFake.screenBrightness);
-    }
-
-    @Test
     public void testNullSensor() throws Exception {
-        mScreen = new DozeScreenBrightness(mContext, mServiceFake, mSensorManager,
-                Optional.empty() /* sensor */, mDozeHost, null /* handler */,
-                mAlwaysOnDisplayPolicy, mWakefulnessLifecycle, mDozeParameters);
+        mScreen = new DozeScreenBrightness(
+                mContext,
+                mServiceFake,
+                mSensorManager,
+                new Optional[]{Optional.empty()} /* sensor */,
+                mDozeHost, null /* handler */,
+                mAlwaysOnDisplayPolicy,
+                mWakefulnessLifecycle,
+                mDozeParameters,
+                mDevicePostureController,
+                mDozeLog,
+                mUnlockedScreenOffAnimationController);
 
         mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
         mScreen.transitionTo(INITIALIZED, DOZE_AOD);
         mScreen.transitionTo(DOZE_AOD, DOZE_AOD_PAUSING);
         mScreen.transitionTo(DOZE_AOD_PAUSING, DOZE_AOD_PAUSED);
-        mScreen.onScreenState(Display.STATE_DOZE);
-        mScreen.onScreenState(Display.STATE_OFF);
+    }
+
+    @Test
+    public void testSensorsSupportPostures_closed() throws Exception {
+        // GIVEN the device is CLOSED
+        when(mDevicePostureController.getDevicePosture()).thenReturn(
+                DevicePostureController.DEVICE_POSTURE_CLOSED);
+
+        // GIVEN closed and opened postures use different light sensors
+        mScreen = new DozeScreenBrightness(
+                mContext,
+                mServiceFake,
+                mSensorManager,
+                new Optional[]{
+                        Optional.empty() /* unknown */,
+                        Optional.of(mSensor.getSensor()) /* closed */,
+                        Optional.of(mSensorInner.getSensor()) /* half-opened */,
+                        Optional.of(mSensorInner.getSensor()) /* opened */,
+                        Optional.empty() /* flipped */
+                },
+                mDozeHost, null /* handler */,
+                mAlwaysOnDisplayPolicy,
+                mWakefulnessLifecycle,
+                mDozeParameters,
+                mDevicePostureController,
+                mDozeLog,
+                mUnlockedScreenOffAnimationController);
+
+        // GIVEN the device is in AOD
+        mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
+        mScreen.transitionTo(INITIALIZED, DOZE_AOD);
+        waitForSensorManager();
+
+        // WHEN new different events are sent from the inner and outer sensors
+        mSensor.sendSensorEvent(3); // CLOSED sensor
+        mSensorInner.sendSensorEvent(4); // OPENED sensor
+
+        // THEN brightness is updated according to the sensor for CLOSED
+        assertEquals(3, mServiceFake.screenBrightness);
+    }
+
+    @Test
+    public void testSensorsSupportPostures_open() throws Exception {
+        // GIVEN the device is OPENED
+        when(mDevicePostureController.getDevicePosture()).thenReturn(
+                DevicePostureController.DEVICE_POSTURE_OPENED);
+
+        // GIVEN closed and opened postures use different light sensors
+        mScreen = new DozeScreenBrightness(
+                mContext,
+                mServiceFake,
+                mSensorManager,
+                new Optional[]{
+                        Optional.empty() /* unknown */,
+                        Optional.of(mSensor.getSensor()) /* closed */,
+                        Optional.of(mSensorInner.getSensor()) /* half-opened */,
+                        Optional.of(mSensorInner.getSensor()) /* opened */,
+                        Optional.empty() /* flipped */
+                },
+                mDozeHost, null /* handler */,
+                mAlwaysOnDisplayPolicy,
+                mWakefulnessLifecycle,
+                mDozeParameters,
+                mDevicePostureController,
+                mDozeLog,
+                mUnlockedScreenOffAnimationController);
+
+        // GIVEN device is in AOD
+        mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
+        mScreen.transitionTo(INITIALIZED, DOZE_AOD);
+        waitForSensorManager();
+
+        // WHEN new different events are sent from the inner and outer sensors
+        mSensorInner.sendSensorEvent(4); // OPENED sensor
+        mSensor.sendSensorEvent(3); // CLOSED sensor
+
+        // THEN brightness is updated according to the sensor for OPENED
+        assertEquals(4, mServiceFake.screenBrightness);
+    }
+
+    @Test
+    public void testSensorsSupportPostures_swapPostures() throws Exception {
+        ArgumentCaptor<DevicePostureController.Callback> postureCallbackCaptor =
+                ArgumentCaptor.forClass(DevicePostureController.Callback.class);
+        reset(mDevicePostureController);
+
+        // GIVEN the device starts up AOD OPENED
+        when(mDevicePostureController.getDevicePosture()).thenReturn(
+                DevicePostureController.DEVICE_POSTURE_OPENED);
+
+        // GIVEN closed and opened postures use different light sensors
+        mScreen = new DozeScreenBrightness(
+                mContext,
+                mServiceFake,
+                mSensorManager,
+                new Optional[]{
+                        Optional.empty() /* unknown */,
+                        Optional.of(mSensor.getSensor()) /* closed */,
+                        Optional.of(mSensorInner.getSensor()) /* half-opened */,
+                        Optional.of(mSensorInner.getSensor()) /* opened */,
+                        Optional.empty() /* flipped */
+                },
+                mDozeHost, null /* handler */,
+                mAlwaysOnDisplayPolicy,
+                mWakefulnessLifecycle,
+                mDozeParameters,
+                mDevicePostureController,
+                mDozeLog,
+                mUnlockedScreenOffAnimationController);
+        verify(mDevicePostureController).addCallback(postureCallbackCaptor.capture());
+
+        // GIVEN device is in AOD
+        mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
+        mScreen.transitionTo(INITIALIZED, DOZE_AOD);
+        waitForSensorManager();
+
+        // WHEN the posture changes to CLOSED
+        postureCallbackCaptor.getValue().onPostureChanged(
+                DevicePostureController.DEVICE_POSTURE_CLOSED);
+        waitForSensorManager();
+
+        // WHEN new different events are sent from the inner and outer sensors
+        mSensor.sendSensorEvent(3); // CLOSED sensor
+        mSensorInner.sendSensorEvent(4); // OPENED sensor
+
+        // THEN brightness is updated according to the sensor for CLOSED
+        assertEquals(3, mServiceFake.screenBrightness);
     }
 
     @Test
     public void testNoBrightnessDeliveredAfterFinish() throws Exception {
         mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
         mScreen.transitionTo(INITIALIZED, DOZE_AOD);
-        mScreen.onScreenState(Display.STATE_DOZE);
         mScreen.transitionTo(DOZE_AOD, FINISH);
         waitForSensorManager();
 
@@ -243,7 +430,6 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
     public void testNonPositiveBrightness_keepsPreviousBrightnessAndScrim() {
         mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
         mScreen.transitionTo(INITIALIZED, DOZE_AOD);
-        mScreen.onScreenState(Display.STATE_DOZE);
         waitForSensorManager();
 
         mSensor.sendSensorEvent(1);
@@ -257,7 +443,6 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
     public void pausingAod_unblanksAfterSensor() {
         mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
         mScreen.transitionTo(INITIALIZED, DOZE_AOD);
-        mScreen.onScreenState(Display.STATE_DOZE);
         waitForSensorManager();
 
         mSensor.sendSensorEvent(2);
@@ -269,7 +454,6 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
 
         reset(mDozeHost);
         mScreen.transitionTo(DOZE_AOD_PAUSED, DOZE_AOD);
-        mScreen.onScreenState(Display.STATE_DOZE);
         waitForSensorManager();
         mSensor.sendSensorEvent(2);
         verify(mDozeHost).setAodDimmingScrim(eq(0f));
@@ -279,7 +463,6 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
     public void pausingAod_unblanksIfSensorWasAlwaysReady() throws Exception {
         mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
         mScreen.transitionTo(INITIALIZED, DOZE_AOD);
-        mScreen.onScreenState(Display.STATE_DOZE);
         waitForSensorManager();
 
         mSensor.sendSensorEvent(2);
@@ -292,24 +475,26 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
     }
 
     @Test
-    public void transitionToDoze_duringScreenOff_afterTimeout_clampsToDim() {
+    public void transitionToDoze_duringUnlockedScreenOff_afterTimeout_clampsToDim() {
         when(mWakefulnessLifecycle.getLastSleepReason()).thenReturn(
                 PowerManager.GO_TO_SLEEP_REASON_TIMEOUT);
         when(mDozeParameters.shouldControlUnlockedScreenOff()).thenReturn(true);
+        when(mUnlockedScreenOffAnimationController.isScreenOffAnimationPlaying()).thenReturn(true);
 
         mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
         mScreen.transitionTo(INITIALIZED, DOZE);
 
         // If we're dozing after a timeout, and playing the unlocked screen animation, we should
-        // stay at dim brightness, because the screen dims just before timeout.
-        assertEquals(mServiceFake.screenBrightness, DIM_BRIGHTNESS);
+        // stay at or below dim brightness, because the screen dims just before timeout.
+        assertTrue(mServiceFake.screenBrightness <= DIM_BRIGHTNESS);
     }
 
     @Test
-    public void transitionToDoze_duringScreenOff_notAfterTimeout_doesNotClampToDim() {
+    public void transitionToDoze_duringUnlockedScreenOff_notAfterTimeout_doesNotClampToDim() {
         when(mWakefulnessLifecycle.getLastSleepReason()).thenReturn(
                 PowerManager.GO_TO_SLEEP_REASON_POWER_BUTTON);
         when(mDozeParameters.shouldControlUnlockedScreenOff()).thenReturn(true);
+        when(mUnlockedScreenOffAnimationController.isScreenOffAnimationPlaying()).thenReturn(true);
 
         mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
         mScreen.transitionTo(INITIALIZED, DOZE);
@@ -320,15 +505,46 @@ public class DozeScreenBrightnessTest extends SysuiTestCase {
     }
 
     @Test
-    public void transitionToDoze_duringScreenOff_afterTimeout_noScreenOff_doesNotClampToDim() {
+    public void transitionToDoze_duringUnlockedScreenOff_afterTimeout_noScreenOff_doesNotClampToDim() {
         when(mWakefulnessLifecycle.getLastSleepReason()).thenReturn(
                 PowerManager.GO_TO_SLEEP_REASON_TIMEOUT);
         when(mDozeParameters.shouldControlUnlockedScreenOff()).thenReturn(false);
+        when(mUnlockedScreenOffAnimationController.isScreenOffAnimationPlaying()).thenReturn(false);
 
         mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
         mScreen.transitionTo(INITIALIZED, DOZE);
 
         // If we aren't controlling the screen off animation, we should leave the brightness alone.
+        assertEquals(mServiceFake.screenBrightness, DEFAULT_BRIGHTNESS);
+    }
+
+    @Test
+    public void transitionToDoze_duringLockedScreenOff_afterTimeout_clampsToDim() {
+        when(mWakefulnessLifecycle.getLastSleepReason()).thenReturn(
+                PowerManager.GO_TO_SLEEP_REASON_TIMEOUT);
+        when(mWakefulnessLifecycle.getWakefulness()).thenReturn(
+                WakefulnessLifecycle.WAKEFULNESS_GOING_TO_SLEEP);
+        when(mDozeParameters.shouldControlUnlockedScreenOff()).thenReturn(false);
+        when(mUnlockedScreenOffAnimationController.isScreenOffAnimationPlaying()).thenReturn(false);
+
+        mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
+        mScreen.transitionTo(INITIALIZED, DOZE);
+
+        assertTrue(mServiceFake.screenBrightness <= DIM_BRIGHTNESS);
+    }
+
+    @Test
+    public void transitionToDoze_duringLockedScreenOff_notAfterTimeout_doesNotClampToDim() {
+        when(mWakefulnessLifecycle.getLastSleepReason()).thenReturn(
+                PowerManager.GO_TO_SLEEP_REASON_POWER_BUTTON);
+        when(mWakefulnessLifecycle.getWakefulness()).thenReturn(
+                WakefulnessLifecycle.WAKEFULNESS_GOING_TO_SLEEP);
+        when(mDozeParameters.shouldControlUnlockedScreenOff()).thenReturn(false);
+        when(mUnlockedScreenOffAnimationController.isScreenOffAnimationPlaying()).thenReturn(false);
+
+        mScreen.transitionTo(UNINITIALIZED, INITIALIZED);
+        mScreen.transitionTo(INITIALIZED, DOZE);
+
         assertEquals(mServiceFake.screenBrightness, DEFAULT_BRIGHTNESS);
     }
 

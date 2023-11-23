@@ -90,8 +90,10 @@ bool translateSystemPathToApexPath(const char* name, std::string* out_name) {
     SYSTEM_LIB("libz.so"),
     // Apex/system after R.
     APEX_LIB("com.android.i18n", "libandroidicu.so"),
+    APEX_LIB("com.android.i18n", "libicu.so"),
     APEX_LIB("com.android.i18n", "libicui18n.so"),
     APEX_LIB("com.android.i18n", "libicuuc.so"),
+    APEX_LIB("com.android.neuralnetworks", "libneuralnetworks.so"),
     // Apex/system on R (see http://b/161958857).
     APEX_LIB("com.android.art", "libicui18n.so"),
     APEX_LIB("com.android.art", "libicuuc.so"),

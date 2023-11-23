@@ -16,6 +16,8 @@
 
 package com.android.car;
 
+import static com.android.car.CarInputService.ENABLED_ACCESSIBILITY_SERVICES_SEPARATOR;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -48,6 +50,7 @@ import androidx.test.core.app.ApplicationProvider;
 import com.android.car.hal.InputHalService;
 import com.android.car.hal.UserHalService;
 import com.android.car.internal.common.CommonConstants.UserLifecycleEventType;
+import com.android.car.pm.CarSafetyAccessibilityService;
 import com.android.car.user.CarUserService;
 import com.android.internal.app.AssistUtils;
 import com.android.internal.util.test.BroadcastInterceptingContext;
@@ -140,12 +143,21 @@ public class CarInputRotaryServiceTest {
     }
 
     @Test
-    public void rotaryServiceSettingsUpdated_whenRotaryServiceIsNotEmpty() throws Exception {
+    public void accessibilitySettingsUpdated_whenRotaryServiceIsNotEmpty() throws Exception {
+        final String existingService = "com.android.temp/com.android.car.TempService";
         final String rotaryService = "com.android.car.rotary/com.android.car.rotary.RotaryService";
+        final String carSafetyAccessibilityService = mContext.getPackageName()
+                + "/"
+                + CarSafetyAccessibilityService.class.getName();
         init(rotaryService);
         assertThat(mMockContext.getString(R.string.rotaryService)).isEqualTo(rotaryService);
-
         final int userId = 11;
+        Settings.Secure.putStringForUser(
+                mMockContext.getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                existingService,
+                userId);
+
 
         // By default RotaryService is not enabled.
         String enabledServices = Settings.Secure.getStringForUser(
@@ -167,7 +179,12 @@ public class CarInputRotaryServiceTest {
                 mMockContext.getContentResolver(),
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
                 userId);
-        assertThat(enabledServices).contains(rotaryService);
+        assertThat(enabledServices).isEqualTo(
+                existingService
+                        + ENABLED_ACCESSIBILITY_SERVICES_SEPARATOR
+                        + carSafetyAccessibilityService
+                        + ENABLED_ACCESSIBILITY_SERVICES_SEPARATOR
+                        + rotaryService);
 
         enabled = Settings.Secure.getStringForUser(
                 mMockContext.getContentResolver(),
@@ -177,7 +194,11 @@ public class CarInputRotaryServiceTest {
     }
 
     @Test
-    public void rotaryServiceSettingsNotUpdated_whenRotaryServiceIsEmpty() throws Exception {
+    public void accessibilitySettingsUpdated_withoutRotaryService_whenRotaryServiceIsEmpty()
+            throws Exception {
+        final String carSafetyAccessibilityService = mContext.getPackageName()
+                + "/"
+                + CarSafetyAccessibilityService.class.getName();
         final String rotaryService = "";
         init(rotaryService);
         assertThat(mMockContext.getString(R.string.rotaryService)).isEqualTo(rotaryService);
@@ -199,7 +220,55 @@ public class CarInputRotaryServiceTest {
                 mMockContext.getContentResolver(),
                 Settings.Secure.ACCESSIBILITY_ENABLED,
                 userId);
+        assertThat(enabled).isEqualTo("1");
+        String enabledServices = Settings.Secure.getStringForUser(
+                mMockContext.getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                userId);
+        assertThat(enabledServices).isEqualTo(carSafetyAccessibilityService);
+    }
+
+    @Test
+    public void accessibilitySettingsUpdated_accessibilityServicesAlreadyEnabled()
+            throws Exception {
+        final String rotaryService = "com.android.car.rotary/com.android.car.rotary.RotaryService";
+        final String carSafetyAccessibilityService = mContext.getPackageName()
+                + "/"
+                + CarSafetyAccessibilityService.class.getName();
+        init(rotaryService);
+        assertThat(mMockContext.getString(R.string.rotaryService)).isEqualTo(rotaryService);
+        final int userId = 11;
+        Settings.Secure.putStringForUser(
+                mMockContext.getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                carSafetyAccessibilityService
+                        + ENABLED_ACCESSIBILITY_SERVICES_SEPARATOR
+                        + rotaryService,
+                userId);
+
+        String enabled = Settings.Secure.getStringForUser(
+                mMockContext.getContentResolver(),
+                Settings.Secure.ACCESSIBILITY_ENABLED,
+                userId);
         assertThat(enabled).isNull();
+
+        // Enable RotaryService by sending user switch event.
+        sendUserLifecycleEvent(CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING, userId);
+
+        String enabledServices = Settings.Secure.getStringForUser(
+                mMockContext.getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                userId);
+        assertThat(enabledServices).isEqualTo(
+                carSafetyAccessibilityService
+                        + ENABLED_ACCESSIBILITY_SERVICES_SEPARATOR
+                        + rotaryService);
+
+        enabled = Settings.Secure.getStringForUser(
+                mMockContext.getContentResolver(),
+                Settings.Secure.ACCESSIBILITY_ENABLED,
+                userId);
+        assertThat(enabled).isEqualTo("1");
     }
 
     @After

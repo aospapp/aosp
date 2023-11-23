@@ -664,8 +664,16 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
             currentConnections++;
             currentCallCount++;
         }
-        placeAndVerifyCall(extras, VideoProfile.STATE_AUDIO_ONLY, currentConnections,
-                currentCallCount);
+        placeAndVerifyCall(extras, VideoProfile.STATE_AUDIO_ONLY, currentCallCount);
+        // The connectionService.lock is released in
+        // MockConnectionService#onCreateOutgoingConnection, however the connection will not
+        // actually be added to the list of connections in the ConnectionService until shortly
+        // afterwards.  So there is still a potential for the lock to be released before it would
+        // be seen by calls to ConnectionService#getAllConnections().
+        // We will wait here until the list of connections includes one more connection to ensure
+        // that placing the call has fully completed.
+        assertCSConnections(currentConnections);
+
         // Ensure the new outgoing call broadcast fired for the outgoing call.
         assertOutgoingCallBroadcastReceived(true);
 
@@ -698,7 +706,16 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
     void placeAndVerifyCall(Bundle extras, int videoState) {
         int currentCallCount = (getInCallService() == null) ? 0 : getInCallService().getCallCount();
         // We expect placing the call adds a new call/connection.
-        placeAndVerifyCall(extras, videoState, getNumberOfConnections() + 1, currentCallCount + 1);
+        int expectedConnections = getNumberOfConnections() + 1;
+        placeAndVerifyCall(extras, videoState, currentCallCount + 1);
+        // The connectionService.lock is released in
+        // MockConnectionService#onCreateOutgoingConnection, however the connection will not
+        // actually be added to the list of connections in the ConnectionService until shortly
+        // afterwards.  So there is still a potential for the lock to be released before it would
+        // be seen by calls to ConnectionService#getAllConnections().
+        // We will wait here until the list of connections includes one more connection to ensure
+        // that placing the call has fully completed.
+        assertCSConnections(expectedConnections);
         assertOutgoingCallBroadcastReceived(true);
 
         // CTS test does not have read call log permission so should not get the phone number.
@@ -709,8 +726,7 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
      *  Puts Telecom in a state where there is an active call provided by the
      *  {@link CtsConnectionService} which can be tested.
      */
-    void placeAndVerifyCall(Bundle extras, int videoState, int expectedConnectionCount,
-            int expectedCallCount) {
+    void placeAndVerifyCall(Bundle extras, int videoState, int expectedCallCount) {
         assertEquals("Lock should have no permits!", 0, mInCallCallbacks.lock.availablePermits());
         placeNewCallWithPhoneAccount(extras, videoState);
 
@@ -730,15 +746,6 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
 
         assertEquals("InCallService should match the expected count.", expectedCallCount,
                 mInCallCallbacks.getService().getCallCount());
-
-        // The connectionService.lock is released in
-        // MockConnectionService#onCreateOutgoingConnection, however the connection will not
-        // actually be added to the list of connections in the ConnectionService until shortly
-        // afterwards.  So there is still a potential for the lock to be released before it would
-        // be seen by calls to ConnectionService#getAllConnections().
-        // We will wait here until the list of connections includes one more connection to ensure
-        // that placing the call has fully completed.
-        assertCSConnections(expectedConnectionCount);
     }
 
     /**
@@ -752,14 +759,26 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
     public Connection placeAndVerifyEmergencyCall(boolean supportsHold) {
         Bundle extras = new Bundle();
         extras.putParcelable(TestUtils.EXTRA_PHONE_NUMBER, TEST_EMERGENCY_URI);
+        // We want to request the active connections vs number of connections because in some cases,
+        // we wait to destroy the underlying connection to prevent race conditions. This will result
+        // in Connections in the DISCONNECTED state.
         int currentConnectionCount = supportsHold ?
-                getNumberOfConnections() + 1 : getNumberOfConnections();
+                getNumberOfActiveConnections() + 1 : getNumberOfActiveConnections();
         int currentCallCount = (getInCallService() == null) ? 0 : getInCallService().getCallCount();
         currentCallCount = supportsHold ? currentCallCount + 1 : currentCallCount;
         // The device only supports a max of two calls active at any one time
         currentCallCount = Math.min(currentCallCount, 2);
-        placeAndVerifyCall(extras, VideoProfile.STATE_AUDIO_ONLY, currentConnectionCount,
-                currentCallCount);
+
+        placeAndVerifyCall(extras, VideoProfile.STATE_AUDIO_ONLY, currentCallCount);
+        // The connectionService.lock is released in
+        // MockConnectionService#onCreateOutgoingConnection, however the connection will not
+        // actually be added to the list of connections in the ConnectionService until shortly
+        // afterwards.  So there is still a potential for the lock to be released before it would
+        // be seen by calls to ConnectionService#getAllConnections().
+        // We will wait here until the list of connections includes one more connection to ensure
+        // that placing the call has fully completed.
+        assertActiveCSConnections(currentConnectionCount);
+
         assertOutgoingCallBroadcastReceived(true);
         Connection connection = verifyConnectionForOutgoingCall(TEST_EMERGENCY_URI);
         TestUtils.waitOnAllHandlers(getInstrumentation());
@@ -768,6 +787,12 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
 
     int getNumberOfConnections() {
         return CtsConnectionService.getAllConnectionsFromTelecom().size();
+    }
+
+    int getNumberOfActiveConnections() {
+        return CtsConnectionService.getAllConnectionsFromTelecom().stream()
+                .filter(c -> c.getState() != Connection.STATE_DISCONNECTED).collect(
+                        Collectors.toSet()).size();
     }
 
     Connection getConnection(Uri address) {
@@ -1215,6 +1240,23 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
         WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
         "InCallService should contain " + numCalls + " conference calls."
     );
+    }
+
+    void assertActiveCSConnections(final int numConnections) {
+        waitUntilConditionIsTrueOrTimeout(new Condition() {
+                                              @Override
+                                              public Object expected() {
+                                                  return numConnections;
+                                              }
+
+                                              @Override
+                                              public Object actual() {
+                                                  return getNumberOfActiveConnections();
+                                              }
+                                          },
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "ConnectionService should contain " + numConnections + " connections."
+        );
     }
 
     void assertCSConnections(final int numConnections) {

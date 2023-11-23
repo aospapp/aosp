@@ -20,6 +20,7 @@
     android:id="@+id/separated_tabs"
     android:layout_width="match_parent"
     android:layout_height="@dimen/separated_tabs_height"
+    app:tabMaxWidth="0dp"
     app:tabBackground="@drawable/separated_tabs_background"
     app:tabIndicatorAnimationDuration="0"
     app:tabIndicator="@drawable/separated_tabs_indicator_background"

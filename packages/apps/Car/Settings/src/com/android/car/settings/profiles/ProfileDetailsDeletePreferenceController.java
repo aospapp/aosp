@@ -22,16 +22,16 @@ import android.content.pm.UserInfo;
 import android.os.UserManager;
 
 import androidx.annotation.VisibleForTesting;
-import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
+import com.android.car.ui.preference.CarUiPreference;
 
 /**
  * Controller that displays the preference for letting the user delete the current profile
  */
 public class ProfileDetailsDeletePreferenceController
-        extends ProfileDetailsBasePreferenceController<Preference> {
+        extends ProfileDetailsBasePreferenceController<CarUiPreference> {
 
     private static final Logger LOG = new Logger(ProfileDetailsDeletePreferenceController.class);
 
@@ -58,14 +58,16 @@ public class ProfileDetailsDeletePreferenceController
     }
 
     @Override
-    protected Class<Preference> getPreferenceType() {
-        return Preference.class;
+    protected Class<CarUiPreference> getPreferenceType() {
+        return CarUiPreference.class;
     }
 
     @Override
     protected void onCreateInternal() {
         super.onCreateInternal();
         mRemoveProfileHandler.resetListeners();
+        setClickableWhileDisabled(getPreference(), /* clickable= */ true, p ->
+                mRemoveProfileHandler.runClickableWhileDisabled());
     }
 
     @Override
@@ -75,14 +77,18 @@ public class ProfileDetailsDeletePreferenceController
     }
 
     @Override
-    protected void updateState(Preference preference) {
-        preference.setVisible(mRemoveProfileHandler.canRemoveProfile(getUserInfo())
-                && mProfileHelper.isCurrentProcessUser(getUserInfo()));
+    public boolean handlePreferenceClicked(CarUiPreference preference) {
+        if (getAvailabilityStatus() == AVAILABLE_FOR_VIEWING) {
+            mRemoveProfileHandler.runClickableWhileDisabled();
+            return true;
+        }
+        mRemoveProfileHandler.showConfirmRemoveProfileDialog();
+        return true;
     }
 
     @Override
-    public boolean handlePreferenceClicked(Preference preference) {
-        mRemoveProfileHandler.showConfirmRemoveProfileDialog();
-        return true;
+    protected int getAvailabilityStatus() {
+        return mRemoveProfileHandler.getAvailabilityStatus(
+                getContext(), getUserInfo(), /* allowRemoveCurrentProcessUser= */ true);
     }
 }

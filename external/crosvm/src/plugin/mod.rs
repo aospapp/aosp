@@ -26,10 +26,10 @@ use protobuf::ProtobufError;
 use remain::sorted;
 
 use base::{
-    block_signal, clear_signal, drop_capabilities, error, getegid, geteuid, info, pipe,
-    register_rt_signal_handler, validate_raw_descriptor, warn, AsRawDescriptor, Error as SysError,
-    Event, FromRawDescriptor, Killable, MmapError, PollToken, Result as SysResult, SignalFd,
-    SignalFdError, WaitContext, SIGRTMIN,
+    block_signal, clear_signal, drop_capabilities, enable_core_scheduling, error, getegid, geteuid,
+    info, pipe, register_rt_signal_handler, validate_raw_descriptor, warn, AsRawDescriptor,
+    Error as SysError, Event, FromRawDescriptor, Killable, MmapError, PollToken,
+    Result as SysResult, SignalFd, SignalFdError, WaitContext, SIGRTMIN,
 };
 use kvm::{Cap, Datamatch, IoeventAddress, Kvm, Vcpu, VcpuExit, Vm};
 use minijail::{self, Minijail};
@@ -456,8 +456,7 @@ pub fn run_vcpus(
                             .expect("failed to set up KVM VCPU signal mask");
                     }
 
-                    #[cfg(feature = "chromeos")]
-                    if let Err(e) = base::sched::enable_core_scheduling() {
+                    if let Err(e) = enable_core_scheduling() {
                         error!("Failed to enable core scheduling: {}", e);
                     }
 
@@ -478,12 +477,18 @@ pub fn run_vcpus(
                                     VcpuExit::IoIn { port, mut size } => {
                                         let mut data = [0; 256];
                                         if size > data.len() {
-                                            error!("unsupported IoIn size of {} bytes", size);
+                                            error!(
+                                                "unsupported IoIn size of {} bytes at port {:#x}",
+                                                size, port
+                                            );
                                             size = data.len();
                                         }
                                         vcpu_plugin.io_read(port as u64, &mut data[..size], &vcpu);
                                         if let Err(e) = vcpu.set_data(&data[..size]) {
-                                            error!("failed to set return data for IoIn: {}", e);
+                                            error!(
+                                                "failed to set return data for IoIn at port {:#x}: {}",
+                                                port, e
+                                            );
                                         }
                                     }
                                     VcpuExit::IoOut {
@@ -492,7 +497,7 @@ pub fn run_vcpus(
                                         data,
                                     } => {
                                         if size > data.len() {
-                                            error!("unsupported IoOut size of {} bytes", size);
+                                            error!("unsupported IoOut size of {} bytes at port {:#x}", size, port);
                                             size = data.len();
                                         }
                                         vcpu_plugin.io_write(port as u64, &data[..size], &vcpu);

@@ -27,8 +27,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.testing.AndroidTestingRunner;
-import android.testing.TestableLooper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -44,15 +42,12 @@ import com.android.systemui.tests.R;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.Arrays;
 
 @CarSystemUiTest
-@RunWith(AndroidTestingRunner.class)
-@TestableLooper.RunWithLooper
 @SmallTest
 public class OverlayViewGlobalStateControllerTest extends SysuiTestCase {
     private static final int OVERLAY_VIEW_CONTROLLER_1_Z_ORDER = 0;
@@ -105,7 +100,7 @@ public class OverlayViewGlobalStateControllerTest extends SysuiTestCase {
     public void registerMediator_overlayViewMediatorViewControllerSetup() {
         mOverlayViewGlobalStateController.registerMediator(mOverlayViewMediator);
 
-        verify(mOverlayViewMediator).setupOverlayContentViewControllers();
+        verify(mOverlayViewMediator).setUpOverlayContentViewControllers();
     }
 
     @Test
@@ -442,6 +437,10 @@ public class OverlayViewGlobalStateControllerTest extends SysuiTestCase {
         setOverlayViewControllerAsShowing(mOverlayViewController2);
         when(mOverlayViewController1.getInsetTypesToFit()).thenReturn(statusBars());
         when(mOverlayViewController2.getInsetTypesToFit()).thenReturn(navigationBars());
+        when(mOverlayViewController1.getInsetSidesToFit()).thenReturn(
+                OverlayViewController.INVALID_INSET_SIDE);
+        when(mOverlayViewController2.getInsetSidesToFit()).thenReturn(
+                OverlayViewController.INVALID_INSET_SIDE);
 
         mOverlayViewGlobalStateController.showView(mOverlayViewController1, mRunnable);
 
@@ -705,6 +704,10 @@ public class OverlayViewGlobalStateControllerTest extends SysuiTestCase {
         setOverlayViewControllerAsShowing(mOverlayViewController2);
         when(mOverlayViewController1.getInsetTypesToFit()).thenReturn(navigationBars());
         when(mOverlayViewController2.getInsetTypesToFit()).thenReturn(statusBars());
+        when(mOverlayViewController1.getInsetSidesToFit()).thenReturn(
+                OverlayViewController.INVALID_INSET_SIDE);
+        when(mOverlayViewController2.getInsetSidesToFit()).thenReturn(
+                OverlayViewController.INVALID_INSET_SIDE);
 
         mOverlayViewGlobalStateController.hideView(mOverlayViewController2, mRunnable);
 
@@ -794,6 +797,10 @@ public class OverlayViewGlobalStateControllerTest extends SysuiTestCase {
         setOverlayViewControllerAsShowing(mOverlayViewController1);
         setupOverlayViewController2();
         setOverlayViewControllerAsShowing(mOverlayViewController2);
+        when(mOverlayViewController1.getInsetSidesToFit()).thenReturn(
+                OverlayViewController.INVALID_INSET_SIDE);
+        when(mOverlayViewController2.getInsetSidesToFit()).thenReturn(
+                OverlayViewController.INVALID_INSET_SIDE);
         when(mOverlayViewController1.getInsetTypesToFit()).thenReturn(statusBars());
         when(mOverlayViewController2.getInsetTypesToFit()).thenReturn(navigationBars());
 

@@ -18,6 +18,7 @@ package com.android.car.settings.bluetooth;
 
 import static android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
 
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
@@ -36,6 +37,8 @@ import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
 import com.android.settingslib.bluetooth.LocalBluetoothProfile;
 
+import java.util.Set;
+
 
 /**
  * Displays a list of bonded (paired) Bluetooth devices. Clicking on a device launch the device
@@ -53,6 +56,8 @@ public class BluetoothBondedDevicesPreferenceController extends
     private static final MultiActionPreference.ActionItem MEDIA_BUTTON =
             MultiActionPreference.ActionItem.ACTION_ITEM3;
 
+    private final BluetoothDeviceFilter.Filter mBondedDeviceTypeFilter =
+            new BondedDeviceTypeFilter();
     private boolean mShowDeviceDetails = true;
 
     public BluetoothBondedDevicesPreferenceController(Context context, String preferenceKey,
@@ -70,7 +75,7 @@ public class BluetoothBondedDevicesPreferenceController extends
 
     @Override
     protected BluetoothDeviceFilter.Filter getDeviceFilter() {
-        return BluetoothDeviceFilter.BONDED_DEVICE_FILTER;
+        return mBondedDeviceTypeFilter;
     }
 
     @Override
@@ -263,5 +268,16 @@ public class BluetoothBondedDevicesPreferenceController extends
             preference.getActionItem(PHONE_BUTTON).setEnabled(false);
             preference.getActionItem(MEDIA_BUTTON).setEnabled(false);
         });
+    }
+
+    /** Filter that matches only bonded devices with specific device types. */
+    //TODO(b/198339129): Use BluetoothDeviceFilter.BONDED_DEVICE_FILTER
+    private class BondedDeviceTypeFilter implements BluetoothDeviceFilter.Filter {
+        @Override
+        public boolean matches(BluetoothDevice device) {
+            Set<BluetoothDevice> bondedDevices = mBluetoothManager.getBluetoothAdapter()
+                    .getBondedDevices();
+            return bondedDevices != null && bondedDevices.contains(device);
+        }
     }
 }

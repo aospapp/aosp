@@ -26,6 +26,10 @@ android_library {
     // required to access any private API.
     sdk_version: "system_current",
 
+    min_sdk_version: "29",
+
+    target_sdk_version: "31",
+
     manifest: "real/AndroidManifest.xml",
 
     srcs: ["src/**/*.java", "real/src/**/*.java"],
@@ -45,6 +49,10 @@ android_library {
     // required to access any private API and spy() on any framework class.
     sdk_version: "system_current",
 
+    min_sdk_version: "29",
+
+    target_sdk_version: "31",
+
     manifest: "fake/AndroidManifest.xml",
 
     srcs: ["src/**/*.java", "fake/src/**/*.java"],
@@ -56,7 +64,6 @@ android_library {
     static_libs: [
         "car-telephony-common",
         "car-apps-common",
-        "car-arch-common",
         "androidx.annotation_annotation",
         "androidx.core_core",
         "androidx.legacy_legacy-support-v4",

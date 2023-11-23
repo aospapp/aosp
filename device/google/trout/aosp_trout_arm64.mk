@@ -14,10 +14,23 @@
 # limitations under the License.
 #
 
+TARGET_USES_CF_RILD ?= false
+
 $(call inherit-product, device/google/cuttlefish/vsoc_arm64/auto/aosp_cf.mk)
 
 # Package ramdisk.img in target package
 BOARD_IMG_USE_RAMDISK := true
+
+# Kernel - prefer version 5.10 by default for trout
+TARGET_KERNEL_USE ?= 5.10
+
+# Currently, the trout kernel prebuilt is not being distributed to partners and AOSP,
+# and thus we cannot rely on it existing outside of Google-internal builds. Make sure not to try
+# and include a missing kernel image.
+TROUT_KERNEL_IMAGE := $(wildcard device/google/trout-kernel/$(TARGET_KERNEL_USE)-arm64/Image)
+ifneq ($(TROUT_KERNEL_IMAGE),)
+TARGET_KERNEL_PATH ?= $(TROUT_KERNEL_IMAGE)
+endif
 
 # Audio HAL
 TARGET_USES_CUTTLEFISH_AUDIO ?= false
@@ -31,6 +44,12 @@ LOCAL_AUDIOCONTROL_PROPERTIES ?= \
 include device/google/trout/aosp_trout_common.mk
 
 DEVICE_MANIFEST_FILE += device/google/trout/manifest.xml
+
+PRODUCT_PROPERTY_OVERRIDES += \
+	vendor.ser.bt-uart?= \
+
+PRODUCT_PACKAGES += \
+	vport_trigger \
 
 # Sensor HAL
 # The implementations use SCMI, which only works on arm architecture

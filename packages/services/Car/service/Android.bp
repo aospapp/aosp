@@ -29,11 +29,13 @@ genrule {
 }
 
 car_service_sources = [
+    ":iscriptexecutor_aidl",
     "src/**/*.java",
     ":statslog-Car-java-gen",
 ]
 
 common_lib_deps = [
+    "android.automotive.telemetry.internal-java",  // ICarTelemetryInternal
     "android.car.cluster.navigation",
     "android.car.userlib",
     "android.car.watchdoglib",
@@ -57,6 +59,7 @@ common_lib_deps = [
     "car-admin-ui-lib",
     "Slogf",
     "cartelemetry-protos",
+    "carwatchdog-protos",
 ]
 
 android_app {
@@ -85,8 +88,13 @@ android_app {
 
     jni_libs: [
         "libcarservicejni",
-        "libscriptexecutorjni",
     ],
+
+    aidl: {
+        include_dirs: [
+	    "frameworks/native/aidl/binder", // For PersistableBundle.aidl
+	],
+    },
 
     required: ["allowed_privapp_com.android.car"],
 
@@ -138,6 +146,12 @@ android_library {
 
     static_libs: common_lib_deps,
 
+    aidl: {
+        include_dirs: [
+	    "frameworks/native/aidl/binder", // For PersistableBundle.aidl
+	],
+    },
+
     product_variables: {
         pdk: {
             enabled: false,
@@ -162,9 +176,24 @@ android_library {
         "car-frameworks-service",
     ],
 
+    aidl: {
+        include_dirs: [
+	    "frameworks/native/aidl/binder", // For PersistableBundle.aidl
+	],
+    },
+
     product_variables: {
         pdk: {
             enabled: false,
         },
     },
+}
+
+filegroup {
+    name: "iscriptexecutor_aidl",
+    srcs: [
+        "src/com/android/car/telemetry/scriptexecutorinterface/IScriptExecutor.aidl",
+        "src/com/android/car/telemetry/scriptexecutorinterface/IScriptExecutorListener.aidl",
+    ],
+    path: "src",
 }

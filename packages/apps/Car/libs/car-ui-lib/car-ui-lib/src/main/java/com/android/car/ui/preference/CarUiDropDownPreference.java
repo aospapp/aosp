@@ -16,6 +16,9 @@
 
 package com.android.car.ui.preference;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.util.AttributeSet;
 
@@ -34,6 +37,7 @@ import java.util.function.Consumer;
  * the preference.
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
+@TargetApi(MIN_TARGET_API)
 public class CarUiDropDownPreference extends DropDownPreference
         implements UxRestrictablePreference {
 

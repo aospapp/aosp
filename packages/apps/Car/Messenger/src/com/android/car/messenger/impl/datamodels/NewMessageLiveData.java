@@ -32,9 +32,9 @@ import com.android.car.messenger.common.Conversation;
 import com.android.car.messenger.core.interfaces.AppFactory;
 import com.android.car.messenger.core.models.UserAccount;
 import com.android.car.messenger.core.shared.MessageConstants;
+import com.android.car.messenger.core.util.CarStateListener;
 import com.android.car.messenger.core.util.ConversationUtil;
 import com.android.car.messenger.core.util.L;
-import com.android.car.messenger.impl.common.ProjectionStateListener;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -62,11 +62,10 @@ public class NewMessageLiveData extends ContentProviderLiveData<Conversation> {
                     + " = %d";
 
     @NonNull
-    private final ProjectionStateListener mProjectionStateListener =
-            new ProjectionStateListener(AppFactory.get().getContext());
+    private final CarStateListener mCarStateListener = AppFactory.get().getCarStateListener();
 
     NewMessageLiveData() {
-        super(Telephony.Sms.CONTENT_URI, Telephony.Mms.CONTENT_URI, Telephony.MmsSms.CONTENT_URI);
+        super(Telephony.MmsSms.CONTENT_URI);
     }
 
     @Override
@@ -126,11 +125,11 @@ public class NewMessageLiveData extends ContentProviderLiveData<Conversation> {
         Conversation conversation;
         try {
             conversation = fetchConversation(conversationId);
-            conversation.getExtras().putInt(MessageConstants.EXTRA_ACCOUNT_ID, userAccount.getId());
         } catch (CursorIndexOutOfBoundsException e) {
             L.w("Error occurred fetching conversation Id " + conversationId);
             return false;
         }
+        conversation.getExtras().putInt(MessageConstants.EXTRA_ACCOUNT_ID, userAccount.getId());
         Instant offset =
                 Instant.ofEpochMilli(ConversationUtil.getConversationTimestamp(conversation));
         mOffsetMap.put(userAccount.getId(), offset);
@@ -164,6 +163,6 @@ public class NewMessageLiveData extends ContentProviderLiveData<Conversation> {
     }
 
     private boolean hasProjectionInForeground(@NonNull UserAccount userAccount) {
-        return mProjectionStateListener.isProjectionInActiveForeground(userAccount.getIccId());
+        return mCarStateListener.isProjectionInActiveForeground(userAccount.getIccId());
     }
 }

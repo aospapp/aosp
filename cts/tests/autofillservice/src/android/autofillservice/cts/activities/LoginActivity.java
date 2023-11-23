@@ -363,6 +363,33 @@ public class LoginActivity extends AbstractAutoFillActivity {
     }
 
     /**
+     * Set the EditText input or password value and wait until text change.
+     */
+    public void setTextAndWaitTextChange(String username, String password) throws Exception {
+        expectTextChange(username, password);
+
+        syncRunOnUiThread(() -> {
+            if (username != null) {
+                onUsername((v) -> v.setText(username));
+
+            }
+            if (password != null) {
+                onPassword((v) -> v.setText(password));
+            }
+        });
+
+        assertTextChange();
+    }
+
+    private void expectTextChange(String username, String password) {
+        expectAutoFill(username, password);
+    }
+
+    private void assertTextChange() throws Exception {
+        assertAutoFilled();
+    }
+
+    /**
      * Holder for the expected auto-fill values.
      */
     private final class FillExpectation {

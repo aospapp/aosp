@@ -1575,16 +1575,64 @@ public class TestUtils {
         return true;
     }
 
+    private static boolean isVolumeMounted(String type) {
+        try {
+            final String volume = executeShellCommand("sm list-volumes " + type).trim();
+            return volume != null && volume.contains("mounted");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean isPublicVolumeMounted() {
+        return isVolumeMounted("public");
+    }
+
+    private static boolean isEmulatedVolumeMounted() {
+        return isVolumeMounted("emulated");
+    }
+
+    /**
+     * Prepare or create a public volume for testing
+     */
+    public static void preparePublicVolume() throws Exception {
+        if (getCurrentPublicVolumeName() == null) {
+            createNewPublicVolume();
+            return;
+        }
+
+        if (!Boolean.parseBoolean(executeShellCommand("sm has-adoptable").trim())) {
+            unmountAppDirs();
+            // ensure the volume is visible
+            executeShellCommand("sm set-force-adoptable on");
+            Thread.sleep(2000);
+            pollForCondition(TestUtils::isPublicVolumeMounted,
+                    "Timed out while waiting for public volume");
+            pollForCondition(TestUtils::isEmulatedVolumeMounted,
+                    "Timed out while waiting for emulated volume");
+        }
+    }
+
+    /**
+     * Unmount app's obb and data dirs.
+     */
+    public static void unmountAppDirs() throws Exception {
+        if (TestUtils.isObbDirUnmounted()) {
+            return;
+        }
+        executeShellCommand("sm unmount-app-data-dirs " + getContext().getPackageName() + " "
+                + android.os.Process.myPid() + " " + android.os.UserHandle.myUserId());
+        pollForCondition(TestUtils::isObbDirUnmounted,
+                "Timed out while waiting for unmounting obb dir");
+    }
+
     /**
      * Creates a new virtual public volume and returns the volume's name.
      */
     public static void createNewPublicVolume() throws Exception {
         // Unmount data and obb dirs for test app first so test app won't be killed during
         // volume unmount.
-        executeShellCommand("sm unmount-app-data-dirs " + getContext().getPackageName() + " "
-                    + android.os.Process.myPid() + " " + android.os.UserHandle.myUserId());
-        pollForCondition(TestUtils::isObbDirUnmounted,
-                "Timed out while waiting for unmounting obb dir");
+        unmountAppDirs();
         executeShellCommand("sm set-force-adoptable on");
         executeShellCommand("sm set-virtual-disk true");
         Thread.sleep(2000);

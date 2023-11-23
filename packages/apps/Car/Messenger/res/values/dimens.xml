@@ -64,7 +64,9 @@
 
     <!-- Contact Avatar -->
     <item name="letter_spacing_display3" format="float" type="dimen">0.0</item>
-    <item name="letter_spacing_body1" format="float" type="dimen">0.0</item>
-    <item name="letter_spacing_body2" format="float" type="dimen">0.0</item>
-    <item name="letter_spacing_body3" format="float" type="dimen">0.0</item>
+    <item name="letter_spacing_body1" format="float" type="dimen">0.03</item>
+    <item name="letter_spacing_body2" format="float" type="dimen">0.045</item>
+    <item name="letter_spacing_body3" format="float" type="dimen">0.06</item>
+
+    <dimen name="dot_size">32sp</dimen>
 </resources>

@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"යෙදුම් අවසර"</string>
     <string name="unused_apps" msgid="2058057455175955094">"භාවිත නොකළ යෙදුම්"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"භාවිත නොකළ යෙදුම් නැත"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"භාවිත නොකළ යෙදුම් 0"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"යෙදුම අබල කරන්න"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"ඔබ මෙම යෙදුම අබල කළහොත්, Android සහ වෙනත් යෙදුම් තවදුරටත් අපේක්ෂා කළ පරිදි ක්‍රියා නොකළ හැකිය. මෙය ඔබගේ උපාංගයේ පූර්ව ස්ථාපිතව පැමිණි නිසා ඔබට මෙම යෙදුම මැකිය නොහැකි බව මතක තබා ගන්න. අබල කිරීමෙන්, ඔබ මෙම යෙදුම අබල කර එය ඔබගේ උපාංගයේ සඟවයි."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"අවසර කළමනාකරු"</string>

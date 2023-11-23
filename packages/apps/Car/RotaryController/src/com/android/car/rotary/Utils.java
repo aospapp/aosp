@@ -18,13 +18,17 @@ package com.android.car.rotary;
 
 import static android.view.accessibility.AccessibilityNodeInfo.FOCUS_INPUT;
 
+import static com.android.car.ui.utils.RotaryConstants.BOTTOM_BOUND_OFFSET_FOR_NUDGE;
 import static com.android.car.ui.utils.RotaryConstants.FOCUS_AREA_BOTTOM_BOUND_OFFSET;
 import static com.android.car.ui.utils.RotaryConstants.FOCUS_AREA_LEFT_BOUND_OFFSET;
 import static com.android.car.ui.utils.RotaryConstants.FOCUS_AREA_RIGHT_BOUND_OFFSET;
 import static com.android.car.ui.utils.RotaryConstants.FOCUS_AREA_TOP_BOUND_OFFSET;
+import static com.android.car.ui.utils.RotaryConstants.LEFT_BOUND_OFFSET_FOR_NUDGE;
+import static com.android.car.ui.utils.RotaryConstants.RIGHT_BOUND_OFFSET_FOR_NUDGE;
 import static com.android.car.ui.utils.RotaryConstants.ROTARY_CONTAINER;
 import static com.android.car.ui.utils.RotaryConstants.ROTARY_HORIZONTALLY_SCROLLABLE;
 import static com.android.car.ui.utils.RotaryConstants.ROTARY_VERTICALLY_SCROLLABLE;
+import static com.android.car.ui.utils.RotaryConstants.TOP_BOUND_OFFSET_FOR_NUDGE;
 
 import android.graphics.Rect;
 import android.os.Bundle;
@@ -356,6 +360,14 @@ final class Utils {
             bounds.right -= bundle.getInt(FOCUS_AREA_RIGHT_BOUND_OFFSET);
             bounds.top += bundle.getInt(FOCUS_AREA_TOP_BOUND_OFFSET);
             bounds.bottom -= bundle.getInt(FOCUS_AREA_BOTTOM_BOUND_OFFSET);
+        } else if (node.hasExtras()) {
+            // For a view that overrides nudge bounds, the bounds used for finding the nudge target
+            // are its View bounds plus/minus the offset.
+            Bundle bundle = node.getExtras();
+            bounds.left += bundle.getInt(LEFT_BOUND_OFFSET_FOR_NUDGE);
+            bounds.right -= bundle.getInt(RIGHT_BOUND_OFFSET_FOR_NUDGE);
+            bounds.top += bundle.getInt(TOP_BOUND_OFFSET_FOR_NUDGE);
+            bounds.bottom -= bundle.getInt(BOTTOM_BOUND_OFFSET_FOR_NUDGE);
         } else if (Utils.isRotaryContainer(node)) {
             // For a rotary container, the bounds used for finding the nudge target are the
             // intersection of the two bounds: (1) minimum bounds containing its children, and

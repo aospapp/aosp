@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="dialog_dismiss_button" msgid="2252701669002484829">"বন্ধ করুন"</string>
+    <string name="toolbar_default_search_hint" msgid="5517905201169820324">"সার্চ করুন…"</string>
+    <string name="toolbar_ux_restricted_search_hint" msgid="4107155717310782144">"ড্রাইভ করার সময় সার্চ করা যাবে না"</string>
+    <string name="toolbar_nav_icon_content_description" msgid="2480730986615479860">"ফিরুন"</string>
+    <string name="toolbar_menu_item_overflow_title" msgid="5386814151990860080">"ওভারফ্লো"</string>
+    <string name="scrollbar_page_down_button" msgid="7317333289151090392">"নিচের দিকে স্ক্রল করুন"</string>
+    <string name="scrollbar_page_up_button" msgid="8856997791538307943">"উপরের দিকে স্ক্রল করুন"</string>
+</resources>

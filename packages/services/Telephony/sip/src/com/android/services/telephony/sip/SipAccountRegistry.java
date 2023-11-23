@@ -236,7 +236,8 @@ public final class SipAccountRegistry {
 
         Intent intent = new Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS);
         intent.setFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 0);
+        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent,
+                PendingIntent.FLAG_IMMUTABLE);
 
         Notification.Action action = new Notification.Action.Builder(R.drawable.ic_sim_card,
                 context.getString(R.string.sip_accounts_removed_notification_action),

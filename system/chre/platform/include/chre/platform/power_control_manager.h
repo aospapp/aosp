@@ -31,6 +31,13 @@ namespace chre {
 class PowerControlManager : public PowerControlManagerBase, public NonCopyable {
  public:
   /**
+   * Perform power-related control before a single process of the event loop.
+   *
+   * @param numPendingEvents The current size of the event queue.
+   */
+  void preEventLoopProcess(size_t numPendingEvents);
+
+  /**
    * Perform power-related control after a single process of the event loop.
    *
    * @param numPendingEvents The current size of the event queue.

@@ -68,6 +68,7 @@ message Atom {
 
       CitadelVersion citadel_version = 100018; // moved from vendor proprietary
       CitadelEvent citadel_event = 100019;  // moved from vendor proprietary
+      VendorSpeakerStatsReported vendor_speaker_stats_reported = 105030;
     }
     // AOSP atom ID range ends at 109999
 }
@@ -451,6 +452,25 @@ message CitadelVersion {
     optional string reverse_domain_name = 1;
     optional int32 speaker_location = 2;
     optional int32 impedance = 3;
+}
+
+/**
+ * Logs the reported vendor speaker health stats.
+ * Logged from: hardware/google/pixel/pixelstats/SysfsCollector.cpp
+ */
+message VendorSpeakerStatsReported {
+  /* Vendor reverse domain name (expecting "com.google.pixel") */
+  optional string reverse_domain_name = 1;
+  /* The location of speaker; 0 = left , 1 = right */
+  optional int32 speaker_location = 2;
+  /* The speaker's impedance value (milliOhm) */
+  optional int32 impedance = 3;
+  /* The speaker's maximum temperature (milliDegree C) */
+  optional int32 max_temperature = 4;
+  /* The speaker's execursion length (micrometer) */
+  optional int32 excursion = 5;
+  /* The speaker's heart beat count */
+  optional int32 heartbeat = 6;
 }
 
 /* A message containing how many times of ufs host reset */

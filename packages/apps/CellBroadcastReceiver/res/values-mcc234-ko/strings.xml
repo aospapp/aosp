@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="8511466399220042295">"안전 안내 문자"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="2271741871998936543">"위험 알림 문자"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="6022925848643811044">"테스트 알림 문자"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="6022925848643811044">"테스트 경보"</string>
     <string name="enable_exercise_test_alerts_title" msgid="411880452689537935">"훈련 알림 문자"</string>
     <string name="cmas_presidential_level_alert" msgid="3429191761649839884">"정부 기관 알림 문자"</string>
     <string name="cmas_extreme_alert" msgid="3474352706075109113">"안전 안내 문자"</string>

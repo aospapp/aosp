@@ -16,6 +16,9 @@
 
 package com.android.car.ui.recyclerview;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.TargetApi;
 import android.view.View;
 import android.widget.TextView;
 
@@ -24,6 +27,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.ui.test.R;
 
+@TargetApi(MIN_TARGET_API)
 public class TestViewHolder extends RecyclerView.ViewHolder {
 
     private CharSequence mText;

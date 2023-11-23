@@ -111,8 +111,8 @@ public class FocusAreaTest {
         CountDownLatch latch = new CountDownLatch(1);
         mView1.post(() -> {
             mView1.requestFocus();
-            mFocusArea1.enableForegroundHighlight();
-            mFocusArea2.enableForegroundHighlight();
+            mFocusArea1.getHelper().enableForegroundHighlight();
+            mFocusArea2.getHelper().enableForegroundHighlight();
             mFocusArea1.setOnDrawCalled(false);
             mFocusArea1.setDrawCalled(false);
             mFocusArea2.setOnDrawCalled(false);
@@ -331,7 +331,7 @@ public class FocusAreaTest {
                 new RotaryCache(CACHE_TYPE_NEVER_EXPIRE, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
         CountDownLatch latch1 = new CountDownLatch(1);
         mButton1.post(() -> {
-            mFocusArea1.setRotaryCache(cache);
+            mFocusArea1.getHelper().setRotaryCache(cache);
             mButton1.requestFocus();
             mButton1.post(() -> latch1.countDown());
 
@@ -363,7 +363,7 @@ public class FocusAreaTest {
         RotaryCache cache = new RotaryCache(CACHE_TYPE_DISABLED, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
         CountDownLatch latch1 = new CountDownLatch(1);
         mButton1.post(() -> {
-            mFocusArea1.setRotaryCache(cache);
+            mFocusArea1.getHelper().setRotaryCache(cache);
             mButton1.requestFocus();
             mButton1.post(() -> latch1.countDown());
         });
@@ -427,10 +427,10 @@ public class FocusAreaTest {
         mButton1.post(() -> {
             RotaryCache cache1 =
                     new RotaryCache(CACHE_TYPE_NEVER_EXPIRE, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
-            mFocusArea1.setRotaryCache(cache1);
+            mFocusArea1.getHelper().setRotaryCache(cache1);
             RotaryCache cache2 =
                     new RotaryCache(CACHE_TYPE_NEVER_EXPIRE, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
-            mFocusArea2.setRotaryCache(cache2);
+            mFocusArea2.getHelper().setRotaryCache(cache2);
 
             // Focus on the second view in mFocusArea1.
             mButton1.requestFocus();
@@ -482,10 +482,10 @@ public class FocusAreaTest {
             // Disabled FocusCache but enabled FocusAreaCache.
             RotaryCache cache1 =
                     new RotaryCache(CACHE_TYPE_DISABLED, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
-            mFocusArea1.setRotaryCache(cache1);
+            mFocusArea1.getHelper().setRotaryCache(cache1);
             RotaryCache cache2 =
                     new RotaryCache(CACHE_TYPE_DISABLED, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
-            mFocusArea2.setRotaryCache(cache2);
+            mFocusArea2.getHelper().setRotaryCache(cache2);
 
             // Focus on the second view in mFocusArea1.
             mButton1.requestFocus();
@@ -525,10 +525,10 @@ public class FocusAreaTest {
             // Enabled FocusCache but disabled FocusAreaCache.
             RotaryCache cache1 =
                     new RotaryCache(CACHE_TYPE_NEVER_EXPIRE, 0, CACHE_TYPE_DISABLED, 0);
-            mFocusArea1.setRotaryCache(cache1);
+            mFocusArea1.getHelper().setRotaryCache(cache1);
             RotaryCache cache2 =
                     new RotaryCache(CACHE_TYPE_NEVER_EXPIRE, 0, CACHE_TYPE_DISABLED, 0);
-            mFocusArea2.setRotaryCache(cache2);
+            mFocusArea2.getHelper().setRotaryCache(cache2);
 
             // Focus on the second view in mFocusArea1, then nudge to mFocusArea2.
             mButton1.requestFocus();
@@ -616,12 +616,62 @@ public class FocusAreaTest {
     }
 
     @Test
+    public void testPerformAccessibilityAction_actionNudgeToAnotherFocusArea_specifiedTarget2()
+            throws Exception {
+        // Nudge to specified FocusArea.
+        CountDownLatch latch1 = new CountDownLatch(1);
+        mView4.post(() -> {
+            mView4.requestFocus();
+            mView4.post(() -> latch1.countDown());
+        });
+        latch1.await(WAIT_TIME_MS, TimeUnit.MILLISECONDS);
+        assertThat(mView4.isFocused()).isTrue();
+
+        // Clear the attribute specified in the XML file.
+        CountDownLatch latch2 = new CountDownLatch(1);
+        Bundle arguments = new Bundle();
+        mFocusArea4.post(() -> {
+            mFocusArea4.setNudgeTargetFocusArea(FOCUS_LEFT, null);
+            arguments.putInt(NUDGE_DIRECTION, FOCUS_LEFT);
+            mFocusArea4.performAccessibilityAction(ACTION_NUDGE_TO_ANOTHER_FOCUS_AREA, arguments);
+            mFocusArea4.post(() -> latch2.countDown());
+        });
+        latch2.await(WAIT_TIME_MS, TimeUnit.MILLISECONDS);
+        assertThat(mView4.isFocused()).isTrue();
+    }
+
+    @Test
+    public void testPerformAccessibilityAction_actionNudgeToAnotherFocusArea_specifiedTarget3()
+            throws Exception {
+        // Nudge to specified FocusArea.
+        CountDownLatch latch1 = new CountDownLatch(1);
+        mView4.post(() -> {
+            mView4.requestFocus();
+            mView4.post(() -> latch1.countDown());
+        });
+        latch1.await(WAIT_TIME_MS, TimeUnit.MILLISECONDS);
+        assertThat(mView4.isFocused()).isTrue();
+
+        // Set the attribute programmatically.
+        CountDownLatch latch2 = new CountDownLatch(1);
+        Bundle arguments = new Bundle();
+        mFocusArea4.post(() -> {
+            mFocusArea4.setNudgeTargetFocusArea(FOCUS_LEFT, mFocusArea1);
+            arguments.putInt(NUDGE_DIRECTION, FOCUS_LEFT);
+            mFocusArea4.performAccessibilityAction(ACTION_NUDGE_TO_ANOTHER_FOCUS_AREA, arguments);
+            mFocusArea4.post(() -> latch2.countDown());
+        });
+        latch2.await(WAIT_TIME_MS, TimeUnit.MILLISECONDS);
+        assertThat(mView1.isFocused()).isTrue();
+    }
+
+    @Test
     public void testDefaultFocusOverridesHistory_override() throws Exception {
         CountDownLatch latch1 = new CountDownLatch(1);
         mView2.post(() -> {
             RotaryCache cache =
                     new RotaryCache(CACHE_TYPE_NEVER_EXPIRE, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
-            mFocusArea2.setRotaryCache(cache);
+            mFocusArea2.getHelper().setRotaryCache(cache);
             mFocusArea2.setDefaultFocusOverridesHistory(true);
             mView2.requestFocus();
             mView2.post(() -> latch1.countDown());
@@ -654,7 +704,7 @@ public class FocusAreaTest {
         mView2.post(() -> {
             RotaryCache cache =
                     new RotaryCache(CACHE_TYPE_NEVER_EXPIRE, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
-            mFocusArea2.setRotaryCache(cache);
+            mFocusArea2.getHelper().setRotaryCache(cache);
             mView2.requestFocus();
             mView2.post(() -> latch1.countDown());
         });
@@ -685,12 +735,12 @@ public class FocusAreaTest {
         mView1.post(() -> {
             RotaryCache cache1 =
                     new RotaryCache(CACHE_TYPE_NEVER_EXPIRE, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
-            mFocusArea1.setRotaryCache(cache1);
-            mFocusArea1.setClearFocusAreaHistoryWhenRotating(true);
+            mFocusArea1.getHelper().setRotaryCache(cache1);
+            mFocusArea1.getHelper().setClearFocusAreaHistoryWhenRotating(true);
             RotaryCache cache2 =
                     new RotaryCache(CACHE_TYPE_NEVER_EXPIRE, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
-            mFocusArea2.setRotaryCache(cache2);
-            mFocusArea2.setClearFocusAreaHistoryWhenRotating(true);
+            mFocusArea2.getHelper().setRotaryCache(cache2);
+            mFocusArea2.getHelper().setClearFocusAreaHistoryWhenRotating(true);
             mView1.requestFocus();
             mView1.post(() -> latch1.countDown());
         });
@@ -735,12 +785,12 @@ public class FocusAreaTest {
         mView1.post(() -> {
             RotaryCache cache1 =
                     new RotaryCache(CACHE_TYPE_NEVER_EXPIRE, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
-            mFocusArea1.setRotaryCache(cache1);
-            mFocusArea1.setClearFocusAreaHistoryWhenRotating(false);
+            mFocusArea1.getHelper().setRotaryCache(cache1);
+            mFocusArea1.getHelper().setClearFocusAreaHistoryWhenRotating(false);
             RotaryCache cache2 =
                     new RotaryCache(CACHE_TYPE_NEVER_EXPIRE, 0, CACHE_TYPE_NEVER_EXPIRE, 0);
-            mFocusArea2.setRotaryCache(cache2);
-            mFocusArea2.setClearFocusAreaHistoryWhenRotating(false);
+            mFocusArea2.getHelper().setRotaryCache(cache2);
+            mFocusArea2.getHelper().setClearFocusAreaHistoryWhenRotating(false);
             mView1.requestFocus();
             mView1.post(() -> latch1.countDown());
         });

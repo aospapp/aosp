@@ -70,6 +70,9 @@ public:
                     packageIoOveruseStats) = 0;
     virtual android::binder::Status resetResourceOveruseStats(
             const std::vector<std::string>& packageNames) = 0;
+    virtual android::binder::Status getTodayIoUsageStats(
+            std::vector<android::automotive::watchdog::internal::UserPackageIoUsageStats>*
+                    userPackageIoUsageStats) = 0;
 
 protected:
     virtual android::base::Result<void> init(
@@ -110,6 +113,9 @@ public:
             const std::vector<android::automotive::watchdog::internal::PackageIoOveruseStats>&
                     packageIoOveruseStats);
     android::binder::Status resetResourceOveruseStats(const std::vector<std::string>& packageNames);
+    android::binder::Status getTodayIoUsageStats(
+            std::vector<android::automotive::watchdog::internal::UserPackageIoUsageStats>*
+                    userPackageIoUsageStats);
 
 protected:
     android::base::Result<void> init(

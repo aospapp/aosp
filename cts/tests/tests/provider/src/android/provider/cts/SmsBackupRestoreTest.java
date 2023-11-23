@@ -29,7 +29,6 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.BaseColumns;
 import android.provider.Telephony;
-import android.telephony.TelephonyManager;
 import android.util.Log;
 
 /**
@@ -137,8 +136,7 @@ public class SmsBackupRestoreTest extends TestCaseThatRunsIfTelephonyIsEnabled {
      * @throws Exception
      */
     public void testSmsBackupRestore() throws Exception {
-        TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
-        if (!mHasFeature || !telephonyManager.isSmsCapable()) {
+        if (!mHasFeature) {
             Log.i(TAG, "skipping testSmsBackupRestore");
             return;
         }

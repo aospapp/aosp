@@ -15,9 +15,8 @@
  */
 
 //#define LOG_NDEBUG 0
+#include <cstdint>
 #define LOG_TAG "GCH_Utils"
-
-#include "utils.h"
 
 #include <cutils/properties.h>
 #include <dirent.h>
@@ -25,6 +24,7 @@
 #include <hardware/gralloc.h>
 #include <sys/stat.h>
 
+#include "utils.h"
 #include "vendor_tag_defs.h"
 
 namespace android {
@@ -33,6 +33,8 @@ namespace utils {
 
 constexpr char kRealtimeThreadSetProp[] =
     "persist.vendor.camera.realtimethread";
+
+constexpr uint32_t kMinSupportedSoftwareDenoiseDimension = 1000;
 
 bool IsDepthStream(const Stream& stream) {
   if (stream.stream_type == StreamType::kOutput &&
@@ -118,6 +120,15 @@ bool IsYUVSnapshotStream(const Stream& stream) {
     return true;
   }
 
+  return false;
+}
+
+bool IsSoftwareDenoiseEligibleSnapshotStream(const Stream& stream) {
+  if (utils::IsYUVSnapshotStream(stream) ||
+      utils::IsJPEGSnapshotStream(stream)) {
+    return stream.width >= kMinSupportedSoftwareDenoiseDimension ||
+           stream.height >= kMinSupportedSoftwareDenoiseDimension;
+  }
   return false;
 }
 

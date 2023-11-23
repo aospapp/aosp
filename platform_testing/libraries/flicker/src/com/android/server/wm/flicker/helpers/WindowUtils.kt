@@ -23,8 +23,7 @@ import android.graphics.Region
 import android.view.Surface
 import android.view.WindowManager
 import androidx.test.platform.app.InstrumentationRegistry
-import kotlin.math.max
-import kotlin.math.min
+import com.android.server.wm.traces.common.layers.Display
 
 fun Int.isRotated() = this == Surface.ROTATION_90 || this == Surface.ROTATION_270
 
@@ -77,32 +76,54 @@ object WindowUtils {
     }
 
     /**
-     * Gets the expected status bar position at a specific rotation
+     * Gets the expected status bar position for a specific display
      *
-     * @param requestedRotation Device rotation
+     * @param display the main display
      */
-    fun getStatusBarPosition(requestedRotation: Int): Region {
-        val displayBounds = displayBounds
-        val resourceName: String
-        val width: Int
-        if (!requestedRotation.isRotated()) {
-            resourceName = "status_bar_height_portrait"
-            width = min(displayBounds.width(), displayBounds.height())
+    fun getStatusBarPosition(display: Display): Region {
+        val resourceName = if (!display.transform.getRotation().isRotated()) {
+            "status_bar_height_portrait"
         } else {
-            resourceName = "status_bar_height_landscape"
-            width = max(displayBounds.width(), displayBounds.height())
+            "status_bar_height_landscape"
         }
         val resourceId = resources.getIdentifier(resourceName, "dimen", "android")
         val height = resources.getDimensionPixelSize(resourceId)
-        return Region(0, 0, width, height)
+        return Region(0, 0, display.layerStackSpace.width, height)
     }
 
     /**
-     * Gets the expected navigation bar position at a specific rotation
+     * Gets the expected navigation bar position for a specific display
+     *
+     * @param display the main display
+     */
+    fun getNavigationBarPosition(display: Display): Region {
+        val navBarWidth = getDimensionPixelSize("navigation_bar_width")
+        val navBarHeight = navigationBarHeight
+        val displayHeight = display.layerStackSpace.height
+        val displayWidth = display.layerStackSpace.width
+        val requestedRotation = display.transform.getRotation()
+
+        return when {
+            // nav bar is at the bottom of the screen
+            requestedRotation in listOf(Surface.ROTATION_0, Surface.ROTATION_180) ||
+                    isGesturalNavigationEnabled ->
+                Region(0, displayHeight - navBarHeight, displayWidth, displayHeight)
+            // nav bar is at the right side
+            requestedRotation == Surface.ROTATION_90 ->
+                Region(displayWidth - navBarWidth, 0, displayWidth, displayHeight)
+            // nav bar is at the left side
+            requestedRotation == Surface.ROTATION_270 ->
+                Region(0, 0, navBarWidth, displayHeight)
+            else -> error("Unknown rotation $requestedRotation")
+        }
+    }
+
+    /**
+     * Estimate the navigation bar position at a specific rotation
      *
      * @param requestedRotation Device rotation
      */
-    fun getNavigationBarPosition(requestedRotation: Int): Region {
+    fun estimateNavigationBarPosition(requestedRotation: Int): Region {
         val displayBounds = displayBounds
         val displayWidth: Int
         val displayHeight: Int

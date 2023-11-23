@@ -1,0 +1,17 @@
+type scd, domain;
+type scd_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(scd)
+
+# Allow scd access PixelLogger unix socket in debug build only
+userdebug_or_eng(`
+    typeattribute scd mlstrustedsubject;
+    allow scd logger_app:unix_stream_socket connectto;
+')
+
+# Allow a base set of permissions required for network access.
+net_domain(scd);
+
+# Allow scd access data vendor gps files
+allow scd vendor_gps_file:dir create_dir_perms;
+allow scd vendor_gps_file:file create_file_perms;
+allow scd vendor_gps_file:fifo_file create_file_perms;

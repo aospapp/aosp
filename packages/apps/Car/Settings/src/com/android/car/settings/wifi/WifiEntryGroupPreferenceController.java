@@ -22,12 +22,12 @@ import android.content.Context;
 import androidx.preference.PreferenceGroup;
 
 import com.android.car.settings.common.FragmentController;
-import com.android.car.settings.common.PreferenceController;
 
 /**
  * Controller for displaying a group of {@link com.android.wifitrackerlib.WifiEntry} information
  */
-public class WifiEntryGroupPreferenceController extends PreferenceController<PreferenceGroup> {
+public class WifiEntryGroupPreferenceController
+        extends WifiBasePreferenceController<PreferenceGroup> {
 
     public WifiEntryGroupPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -40,7 +40,7 @@ public class WifiEntryGroupPreferenceController extends PreferenceController<Pre
     }
 
     @Override
-    protected int getAvailabilityStatus() {
-        return WifiUtil.isWifiAvailable(getContext()) ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
+    public void onWifiStateChanged(int state) {
+        // do nothing.
     }
 }

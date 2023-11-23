@@ -1,0 +1,15 @@
+prebuilt_firmware {
+    name: "rtl8821c_fw.bin.car",
+    src: "rtl8821c_fw.bin",
+    sub_dir: "rtl_bt",
+    filename_from_src: true,
+    proprietary: true,
+}
+
+prebuilt_firmware {
+    name: "rtl8821c_config.bin.car",
+    src: "rtl8821c_config.bin",
+    sub_dir: "rtl_bt",
+    filename_from_src: true,
+    proprietary: true,
+}

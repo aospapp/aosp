@@ -18,19 +18,19 @@
 
 #include "DrmConnector.h"
 
-#include <errno.h>
-#include <log/log.h>
-#include <stdint.h>
 #include <xf86drmMode.h>
 
 #include <array>
+#include <cerrno>
+#include <cstdint>
 #include <sstream>
 
 #include "DrmDevice.h"
+#include "utils/log.h"
 
 namespace android {
 
-constexpr size_t TYPES_COUNT = 17;
+constexpr size_t kTypesCount = 17;
 
 DrmConnector::DrmConnector(DrmDevice *drm, drmModeConnectorPtr c,
                            DrmEncoder *current_encoder,
@@ -58,7 +58,7 @@ int DrmConnector::Init() {
     ALOGE("Could not get CRTC_ID property\n");
     return ret;
   }
-  ret = UpdateEdidProperty();
+  UpdateEdidProperty();
   if (writeback()) {
     ret = drm_->GetConnectorProperty(*this, "WRITEBACK_PIXEL_FORMATS",
                                      &writeback_pixel_formats_);
@@ -91,7 +91,7 @@ int DrmConnector::UpdateEdidProperty() {
 }
 
 int DrmConnector::GetEdidBlob(drmModePropertyBlobPtr &blob) {
-  uint64_t blob_id;
+  uint64_t blob_id = 0;
   int ret = UpdateEdidProperty();
   if (ret) {
     return ret;
@@ -144,19 +144,19 @@ bool DrmConnector::valid_type() const {
 }
 
 std::string DrmConnector::name() const {
-  constexpr std::array<const char *, TYPES_COUNT> names =
+  constexpr std::array<const char *, kTypesCount> kNames =
       {"None",   "VGA",  "DVI-I",     "DVI-D",   "DVI-A", "Composite",
        "SVIDEO", "LVDS", "Component", "DIN",     "DP",    "HDMI-A",
        "HDMI-B", "TV",   "eDP",       "Virtual", "DSI"};
 
-  if (type_ < TYPES_COUNT) {
+  if (type_ < kTypesCount) {
     std::ostringstream name_buf;
-    name_buf << names[type_] << "-" << type_id_;
+    name_buf << kNames[type_] << "-" << type_id_;
     return name_buf.str();
-  } else {
-    ALOGE("Unknown type in connector %d, could not make his name", id_);
-    return "None";
   }
+
+  ALOGE("Unknown type in connector %d, could not make his name", id_);
+  return "None";
 }
 
 int DrmConnector::UpdateModes() {
@@ -194,7 +194,7 @@ int DrmConnector::UpdateModes() {
     }
   }
   modes_.swap(new_modes);
-  if (!preferred_mode_found && modes_.size() != 0) {
+  if (!preferred_mode_found && !modes_.empty()) {
     preferred_mode_id_ = modes_[0].id();
   }
   return 0;

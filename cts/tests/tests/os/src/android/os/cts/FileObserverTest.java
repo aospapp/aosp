@@ -345,11 +345,8 @@ public class FileObserverTest extends AndroidTestCase {
                 + "] expected: " + expectedEvents + " Actual: " + actualEvents;
         int j = 0;
         for (int i = 0; i < expected.length; i++) {
-            while (expected[i] != moveEvents[j].event) {
-                j++;
-                if (j >= moveEvents.length)
-                    fail(message);
-            }
+            while (j < moveEvents.length && expected[i] != moveEvents[j].event) j++;
+            if (j >= moveEvents.length) fail(message);
             j++;
         }
     }

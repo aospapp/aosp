@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"اجازه‌های برنامه"</string>
     <string name="unused_apps" msgid="2058057455175955094">"برنامه‌های استفاده‌نشده"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"برنامه استفاده‌نشده‌ای موجود نیست"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"برنامه استفاده‌نشده‌ای وجود ندارد"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"غیرفعال کردن برنامه"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"‏اگر این برنامه را غیرفعال کنید، ممکن است Android و سایر برنامه‌های دیگر عملکرد موردانتظار را نداشته باشند. به‌خاطر داشته باشید که نمی‌توانید این برنامه را حذف کنید، چون از برنامه‌های ازپیش نصب‌شده روی دستگاه است. این برنامه، با غیرفعال کردن، خاموش می‌شود و در دستگاه پنهان می‌شود."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"مدیر اجازه‌ها"</string>

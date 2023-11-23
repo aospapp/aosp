@@ -24,10 +24,12 @@ import static android.server.wm.app.Components.MPP_ACTIVITY3;
 import static android.server.wm.app.Components.MinimalPostProcessingActivity.EXTRA_PREFER_MPP;
 import static android.server.wm.app.Components.POPUP_MPP_ACTIVITY;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.content.ComponentName;
+import android.content.pm.PackageManager;
 import android.platform.test.annotations.Presubmit;
 
 import org.junit.Test;
@@ -66,10 +68,20 @@ public class MinimalPostProcessingTests extends ActivityManagerTestBase {
 
     private void assertDisplayRequestedMinimalPostProcessing(ComponentName name, boolean on) {
         final int displayId = getDisplayId(name);
-
-        boolean supported = isMinimalPostProcessingSupported(displayId);
         boolean requested = isMinimalPostProcessingRequested(displayId);
 
+        PackageManager packageManager = mContext.getPackageManager();
+        // For TV Android S is requesting minimal post processing regardless if it's supported,
+        // because the same signal is used by HAL implementations to disable on-device processing.
+        final boolean isTv = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+        if (isTv) {
+            // TODO(b/202378408): Verify that minimal post-processing is requested only if
+            // it's supported once we have a separate API for disabling on-device processing.
+            assertEquals(requested, on);
+            return;
+        }
+
+        boolean supported = isMinimalPostProcessingSupported(displayId);
         assertTrue(supported ? requested == on : !requested);
     }
 

@@ -16,6 +16,8 @@
 
 package com.android.car.garagemode;
 
+import static com.android.car.internal.testing.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
 import android.app.job.JobSnapshot;
@@ -30,6 +32,7 @@ import android.util.ArraySet;
 import com.android.car.CarLocalServices;
 import com.android.car.CarLog;
 import com.android.car.CarStatsLogHelper;
+import com.android.car.internal.testing.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.power.CarPowerManagementService;
 import com.android.car.user.CarUserService;
 import com.android.internal.annotations.GuardedBy;
@@ -242,6 +245,7 @@ class GarageMode {
         }
     }
 
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     void dump(PrintWriter writer) {
         if (!mGarageModeActive) {
             return;

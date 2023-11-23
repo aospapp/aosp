@@ -19,15 +19,20 @@
               android:layout_height="match_parent"
               android:orientation="vertical" >
     <Button
-        android:id="@+id/io_overuse_warning_btn"
+        android:id="@+id/non_recurring_io_overuse_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="I/O Overuse Warning"/>
+        android:text="@string/non_recurring_io_overuse"/>
     <Button
-        android:id="@+id/io_overuse_killing_btn"
+        android:id="@+id/recurring_io_overuse_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="I/O Overuse Killing"/>
+        android:text="@string/recurring_io_overuse"/>
+    <Button
+        android:id="@+id/long_running_recurring_io_overuse_btn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/long_running_recurring_io_overuse"/>
     <TextView
         android:id="@+id/io_overuse_textview"
         android:layout_width="wrap_content"

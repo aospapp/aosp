@@ -85,13 +85,14 @@ class RawSensitivityBurstTest(its_base_test.ItsBaseTest):
       sens_min, _ = props['android.sensor.info.sensitivityRange']
       sens_max = props['android.sensor.maxAnalogSensitivity']
       sens_step = (sens_max - sens_min) // _NUM_STEPS
-      sens_ae, exp_ae, _, _, f_dist = cam.do_3a(get_results=True)
+      # Intentionally blur images for noise measurements
+      sens_ae, exp_ae, _, _, _ = cam.do_3a(do_af=False, get_results=True)
       sens_exp_prod = sens_ae * exp_ae
       reqs = []
       settings = []
       for sens in range(sens_min, sens_max, sens_step):
         exp = int(sens_exp_prod / float(sens))
-        req = capture_request_utils.manual_capture_request(sens, exp, f_dist)
+        req = capture_request_utils.manual_capture_request(sens, exp, 0)
         reqs.append(req)
         settings.append((sens, exp))
 

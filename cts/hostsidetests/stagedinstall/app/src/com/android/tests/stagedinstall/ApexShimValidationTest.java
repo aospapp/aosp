@@ -105,6 +105,64 @@ public class ApexShimValidationTest {
         assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
     }
 
+    @Test
+    public void testRejectsApexWithAdditionalFile_rebootless() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+        TestApp apex = new TestApp("ShimApex", SHIM_APEX_PACKAGE_NAME, 2,
+                true, "com.android.apex.cts.shim.v2_additional_file.apex");
+        InstallUtils.commitExpectingFailure(
+                AssertionError.class,
+                "is an unexpected file inside the shim apex",
+                Install.single(apex));
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+    }
+
+    @Test
+    public void testRejectsApexWithAdditionalFolder_rebootless() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+        TestApp apex = new TestApp("ShimApex", SHIM_APEX_PACKAGE_NAME, 2,
+                true, "com.android.apex.cts.shim.v2_additional_folder.apex");
+        InstallUtils.commitExpectingFailure(
+                AssertionError.class,
+                "is an unexpected file inside the shim apex",
+                Install.single(apex));
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+    }
+
+    @Test
+    public void testRejectsApexWithPostInstallHook_rebootless() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+        TestApp apex = new TestApp("ShimApex", SHIM_APEX_PACKAGE_NAME, 2,
+                true, "com.android.apex.cts.shim.v2_with_post_install_hook.apex");
+        InstallUtils.commitExpectingFailure(
+                AssertionError.class,
+                "Shim apex is not allowed to have pre or post install hooks",
+                Install.single(apex));
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+    }
+
+    @Test
+    public void testRejectsApexWithPreInstallHook_rebootless() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+        TestApp apex = new TestApp("ShimApex", SHIM_APEX_PACKAGE_NAME, 2,
+                true, "com.android.apex.cts.shim.v2_with_pre_install_hook.apex");
+        InstallUtils.commitExpectingFailure(
+                AssertionError.class,
+                "Shim apex is not allowed to have pre or post install hooks",
+                Install.single(apex));
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+    }
+
+    @Test
+    public void testRejectsApexWrongSHA_rebootless() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+        TestApp apex = new TestApp("ShimApex", SHIM_APEX_PACKAGE_NAME, 2,
+                true, "com.android.apex.cts.shim.v2_wrong_sha.apex");
+        InstallUtils.commitExpectingFailure(
+                AssertionError.class, "has unexpected SHA512 hash", Install.single(apex));
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
+    }
+
     private static int stageApex(String apexFileName) throws Exception {
         TestApp apexTestApp = new TestApp("ShimApex", SHIM_APEX_PACKAGE_NAME, 2,
                 true, apexFileName);

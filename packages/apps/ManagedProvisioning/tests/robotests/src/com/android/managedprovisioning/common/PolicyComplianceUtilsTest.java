@@ -180,6 +180,29 @@ public class PolicyComplianceUtilsTest {
         assertThat(result).isTrue();
     }
 
+    @Test
+    public void isPolicyComplianceActivityResolvableForManagedUser_withSystemUser_activityExists_returnsTrue() {
+        Intent intent = createPolicyComplianceIntent();
+        shadowOf(mContext.getPackageManager()).addResolveInfoForIntent(intent, new ResolveInfo());
+
+        boolean result = mPolicyComplianceUtils.isPolicyComplianceActivityResolvableForManagedUser(
+                mContext,
+                createTrustedSourceParamsBuilder().build(),
+                mUtils);
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    public void isPolicyComplianceActivityResolvableForManagedUser_withSystemUser_activityDoesNotExist_returnsFalse() {
+        boolean result = mPolicyComplianceUtils.isPolicyComplianceActivityResolvableForManagedUser(
+                mContext,
+                createTrustedSourceParamsBuilder().build(),
+                mUtils);
+
+        assertThat(result).isFalse();
+    }
+
     private Intent createPolicyComplianceIntent() {
         Intent intent = new Intent(ACTION_ADMIN_POLICY_COMPLIANCE);
         intent.setPackage(TEST_MDM_PACKAGE_NAME);

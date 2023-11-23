@@ -167,6 +167,10 @@
     <string name="cluster_start_activity" translatable="false">Start Nav Activity</string>
     <string name="cluster_start_activity_failed" translatable="false">Failed to start activity in cluster</string>
     <string name="cluster_not_started" translatable="false">Missing navigation focus</string>
+    <string name="cluster_activity_state" translatable="false">Cluster activity state</string>
+    <string name="cluster_activity_state_default" translatable="false">Default</string>
+    <string name="cluster_activity_state_enabled" translatable="false">On</string>
+    <string name="cluster_activity_state_disabled" translatable="false">Off</string>
 
     <!--  input test -->
     <string name="volume_up" translatable="false">Volume +</string>
@@ -377,4 +381,23 @@
     <!-- Fullscreen Activity Test -->
     <string name="nav_to_full_screen" translatable="false">Navigate to Full Screen</string>
     <string name="cancel" translatable="false">Cancel</string>
+
+    <!-- CarTelemetryService Test -->
+    <string name="gear_change_config" translate="false">on_gear_change:</string>
+    <string name="process_memory_config" translate="false">process_memory:</string>
+    <string name="app_start_memory_state_captured_config" translate="false">app_start_memory_state_captured:</string>
+    <string name="activity_foreground_state_changed_config" translate="false">activity_foreground_state_changed:</string>
+    <string name="process_cpu_time_config" translate="false">process_cpu_time:</string>
+    <string name="app_crash_occurred_config" translate="false">app_crash_occurred:</string>
+    <string name="anr_occurred_config" translate="false">anr_occurred:</string>
+    <string name="wtf_occurred_config" translate="false">wtf_occurred:</string>
+    <string name="add_metrics_config" translatable="false">Add MetricsConfig</string>
+    <string name="remove_metrics_config" translatable="false">Remove MetricsConfig</string>
+    <string name="get_report" translatable="false">Get Report</string>
+    <string name="show_mem_info" translate="false">Show Memory Info</string>
+
+    <!-- Watchdog Test -->
+    <string name="non_recurring_io_overuse" translate="false">Non-recurring I/O overuse</string>
+    <string name="recurring_io_overuse" translate="false">Recurring I/O overuse</string>
+    <string name="long_running_recurring_io_overuse" translate="false">Long-running recurring I/O overuse</string>
 </resources>

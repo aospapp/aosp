@@ -155,8 +155,8 @@
     <string name="car_permission_desc_enroll_trust" msgid="4148649994602185130">"Inschrijving van vertrouwd apparaat toestaan"</string>
     <string name="car_permission_label_car_test_service" msgid="9159328930558208708">"Testmodus van auto bedienen"</string>
     <string name="car_permission_desc_car_test_service" msgid="7426844534110145843">"Testmodus van auto bedienen"</string>
-    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"Functies van de auto in- of uitschakelen"</string>
-    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"Functies van de auto in- of uitschakelen."</string>
+    <string name="car_permission_label_control_car_features" msgid="3905791560378888286">"Functies van de auto aan- of uitzetten"</string>
+    <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"Functies van de auto aan- of uitzetten."</string>
     <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"auto-watchdog gebruiken"</string>
     <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"Auto-watchdog gebruiken."</string>
     <string name="car_permission_label_control_car_watchdog_config" msgid="7002301555689209243">"watchdog-configuratie voor auto beheren"</string>
@@ -169,6 +169,8 @@
     <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"In-/uitschakelbeleid voor auto beheren."</string>
     <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"templates renderen"</string>
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Templates renderen."</string>
+    <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"starten van apps beheren"</string>
+    <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Starten van apps beheren."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Mijn apparaat"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"Gast"</string>
     <string name="importance_default" msgid="8587741629268312938">"Standaardbelang"</string>
@@ -182,4 +184,12 @@
     <string name="factory_reset_later_button" msgid="2401829720674483843">"Later resetten"</string>
     <string name="factory_reset_later_text" msgid="5896142140528784784">"Het infotainmentsysteem wordt gereset als de auto weer wordt gestart."</string>
     <string name="factory_reset_driving_text" msgid="6702298505761254553">"Parkeer de auto om de reset te starten."</string>
+    <string name="resource_overuse_notification_title" msgid="3385149030747234969">"<xliff:g id="ID_1">^1</xliff:g> is van invloed op je systeemprestaties"</string>
+    <string name="resource_overuse_notification_text_disable_app" msgid="4538000369374274293">"Zet de app uit om de systeemprestaties te verbeteren. Je kunt de app weer aanzetten via Instellingen."</string>
+    <string name="resource_overuse_notification_text_prioritize_app" msgid="4782324719261106243">"Prioriteer de app als je deze wilt blijven gebruiken."</string>
+    <string name="resource_overuse_notification_text_uninstall_app" msgid="531108846448668467">"Verwijder de app om de systeemprestaties te verbeteren."</string>
+    <string name="resource_overuse_notification_button_disable_app" msgid="5511548570206345274">"App uitzetten"</string>
+    <string name="resource_overuse_notification_button_prioritize_app" msgid="5327141954014335559">"App prioriteren"</string>
+    <string name="resource_overuse_notification_button_uninstall_app" msgid="7327141273608850448">"App verwijderen"</string>
+    <string name="resource_overuse_toast_disable_app_now" msgid="3182983639177825069">"<xliff:g id="ID_1">^1</xliff:g> is uitgezet. Je kunt de app weer aanzetten via Instellingen."</string>
 </resources>

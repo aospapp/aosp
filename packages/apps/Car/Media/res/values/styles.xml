@@ -92,4 +92,6 @@
     <style name="BrowseListItemRightArrowStyle">
         <item name="android:src">@null</item>
     </style>
+
+    <style name="MediaIconContainerStyle"/>
 </resources>

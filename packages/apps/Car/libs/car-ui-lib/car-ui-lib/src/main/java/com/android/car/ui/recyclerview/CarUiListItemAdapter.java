@@ -16,10 +16,13 @@
 
 package com.android.car.ui.recyclerview;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
 import static com.android.car.ui.utils.CarUiUtils.requireViewByRefId;
 
+import android.annotation.TargetApi;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,6 +38,7 @@ import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.ui.R;
+import com.android.car.ui.SecureView;
 import com.android.car.ui.widget.CarUiTextView;
 
 import java.util.List;
@@ -46,7 +50,11 @@ import java.util.List;
  * <ul>
  * <li> Implements {@link CarUiRecyclerView.ItemCap} - defaults to unlimited item count.
  * </ul>
+ * <p>
+ * Rendered views will comply with
+ * <a href="https://source.android.com/devices/automotive/hmi/car_ui/appendix_b">customization guardrails</a>
  */
+@TargetApi(MIN_TARGET_API)
 public class CarUiListItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> implements
         CarUiRecyclerView.ItemCap {
 
@@ -242,6 +250,29 @@ public class CarUiListItemAdapter extends RecyclerView.Adapter<RecyclerView.View
                 }
             } else {
                 mIconContainer.setVisibility(View.GONE);
+            }
+
+            boolean logWarning = false;
+            if (mTouchInterceptor instanceof SecureView) {
+                ((SecureView) mTouchInterceptor).setSecure(item.isSecure());
+            } else {
+                logWarning = true;
+            }
+
+            if (mReducedTouchInterceptor instanceof SecureView) {
+                ((SecureView) mReducedTouchInterceptor).setSecure(item.isSecure());
+            } else {
+                logWarning = true;
+            }
+
+            if (mActionContainerTouchInterceptor instanceof SecureView) {
+                ((SecureView) mActionContainerTouchInterceptor).setSecure(item.isSecure());
+            } else {
+                logWarning = true;
+            }
+
+            if (logWarning) {
+                Log.w("carui", "List item doesn't have a SecureView, but security was requested!");
             }
 
             mActionDivider.setVisibility(

@@ -22,7 +22,7 @@ android_app {
 
     srcs: ["src/**/*.java"],
 
-    resource_dirs: ["res"],
+    resource_dirs: ["res", "res-overlayable",],
 
     platform_apis: true,
     certificate: "platform",
@@ -31,6 +31,8 @@ android_app {
     optimize: {
         enabled: false,
     },
+
+    required: ["allowed_privapp_com.android.car.notification"],
 
     dex_preopt: {
         enabled: false,
@@ -75,6 +77,8 @@ android_app {
     optimize: {
         enabled: false,
     },
+
+    required: ["allowed_privapp_com.android.car.notification"],
 
     dex_preopt: {
         enabled: false,

@@ -32,6 +32,8 @@
     <dimen name="contact_details_title_margin_bottom">@dimen/car_ui_padding_5</dimen>
     <dimen name="contact_details_avatar_size">126dp</dimen>
     <dimen name="contact_details_item_height">@dimen/list_item_height</dimen>
+    <dimen name="contact_details_list_item_guideline_start">@dimen/car_keyline_3</dimen>
+    <dimen name="contact_details_list_item_padding">@dimen/car_keyline_1</dimen>
     <dimen name="contact_details_number_padding_start">@dimen/car_keyline_1</dimen>
     <dimen name="contact_details_number_padding_end">@dimen/car_ui_padding_2</dimen>
     <dimen name="contact_details_text_button_guideline">@dimen/car_keyline_3</dimen>
@@ -61,12 +63,13 @@
     <dimen name="in_call_user_profile_margin">@dimen/car_ui_margin</dimen>
     <dimen name="in_call_user_profile_list_margin">60dp</dimen>
     <dimen name="onhold_user_info_height">90dp</dimen>
-    <dimen name="onhold_profile_margin_x">@dimen/list_item_padding</dimen>
+    <dimen name="onhold_profile_margin_x">@dimen/car_ui_margin</dimen>
     <dimen name="onhold_profile_margin_y">@dimen/car_ui_padding_3</dimen>
     <dimen name="onhold_profile_corner_radius">8dp</dimen>
     <dimen name="onhold_profile_avatar_margin">@dimen/car_keyline_1</dimen>
     <dimen name="onhold_profile_guideline">@dimen/list_item_guideline</dimen>
     <dimen name="onhold_profile_status_margin">12dp</dimen>
+    <dimen name="onhold_label_margin_end">@dimen/car_ui_padding_3</dimen>
     <dimen name="user_profile_list_item_height">150dp</dimen>
 
     <!-- Ringing call dimensions -->

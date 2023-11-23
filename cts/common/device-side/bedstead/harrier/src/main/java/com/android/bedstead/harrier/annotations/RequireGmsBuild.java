@@ -16,6 +16,7 @@
 
 package com.android.bedstead.harrier.annotations;
 
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.EARLY;
 import static com.android.bedstead.harrier.annotations.RequireAospBuild.GMS_CORE_PACKAGE;
 import static com.android.bedstead.harrier.annotations.RequireAospBuild.GSF_PACKAGE;
 import static com.android.bedstead.harrier.annotations.RequireAospBuild.PLAY_STORE_PACKAGE;
@@ -33,4 +34,15 @@ import java.lang.annotation.Target;
 @RequirePackageInstalled(value = PLAY_STORE_PACKAGE, onUser = DeviceState.UserType.ANY)
 @RequirePackageInstalled(value = GSF_PACKAGE, onUser = DeviceState.UserType.ANY)
 public @interface RequireGmsBuild {
+    /**
+     * Weight sets the order that annotations will be resolved.
+     *
+     * <p>Annotations with a lower weight will be resolved before annotations with a higher weight.
+     *
+     * <p>If there is an order requirement between annotations, ensure that the weight of the
+     * annotation which must be resolved first is lower than the one which must be resolved later.
+     *
+     * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
+     */
+    int weight() default EARLY;
 }

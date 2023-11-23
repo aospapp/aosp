@@ -83,12 +83,13 @@ final class DeviceAdminStringProviderImpl implements DeviceAdminStringProvider {
 
     @Override
     public String getDisabledBiometricsParentConsentTitle() {
-        return mContext.getString(R.string.disabled_by_policy_title_biometric_parental_consent);
+        throw new UnsupportedOperationException(
+                "disabled_by_policy_title_biometric_parental_consent not used on automotive");
     }
 
     @Override
     public String getDisabledBiometricsParentConsentContent() {
-        return mContext.getString(R.string.disabled_by_policy_content_biometric_parental_consent);
+        throw new UnsupportedOperationException(
+                "disabled_by_policy_content_biometric_parental_consent not used on automotive");
     }
-
 }

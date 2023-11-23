@@ -17,9 +17,9 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_severe_alert" msgid="4470698515511189493">"హెచ్చరిక అలర్ట్"</string>
-    <string name="public_safety_message" msgid="7373019453807671797">"సమాచారాత్మక సందేశం"</string>
-    <string name="cmas_amber_alert" msgid="740474290634511931">"పబ్లిక్ నుంచి సహాయాన్ని అభ్యర్థించే సందేశం"</string>
+    <string name="public_safety_message" msgid="7373019453807671797">"సమాచారాత్మక మెసేజ్‌"</string>
+    <string name="cmas_amber_alert" msgid="740474290634511931">"పబ్లిక్ నుంచి సహాయాన్ని అభ్యర్థించే మెసేజ్‌"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="4570611095431464471">"హెచ్చరిక అలర్ట్‌లు"</string>
-    <string name="enable_public_safety_messages_title" msgid="6173886162636474286">"సమాచారాత్మక సందేశాలు"</string>
-    <string name="enable_cmas_amber_alerts_title" msgid="3896845887375326185">"పబ్లిక్ నుంచి సహాయాన్ని అభ్యర్థించే సందేశాలు"</string>
+    <string name="enable_public_safety_messages_title" msgid="6173886162636474286">"సమాచారాత్మక మెసేజ్‌లు"</string>
+    <string name="enable_cmas_amber_alerts_title" msgid="3896845887375326185">"పబ్లిక్ నుంచి సహాయాన్ని అభ్యర్థించే మెసేజ్‌లు"</string>
 </resources>

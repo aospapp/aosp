@@ -24,7 +24,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:weightSum="2">
+        android:weightSum="3">
         <LinearLayout
             style="@style/SectionContainer"
             android:layout_width="match_parent"
@@ -47,34 +47,29 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:weightSum="2">
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:weightSum="2">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/label_apply_latest_policy_on_boot"/>
-                <Switch
-                    android:id="@+id/reapplyPANSOnBootSwitch"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
-            </LinearLayout>
-            <LinearLayout
-                android:layout_width="match_parent"
+                android:text="@string/label_apply_latest_policy_on_boot"/>
+            <Switch
+                android:id="@+id/reapplyPANSOnBootSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+        </LinearLayout>
+        <LinearLayout
+            style="@style/SectionContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:weightSum="2">
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:weightSum="2">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/label_apply_wifi_policy_on_boot"/>
-                <Switch
-                    android:id="@+id/reapplyWifiSuggestionsOnBootSwitch"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
-            </LinearLayout>
+                android:text="@string/label_apply_wifi_policy_on_boot"/>
+            <Switch
+                android:id="@+id/reapplyWifiSuggestionsOnBootSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
         </LinearLayout>
     </LinearLayout>
     <LinearLayout

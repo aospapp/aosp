@@ -58,4 +58,9 @@
         android:layout_height="wrap_content"
         android:id="@+id/coldstart_coldLatencyTxt" />
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/coldstart_coldResultsTxt" />
+
 </LinearLayout>

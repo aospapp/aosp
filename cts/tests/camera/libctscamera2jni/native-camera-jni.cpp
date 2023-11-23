@@ -1558,6 +1558,14 @@ class PreviewTestCase {
         return ACameraCaptureSession_stopRepeating(mSession);
     }
 
+    camera_status_t abortCaptures() {
+        if (mSession == nullptr) {
+            ALOGE("Testcase cannot abort session %p", mSession);
+            return ACAMERA_ERROR_UNKNOWN;
+        }
+        return ACameraCaptureSession_abortCaptures(mSession);
+    }
+
     camera_status_t updateRepeatingRequest(ACaptureRequest *updatedRequest,
             int *sequenceId = nullptr) {
         if (mSession == nullptr || updatedRequest == nullptr) {
@@ -3770,9 +3778,9 @@ testCameraDeviceCaptureFailureNative(JNIEnv* env, jclass /*clazz*/, jstring jOve
             lastFrameNumber++;
         }
 
-        ret = testCase.stopPreview();
+        ret = testCase.abortCaptures();
         if (ret != ACAMERA_OK) {
-            LOG_ERROR(errorString, "stopPreview failed!");
+            LOG_ERROR(errorString, "abort captures failed!");
             goto exit;
         }
 

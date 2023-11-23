@@ -24,7 +24,6 @@
     <string name="apply_theme_btn" msgid="6293081192321303991">"लागू गर्नुहोस्"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"सम्पादन गर्न ट्याप गर्नुहोस्"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"अहिले कै वालपेपर राख्नुहोस्"</string>
-    <string name="apply_btn" msgid="7965877231041987336">"लागू गर्नुहोस्"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"शैलीको प्रिभ्यु"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"ग्रिडको प्रिभ्यु"</string>
     <string name="font_preview_content_description" msgid="128230439293337891">"फन्टको प्रिभ्यू"</string>
@@ -34,6 +33,7 @@
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, हालसालै लागू गरिएको"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, हालसालै लागू तथा पूर्वावलोकन गरिएको"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, हालसालै पूर्वलोकन गरिएको"</string>
+    <string name="option_change_applied_previewed_description" msgid="9197311327728570816">"<xliff:g id="ID_1">%1$s</xliff:g>, तपाईंले चयन गरेको र समीक्षा गरेको वस्तु बदल्नुहोस्"</string>
     <string name="theme_description" msgid="3697012391785254635">"फन्ट: <xliff:g id="ID_1">%1$s</xliff:g>, आइकनहरू: <xliff:g id="ID_2">%2$s</xliff:g>, आकार: <xliff:g id="ID_3">%3$s</xliff:g>, रङ्ग: <xliff:g id="ID_4">%4$s</xliff:g>"</string>
     <string name="default_theme_title" msgid="2555741736622366797">"डिफल्ट"</string>
     <string name="preview_name_font" msgid="4465423899630037038">"फन्ट"</string>
@@ -80,6 +80,7 @@
     <string name="accessibility_custom_name_title" msgid="5494460518085463262">"शैलीको आफूले रोजेको नाम"</string>
     <string name="mode_title" msgid="2394873501427436055">"अँध्यारो थिम"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"ब्याट्री सेभर अन भएकाले केही समयका लागि अफ गरिएको छ"</string>
+    <string name="mode_changed" msgid="2243581369395418584">"थिम परिवर्तन गरिएको छ"</string>
     <string name="themed_icon_title" msgid="7312460430471956558">"थिम भएका आइकन"</string>
     <string name="beta_title" msgid="8703819523760746458">"बिटा"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"एप ग्रिड बदल्नुहोस्"</string>

@@ -27,6 +27,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,7 +50,6 @@ import com.android.systemui.plugins.qs.QSTileView;
 import com.android.systemui.qs.customize.QSCustomizerController;
 import com.android.systemui.qs.logging.QSLogger;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
-import com.android.systemui.statusbar.FeatureFlags;
 import com.android.systemui.util.animation.DisappearParameters;
 
 import org.junit.Before;
@@ -93,24 +93,22 @@ public class QSPanelControllerBaseTest extends SysuiTestCase {
     @Mock
     PagedTileLayout mPagedTileLayout;
     @Mock
-    FeatureFlags mFeatureFlags;
-    @Mock
     Resources mResources;
     @Mock
     Configuration mConfiguration;
+    @Mock
+    Runnable mHorizontalLayoutListener;
 
     private QSPanelControllerBase<QSPanel> mController;
-
-
 
     /** Implementation needed to ensure we have a reflectively-available class name. */
     private class TestableQSPanelControllerBase extends QSPanelControllerBase<QSPanel> {
         protected TestableQSPanelControllerBase(QSPanel view, QSTileHost host,
                 QSCustomizerController qsCustomizerController, MediaHost mediaHost,
                 MetricsLogger metricsLogger, UiEventLogger uiEventLogger, QSLogger qsLogger,
-                DumpManager dumpManager, FeatureFlags featureFlags) {
+                DumpManager dumpManager) {
             super(view, host, qsCustomizerController, true, mediaHost, metricsLogger, uiEventLogger,
-                    qsLogger, dumpManager, featureFlags);
+                    qsLogger, dumpManager);
         }
 
         @Override
@@ -140,7 +138,7 @@ public class QSPanelControllerBaseTest extends SysuiTestCase {
 
         mController = new TestableQSPanelControllerBase(mQSPanel, mQSTileHost,
                 mQSCustomizerController, mMediaHost,
-                mMetricsLogger, mUiEventLogger, mQSLogger, mDumpManager, mFeatureFlags);
+                mMetricsLogger, mUiEventLogger, mQSLogger, mDumpManager);
 
         mController.init();
         reset(mQSTileRevealController);
@@ -152,7 +150,7 @@ public class QSPanelControllerBaseTest extends SysuiTestCase {
 
         QSPanelControllerBase<QSPanel> controller = new TestableQSPanelControllerBase(mQSPanel,
                 mQSTileHost, mQSCustomizerController, mMediaHost,
-                mMetricsLogger, mUiEventLogger, mQSLogger, mDumpManager, mFeatureFlags) {
+                mMetricsLogger, mUiEventLogger, mQSLogger, mDumpManager) {
             @Override
             protected QSTileRevealController createTileRevealController() {
                 return mQSTileRevealController;
@@ -241,19 +239,44 @@ public class QSPanelControllerBaseTest extends SysuiTestCase {
         mConfiguration.orientation = Configuration.ORIENTATION_LANDSCAPE;
         when(mMediaHost.getVisible()).thenReturn(true);
 
-        when(mFeatureFlags.isTwoColumnNotificationShadeEnabled()).thenReturn(false);
+        when(mResources.getBoolean(R.bool.config_use_split_notification_shade)).thenReturn(false);
+        when(mQSPanel.getDumpableTag()).thenReturn("QSPanelLandscape");
         mController = new TestableQSPanelControllerBase(mQSPanel, mQSTileHost,
                 mQSCustomizerController, mMediaHost,
-                mMetricsLogger, mUiEventLogger, mQSLogger, mDumpManager, mFeatureFlags);
+                mMetricsLogger, mUiEventLogger, mQSLogger, mDumpManager);
+        mController.init();
 
         assertThat(mController.shouldUseHorizontalLayout()).isTrue();
 
-        when(mFeatureFlags.isTwoColumnNotificationShadeEnabled()).thenReturn(true);
         when(mResources.getBoolean(R.bool.config_use_split_notification_shade)).thenReturn(true);
+        when(mQSPanel.getDumpableTag()).thenReturn("QSPanelPortrait");
         mController = new TestableQSPanelControllerBase(mQSPanel, mQSTileHost,
                 mQSCustomizerController, mMediaHost,
-                mMetricsLogger, mUiEventLogger, mQSLogger, mDumpManager, mFeatureFlags);
+                mMetricsLogger, mUiEventLogger, mQSLogger, mDumpManager);
+        mController.init();
 
         assertThat(mController.shouldUseHorizontalLayout()).isFalse();
+    }
+
+    @Test
+    public void testChangeConfiguration_shouldUseHorizontalLayout() {
+        when(mMediaHost.getVisible()).thenReturn(true);
+        mController.setUsingHorizontalLayoutChangeListener(mHorizontalLayoutListener);
+
+        // When device is rotated to landscape
+        mConfiguration.orientation = Configuration.ORIENTATION_LANDSCAPE;
+        mController.mOnConfigurationChangedListener.onConfigurationChange(mConfiguration);
+
+        // Then the layout changes
+        assertThat(mController.shouldUseHorizontalLayout()).isTrue();
+        verify(mHorizontalLayoutListener).run(); // not invoked
+
+        // When it is rotated back to portrait
+        mConfiguration.orientation = Configuration.ORIENTATION_PORTRAIT;
+        mController.mOnConfigurationChangedListener.onConfigurationChange(mConfiguration);
+
+        // Then the layout changes back
+        assertThat(mController.shouldUseHorizontalLayout()).isFalse();
+        verify(mHorizontalLayoutListener, times(2)).run();
     }
 }

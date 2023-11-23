@@ -20,7 +20,7 @@ limitations under the License.
     <string name="car_ui_scrollbar_page_down_button" msgid="746830252244551947">"ಕೆಳಗೆ ಸ್ಕ್ರಾಲ್ ಮಾಡಿ"</string>
     <string name="car_ui_scrollbar_page_up_button" msgid="965431866383176249">"ಮೇಲೆ ಸ್ಕ್ರಾಲ್ ಮಾಡಿ"</string>
     <string name="car_ui_toolbar_nav_icon_content_description" msgid="6116610935599234725">"ಹಿಂದಕ್ಕೆ"</string>
-    <string name="car_ui_toolbar_menu_item_search_title" msgid="2988075382498202155">"ಹುಡುಕಾಟ"</string>
+    <string name="car_ui_toolbar_menu_item_search_title" msgid="2988075382498202155">"ಹುಡುಕಿ"</string>
     <string name="car_ui_toolbar_menu_item_settings_title" msgid="5206858558664840197">"ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="car_ui_toolbar_menu_item_overflow_title" msgid="9132512843297732890">"ಓವರ್‌ಫ್ಲೋ"</string>
     <string name="car_ui_preference_switch_on" msgid="2091385466752081649">"ಆನ್ ಆಗಿದೆ"</string>

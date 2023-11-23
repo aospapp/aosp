@@ -13,7 +13,12 @@
 #   limitations under the License.
 
 import re
+import time
+
+from acts import signals
+from acts import utils
 from acts.controllers.openwrt_lib import network_const
+
 
 SERVICE_DNSMASQ = "dnsmasq"
 SERVICE_STUNNEL = "stunnel"
@@ -22,8 +27,13 @@ SERVICE_PPTPD = "pptpd"
 SERVICE_FIREWALL = "firewall"
 SERVICE_IPSEC = "ipsec"
 SERVICE_XL2TPD = "xl2tpd"
+SERVICE_ODHCPD = "odhcpd"
+SERVICE_NODOGSPLASH = "nodogsplash"
 PPTP_PACKAGE = "pptpd kmod-nf-nathelper-extra"
 L2TP_PACKAGE = "strongswan-full openssl-util xl2tpd"
+NAT6_PACKAGE = "ip6tables kmod-ipt-nat6"
+CAPTIVE_PORTAL_PACKAGE = "nodogsplash"
+MDNS_PACKAGE = "avahi-utils avahi-daemon-service-http avahi-daemon-service-ssh libavahi-client avahi-dbus-daemon"
 STUNNEL_CONFIG_PATH = "/etc/stunnel/DoTServer.conf"
 HISTORY_CONFIG_PATH = "/etc/dirty_configs"
 PPTPD_OPTION_PATH = "/etc/ppp/options.pptpd"
@@ -31,6 +41,7 @@ XL2TPD_CONFIG_PATH = "/etc/xl2tpd/xl2tpd.conf"
 XL2TPD_OPTION_CONFIG_PATH = "/etc/ppp/options.xl2tpd"
 FIREWALL_CUSTOM_OPTION_PATH = "/etc/firewall.user"
 PPP_CHAP_SECRET_PATH = "/etc/ppp/chap-secrets"
+TCPDUMP_DIR = "/tmp/tcpdump/"
 LOCALHOST = "192.168.1.1"
 DEFAULT_PACKAGE_INSTALL_TIMEOUT = 200
 
@@ -40,26 +51,30 @@ class NetworkSettings(object):
 
     Attributes:
         ssh: ssh connection object.
-        service_manager: Object manage service configuration
+        ssh_settings: ssh settings for AccessPoint.
+        service_manager: Object manage service configuration.
+        user: username for ssh.
         ip: ip address for AccessPoint.
         log: Logging object for AccessPoint.
         config: A list to store changes on network settings.
-        firewall_rules_list: A list of firewall rule name list
+        firewall_rules_list: A list of firewall rule name list.
         cleanup_map: A dict for compare oppo functions.
         l2tp: profile for vpn l2tp server.
     """
 
-    def __init__(self, ssh, ip, logger):
+    def __init__(self, ssh, ssh_settings, logger):
         """Initialize wireless settings.
 
         Args:
             ssh: ssh connection object.
-            ip: ip address for AccessPoint.
+            ssh_settings: ssh settings for AccessPoint.
             logger: Logging object for AccessPoint.
         """
         self.ssh = ssh
         self.service_manager = ServiceManager(ssh)
-        self.ip = ip
+        self.ssh_settings = ssh_settings
+        self.user = self.ssh_settings.username
+        self.ip = self.ssh_settings.hostname
         self.log = logger
         self.config = set()
         self.firewall_rules_list = []
@@ -67,7 +82,14 @@ class NetworkSettings(object):
             "setup_dns_server": self.remove_dns_server,
             "setup_vpn_pptp_server": self.remove_vpn_pptp_server,
             "setup_vpn_l2tp_server": self.remove_vpn_l2tp_server,
-            "disable_ipv6": self.enable_ipv6
+            "disable_ipv6": self.enable_ipv6,
+            "setup_ipv6_bridge": self.remove_ipv6_bridge,
+            "default_dns": self.del_default_dns,
+            "default_v6_dns": self.del_default_v6_dns,
+            "ipv6_prefer_option": self.remove_ipv6_prefer_option,
+            "block_dns_response": self.unblock_dns_response,
+            "setup_mdns": self.remove_mdns,
+            "setup_captive_portal": self.remove_cpative_portal
         }
         # This map contains cleanup functions to restore the configuration to
         # its default state. We write these keys to HISTORY_CONFIG_PATH prior to
@@ -75,6 +97,7 @@ class NetworkSettings(object):
         # This makes it easier to recover after an aborted test.
         self.update_firewall_rules_list()
         self.cleanup_network_settings()
+        self.clear_tcpdump()
 
     def cleanup_network_settings(self):
         """Reset all changes on Access point."""
@@ -88,7 +111,11 @@ class NetworkSettings(object):
         if self.config:
             temp = self.config.copy()
             for change in temp:
-                self.cleanup_map[change]()
+                change_list = change.split()
+                if len(change_list) > 1:
+                    self.cleanup_map[change_list[0]](*change_list[1:])
+                else:
+                    self.cleanup_map[change]()
             self.config = set()
 
         if self.file_exists(HISTORY_CONFIG_PATH):
@@ -397,11 +424,11 @@ class NetworkSettings(object):
             org: Organization name for generate cert keys.
         """
         self.l2tp = network_const.VpnL2tp(vpn_server_hostname,
-                                           vpn_server_address,
-                                           vpn_username,
-                                           vpn_password,
-                                           psk_secret,
-                                           server_name)
+                                          vpn_server_address,
+                                          vpn_username,
+                                          vpn_password,
+                                          psk_secret,
+                                          server_name)
 
         self.package_install(L2TP_PACKAGE)
         self.config.add("setup_vpn_l2tp_server")
@@ -416,6 +443,8 @@ class NetworkSettings(object):
         self.setup_ppp_secret()
         # /etc/config/firewall & /etc/firewall.user
         self.setup_firewall_rules_for_l2tp()
+        # setup vpn server local ip
+        self.setup_vpn_local_ip()
         # generate cert and key for rsa
         self.generate_vpn_cert_keys(country, org)
         # restart service
@@ -428,6 +457,7 @@ class NetworkSettings(object):
         """Remove l2tp vpn server on OpenWrt."""
         self.config.discard("setup_vpn_l2tp_server")
         self.restore_firewall_rules_for_l2tp()
+        self.remove_vpn_local_ip()
         self.service_manager.need_restart(SERVICE_IPSEC)
         self.service_manager.need_restart(SERVICE_XL2TPD)
         self.service_manager.need_restart(SERVICE_FIREWALL)
@@ -451,28 +481,35 @@ class NetworkSettings(object):
 
     def setup_ipsec(self):
         """Setup ipsec config."""
-        def load_config(data):
+        def load_ipsec_config(data, rightsourceip=False):
             for i in data.keys():
                 config.append(i)
                 for j in data[i].keys():
                     config.append("\t %s=%s" % (j, data[i][j]))
+                if rightsourceip:
+                    config.append("\t rightsourceip=%s.16/26" % self.l2tp.address.rsplit(".", 1)[0])
                 config.append("")
 
         config = []
-        load_config(network_const.IPSEC_CONF)
-        load_config(network_const.IPSEC_L2TP_PSK)
-        load_config(network_const.IPSEC_L2TP_RSA)
+        load_ipsec_config(network_const.IPSEC_CONF)
+        load_ipsec_config(network_const.IPSEC_L2TP_PSK)
+        load_ipsec_config(network_const.IPSEC_L2TP_RSA)
+        load_ipsec_config(network_const.IPSEC_HYBRID_RSA, True)
+        load_ipsec_config(network_const.IPSEC_XAUTH_PSK, True)
+        load_ipsec_config(network_const.IPSEC_XAUTH_RSA, True)
         self.create_config_file("\n".join(config), "/etc/ipsec.conf")
 
         ipsec_secret = []
         ipsec_secret.append(r": PSK \"%s\"" % self.l2tp.psk_secret)
         ipsec_secret.append(r": RSA \"%s\"" % "serverKey.der")
+        ipsec_secret.append(r"%s : XAUTH \"%s\"" % (self.l2tp.username,
+                                                    self.l2tp.password))
         self.create_config_file("\n".join(ipsec_secret), "/etc/ipsec.secrets")
 
     def setup_xl2tpd(self, ip_range=20):
         """Setup xl2tpd config."""
         net_id, host_id = self.l2tp.address.rsplit(".", 1)
-        xl2tpd_conf = network_const.XL2TPD_CONF_GLOBAL
+        xl2tpd_conf = list(network_const.XL2TPD_CONF_GLOBAL)
         xl2tpd_conf.append("auth file = %s" % PPP_CHAP_SECRET_PATH)
         xl2tpd_conf.extend(network_const.XL2TPD_CONF_INS)
         xl2tpd_conf.append("ip range = %s.%s-%s.%s" %
@@ -483,7 +520,7 @@ class NetworkSettings(object):
         xl2tpd_conf.append("pppoptfile = %s" % XL2TPD_OPTION_CONFIG_PATH)
 
         self.create_config_file("\n".join(xl2tpd_conf), XL2TPD_CONFIG_PATH)
-        xl2tpd_option = network_const.XL2TPD_OPTION
+        xl2tpd_option = list(network_const.XL2TPD_OPTION)
         xl2tpd_option.append("name %s" % self.l2tp.name)
         self.create_config_file("\n".join(xl2tpd_option),
                                 XL2TPD_OPTION_CONFIG_PATH)
@@ -574,7 +611,7 @@ class NetworkSettings(object):
             self.ssh.run("uci set firewall.@rule[-1].src='wan'")
             self.ssh.run("uci set firewall.@rule[-1].proto='47'")
 
-        iptable_rules = network_const.FIREWALL_RULES_FOR_PPTP
+        iptable_rules = list(network_const.FIREWALL_RULES_FOR_PPTP)
         self.add_custom_firewall_rules(iptable_rules)
         self.service_manager.need_restart(SERVICE_FIREWALL)
 
@@ -617,7 +654,7 @@ class NetworkSettings(object):
             self.ssh.run("uci set firewall.@rule[-1].proto='ah'")
 
         net_id = self.l2tp.address.rsplit(".", 1)[0]
-        iptable_rules = network_const.FIREWALL_RULES_FOR_L2TP
+        iptable_rules = list(network_const.FIREWALL_RULES_FOR_L2TP)
         iptable_rules.append("iptables -A FORWARD -s %s.0/24"
                              "  -j ACCEPT" % net_id)
         iptable_rules.append("iptables -t nat -A POSTROUTING"
@@ -670,6 +707,24 @@ class NetworkSettings(object):
         """Disable pptp service."""
         self.package_remove(PPTP_PACKAGE)
 
+    def setup_vpn_local_ip(self):
+        """Setup VPN Server local ip on OpenWrt for client ping verify."""
+        self.ssh.run("uci set network.lan2=interface")
+        self.ssh.run("uci set network.lan2.type=bridge")
+        self.ssh.run("uci set network.lan2.ifname=eth1.2")
+        self.ssh.run("uci set network.lan2.proto=static")
+        self.ssh.run("uci set network.lan2.ipaddr=\"%s\"" % self.l2tp.address)
+        self.ssh.run("uci set network.lan2.netmask=255.255.255.0")
+        self.ssh.run("uci set network.lan2=interface")
+        self.service_manager.reload(SERVICE_NETWORK)
+        self.commit_changes()
+
+    def remove_vpn_local_ip(self):
+        """Discard vpn local ip on OpenWrt."""
+        self.ssh.run("uci delete network.lan2")
+        self.service_manager.reload(SERVICE_NETWORK)
+        self.commit_changes()
+
     def enable_ipv6(self):
         """Enable ipv6 on OpenWrt."""
         self.ssh.run("uci set network.lan.ipv6=1")
@@ -686,6 +741,194 @@ class NetworkSettings(object):
         self.ssh.run("uci set network.wan.ipv6=0")
         self.service_manager.disable("odhcpd")
         self.service_manager.reload(SERVICE_NETWORK)
+        self.commit_changes()
+
+    def setup_ipv6_bridge(self):
+        """Setup ipv6 bridge for client have ability to access network."""
+        self.config.add("setup_ipv6_bridge")
+
+        self.ssh.run("uci set dhcp.lan.dhcpv6=relay")
+        self.ssh.run("uci set dhcp.lan.ra=relay")
+        self.ssh.run("uci set dhcp.lan.ndp=relay")
+
+        self.ssh.run("uci set dhcp.wan6=dhcp")
+        self.ssh.run("uci set dhcp.wan6.dhcpv6=relay")
+        self.ssh.run("uci set dhcp.wan6.ra=relay")
+        self.ssh.run("uci set dhcp.wan6.ndp=relay")
+        self.ssh.run("uci set dhcp.wan6.master=1")
+        self.ssh.run("uci set dhcp.wan6.interface=wan6")
+
+        # Enable service
+        self.service_manager.need_restart(SERVICE_ODHCPD)
+        self.commit_changes()
+
+    def remove_ipv6_bridge(self):
+        """Discard ipv6 bridge on OpenWrt."""
+        if "setup_ipv6_bridge" in self.config:
+            self.config.discard("setup_ipv6_bridge")
+
+            self.ssh.run("uci set dhcp.lan.dhcpv6=server")
+            self.ssh.run("uci set dhcp.lan.ra=server")
+            self.ssh.run("uci delete dhcp.lan.ndp")
+
+            self.ssh.run("uci delete dhcp.wan6")
+
+            self.service_manager.need_restart(SERVICE_ODHCPD)
+            self.commit_changes()
+
+    def _add_dhcp_option(self, args):
+        self.ssh.run("uci add_list dhcp.lan.dhcp_option=\"%s\"" % args)
+
+    def _remove_dhcp_option(self, args):
+        self.ssh.run("uci del_list dhcp.lan.dhcp_option=\"%s\"" % args)
+
+    def add_default_dns(self, addr_list):
+        """Add default dns server for client.
+
+        Args:
+            addr_list: dns ip address for Openwrt client.
+        """
+        self._add_dhcp_option("6,%s" % ",".join(addr_list))
+        self.config.add("default_dns %s" % addr_list)
+        self.service_manager.need_restart(SERVICE_DNSMASQ)
+        self.commit_changes()
+
+    def del_default_dns(self, addr_list):
+        """Remove default dns server for client.
+
+        Args:
+            addr_list: list of dns ip address for Openwrt client.
+        """
+        self._remove_dhcp_option("6,%s" % addr_list)
+        self.config.discard("default_dns %s" % addr_list)
+        self.service_manager.need_restart(SERVICE_DNSMASQ)
+        self.commit_changes()
+
+    def add_default_v6_dns(self, addr_list):
+        """Add default v6 dns server for client.
+
+        Args:
+            addr_list: dns ip address for Openwrt client.
+        """
+        self.ssh.run("uci add_list dhcp.lan.dns=\"%s\"" % addr_list)
+        self.config.add("default_v6_dns %s" % addr_list)
+        self.service_manager.need_restart(SERVICE_ODHCPD)
+        self.commit_changes()
+
+    def del_default_v6_dns(self, addr_list):
+        """Del default v6 dns server for client.
+
+        Args:
+            addr_list: dns ip address for Openwrt client.
+        """
+        self.ssh.run("uci del_list dhcp.lan.dns=\"%s\"" % addr_list)
+        self.config.add("default_v6_dns %s" % addr_list)
+        self.service_manager.need_restart(SERVICE_ODHCPD)
+        self.commit_changes()
+
+    def add_ipv6_prefer_option(self):
+        self._add_dhcp_option("108,1800i")
+        self.config.add("ipv6_prefer_option")
+        self.service_manager.need_restart(SERVICE_DNSMASQ)
+        self.commit_changes()
+
+    def remove_ipv6_prefer_option(self):
+        self._remove_dhcp_option("108,1800i")
+        self.config.discard("ipv6_prefer_option")
+        self.service_manager.need_restart(SERVICE_DNSMASQ)
+        self.commit_changes()
+
+    def start_tcpdump(self, test_name, args="", interface="br-lan"):
+        """"Start tcpdump on OpenWrt.
+
+        Args:
+            test_name: Test name for create tcpdump file name.
+            args: Option args for tcpdump.
+            interface: Interface to logging.
+        Returns:
+            tcpdump_file_name: tcpdump file name on OpenWrt.
+            pid: tcpdump process id.
+        """
+        if not self.path_exists(TCPDUMP_DIR):
+            self.ssh.run("mkdir %s" % TCPDUMP_DIR)
+        tcpdump_file_name = "openwrt_%s_%s.pcap" % (test_name,
+                                                    time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(time.time())))
+        tcpdump_file_path = "".join([TCPDUMP_DIR, tcpdump_file_name])
+        cmd = "tcpdump -i %s -s0 %s -w %s" % (interface, args, tcpdump_file_path)
+        self.ssh.run_async(cmd)
+        pid = self._get_tcpdump_pid(tcpdump_file_name)
+        if not pid:
+            raise signals.TestFailure("Fail to start tcpdump on OpenWrt.")
+        # Set delay to prevent tcpdump fail to capture target packet.
+        time.sleep(15)
+        return tcpdump_file_name
+
+    def stop_tcpdump(self, tcpdump_file_name, pull_dir=None):
+        """Stop tcpdump on OpenWrt and pull the pcap file.
+
+        Args:
+            tcpdump_file_name: tcpdump file name on OpenWrt.
+            pull_dir: Keep none if no need to pull.
+        Returns:
+            tcpdump abs_path on host.
+        """
+        # Set delay to prevent tcpdump fail to capture target packet.
+        time.sleep(15)
+        pid = self._get_tcpdump_pid(tcpdump_file_name)
+        self.ssh.run("kill -9 %s" % pid, ignore_status=True)
+        if self.path_exists(TCPDUMP_DIR) and pull_dir:
+            tcpdump_path = "".join([TCPDUMP_DIR, tcpdump_file_name])
+            tcpdump_remote_path = "/".join([pull_dir, tcpdump_file_name])
+            tcpdump_local_path = "%s@%s:%s" % (self.user, self.ip, tcpdump_path)
+            utils.exe_cmd("scp %s %s" % (tcpdump_local_path, tcpdump_remote_path))
+
+        if self._get_tcpdump_pid(tcpdump_file_name):
+            raise signals.TestFailure("Failed to stop tcpdump on OpenWrt.")
+        if self.file_exists(tcpdump_path):
+            self.ssh.run("rm -f %s" % tcpdump_path)
+        return tcpdump_remote_path if pull_dir else None
+
+    def clear_tcpdump(self):
+        self.ssh.run("killall tpcdump", ignore_status=True)
+        if self.ssh.run("pgrep tpcdump", ignore_status=True).stdout:
+            raise signals.TestFailure("Failed to clean up tcpdump process.")
+
+    def _get_tcpdump_pid(self, tcpdump_file_name):
+        """Check tcpdump process on OpenWrt."""
+        return self.ssh.run("pgrep -f %s" % (tcpdump_file_name), ignore_status=True).stdout
+
+    def setup_mdns(self):
+        self.config.add("setup_mdns")
+        self.package_install(MDNS_PACKAGE)
+        self.commit_changes()
+
+    def remove_mdns(self):
+        self.config.discard("setup_mdns")
+        self.package_remove(MDNS_PACKAGE)
+        self.commit_changes()
+
+    def block_dns_response(self):
+        self.config.add("block_dns_response")
+        iptable_rules = list(network_const.FIREWALL_RULES_DISABLE_DNS_RESPONSE)
+        self.add_custom_firewall_rules(iptable_rules)
+        self.service_manager.need_restart(SERVICE_FIREWALL)
+        self.commit_changes()
+
+    def unblock_dns_response(self):
+        self.config.discard("block_dns_response")
+        self.remove_custom_firewall_rules()
+        self.service_manager.need_restart(SERVICE_FIREWALL)
+        self.commit_changes()
+
+    def setup_captive_portal(self):
+        self.package_install(CAPTIVE_PORTAL_PACKAGE)
+        self.config.add("setup_captive_portal")
+        self.service_manager.need_restart(SERVICE_NODOGSPLASH)
+        self.commit_changes()
+
+    def remove_cpative_portal(self):
+        self.package_remove(CAPTIVE_PORTAL_PACKAGE)
+        self.config.discard("setup_captive_portal")
         self.commit_changes()
 
 
@@ -720,6 +963,8 @@ class ServiceManager(object):
     def restart_services(self):
         """Restart all services need to restart."""
         for service in self._need_restart:
+            if service == SERVICE_NETWORK:
+                self.reload(service)
             self.restart(service)
         self._need_restart = set()
 

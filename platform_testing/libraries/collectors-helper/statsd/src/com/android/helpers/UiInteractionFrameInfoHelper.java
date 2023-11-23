@@ -99,6 +99,11 @@ public class UiInteractionFrameInfoHelper implements ICollectorHelper<StringBuil
                         frameInfoMap);
 
                 addMetric(
+                        constructKey(KEY_PREFIX_CUJ, interactionType, "app_missed_frames"),
+                        makeLogFriendly(uiInteractionFrameInfoReported.appMissedFrames),
+                        frameInfoMap);
+
+                addMetric(
                         constructKey(KEY_PREFIX_CUJ, interactionType, SUFFIX_MAX_FRAME_MS),
                         makeLogFriendly(
                                 uiInteractionFrameInfoReported.maxFrameTimeNanos / 1000000.0),

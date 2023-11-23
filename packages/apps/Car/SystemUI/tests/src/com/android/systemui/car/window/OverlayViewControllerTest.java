@@ -50,6 +50,8 @@ public class OverlayViewControllerTest extends SysuiTestCase {
 
     @Mock
     private OverlayViewGlobalStateController mOverlayViewGlobalStateController;
+    @Mock
+    private OverlayViewController.OverlayViewStateListener mOverlayViewStateListener;
 
     @Captor
     private ArgumentCaptor<Runnable> mRunnableArgumentCaptor;
@@ -132,6 +134,26 @@ public class OverlayViewControllerTest extends SysuiTestCase {
         assertThat(mOverlayViewController.mHideInternalCalled).isFalse();
     }
 
+    @Test
+    public void showInternal_callsListenerOnVisibilityChangedTrue() {
+        mOverlayViewController.inflate(mBaseLayout);
+        mOverlayViewController.registerViewStateListener(mOverlayViewStateListener);
+
+        mOverlayViewController.showInternal();
+
+        verify(mOverlayViewStateListener).onVisibilityChanged(/* isVisible= */ true);
+    }
+
+    @Test
+    public void hideInternal_callsListenerOnVisibilityChangedFalse() {
+        mOverlayViewController.inflate(mBaseLayout);
+        mOverlayViewController.registerViewStateListener(mOverlayViewStateListener);
+
+        mOverlayViewController.hideInternal();
+
+        verify(mOverlayViewStateListener).onVisibilityChanged(/* isVisible= */ false);
+    }
+
     private static class TestOverlayViewController extends OverlayViewController {
         boolean mOnFinishInflateCalled = false;
         boolean mShowInternalCalled = false;
@@ -149,11 +171,13 @@ public class OverlayViewControllerTest extends SysuiTestCase {
 
         @Override
         protected void showInternal() {
+            super.showInternal();
             mShowInternalCalled = true;
         }
 
         @Override
         protected void hideInternal() {
+            super.hideInternal();
             mHideInternalCalled = true;
         }
     }

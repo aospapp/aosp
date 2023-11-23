@@ -31,9 +31,6 @@ public class ArrayTestListAdapter extends TestListAdapter {
 
     public ArrayTestListAdapter(Context context) {
         super(context);
-        // To identify that the test list items are not from ManifestTestListAdapter, which provides
-        // test data for foldable tests.
-        adapterFromManifest = false;
     }
 
     public void add(TestListItem item) {

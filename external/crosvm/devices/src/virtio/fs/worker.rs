@@ -6,10 +6,11 @@ use std::convert::{TryFrom, TryInto};
 use std::fs::File;
 use std::io;
 use std::os::unix::io::AsRawFd;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use base::{error, Event, PollToken, SafeDescriptor, Tube, WaitContext};
 use fuse::filesystem::{FileSystem, ZeroCopyReader, ZeroCopyWriter};
+use sync::Mutex;
 use vm_control::{FsMappingRequest, VmResponse};
 use vm_memory::GuestMemory;
 
@@ -19,6 +20,8 @@ use crate::virtio::{Interrupt, Queue, Reader, SignalableInterrupt, Writer};
 impl fuse::Reader for Reader {}
 
 impl fuse::Writer for Writer {
+    type ClosureWriter = Self;
+
     fn write_at<F>(&mut self, offset: usize, f: F) -> io::Result<usize>
     where
         F: Fn(&mut Self) -> io::Result<usize>,
@@ -55,10 +58,7 @@ impl Mapper {
     }
 
     fn process_request(&self, request: &FsMappingRequest) -> io::Result<()> {
-        let tube = self.tube.lock().map_err(|e| {
-            error!("failed to lock tube: {}", e);
-            io::Error::from_raw_os_error(libc::EINVAL)
-        })?;
+        let tube = self.tube.lock();
 
         tube.send(request).map_err(|e| {
             error!("failed to send request {:?}: {}", request, e);
@@ -171,7 +171,7 @@ impl<F: FileSystem + Sync> Worker<F> {
         }
 
         if needs_interrupt {
-            self.irq.signal_used_queue(self.queue.vector);
+            self.queue.trigger_interrupt(&self.mem, &*self.irq);
         }
 
         Ok(())

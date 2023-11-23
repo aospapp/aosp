@@ -4,6 +4,7 @@
     <string name="system_tracing" msgid="4719188511746319848">"சிஸ்டம் டிரேஸிங்"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"செயல்திறனை மேம்படுத்த, சிஸ்டம் செயல்பாட்டைப் பதிவுசெய்து, அதைப் பின்னர் பகுப்பாய்வு செய்யும்"</string>
     <string name="record_trace" msgid="6416875085186661845">"டிரேஸை ரெக்கார்டு செய்யும் பட்டன்"</string>
+    <string name="start_new_trace" msgid="8177130420802170353">"புதிய டிரேஸைத் தொடங்கு"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"பிழை திருத்தக்கூடிய ஆப்ஸை டிரேஸ் செய்"</string>
     <string name="categories" msgid="2280163673538611008">"வகைகள்"</string>
     <string name="restore_default_categories" msgid="5090536794637169521">"இயல்புநிலை வகைகளை மீட்டமை"</string>
@@ -63,5 +64,5 @@
     <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"பிழை அறிக்கை தொடங்கியதும் செயலிலுள்ள டிரேஸ் ரெக்கார்டிங்குகளை நிறுத்திவிடும்"</string>
     <string name="attach_to_bug_report" msgid="2953745117960948415">"பிழை அறிக்கைகளுடன் டிரேஸ்களை இணை"</string>
     <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"பிழை அறிக்கை சேகரிக்கப்பட்டதும் செயலிலுள்ள டிரேஸ்கள் தானாகவே BetterBug கருவிக்கு அனுப்பப்படும்"</string>
-    <string name="link_to_traces" msgid="6569969595898995517">"டிரேஸ் கோப்புகளைக் காட்டு"</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"டிரேஸ் ஃபைல்களைக் காட்டு"</string>
 </resources>

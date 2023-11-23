@@ -25,7 +25,6 @@ import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceControl_cre
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceControl_createFromWindow;
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceControl_release;
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_apply;
-import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_checkOnComplete;
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_create;
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_delete;
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_releaseBuffer;
@@ -33,7 +32,6 @@ import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_setDesiredPresentTime;
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_setOnCommitCallback;
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_setOnCommitCallbackWithoutContext;
-import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_setOnComplete;
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_setOnCompleteCallback;
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_setOnCompleteCallbackWithoutContext;
 import static android.view.cts.util.ASurfaceControlTestUtils.nSurfaceTransaction_setPosition;
@@ -68,6 +66,7 @@ import android.view.cts.surfacevalidator.ASurfaceControlTestActivity.PixelChecke
 import android.view.cts.surfacevalidator.PixelColor;
 import android.view.cts.util.ASurfaceControlTestUtils;
 
+import androidx.annotation.NonNull;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -85,15 +84,13 @@ import java.util.concurrent.TimeUnit;
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class ASurfaceControlTest {
-    static {
-        System.loadLibrary("ctsview_jni");
-    }
-
     private static final String TAG = ASurfaceControlTest.class.getSimpleName();
     private static final boolean DEBUG = false;
 
     private static final int DEFAULT_LAYOUT_WIDTH = 100;
     private static final int DEFAULT_LAYOUT_HEIGHT = 100;
+    private static final Rect DEFAULT_RECT = new Rect(1, 1, DEFAULT_LAYOUT_WIDTH - 1,
+            DEFAULT_LAYOUT_HEIGHT - 1);
 
     private static final PixelColor RED = new PixelColor(PixelColor.RED);
     private static final PixelColor BLUE = new PixelColor(PixelColor.BLUE);
@@ -110,6 +107,8 @@ public class ASurfaceControlTest {
 
     private ASurfaceControlTestActivity mActivity;
 
+    private long mDesiredPresentTime;
+
     @Before
     public void setup() {
         mActivityRule.getScenario().onActivity(activity -> mActivity = activity);
@@ -119,19 +118,40 @@ public class ASurfaceControlTest {
     // SurfaceHolder.Callbacks
     ///////////////////////////////////////////////////////////////////////////
 
-    private abstract class BasicSurfaceHolderCallback implements SurfaceHolder.Callback {
-        private final Set<Long> mSurfaceControls = new HashSet<>();
-        private final Set<Long> mBuffers = new HashSet<>();
+    private static class SurfaceHolderCallback implements SurfaceHolder.Callback {
+        BasicSurfaceHolderCallback mBasicSurfaceHolderCallback;
 
-        @Override
-        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-            Canvas canvas = holder.lockCanvas();
-            canvas.drawColor(Color.YELLOW);
-            holder.unlockCanvasAndPost(canvas);
+        SurfaceHolderCallback(BasicSurfaceHolderCallback basicSurfaceHolderCallback) {
+            mBasicSurfaceHolderCallback = basicSurfaceHolderCallback;
         }
 
         @Override
-        public void surfaceDestroyed(SurfaceHolder holder) {
+        public void surfaceCreated(@NonNull SurfaceHolder holder) {
+            Canvas canvas = holder.lockCanvas();
+            canvas.drawColor(Color.YELLOW);
+            holder.unlockCanvasAndPost(canvas);
+
+            mBasicSurfaceHolderCallback.surfaceCreated(holder);
+        }
+
+        @Override
+        public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width,
+                int height) {
+        }
+
+        @Override
+        public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
+            mBasicSurfaceHolderCallback.surfaceDestroyed();
+        }
+    }
+
+    private abstract static class BasicSurfaceHolderCallback {
+        private final Set<Long> mSurfaceControls = new HashSet<>();
+        private final Set<Long> mBuffers = new HashSet<>();
+
+        public abstract void surfaceCreated(SurfaceHolder surfaceHolder);
+
+        public void surfaceDestroyed() {
             for (Long surfaceControl : mSurfaceControls) {
                 reparent(surfaceControl, 0);
                 nSurfaceControl_release(surfaceControl);
@@ -179,6 +199,9 @@ public class ASurfaceControlTest {
                 onCommitCallback.mLatch.await(1, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
             }
+            if (onCommitCallback.mLatch.getCount() > 0) {
+                Log.e(TAG, "Failed to wait for commit callback");
+            }
             return buffer;
         }
 
@@ -203,6 +226,9 @@ public class ASurfaceControlTest {
                 onCommitCallback.mLatch.await(1, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
             }
+            if (onCommitCallback.mLatch.getCount() > 0) {
+                Log.e(TAG, "Failed to wait for commit callback");
+            }
         }
     }
 
@@ -210,8 +236,9 @@ public class ASurfaceControlTest {
     // Tests
     ///////////////////////////////////////////////////////////////////////////
 
-    private void verifyTest(SurfaceHolder.Callback callback, PixelChecker pixelChecker) {
-        mActivity.verifyTest(callback, pixelChecker, 0 /* delayInMs */);
+    private void verifyTest(BasicSurfaceHolderCallback callback, PixelChecker pixelChecker) {
+        SurfaceHolderCallback surfaceHolderCallback = new SurfaceHolderCallback(callback);
+        mActivity.verifyTest(surfaceHolderCallback, pixelChecker);
     }
 
     @Test
@@ -453,7 +480,7 @@ public class ASurfaceControlTest {
                 // we don't know what variation the GPU/DPU/blitter might have. Although
                 // we don't know what shade of red might be present, we can at least check
                 // that the optimization doesn't cause the framework to drop the buffer entirely.
-                new PixelChecker(PixelColor.YELLOW) {
+                new PixelChecker(PixelColor.YELLOW, false /* logWhenNoMatch */) {
                     @Override
                     public boolean checkPixels(int pixelCount, int width, int height) {
                         return pixelCount == 0;
@@ -494,10 +521,14 @@ public class ASurfaceControlTest {
                         setGeometry(surfaceControl, 0, 0, 100, 100, 10, 10, 50, 50, 0);
                     }
                 },
-                new PixelChecker(PixelColor.RED) { //1600
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 1440 && pixelCount < 1760;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        if (x >= 10 && x < 50 && y >= 10 && y < 50) {
+                            return RED;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
     }
@@ -516,10 +547,14 @@ public class ASurfaceControlTest {
                         setGeometry(childSurfaceControl, 0, 0, 100, 100, 10, 10, 50, 50, 0);
                     }
                 },
-                new PixelChecker(PixelColor.RED) { //1600
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 1440 && pixelCount < 1760;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        if (x >= 10 && x < 50 && y >= 10 && y < 50) {
+                            return RED;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
     }
@@ -580,10 +615,14 @@ public class ASurfaceControlTest {
                         setGeometry(surfaceControl, 0, 0, 100, 100, -30, -20, 50, 50, 0);
                     }
                 },
-                new PixelChecker(PixelColor.RED) { //5600 (w = 80, h = 70)
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 5000 && pixelCount < 6000;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        if (x < 80 && y < 70) {
+                            return RED;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
     }
@@ -601,10 +640,14 @@ public class ASurfaceControlTest {
                         setGeometry(surfaceControl, 0, 0, 100, 100, 50, 50, 110, 105, 0);
                     }
                 },
-                new PixelChecker(PixelColor.RED) { //2500
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 2250 && pixelCount < 2750;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        if (x >= 50 && y >= 50) {
+                            return RED;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
     }
@@ -627,7 +670,7 @@ public class ASurfaceControlTest {
                     }
                 },
 
-                new MultiRectChecker(new Rect(0, 0, DEFAULT_LAYOUT_WIDTH, DEFAULT_LAYOUT_HEIGHT)) {
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
                     public PixelColor getExpectedColor(int x, int y) {
                         if (x >= 10 && x < 30 && y >= 10 && y < 40) {
@@ -655,7 +698,7 @@ public class ASurfaceControlTest {
                     }
                 },
 
-                new MultiRectChecker(new Rect(0, 0, DEFAULT_LAYOUT_WIDTH, DEFAULT_LAYOUT_HEIGHT)) {
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
                     public PixelColor getExpectedColor(int x, int y) {
                         int halfWidth = DEFAULT_LAYOUT_WIDTH / 2;
@@ -688,7 +731,7 @@ public class ASurfaceControlTest {
                     }
                 },
 
-                new MultiRectChecker(new Rect(0, 0, DEFAULT_LAYOUT_WIDTH, DEFAULT_LAYOUT_HEIGHT)) {
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
                     public PixelColor getExpectedColor(int x, int y) {
                         int halfWidth = DEFAULT_LAYOUT_WIDTH / 2;
@@ -720,10 +763,15 @@ public class ASurfaceControlTest {
                         setGeometry(surfaceControl, 60, 10, 90, 90, 0, 0, 100, 100, 0);
                     }
                 },
-                new PixelChecker(PixelColor.MAGENTA) { //5000
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 4500 && pixelCount < 5500;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        int halfHeight = DEFAULT_LAYOUT_HEIGHT / 2;
+                        if (y < halfHeight) {
+                            return BLUE;
+                        } else {
+                            return MAGENTA;
+                        }
                     }
                 });
     }
@@ -743,7 +791,7 @@ public class ASurfaceControlTest {
                     }
                 },
 
-                new MultiRectChecker(new Rect(0, 0, DEFAULT_LAYOUT_WIDTH, DEFAULT_LAYOUT_HEIGHT)) {
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
                     public PixelColor getExpectedColor(int x, int y) {
                         int halfWidth = DEFAULT_LAYOUT_WIDTH / 2;
@@ -797,11 +845,15 @@ public class ASurfaceControlTest {
                         setGeometry(surfaceControl, 60, 10, 90, 90, 0, 0, 100, 100,
                                 /*NATIVE_WINDOW_TRANSFORM_FLIP_H*/ 1);
                     }
-                },
-                new PixelChecker(PixelColor.BLUE) { //5000
+                }, new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 4500 && pixelCount < 5500;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        int halfHeight = DEFAULT_LAYOUT_HEIGHT / 2;
+                        if (y < halfHeight) {
+                            return BLUE;
+                        } else {
+                            return MAGENTA;
+                        }
                     }
                 });
     }
@@ -821,10 +873,15 @@ public class ASurfaceControlTest {
                                 /*NATIVE_WINDOW_TRANSFORM_ROT_180*/ 3);
                     }
                 },
-                new PixelChecker(PixelColor.BLUE) { //5000
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 4500 && pixelCount < 5500;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        int halfHeight = DEFAULT_LAYOUT_HEIGHT / 2;
+                        if (y < halfHeight) {
+                            return MAGENTA;
+                        } else {
+                            return BLUE;
+                        }
                     }
                 });
     }
@@ -872,10 +929,10 @@ public class ASurfaceControlTest {
                         setZOrder(surfaceControl2, 0);
                     }
                 },
-                new PixelChecker(PixelColor.YELLOW) {
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount == 0;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        return RED;
                     }
                 });
     }
@@ -897,10 +954,10 @@ public class ASurfaceControlTest {
                         setZOrder(surfaceControl2, 5);
                     }
                 },
-                new PixelChecker(PixelColor.RED) {
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount == 0;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        return MAGENTA;
                     }
                 });
     }
@@ -922,10 +979,10 @@ public class ASurfaceControlTest {
                         setZOrder(surfaceControl2, -15);
                     }
                 },
-                new PixelChecker(PixelColor.YELLOW) {
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount == 0;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        return RED;
                     }
                 });
     }
@@ -947,10 +1004,10 @@ public class ASurfaceControlTest {
                         setZOrder(surfaceControl2, Integer.MAX_VALUE);
                     }
                 },
-                new PixelChecker(PixelColor.RED) {
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount == 0;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        return MAGENTA;
                     }
                 });
     }
@@ -972,20 +1029,19 @@ public class ASurfaceControlTest {
                         setZOrder(surfaceControl2, Integer.MIN_VALUE);
                     }
                 },
-                new PixelChecker(PixelColor.YELLOW) {
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount == 0;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        return RED;
                     }
                 });
     }
 
     @Test
     public void testSurfaceTransaction_setOnComplete() {
+        TimedTransactionListener onCompleteCallback = new TimedTransactionListener();
         verifyTest(
                 new BasicSurfaceHolderCallback() {
-                    private long mContext;
-
                     @Override
                     public void surfaceCreated(SurfaceHolder holder) {
                         long surfaceControl = createFromWindow(holder.getSurface());
@@ -993,14 +1049,18 @@ public class ASurfaceControlTest {
                         long surfaceTransaction = createSurfaceTransaction();
                         setSolidBuffer(surfaceControl, surfaceTransaction, DEFAULT_LAYOUT_WIDTH,
                                 DEFAULT_LAYOUT_HEIGHT, PixelColor.RED);
-                        mContext = nSurfaceTransaction_setOnComplete(surfaceTransaction);
+                        nSurfaceTransaction_setOnCompleteCallback(surfaceTransaction,
+                                false /* waitForFence */, onCompleteCallback);
                         applyAndDeleteSurfaceTransaction(surfaceTransaction);
-                    }
 
-                    @Override
-                    public void surfaceDestroyed(SurfaceHolder holder) {
-                        super.surfaceDestroyed(holder);
-                        nSurfaceTransaction_checkOnComplete(mContext, -1);
+                        // Wait for callbacks to fire.
+                        try {
+                            onCompleteCallback.mLatch.await(1, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                        }
+                        if (onCompleteCallback.mLatch.getCount() > 0) {
+                            Log.e(TAG, "Failed to wait for callback");
+                        }
                     }
                 },
                 new PixelChecker(PixelColor.RED) { //10000
@@ -1009,16 +1069,18 @@ public class ASurfaceControlTest {
                         return pixelCount > 9000 && pixelCount < 11000;
                     }
                 });
+
+        // Validate we got callbacks.
+        assertEquals(0, onCompleteCallback.mLatch.getCount());
+        assertTrue(onCompleteCallback.mCallbackTime > 0);
     }
 
     @Test
     @RequiresDevice // emulators can't support sync fences
     public void testSurfaceTransaction_setDesiredPresentTime_now() {
+        TimedTransactionListener onCompleteCallback = new TimedTransactionListener();
         verifyTest(
                 new BasicSurfaceHolderCallback() {
-                    private long mContext;
-                    private long mDesiredPresentTime;
-
                     @Override
                     public void surfaceCreated(SurfaceHolder holder) {
                         long surfaceControl = createFromWindow(holder.getSurface());
@@ -1028,14 +1090,17 @@ public class ASurfaceControlTest {
                                 DEFAULT_LAYOUT_HEIGHT, PixelColor.RED);
                         mDesiredPresentTime = nSurfaceTransaction_setDesiredPresentTime(
                                 surfaceTransaction, 0);
-                        mContext = nSurfaceTransaction_setOnComplete(surfaceTransaction);
+                        nSurfaceTransaction_setOnCompleteCallback(surfaceTransaction,
+                                true /* waitForFence */, onCompleteCallback);
                         applyAndDeleteSurfaceTransaction(surfaceTransaction);
-                    }
-
-                    @Override
-                    public void surfaceDestroyed(SurfaceHolder holder) {
-                        super.surfaceDestroyed(holder);
-                        nSurfaceTransaction_checkOnComplete(mContext, mDesiredPresentTime);
+                        // Wait for callbacks to fire.
+                        try {
+                            onCompleteCallback.mLatch.await(1, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                        }
+                        if (onCompleteCallback.mLatch.getCount() > 0) {
+                            Log.e(TAG, "Failed to wait for callback");
+                        }
                     }
                 },
                 new PixelChecker(PixelColor.RED) { //10000
@@ -1044,16 +1109,22 @@ public class ASurfaceControlTest {
                         return pixelCount > 9000 && pixelCount < 11000;
                     }
                 });
+
+        assertEquals(0, onCompleteCallback.mLatch.getCount());
+        assertTrue(onCompleteCallback.mCallbackTime > 0);
+        assertTrue(onCompleteCallback.mLatchTime > 0);
+
+        assertTrue("transaction was presented too early. presentTime="
+                        + onCompleteCallback.mPresentTime,
+                onCompleteCallback.mPresentTime >= mDesiredPresentTime);
     }
 
     @Test
     @RequiresDevice // emulators can't support sync fences
     public void testSurfaceTransaction_setDesiredPresentTime_30ms() {
-        mActivity.verifyTest(
+        TimedTransactionListener onCompleteCallback = new TimedTransactionListener();
+        verifyTest(
                 new BasicSurfaceHolderCallback() {
-                    private long mContext;
-                    private long mDesiredPresentTime;
-
                     @Override
                     public void surfaceCreated(SurfaceHolder holder) {
                         long surfaceControl = createFromWindow(holder.getSurface());
@@ -1063,14 +1134,17 @@ public class ASurfaceControlTest {
                                 DEFAULT_LAYOUT_HEIGHT, PixelColor.RED);
                         mDesiredPresentTime = nSurfaceTransaction_setDesiredPresentTime(
                                 surfaceTransaction, 30000000);
-                        mContext = nSurfaceTransaction_setOnComplete(surfaceTransaction);
+                        nSurfaceTransaction_setOnCompleteCallback(surfaceTransaction,
+                                true /* waitForFence */, onCompleteCallback);
                         applyAndDeleteSurfaceTransaction(surfaceTransaction);
-                    }
-
-                    @Override
-                    public void surfaceDestroyed(SurfaceHolder holder) {
-                        super.surfaceDestroyed(holder);
-                        nSurfaceTransaction_checkOnComplete(mContext, mDesiredPresentTime);
+                        // Wait for callbacks to fire.
+                        try {
+                            onCompleteCallback.mLatch.await(1, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                        }
+                        if (onCompleteCallback.mLatch.getCount() > 0) {
+                            Log.e(TAG, "Failed to wait for callback");
+                        }
                     }
                 },
                 new PixelChecker(PixelColor.RED) { //10000
@@ -1078,17 +1152,23 @@ public class ASurfaceControlTest {
                     public boolean checkPixels(int pixelCount, int width, int height) {
                         return pixelCount > 9000 && pixelCount < 11000;
                     }
-                }, 30 /* delayInMs */);
+                });
+
+        assertEquals(0, onCompleteCallback.mLatch.getCount());
+        assertTrue(onCompleteCallback.mCallbackTime > 0);
+        assertTrue(onCompleteCallback.mLatchTime > 0);
+
+        assertTrue("transaction was presented too early. presentTime="
+                        + onCompleteCallback.mPresentTime,
+                onCompleteCallback.mPresentTime >= mDesiredPresentTime);
     }
 
     @Test
     @RequiresDevice // emulators can't support sync fences
     public void testSurfaceTransaction_setDesiredPresentTime_100ms() {
-        mActivity.verifyTest(
+        TimedTransactionListener onCompleteCallback = new TimedTransactionListener();
+        verifyTest(
                 new BasicSurfaceHolderCallback() {
-                    private long mContext;
-                    private long mDesiredPresentTime;
-
                     @Override
                     public void surfaceCreated(SurfaceHolder holder) {
                         long surfaceControl = createFromWindow(holder.getSurface());
@@ -1098,23 +1178,34 @@ public class ASurfaceControlTest {
                                 DEFAULT_LAYOUT_HEIGHT, PixelColor.RED);
                         mDesiredPresentTime = nSurfaceTransaction_setDesiredPresentTime(
                                 surfaceTransaction, 100000000);
-                        mContext = nSurfaceTransaction_setOnComplete(surfaceTransaction);
+                        nSurfaceTransaction_setOnCompleteCallback(surfaceTransaction,
+                                true /* waitForFence */, onCompleteCallback);
                         applyAndDeleteSurfaceTransaction(surfaceTransaction);
-                    }
-
-                    @Override
-                    public void surfaceDestroyed(SurfaceHolder holder) {
-                        super.surfaceDestroyed(holder);
-                        nSurfaceTransaction_checkOnComplete(mContext, mDesiredPresentTime);
+                        // Wait for callbacks to fire.
+                        try {
+                            onCompleteCallback.mLatch.await(1, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                        }
+                        if (onCompleteCallback.mLatch.getCount() > 0) {
+                            Log.e(TAG, "Failed to wait for callback");
+                        }
                     }
                 },
                 new PixelChecker(PixelColor.RED) { //10000
                     @Override
                     public boolean checkPixels(int pixelCount, int width, int height) {
-                        Log.d(TAG, "pixelCount " + pixelCount);
                         return pixelCount > 9000 && pixelCount < 11000;
                     }
-                }, 100 /* delayInMs */);
+                });
+
+        assertEquals(0, onCompleteCallback.mLatch.getCount());
+
+        assertTrue(onCompleteCallback.mCallbackTime > 0);
+        assertTrue(onCompleteCallback.mLatchTime > 0);
+
+        assertTrue("transaction was presented too early. presentTime="
+                        + onCompleteCallback.mPresentTime,
+                onCompleteCallback.mPresentTime >= mDesiredPresentTime);
     }
 
     @Test
@@ -1151,14 +1242,14 @@ public class ASurfaceControlTest {
             }
         };
         verifyTest(callback,
-                new PixelChecker(PixelColor.YELLOW) {
+                new PixelChecker(PixelColor.YELLOW, false /* logWhenNoMatch */) {
                     @Override
                     public boolean checkPixels(int pixelCount, int width, int height) {
                         return pixelCount == 0;
                     }
                 });
         verifyTest(callback,
-                new PixelChecker(PixelColor.RED) {
+                new PixelChecker(PixelColor.RED, false /* logWhenNoMatch */) {
                     @Override
                     public boolean checkPixels(int pixelCount, int width, int height) {
                         return pixelCount == 0;
@@ -1206,10 +1297,14 @@ public class ASurfaceControlTest {
                         reparent(childSurfaceControl, parentSurfaceControl2);
                     }
                 },
-                new PixelChecker(PixelColor.RED) { //7500
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 6750 && pixelCount < 8250;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        if (x >= 25) {
+                            return RED;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
     }
@@ -1331,7 +1426,7 @@ public class ASurfaceControlTest {
                         setColor(surfaceControl, 0, 0, 1.0f, 1.0f);
                     }
                 },
-                new PixelChecker(PixelColor.RED) {
+                new PixelChecker(PixelColor.RED, false /* logWhenNoMatch */) {
                     @Override
                     public boolean checkPixels(int pixelCount, int width, int height) {
                         return pixelCount == 0;
@@ -1458,10 +1553,14 @@ public class ASurfaceControlTest {
                         setPosition(surfaceControl, 20, 10);
                     }
                 },
-                new PixelChecker(PixelColor.RED) { // 7200
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 7000 && pixelCount < 8000;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        if (x >= 20 && y >= 10) {
+                            return RED;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
     }
@@ -1477,13 +1576,17 @@ public class ASurfaceControlTest {
                         setSolidBuffer(surfaceControl, DEFAULT_LAYOUT_WIDTH, DEFAULT_LAYOUT_HEIGHT,
                                 PixelColor.RED);
                         // Offset -20, -10
-                        setPosition(surfaceControl,  -20, -10);
+                        setPosition(surfaceControl, -20, -10);
                     }
                 },
-                new PixelChecker(PixelColor.RED) { // 7200
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 7000 && pixelCount < 8000;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        if (x < DEFAULT_LAYOUT_WIDTH - 20 && y < DEFAULT_LAYOUT_HEIGHT - 10) {
+                            return RED;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
     }
@@ -1501,10 +1604,16 @@ public class ASurfaceControlTest {
                         setScale(surfaceControl, .5f, .5f);
                     }
                 },
-                new PixelChecker(PixelColor.RED) { // 2500
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 2000 && pixelCount < 3000;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        int halfWidth = DEFAULT_LAYOUT_WIDTH / 2;
+                        int halfHeight = DEFAULT_LAYOUT_HEIGHT / 2;
+                        if (x < halfWidth && y < halfHeight) {
+                            return RED;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
     }
@@ -1524,10 +1633,16 @@ public class ASurfaceControlTest {
                         setBufferTransform(surfaceControl, /* NATIVE_WINDOW_TRANSFORM_ROT_90 */ 4);
                     }
                 },
-                new PixelChecker(PixelColor.BLUE) { // 2500
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 2000 && pixelCount < 3000;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        int halfWidth = DEFAULT_LAYOUT_WIDTH / 2;
+                        int halfHeight = DEFAULT_LAYOUT_HEIGHT / 2;
+                        if (x < halfWidth && y < halfHeight) {
+                            return BLUE;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
     }
@@ -1547,7 +1662,7 @@ public class ASurfaceControlTest {
                     }
                 },
 
-                new MultiRectChecker(new Rect(0, 0, DEFAULT_LAYOUT_WIDTH, DEFAULT_LAYOUT_HEIGHT)) {
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
                     public PixelColor getExpectedColor(int x, int y) {
                         int halfWidth = DEFAULT_LAYOUT_WIDTH / 2;
@@ -1576,7 +1691,7 @@ public class ASurfaceControlTest {
                     }
                 },
 
-                new MultiRectChecker(new Rect(0, 0, DEFAULT_LAYOUT_WIDTH, DEFAULT_LAYOUT_HEIGHT)) {
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
                     public PixelColor getExpectedColor(int x, int y) {
                         int halfWidth = DEFAULT_LAYOUT_WIDTH / 2;
@@ -1607,10 +1722,17 @@ public class ASurfaceControlTest {
                                 PixelColor.MAGENTA, PixelColor.GREEN);
                         setCrop(surfaceControl, new Rect(50, 50, 100, 100));
                     }
-                }, new PixelChecker(PixelColor.MAGENTA) {
+                }, new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 2000 && pixelCount < 3000;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        int halfWidth = DEFAULT_LAYOUT_WIDTH / 2;
+                        int halfHeight = DEFAULT_LAYOUT_HEIGHT / 2;
+                        // Only Magenta is visible in the lower right quadrant
+                        if (x >= halfWidth && y >= halfHeight) {
+                            return MAGENTA;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
     }
@@ -1628,10 +1750,16 @@ public class ASurfaceControlTest {
                                 PixelColor.MAGENTA, PixelColor.GREEN);
                         setCrop(surfaceControl, new Rect(-50, -50, 50, 50));
                     }
-                }, new PixelChecker(PixelColor.RED) {
+                }, new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 2000 && pixelCount < 3000;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        int halfWidth = DEFAULT_LAYOUT_WIDTH / 2;
+                        int halfHeight = DEFAULT_LAYOUT_HEIGHT / 2;
+                        if (x < halfWidth && y < halfHeight) {
+                            return RED;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
     }
@@ -1640,11 +1768,14 @@ public class ASurfaceControlTest {
             ASurfaceControlTestUtils.TransactionCompleteListener {
         long mCallbackTime = -1;
         long mLatchTime = -1;
+        long mPresentTime = -1;
         CountDownLatch mLatch = new CountDownLatch(1);
+
         @Override
-        public void onTransactionComplete(long inLatchTime) {
+        public void onTransactionComplete(long inLatchTime, long presentTime) {
             mCallbackTime = SystemClock.elapsedRealtime();
             mLatchTime = inLatchTime;
+            mPresentTime = presentTime;
             mLatch.countDown();
         }
     }
@@ -1655,7 +1786,8 @@ public class ASurfaceControlTest {
         // Create and send an empty transaction with onCommit and onComplete callbacks.
         long surfaceTransaction = nSurfaceTransaction_create();
         TimedTransactionListener onCompleteCallback = new TimedTransactionListener();
-        nSurfaceTransaction_setOnCompleteCallback(surfaceTransaction, onCompleteCallback);
+        nSurfaceTransaction_setOnCompleteCallback(surfaceTransaction, false /* waitForFence */,
+                onCompleteCallback);
         TimedTransactionListener onCommitCallback = new TimedTransactionListener();
         nSurfaceTransaction_setOnCommitCallback(surfaceTransaction, onCommitCallback);
         nSurfaceTransaction_apply(surfaceTransaction);
@@ -1690,12 +1822,22 @@ public class ASurfaceControlTest {
                         long surfaceControl = createFromWindow(holder.getSurface());
                         setSolidBuffer(surfaceControl, surfaceTransaction, DEFAULT_LAYOUT_WIDTH,
                                 DEFAULT_LAYOUT_HEIGHT, PixelColor.RED);
-                        nSurfaceTransaction_setOnCompleteCallback(surfaceTransaction,
+                        nSurfaceTransaction_setOnCompleteCallback(
+                                surfaceTransaction /* waitForFence */, false,
                                 onCompleteCallback);
                         nSurfaceTransaction_setOnCommitCallback(surfaceTransaction,
                                 onCommitCallback);
                         nSurfaceTransaction_apply(surfaceTransaction);
                         nSurfaceTransaction_delete(surfaceTransaction);
+
+                        // Wait for callbacks to fire.
+                        try {
+                            onCommitCallback.mLatch.await(1, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                        }
+                        if (onCommitCallback.mLatch.getCount() > 0) {
+                            Log.e(TAG, "Failed to wait for commit callback");
+                        }
                     }
                 },
                 new PixelChecker(PixelColor.RED) { //10000
@@ -1705,8 +1847,6 @@ public class ASurfaceControlTest {
                     }
                 });
 
-        // Wait for callbacks to fire.
-        onCommitCallback.mLatch.await(1, TimeUnit.SECONDS);
         onCompleteCallback.mLatch.await(1, TimeUnit.SECONDS);
 
         // Validate we got callbacks with a valid latch time.
@@ -1743,17 +1883,21 @@ public class ASurfaceControlTest {
                         surfaceTransaction = nSurfaceTransaction_create();
                         nSurfaceTransaction_setPosition(surfaceControl, surfaceTransaction, 1, 0);
                         nSurfaceTransaction_setOnCompleteCallback(surfaceTransaction,
-                                onCompleteCallback);
+                                false /* waitForFence */, onCompleteCallback);
                         nSurfaceTransaction_setOnCommitCallback(surfaceTransaction,
                                 onCommitCallback);
                         nSurfaceTransaction_apply(surfaceTransaction);
                         nSurfaceTransaction_delete(surfaceTransaction);
                     }
                 },
-                new PixelChecker(PixelColor.RED) { //10000
+                new MultiRectChecker(DEFAULT_RECT) {
                     @Override
-                    public boolean checkPixels(int pixelCount, int width, int height) {
-                        return pixelCount > 9000 && pixelCount < 11000;
+                    public PixelColor getExpectedColor(int x, int y) {
+                        if (x >= 1) {
+                            return RED;
+                        } else {
+                            return YELLOW;
+                        }
                     }
                 });
 
@@ -1800,7 +1944,7 @@ public class ASurfaceControlTest {
         long surfaceTransaction = nSurfaceTransaction_create();
         TimedTransactionListener onCompleteCallback = new TimedTransactionListener();
         nSurfaceTransaction_setOnCompleteCallbackWithoutContext(surfaceTransaction,
-                onCompleteCallback);
+                false /* waitForFence */, onCompleteCallback);
         nSurfaceTransaction_apply(surfaceTransaction);
         nSurfaceTransaction_delete(surfaceTransaction);
 

@@ -45,7 +45,7 @@
     <string name="respond_via_sms_edittext_dialog_title" msgid="6579353156073272157">"Жылдам жауап"</string>
     <string name="respond_via_sms_confirmation_format" msgid="2932395476561267842">"Хабар <xliff:g id="PHONE_NUMBER">%s</xliff:g> нөміріне жіберілді."</string>
     <string name="respond_via_sms_failure_format" msgid="5198680980054596391">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> нөміріне хабар жіберілмеді."</string>
-    <string name="enable_account_preference_title" msgid="6949224486748457976">"Қоңырау шалу есептік жазбалары"</string>
+    <string name="enable_account_preference_title" msgid="6949224486748457976">"Қоңырау шалу аккаунттары"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="3424338207838851646">"Құтқару қызметіне ғана қоңырау шалуға рұқсат етілген."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="8590468836581488679">"\"Телефон\" рұқсатынсыз бұл қолданба шығыс қоңырауларды соға алмайды."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="7665135102566099778">"Қоңырау шалу үшін жарамды нөмірді енгізіңіз."</string>
@@ -90,7 +90,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1988508241432031327">"Жауап беру қазіргі бейне қоңырауды тоқтатады"</string>
     <string name="answer_incoming_call" msgid="2045888814782215326">"Жауап беру"</string>
     <string name="decline_incoming_call" msgid="922147089348451310">"Қабылдамау"</string>
-    <string name="cant_call_due_to_no_supported_service" msgid="1635626384149947077">"Қоңырау шалу мүмкін емес, себебі бұндай қоңырауларға қолдау көрсететін есептік жазба жоқ."</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="1635626384149947077">"Қоңырау шалу мүмкін емес, себебі бұндай қоңырауларға қолдау көрсететін аккаунт жоқ."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="8004235328451385493">"Қоңырау шалу мүмкін емес, себебі <xliff:g id="OTHER_CALL">%1$s</xliff:g> қоңырауы белсенді."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="6379163795277824868">"Қоңырау шалу мүмкін емес, себебі <xliff:g id="OTHER_CALL">%1$s</xliff:g> қоңыраулары белсенді."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="8243532328969433172">"Қоңырау шалу мүмкін емес, себебі басқа қолданбадан қоңырау шалынуда."</string>

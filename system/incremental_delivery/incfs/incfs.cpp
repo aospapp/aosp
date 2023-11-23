@@ -81,8 +81,13 @@ static ab::unique_fd openRaw(std::string_view file) {
     return fd;
 }
 
-static ab::unique_fd openRaw(std::string_view dir, std::string_view name) {
-    return openRaw(path::join(dir, name));
+static ab::unique_fd openAt(int fd, std::string_view name, int flags = 0) {
+    auto res = ab::unique_fd(
+            ::openat(fd, details::c_str(name), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | flags));
+    if (res < 0) {
+        return ab::unique_fd{-errno};
+    }
+    return res;
 }
 
 static std::string indexPath(std::string_view root, IncFsFileId fileId) {
@@ -252,14 +257,15 @@ bool IncFs_IsEnabled() {
 static Features readIncFsFeatures() {
     init().enabledAndReady();
 
+    int res = Features::none | Features::mappingFilesProgressFixed;
+
     static const char kSysfsFeaturesDir[] = "/sys/fs/" INCFS_NAME "/features";
     const auto dir = path::openDir(kSysfsFeaturesDir);
     if (!dir) {
         PLOG(ERROR) << "IncFs_Features: failed to open features dir, assuming v1/none.";
-        return Features::none;
+        return Features(res);
     }
 
-    int res = Features::none;
     while (auto entry = ::readdir(dir.get())) {
         if (entry->d_type != DT_REG) {
             continue;
@@ -333,30 +339,45 @@ static int isValidMountTarget(const char* path) {
     return 0;
 }
 
-static int rmDirContent(const char* path) {
-    auto dir = path::openDir(path);
+static int rmDirContent(int dirFd) {
+    auto dir = path::openDir(dirFd);
     if (!dir) {
-        return -EINVAL;
+        return -errno;
     }
     while (auto entry = ::readdir(dir.get())) {
         if (entry->d_name == "."sv || entry->d_name == ".."sv) {
             continue;
         }
-        auto fullPath = ab::StringPrintf("%s/%s", path, entry->d_name);
         if (entry->d_type == DT_DIR) {
-            if (const auto err = rmDirContent(fullPath.c_str()); err != 0) {
+            auto fd = openAt(dirFd, entry->d_name, O_DIRECTORY);
+            if (!fd.ok()) {
+                return -errno;
+            }
+            if (const auto err = rmDirContent(fd.get())) {
                 return err;
             }
-            if (const auto err = ::rmdir(fullPath.c_str()); err != 0) {
-                return err;
+            if (::unlinkat(fd.get(), entry->d_name, AT_REMOVEDIR)) {
+                return -errno;
             }
         } else {
-            if (const auto err = ::unlink(fullPath.c_str()); err != 0) {
-                return err;
+            auto fd = openAt(dirFd, entry->d_name);
+            if (!fd.ok()) {
+                return -errno;
+            }
+            if (::unlinkat(fd.get(), entry->d_name, 0)) {
+                return -errno;
             }
         }
     }
     return 0;
+}
+
+static int rmDirContent(const char* path) {
+    auto fd = openAt(-1, path, O_DIRECTORY);
+    if (!fd.ok()) {
+        return -errno;
+    }
+    return rmDirContent(fd.get());
 }
 
 static std::string makeMountOptionsString(IncFsMountOptions options) {
@@ -374,8 +395,8 @@ static std::string makeMountOptionsString(IncFsMountOptions options) {
     return opts;
 }
 
-static IncFsControl* makeControl(const char* root) {
-    auto cmd = openRaw(root, INCFS_PENDING_READS_FILENAME);
+static IncFsControl* makeControl(int fd) {
+    auto cmd = openAt(fd, INCFS_PENDING_READS_FILENAME);
     if (!cmd.ok()) {
         return nullptr;
     }
@@ -383,13 +404,13 @@ static IncFsControl* makeControl(const char* root) {
     if (!pendingReads.ok()) {
         return nullptr;
     }
-    auto logs = openRaw(root, INCFS_LOG_FILENAME);
+    auto logs = openAt(fd, INCFS_LOG_FILENAME);
     if (!logs.ok()) {
         return nullptr;
     }
     ab::unique_fd blocksWritten;
     if (features() & Features::v2) {
-        blocksWritten = openRaw(root, INCFS_BLOCKS_WRITTEN_FILENAME);
+        blocksWritten = openAt(fd, INCFS_BLOCKS_WRITTEN_FILENAME);
         if (!blocksWritten.ok()) {
             return nullptr;
         }
@@ -548,12 +569,30 @@ IncFsControl* IncFs_Mount(const char* backingPath, const char* targetDir,
         return nullptr;
     }
 
-    if (!restoreconControlFiles(targetDir)) {
+    // in case when the path is given in a form of a /proc/.../fd/ link, we need to update
+    // it here: old fd refers to the original empty directory, not to the mount
+    std::string updatedTargetDir;
+    if (path::dirName(targetDir) == path::procfsFdDir) {
+        updatedTargetDir = path::readlink(targetDir);
+    } else {
+        updatedTargetDir = targetDir;
+    }
+
+    auto rootFd = ab::unique_fd(::open(updatedTargetDir.c_str(), O_PATH | O_CLOEXEC | O_DIRECTORY));
+    if (updatedTargetDir != targetDir) {
+        // ensure that the new directory is still the same after reopening
+        if (path::fromFd(rootFd) != updatedTargetDir) {
+            errno = EINVAL;
+            return nullptr;
+        }
+    }
+
+    if (!restoreconControlFiles(path::procfsForFd(rootFd))) {
         (void)IncFs_Unmount(targetDir);
         return nullptr;
     }
 
-    auto control = makeControl(targetDir);
+    auto control = makeControl(rootFd);
     if (control == nullptr) {
         (void)IncFs_Unmount(targetDir);
         return nullptr;
@@ -567,7 +606,8 @@ IncFsControl* IncFs_Open(const char* dir) {
         errno = EINVAL;
         return nullptr;
     }
-    return makeControl(details::c_str(root));
+    auto rootFd = ab::unique_fd(::open(details::c_str(root), O_PATH | O_CLOEXEC | O_DIRECTORY));
+    return makeControl(rootFd);
 }
 
 IncFsFd IncFs_GetControlFd(const IncFsControl* control, IncFsFdType type) {
@@ -788,7 +828,7 @@ IncFsErrorCode IncFs_MakeFile(const IncFsControl* control, const char* path, int
                       << " of " << params.size << " bytes";
         return -errno;
     }
-    if (::chmod(path::join(root, subpath).c_str(), mode)) {
+    if (::chmod(path::join(root, subdir, name).c_str(), mode)) {
         PLOG(WARNING) << "[incfs] couldn't change file mode to 0" << std::oct << mode;
     }
 
@@ -1324,13 +1364,21 @@ IncFsErrorCode IncFs_BindMount(const char* sourceDir, const char* targetDir) {
         return -ENOTSUP;
     }
 
-    auto [sourceRoot, subpath] = registry().rootAndSubpathFor(sourceDir);
-    if (sourceRoot.empty()) {
-        return -EINVAL;
-    }
-    if (subpath.empty()) {
-        LOG(WARNING) << "[incfs] Binding the root mount '" << sourceRoot << "' is not allowed";
-        return -EINVAL;
+    if (path::dirName(sourceDir) == path::procfsFdDir) {
+        // can't find such path in the mount registry, but still can verify the filesystem
+        // via the stat() call
+        if (!isIncFsPathImpl(sourceDir)) {
+            return -EINVAL;
+        }
+    } else {
+        auto [sourceRoot, subpath] = registry().rootAndSubpathFor(sourceDir);
+        if (sourceRoot.empty()) {
+            return -EINVAL;
+        }
+        if (subpath.empty()) {
+            LOG(WARNING) << "[incfs] Binding the root mount '" << sourceRoot << "' is not allowed";
+            return -EINVAL;
+        }
     }
 
     if (auto err = isValidMountTarget(targetDir); err != 0) {
@@ -1348,6 +1396,10 @@ IncFsErrorCode IncFs_BindMount(const char* sourceDir, const char* targetDir) {
 IncFsErrorCode IncFs_Unmount(const char* dir) {
     if (!enabled()) {
         return -ENOTSUP;
+    }
+    if (!isIncFsPathImpl(dir)) {
+        LOG(WARNING) << __func__ << ": umount() called on non-incfs directory '" << dir << '\'';
+        return -EINVAL;
     }
 
     errno = 0;
@@ -1555,7 +1607,7 @@ IncFsErrorCode IncFs_IsFullyLoadedByPath(const IncFsControl* control, const char
     if (features() & Features::v2) {
         const auto id = getId(::getxattr, path);
         if (id == kIncFsInvalidFileId) {
-            return -errno;
+            return -ENOTSUP;
         }
         return isFullyLoadedV2(root, id);
     }
@@ -1692,7 +1744,20 @@ IncFsErrorCode IncFs_GetUidReadTimeouts(const IncFsControl* control,
     return 0;
 }
 
+// Trying to detect if this is a mapped file.
+// Not the best way as it might return true for other system files.
+// TODO: remove after IncFS returns ENOTSUP for such files.
+static bool isMapped(int fd) {
+    char buffer[kIncFsFileIdStringLength];
+    const auto res = ::fgetxattr(fd, kIdAttrName, buffer, sizeof(buffer));
+    return res != sizeof(buffer);
+}
+
 static IncFsErrorCode getFileBlockCount(int fd, IncFsBlockCounts* blockCount) {
+    if (isMapped(fd)) {
+        return -ENOTSUP;
+    }
+
     incfs_get_block_count_args args = {};
     auto res = ::ioctl(fd, INCFS_IOC_GET_BLOCK_COUNT, &args);
     if (res < 0) {

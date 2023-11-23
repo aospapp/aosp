@@ -16,11 +16,15 @@
 
 package com.android.car.ui.matchers;
 
+import static com.android.car.ui.core.CarUi.MIN_TARGET_API;
+
+import android.annotation.TargetApi;
 import android.view.View;
 
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 
+@TargetApi(MIN_TARGET_API)
 public class PaddingMatcher extends TypeSafeMatcher<View> {
 
     public enum Side {

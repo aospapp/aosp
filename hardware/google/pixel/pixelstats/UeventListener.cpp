@@ -82,6 +82,7 @@ constexpr int32_t VID_MASK = 0xffff;
 constexpr int32_t VID_GOOGLE = 0x18d1;
 constexpr int32_t PID_OFFSET = 2;
 constexpr int32_t PID_LENGTH = 4;
+constexpr uint32_t PID_P30 = 0x4f05;
 
 bool UeventListener::ReadFileToInt(const std::string &path, int *val) {
     return ReadFileToInt(path.c_str(), val);
@@ -449,13 +450,15 @@ void UeventListener::ReportTypeCPartnerId(const std::shared_ptr<IStats> &stats_c
         return;
     }
 
-    // Upload data only for chargers
-    if (((vid >> PRODUCT_TYPE_OFFSET) & PRODUCT_TYPE_MASK) != PRODUCT_TYPE_CHARGER) {
+    // Upload data only for Google VID
+    if ((VID_MASK & vid) != VID_GOOGLE) {
         return;
     }
 
-    // Upload data only for Google VID
-    if ((VID_MASK & vid) != VID_GOOGLE) {
+    // Upload data only for chargers unless for P30 PID where the product type
+    // isn't set to charger.
+    if ((((vid >> PRODUCT_TYPE_OFFSET) & PRODUCT_TYPE_MASK) != PRODUCT_TYPE_CHARGER) &&
+        (pid != PID_P30)) {
         return;
     }
 
@@ -541,7 +544,7 @@ bool UeventListener::ProcessUevent() {
             devpath = cp;
         } else if (!strncmp(cp, "SUBSYSTEM=", strlen("SUBSYSTEM="))) {
             subsystem = cp;
-        } else if (!strncmp(cp, "DEVTYPE=typec_partner", strlen("DEVTYPE=typec_partner"))) {
+        } else if (!strncmp(cp, kTypeCPartnerUevent.c_str(), kTypeCPartnerUevent.size())) {
             collect_partner_id = true;
         } else if (!strncmp(cp, "POWER_SUPPLY_NAME=wireless",
                             strlen("POWER_SUPPLY_NAME=wireless"))) {
@@ -589,6 +592,7 @@ UeventListener::UeventListener(const std::string audio_uevent, const std::string
       kBatterySSOCPath(ssoc_details_path),
       kUsbPortOverheatPath(overheat_path),
       kChargeMetricsPath(charge_metrics_path),
+      kTypeCPartnerUevent(typec_partner_uevent_default),
       kTypeCPartnerVidPath(typec_partner_vid_path),
       kTypeCPartnerPidPath(typec_partner_pid_path),
       kWirelessChargerPtmcUevent(""),
@@ -605,6 +609,9 @@ UeventListener::UeventListener(const struct UeventPaths &uevents_paths)
       kChargeMetricsPath((uevents_paths.ChargeMetricsPath == nullptr)
                                  ? charge_metrics_path_default
                                  : uevents_paths.ChargeMetricsPath),
+      kTypeCPartnerUevent((uevents_paths.TypeCPartnerUevent == nullptr)
+                                  ? typec_partner_uevent_default
+                                  : uevents_paths.TypeCPartnerUevent),
       kTypeCPartnerVidPath((uevents_paths.TypeCPartnerVidPath == nullptr)
                                    ? typec_partner_vid_path_default
                                    : uevents_paths.TypeCPartnerVidPath),

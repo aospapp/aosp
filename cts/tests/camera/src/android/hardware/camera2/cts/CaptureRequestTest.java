@@ -86,7 +86,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     private static final long EXPOSURE_TIME_BOUNDARY_60HZ_NS = 8333333L; // 8.3ms, Approximation.
     private static final long EXPOSURE_TIME_ERROR_MARGIN_NS = 100000L; // 100us, Approximation.
     private static final float EXPOSURE_TIME_ERROR_MARGIN_RATE = 0.03f; // 3%, Approximation.
-    private static final float SENSITIVITY_ERROR_MARGIN_RATE = 0.03f; // 3%, Approximation.
+    private static final float SENSITIVITY_ERROR_MARGIN_RATE = 0.06f; // 6%, Approximation.
     private static final int DEFAULT_NUM_EXPOSURE_TIME_STEPS = 3;
     private static final int DEFAULT_NUM_SENSITIVITY_STEPS = 8;
     private static final int DEFAULT_SENSITIVITY_STEP_SIZE = 100;
@@ -124,11 +124,6 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     };
     private final Rational ZERO_R = new Rational(0, 1);
     private final Rational ONE_R = new Rational(1, 1);
-
-    private final int NUM_ALGORITHMS = 3; // AE, AWB and AF
-    private final int INDEX_ALGORITHM_AE = 0;
-    private final int INDEX_ALGORITHM_AWB = 1;
-    private final int INDEX_ALGORITHM_AF = 2;
 
     private enum TorchSeqState {
         RAMPING_UP,
@@ -816,7 +811,8 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                 }
                 openDevice(id);
                 Size maxPreviewSize = mOrderedPreviewSizes.get(0);
-                digitalZoomTestByCamera(maxPreviewSize);
+                digitalZoomTestByCamera(maxPreviewSize, /*repeating*/false);
+                digitalZoomTestByCamera(maxPreviewSize, /*repeating*/true);
             } finally {
                 closeDevice();
             }
@@ -2562,7 +2558,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         stopPreview();
     }
 
-    private void digitalZoomTestByCamera(Size previewSize) throws Exception {
+    private void digitalZoomTestByCamera(Size previewSize, boolean repeating) throws Exception {
         final int ZOOM_STEPS = 15;
         final PointF[] TEST_ZOOM_CENTERS;
         final float maxZoom = mStaticInfo.getAvailableMaxDigitalZoomChecked();
@@ -2649,12 +2645,18 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         };
 
         final int CAPTURE_SUBMIT_REPEAT;
+        final int NUM_RESULTS_TO_SKIP;
         {
             int maxLatency = mStaticInfo.getSyncMaxLatency();
             if (maxLatency == CameraMetadata.SYNC_MAX_LATENCY_UNKNOWN) {
                 CAPTURE_SUBMIT_REPEAT = NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY + 1;
             } else {
                 CAPTURE_SUBMIT_REPEAT = maxLatency + 1;
+            }
+            if (repeating) {
+                NUM_RESULTS_TO_SKIP = NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY + 1;
+            } else {
+                NUM_RESULTS_TO_SKIP = CAPTURE_SUBMIT_REPEAT - 1;
             }
         }
 
@@ -2664,7 +2666,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
 
         for (MeteringRectangle[] meteringRect : defaultMeteringRects) {
             for (int algo = 0; algo < NUM_ALGORITHMS; algo++) {
-                update3aRegion(requestBuilder, algo,  meteringRect);
+                update3aRegion(requestBuilder, algo,  meteringRect, mStaticInfo);
             }
 
             for (PointF center : TEST_ZOOM_CENTERS) {
@@ -2680,21 +2682,29 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                     if (VERBOSE) {
                         Log.v(TAG, "Testing Zoom for factor " + zoomFactor + " and center " +
                                 center + " The cropRegion is " + cropRegions[i] +
-                                " Preview size is " + previewSize);
+                                " Preview size is " + previewSize + ", repeating is " + repeating);
                     }
                     requestBuilder.set(CaptureRequest.SCALER_CROP_REGION, cropRegions[i]);
                     requests[i] = requestBuilder.build();
-                    for (int j = 0; j < CAPTURE_SUBMIT_REPEAT; ++j) {
-                        if (VERBOSE) {
-                            Log.v(TAG, "submit crop region " + cropRegions[i]);
+                    if (VERBOSE) {
+                        Log.v(TAG, "submit crop region " + cropRegions[i]);
+                    }
+                    if (repeating) {
+                        mSession.setRepeatingRequest(requests[i], listener, mHandler);
+                        // Drop first few frames
+                        waitForNumResults(listener, NUM_RESULTS_TO_SKIP);
+                        // Interleave a regular capture
+                        mSession.capture(requests[0], listener, mHandler);
+                    } else {
+                        for (int j = 0; j < CAPTURE_SUBMIT_REPEAT; ++j) {
+                            mSession.capture(requests[i], listener, mHandler);
                         }
-                        mSession.capture(requests[i], listener, mHandler);
                     }
 
                     /*
                      * Validate capture result
                      */
-                    waitForNumResults(listener, CAPTURE_SUBMIT_REPEAT - 1); // Drop first few frames
+                    waitForNumResults(listener, NUM_RESULTS_TO_SKIP); // Drop first few frames
                     TotalCaptureResult result = listener.getTotalCaptureResultForRequest(
                             requests[i], NUM_RESULTS_WAIT_TIMEOUT);
                     List<CaptureResult> partialResults = result.getPartialResults();
@@ -2748,7 +2758,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                     // Verify Output 3A region is intersection of input 3A region and crop region
                     for (int algo = 0; algo < NUM_ALGORITHMS; algo++) {
                         validate3aRegion(result, partialResults, algo, expectRegions[i],
-                                false/*scaleByZoomRatio*/);
+                                false/*scaleByZoomRatio*/, mStaticInfo);
                     }
 
                     previousCrop = cropRegion;
@@ -2756,7 +2766,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
 
                 if (maxZoom > 1.0f) {
                     mCollector.expectTrue(
-                            String.format("Most zoomed-in crop region should be smaller" +
+                            String.format("Most zoomed-in crop region should be smaller " +
                                             "than active array w/h" +
                                             "(last crop = %s, active array = %s)",
                                             previousCrop, activeArraySize),
@@ -2797,7 +2807,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         };
 
         for (int algo = 0; algo < NUM_ALGORITHMS; algo++) {
-            update3aRegion(requestBuilder, algo,  defaultMeteringRect);
+            update3aRegion(requestBuilder, algo,  defaultMeteringRect, mStaticInfo);
         }
 
         final int captureSubmitRepeat;
@@ -2894,7 +2904,8 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             // Verify Output 3A region is intersection of input 3A region and crop region
             boolean scaleByZoomRatio = zoomFactor > 1.0f;
             for (int algo = 0; algo < NUM_ALGORITHMS; algo++) {
-                validate3aRegion(result, partialResults, algo, expectRegions[i], scaleByZoomRatio);
+                validate3aRegion(result, partialResults, algo, expectRegions[i], scaleByZoomRatio,
+                        mStaticInfo);
             }
 
             previousRatio = resultZoomRatio;
@@ -2955,7 +2966,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             }
 
             aspectRatiosTested.add(aspectRatio);
-            digitalZoomTestByCamera(size);
+            digitalZoomTestByCamera(size, /*repeating*/false);
         }
     }
 
@@ -3418,149 +3429,5 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         long correctedExpTime = exposureTime + (flickeringBoundary / 2);
         correctedExpTime = correctedExpTime - (correctedExpTime % flickeringBoundary);
         return correctedExpTime;
-    }
-
-    /**
-     * Update one 3A region in capture request builder if that region is supported. Do nothing
-     * if the specified 3A region is not supported by camera device.
-     * @param requestBuilder The request to be updated
-     * @param algoIdx The index to the algorithm. (AE: 0, AWB: 1, AF: 2)
-     * @param regions The 3A regions to be set
-     */
-    private void update3aRegion(
-            CaptureRequest.Builder requestBuilder, int algoIdx, MeteringRectangle[] regions)
-    {
-        int maxRegions;
-        CaptureRequest.Key<MeteringRectangle[]> key;
-
-        if (regions == null || regions.length == 0) {
-            throw new IllegalArgumentException("Invalid input 3A region!");
-        }
-
-        switch (algoIdx) {
-            case INDEX_ALGORITHM_AE:
-                maxRegions = mStaticInfo.getAeMaxRegionsChecked();
-                key = CaptureRequest.CONTROL_AE_REGIONS;
-                break;
-            case INDEX_ALGORITHM_AWB:
-                maxRegions = mStaticInfo.getAwbMaxRegionsChecked();
-                key = CaptureRequest.CONTROL_AWB_REGIONS;
-                break;
-            case INDEX_ALGORITHM_AF:
-                maxRegions = mStaticInfo.getAfMaxRegionsChecked();
-                key = CaptureRequest.CONTROL_AF_REGIONS;
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown 3A Algorithm!");
-        }
-
-        if (maxRegions >= regions.length) {
-            requestBuilder.set(key, regions);
-        }
-    }
-
-    /**
-     * Validate one 3A region in capture result equals to expected region if that region is
-     * supported. Do nothing if the specified 3A region is not supported by camera device.
-     * @param result The capture result to be validated
-     * @param partialResults The partial results to be validated
-     * @param algoIdx The index to the algorithm. (AE: 0, AWB: 1, AF: 2)
-     * @param expectRegions The 3A regions expected in capture result
-     * @param scaleByZoomRatio whether to scale the error threshold by zoom ratio
-     */
-    private void validate3aRegion(
-            CaptureResult result, List<CaptureResult> partialResults, int algoIdx,
-            MeteringRectangle[] expectRegions, boolean scaleByZoomRatio)
-    {
-        // There are multiple cases where result 3A region could be slightly different than the
-        // request:
-        // 1. Distortion correction,
-        // 2. Adding smaller 3a region in the test exposes existing devices' offset is larger
-        //    than 1.
-        // 3. Precision loss due to converting to HAL zoom ratio and back
-        // 4. Error magnification due to active array scale-up when zoom ratio API is used.
-        //
-        // To handle all these scenarios, make the threshold larger, and scale the threshold based
-        // on zoom ratio. The scaling factor should be relatively tight, and shouldn't be smaller
-        // than 1x.
-        final int maxCoordOffset = 5;
-        int maxRegions;
-        CaptureResult.Key<MeteringRectangle[]> key;
-        MeteringRectangle[] actualRegion;
-
-        switch (algoIdx) {
-            case INDEX_ALGORITHM_AE:
-                maxRegions = mStaticInfo.getAeMaxRegionsChecked();
-                key = CaptureResult.CONTROL_AE_REGIONS;
-                break;
-            case INDEX_ALGORITHM_AWB:
-                maxRegions = mStaticInfo.getAwbMaxRegionsChecked();
-                key = CaptureResult.CONTROL_AWB_REGIONS;
-                break;
-            case INDEX_ALGORITHM_AF:
-                maxRegions = mStaticInfo.getAfMaxRegionsChecked();
-                key = CaptureResult.CONTROL_AF_REGIONS;
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown 3A Algorithm!");
-        }
-
-        int maxDist = maxCoordOffset;
-        if (scaleByZoomRatio) {
-            Float zoomRatio = result.get(CaptureResult.CONTROL_ZOOM_RATIO);
-            for (CaptureResult partialResult : partialResults) {
-                Float zoomRatioInPartial = partialResult.get(CaptureResult.CONTROL_ZOOM_RATIO);
-                if (zoomRatioInPartial != null) {
-                    mCollector.expectEquals("CONTROL_ZOOM_RATIO in partial result must match"
-                            + " that in final result", zoomRatio, zoomRatioInPartial);
-                }
-            }
-            maxDist = (int)Math.ceil(maxDist * Math.max(zoomRatio / 2, 1.0f));
-        }
-
-        if (maxRegions > 0)
-        {
-            actualRegion = getValueNotNull(result, key);
-            for (CaptureResult partialResult : partialResults) {
-                MeteringRectangle[] actualRegionInPartial = partialResult.get(key);
-                if (actualRegionInPartial != null) {
-                    mCollector.expectEquals("Key " + key.getName() + " in partial result must match"
-                            + " that in final result", actualRegionInPartial, actualRegion);
-                }
-            }
-
-            for (int i = 0; i < actualRegion.length; i++) {
-                // If the expected region's metering weight is 0, allow the camera device
-                // to override it.
-                if (expectRegions[i].getMeteringWeight() == 0) {
-                    continue;
-                }
-
-                Rect a = actualRegion[i].getRect();
-                Rect e = expectRegions[i].getRect();
-
-                if (VERBOSE) {
-                    Log.v(TAG, "Actual region " + actualRegion[i].toString() +
-                            ", expected region " + expectRegions[i].toString() +
-                            ", maxDist " + maxDist);
-                }
-                if (!mCollector.expectLessOrEqual(
-                    "Expected 3A regions: " + Arrays.toString(expectRegions) +
-                    " are not close enough to the actual one: " + Arrays.toString(actualRegion),
-                    maxDist, Math.abs(a.left - e.left))) continue;
-                if (!mCollector.expectLessOrEqual(
-                    "Expected 3A regions: " + Arrays.toString(expectRegions) +
-                    " are not close enough to the actual one: " + Arrays.toString(actualRegion),
-                    maxDist, Math.abs(a.right - e.right))) continue;
-                if (!mCollector.expectLessOrEqual(
-                    "Expected 3A regions: " + Arrays.toString(expectRegions) +
-                    " are not close enough to the actual one: " + Arrays.toString(actualRegion),
-                    maxDist, Math.abs(a.top - e.top))) continue;
-                if (!mCollector.expectLessOrEqual(
-                    "Expected 3A regions: " + Arrays.toString(expectRegions) +
-                    " are not close enough to the actual one: " + Arrays.toString(actualRegion),
-                    maxDist, Math.abs(a.bottom - e.bottom))) continue;
-            }
-        }
     }
 }

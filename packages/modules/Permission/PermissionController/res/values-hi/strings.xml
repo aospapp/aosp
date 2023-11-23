@@ -52,6 +52,7 @@
     <string name="app_permissions" msgid="3369917736607944781">"ऐप्लिकेशन की अनुमतियां"</string>
     <string name="unused_apps" msgid="2058057455175955094">"इस्तेमाल नहीं किए गए ऐप्लिकेशन"</string>
     <string name="no_unused_apps" msgid="12809387670415295">"ऐसा कोई ऐप्लिकेशन नहींं है जिसका इस्तेमाल न किया गया हो"</string>
+    <string name="zero_unused_apps" msgid="9024448554157499748">"इस्तेमाल न किए जाने वाले ऐप"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"ऐप्लिकेशन बंद करें"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"अगर आप इस ऐप्लिकेशन को बंद कर देते हैं, तो हो सकता है कि Android और दूसरे ऐप्लिकेशन ठीक से काम न करें. ध्यान रखें कि आप इस ऐप्लिकेशन को मिटा नहीं सकते, क्योंकि यह आपके डिवाइस पर पहले से इंस्टॉल होकर आया है. इसे बंद करने पर ऐप्लिकेशन बंद हो जाएगा और आपके डिवाइस पर नहीं दिखेगा."</string>
     <string name="app_permission_manager" msgid="3903811137630909550">"अनुमतियों को मैनेज करना"</string>
@@ -216,7 +217,7 @@
     <string name="app_permission_header" msgid="2951363137032603806">"इस ऐप्लिकेशन के लिए <xliff:g id="PERM">%1$s</xliff:g> इस्तेमाल करने की अनुमति"</string>
     <string name="app_permission_footer_app_permissions_link" msgid="4926890342636587393">"<xliff:g id="APP">%1$s</xliff:g> को मिली सभी अनुमतियां देखें"</string>
     <string name="app_permission_footer_permission_apps_link" msgid="3941988129992794327">"इस अनुमति वाले सभी ऐप्लिकेशन देखें"</string>
-    <string name="assistant_mic_label" msgid="1011432357152323896">"Assistant माइक्रोफ़ोन के इस्तेमाल से जुड़ा डेटा दिखाएं"</string>
+    <string name="assistant_mic_label" msgid="1011432357152323896">"असिस्टेंट माइक्रोफ़ोन के इस्तेमाल से जुड़ा डेटा दिखाएं"</string>
     <string name="auto_revoke_label" msgid="5068393642936571656">"ऐप्लिकेशन का इस्तेमाल न होने पर अनुमतियां हटाएं"</string>
     <string name="unused_apps_label" msgid="2595428768404901064">"अनुमतियां हटाएं और जगह खाली करें"</string>
     <string name="auto_revoke_summary" msgid="5867548789805911683">"अगर इस ऐप्लिकेशन का इस्तेमाल कुछ महीनों तक नहीं किया गया, तो इसे दी गई अनुमतियां हटा दी जाएंगी. ऐसा आपके डेटा को सुरक्षित रखने के लिए किया जाएगा."</string>
@@ -447,7 +448,7 @@
     <string name="adjust_user_sensitive_globally_title" msgid="8649190949066029174">"सिस्टम ऐप्लिकेशन का इस्तेमाल दिखाएं"</string>
     <string name="adjust_user_sensitive_globally_summary" msgid="129467818433773912">"स्थिति बार, डैशबोर्ड में और दूसरी जगहों पर अनुमतियों का सिस्टम ऐप्लिकेशन इस्तेमाल दिखाएं"</string>
     <string name="adjust_user_sensitive_per_app_header" msgid="4543506440989005648">"आगे दी गई चीज़ों का इस्तेमाल हाइलाइट करें"</string>
-    <string name="assistant_record_audio_user_sensitive_title" msgid="5532123360322362378">"assistant ऐप्लिकेशन का माइक्रोफ़ोन चालू है या बंद, इसकी सूचना दिखाएं"</string>
+    <string name="assistant_record_audio_user_sensitive_title" msgid="5532123360322362378">"असिस्टेंट ऐप्लिकेशन का माइक्रोफ़ोन चालू है या बंद, इसकी सूचना दिखाएं"</string>
     <string name="assistant_record_audio_user_sensitive_summary" msgid="6482937591816401619">"आवाज़ से डिवाइस का इस्तेमाल करने के लिए, माइक्रोफ़ोन का इस्तेमाल करते समय स्थिति बार में आइकॉन दिखाएं"</string>
     <string name="permgrouprequest_storage_isolated" msgid="4892154224026852295">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; को अपने डिवाइस में मौजूद फ़ोटो और मीडिया ऐक्सेस करने की अनुमति देना चाहते हैं?"</string>
     <string name="permgrouprequest_contacts" msgid="8391550064551053695">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; को अपने संपर्क देखने की अनुमति देना चाहते हैं?"</string>

@@ -22,14 +22,21 @@
 #include "common/libs/fs/shared_fd.h"
 #include "host/frontend/webrtc/display_handler.h"
 #include "host/frontend/webrtc/kernel_log_events_handler.h"
+#include "host/frontend/webrtc/lib/camera_controller.h"
 #include "host/frontend/webrtc/lib/connection_observer.h"
 #include "host/libs/confui/host_virtual_input.h"
 
 namespace cuttlefish {
 
 struct InputSockets {
-  SharedFD touch_server;
-  SharedFD touch_client;
+  SharedFD GetTouchClientByLabel(const std::string& label) {
+    return touch_clients[label];
+  }
+
+  // TODO (b/186773052): Finding strings in a map for every input event may
+  // introduce unwanted latency.
+  std::map<std::string, SharedFD> touch_servers;
+  std::map<std::string, SharedFD> touch_clients;
   SharedFD keyboard_server;
   SharedFD keyboard_client;
   SharedFD switches_server;
@@ -53,6 +60,8 @@ class CfConnectionObserverFactory
 
   void SetDisplayHandler(std::weak_ptr<DisplayHandler> display_handler);
 
+  void SetCameraHandler(CameraController* controller);
+
  private:
   InputSockets& input_sockets_;
   KernelLogEventsHandler* kernel_log_events_handler_;
@@ -60,6 +69,7 @@ class CfConnectionObserverFactory
       commands_to_custom_action_servers_;
   std::weak_ptr<DisplayHandler> weak_display_handler_;
   cuttlefish::confui::HostVirtualInput& confui_input_;
+  cuttlefish::CameraController* camera_controller_ = nullptr;
 };
 
 }  // namespace cuttlefish

@@ -71,6 +71,7 @@ filegroup {
 android_app {
     name: "PermissionController",
     sdk_version: "system_current",
+    target_sdk_version: "system_current",
     min_sdk_version: "30",
     updatable: true,
     privileged: true,
@@ -128,6 +129,10 @@ android_app {
 
     proto: {
         type: "lite",
+    },
+
+    lint: {
+        strict_updatability_linting: true,
     },
 
     optimize: {

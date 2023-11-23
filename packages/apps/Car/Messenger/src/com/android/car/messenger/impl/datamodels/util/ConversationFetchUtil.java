@@ -16,6 +16,8 @@
 
 package com.android.car.messenger.impl.datamodels.util;
 
+import static java.lang.Math.min;
+
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
@@ -27,6 +29,7 @@ import android.util.Pair;
 import androidx.annotation.NonNull;
 import androidx.core.app.Person;
 
+import com.android.car.messenger.R;
 import com.android.car.messenger.common.Conversation;
 import com.android.car.messenger.core.interfaces.AppFactory;
 import com.android.car.messenger.core.shared.MessageConstants;
@@ -44,6 +47,7 @@ public class ConversationFetchUtil {
 
     private static final int MESSAGE_LIMIT = 10;
     private static final String COMMA_DELIMITER = ", ";
+    private static final int MAX_TITLE_NAMES = 3;
 
     private ConversationFetchUtil() {}
 
@@ -51,24 +55,31 @@ public class ConversationFetchUtil {
     public static Conversation fetchConversation(@NonNull String conversationId) {
         L.d("Fetching latest data for Conversation " + conversationId);
         Conversation.Builder conversationBuilder = initConversationBuilder(conversationId);
-        Cursor messagesCursor =
-                CursorUtils.getMessagesCursor(conversationId, MESSAGE_LIMIT, /* offset= */ 0);
+        Cursor mmsCursor = getMmsCursor(conversationId);
+        Cursor smsCursor = getSmsCursor(conversationId);
+
+        // message list sorted by date desc
+        List<Conversation.Message> messages =
+                MessageUtils.getMessages(MESSAGE_LIMIT, mmsCursor, smsCursor);
+
         // messages to read: first get unread messages
-        List<Conversation.Message> messagesToRead = MessageUtils.getUnreadMessages(messagesCursor);
+        // List should truncate at the latest reply or read message since reading a recent message
+        // does not mark all previous messages read.
+        List<Conversation.Message> messagesToRead = MessageUtils.getUnreadMessages(messages);
+
         int unreadCount = messagesToRead.size();
-        long lastReplyTimestamp = 0L;
+        Conversation.Message lastReply = null;
 
         // if no unread messages, get read messages
         if (messagesToRead.isEmpty()) {
-            Pair<List<Conversation.Message>, Long> readMessagesAndReplyTimestamp =
-                    MessageUtils.getReadMessagesAndReplyTimestamp(messagesCursor);
+            Pair<List<Conversation.Message>, Conversation.Message> readMessagesAndReplyTimestamp =
+                    MessageUtils.getReadMessagesAndReplyTimestamp(messages);
             messagesToRead = readMessagesAndReplyTimestamp.first;
-            lastReplyTimestamp = readMessagesAndReplyTimestamp.second;
+            lastReply = readMessagesAndReplyTimestamp.second;
         }
 
         conversationBuilder.setMessages(messagesToRead).setUnreadCount(unreadCount);
-        ConversationUtil.setReplyTimestampAsAnExtra(
-                conversationBuilder, /* extras= */ null, lastReplyTimestamp);
+        ConversationUtil.setReplyAsAnExtra(conversationBuilder, /* extras= */ null, lastReply);
         return conversationBuilder.build();
     }
 
@@ -83,7 +94,7 @@ public class ConversationFetchUtil {
                 fetchParticipants(
                         conversationId,
                         (names, icons) -> {
-                            builder.setConversationTitle(TextUtils.join(COMMA_DELIMITER, names));
+                            builder.setConversationTitle(formatConversationTitle(names));
                             Bitmap bitmap = AvatarUtil.createGroupAvatar(context, icons);
                             if (bitmap != null) {
                                 builder.setConversationIcon(IconCompat.createWithBitmap(bitmap));
@@ -92,6 +103,19 @@ public class ConversationFetchUtil {
         builder.setParticipants(participants);
         builder.setMuted(loadMutedList().contains(conversationId));
         return builder;
+    }
+
+    private static String formatConversationTitle(List<CharSequence> names) {
+        Context context = AppFactory.get().getContext();
+        String title =
+                TextUtils.join(
+                        COMMA_DELIMITER, names.subList(0, min(MAX_TITLE_NAMES, names.size())));
+        if (names.size() > MAX_TITLE_NAMES) {
+            title +=
+                    context.getString(
+                            R.string.participant_overflow_text, names.size() - MAX_TITLE_NAMES);
+        }
+        return title;
     }
 
     /**
@@ -135,5 +159,15 @@ public class ConversationFetchUtil {
         SharedPreferences sharedPreferences = AppFactory.get().getSharedPreferences();
         return sharedPreferences.getStringSet(
                 MessageConstants.KEY_MUTED_CONVERSATIONS, new HashSet<>());
+    }
+
+    private static Cursor getMmsCursor(@NonNull String conversationId) {
+        return CursorUtils.getMessagesCursor(
+                conversationId, MESSAGE_LIMIT, /* offset= */ 0, CursorUtils.ContentType.MMS);
+    }
+
+    private static Cursor getSmsCursor(@NonNull String conversationId) {
+        return CursorUtils.getMessagesCursor(
+                conversationId, MESSAGE_LIMIT, /* offset= */ 0, CursorUtils.ContentType.SMS);
     }
 }

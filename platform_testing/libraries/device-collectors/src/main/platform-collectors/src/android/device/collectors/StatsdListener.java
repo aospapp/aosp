@@ -40,6 +40,7 @@ import org.junit.runner.Result;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -51,10 +52,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** A device-side metric listener that collects statsd-based metrics using bundled config files. */
+/**
+ * A device-side metric listener that collects statsd-based metrics using bundled config files.
+ *
+ * <p>Statsd configs can either be passed in by name, in which case they must be bundled into the
+ * test APK as assets, or by their absolute on-device path. Comma-separated values are supported.
+ */
 public class StatsdListener extends BaseMetricListener {
     private static final String LOG_TAG = StatsdListener.class.getSimpleName();
 
@@ -79,6 +84,8 @@ public class StatsdListener extends BaseMetricListener {
     static final String REPORT_KEY_PREFIX = "statsd-";
     // Common prefix for the metric file.
     static final String REPORT_FILENAME_PREFIX = "statsd-";
+    // Prefix for configs loaded from the device.
+    @VisibleForTesting static final String LOCAL_CONFIG_PREFIX = "local-config-";
 
     // Labels used to signify test events to statsd with the AppBreadcrumbReported atom.
     static final int RUN_EVENT_LABEL = 7;
@@ -418,6 +425,43 @@ public class StatsdListener extends BaseMetricListener {
     }
 
     /**
+     * Parse a config from its name or on-device path.
+     *
+     * <p>The option name is passed in for better error messaging.
+     */
+    private StatsdConfigProto.StatsdConfig parseConfig(
+            final AssetManager manager, String optionName, String nameOrPath) {
+        if (new File(nameOrPath).isAbsolute()) {
+            return parseConfigFromPath(optionName, nameOrPath);
+        }
+        return parseConfigFromName(manager, optionName, nameOrPath);
+    }
+
+    /**
+     * Parse a config from its on-device path.
+     *
+     * <p>The option name is passed in for better error messaging.
+     */
+    private StatsdConfigProto.StatsdConfig parseConfigFromPath(
+            String optionName, String configPath) {
+        try (InputStream configStream = new FileInputStream(configPath)) {
+            try {
+                byte[] serializedConfig = readInputStream(configStream);
+                return fixPermissions(StatsdConfigProto.StatsdConfig.parseFrom(serializedConfig));
+            } catch (IOException e) {
+                throw new RuntimeException(
+                        String.format(
+                                "Cannot parse config %s in option %s.", configPath, optionName),
+                        e);
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Config path %s in option %s does not exist", configPath, optionName));
+        }
+    }
+
+    /**
      * Parse a config from its name using {@link AssetManager}.
      *
      * <p>The option name is passed in for better error messaging.
@@ -457,13 +501,27 @@ public class StatsdListener extends BaseMetricListener {
                         .collect(Collectors.toList());
         // Look inside the APK assets for the configuration file.
         final AssetManager manager = InstrumentationRegistry.getContext().getAssets();
-        return configNames
-                .stream()
+        return configNames.stream()
                 .collect(
                         Collectors.toMap(
-                                Function.identity(),
-                                configName ->
-                                        parseConfigFromName(manager, optionName, configName)));
+                                nameOrPath -> getConfigShortName(nameOrPath),
+                                nameOrPath -> parseConfig(manager, optionName, nameOrPath)));
+    }
+
+    /**
+     * Get the "short name" of a statsd config.
+     *
+     * <p>Configs that are bundled into the APK and loaded using the asset manager is used as-is.
+     * Configs that are loaded from an on-device path use their file name, sans the file suffix,
+     * with a prefix specific to local configs.
+     */
+    private String getConfigShortName(String nameOrPath) {
+        if (new File(nameOrPath).isAbsolute()) {
+            // If the config name/path is an absolute path, it is an on-device local path.
+            return LOCAL_CONFIG_PREFIX
+                    + com.google.common.io.Files.getNameWithoutExtension(nameOrPath);
+        }
+        return nameOrPath;
     }
 
     /**

@@ -101,8 +101,16 @@ public class AppOpsPreferenceController extends PreferenceController<PreferenceG
 
     public AppOpsPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                context.getSystemService(AppOpsManager.class));
+    }
+
+    @VisibleForTesting
+    AppOpsPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            AppOpsManager appOpsManager) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mAppOpsManager = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
+        mAppOpsManager = appOpsManager;
         mAppEntryListManager = new AppEntryListManager(context);
     }
 

@@ -18,7 +18,7 @@ package android.net.metrics
 
 import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
-import com.android.testutils.assertParcelSane
+import com.android.testutils.assertParcelingIsLossless
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,7 +33,7 @@ class IpManagerEventTest {
             assertEquals(it, ipManagerEvent.eventType)
             assertEquals(Long.MAX_VALUE, ipManagerEvent.durationMs)
 
-            assertParcelSane(ipManagerEvent, 2)
+            assertParcelingIsLossless(ipManagerEvent)
         }
     }
 }

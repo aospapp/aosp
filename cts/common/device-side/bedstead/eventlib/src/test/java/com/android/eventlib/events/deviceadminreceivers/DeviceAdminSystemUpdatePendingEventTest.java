@@ -33,8 +33,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class DeviceAdminSystemUpdatePendingEventTest {
 
-    private static final TestApis sTestApis = new TestApis();
-    private static final Context sContext = sTestApis.context().instrumentedContext();
+    private static final Context sContext = TestApis.context().instrumentedContext();
     private static final String STRING_VALUE = "Value";
     private static final String DIFFERENT_STRING_VALUE = "Value2";
     private static final Intent INTENT = new Intent();
@@ -59,8 +58,7 @@ public final class DeviceAdminSystemUpdatePendingEventTest {
 
     @Test
     public void whereIntent_works() {
-        Intent intent = new Intent();
-        intent.setAction(STRING_VALUE);
+        Intent intent = new Intent(STRING_VALUE);
         DeviceAdminSystemUpdatePendingEvent
                 .logger(DEVICE_ADMIN_RECEIVER, sContext, intent, RECEIVED_TIME)
                 .log();
@@ -74,8 +72,7 @@ public final class DeviceAdminSystemUpdatePendingEventTest {
 
     @Test
     public void whereIntent_skipsNonMatching() {
-        Intent intent = new Intent();
-        intent.setAction(STRING_VALUE);
+        Intent intent = new Intent(STRING_VALUE);
         Intent differentIntent = new Intent();
         differentIntent.setAction(DIFFERENT_STRING_VALUE);
         DeviceAdminSystemUpdatePendingEvent.logger(

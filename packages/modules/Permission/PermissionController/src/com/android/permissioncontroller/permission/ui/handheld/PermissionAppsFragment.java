@@ -17,23 +17,12 @@ package com.android.permissioncontroller.permission.ui.handheld;
 
 import static com.android.permissioncontroller.Constants.EXTRA_SESSION_ID;
 import static com.android.permissioncontroller.Constants.INVALID_SESSION_ID;
-import static com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED;
-import static com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__ALLOWED;
-import static com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__ALLOWED_FOREGROUND;
-import static com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__DENIED;
-import static com.android.permissioncontroller.PermissionControllerStatsLog.PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__UNDEFINED;
 import static com.android.permissioncontroller.permission.ui.Category.ALLOWED;
 import static com.android.permissioncontroller.permission.ui.Category.ALLOWED_FOREGROUND;
 import static com.android.permissioncontroller.permission.ui.Category.ASK;
 import static com.android.permissioncontroller.permission.ui.Category.DENIED;
 import static com.android.permissioncontroller.permission.ui.handheld.UtilsKt.pressBack;
 import static com.android.permissioncontroller.permission.ui.handheld.dashboard.UtilsKt.shouldShowPermissionsDashboard;
-import static com.android.permissioncontroller.permission.utils.Utils.LAST_24H_CONTENT_PROVIDER;
-import static com.android.permissioncontroller.permission.utils.Utils.LAST_24H_SENSOR_TODAY;
-import static com.android.permissioncontroller.permission.utils.Utils.LAST_24H_SENSOR_YESTERDAY;
-import static com.android.permissioncontroller.permission.utils.Utils.NOT_IN_LAST_24H;
-
-import static java.util.concurrent.TimeUnit.DAYS;
 
 import android.Manifest;
 import android.app.ActionBar;
@@ -46,7 +35,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.UserHandle;
 import android.util.ArrayMap;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -59,12 +47,11 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 
 import com.android.modules.utils.build.SdkLevel;
-import com.android.permissioncontroller.PermissionControllerStatsLog;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.permission.model.AppPermissionUsage;
+import com.android.permissioncontroller.permission.model.PermissionUsages;
 import com.android.permissioncontroller.permission.ui.Category;
 import com.android.permissioncontroller.permission.ui.ManagePermissionsActivity;
-import com.android.permissioncontroller.permission.ui.handheld.dashboard.PermissionUsages;
 import com.android.permissioncontroller.permission.ui.model.PermissionAppsViewModel;
 import com.android.permissioncontroller.permission.ui.model.PermissionAppsViewModelFactory;
 import com.android.permissioncontroller.permission.utils.KotlinUtils;
@@ -73,9 +60,7 @@ import com.android.settingslib.HelpUtils;
 import com.android.settingslib.utils.applications.AppUtils;
 
 import java.text.Collator;
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -98,7 +83,6 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
     private static final String STORAGE_ALLOWED_FULL = "allowed_storage_full";
     private static final String STORAGE_ALLOWED_SCOPED = "allowed_storage_scoped";
     private static final int SHOW_LOAD_DELAY_MS = 200;
-    private static final int AGGREGATE_DATA_FILTER_BEGIN_DAYS = 1;
 
     private static final int MENU_PERMISSION_USAGE = MENU_HIDE_SYSTEM + 1;
 
@@ -167,9 +151,7 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
             Context context = getPreferenceManager().getContext();
             mPermissionUsages = new PermissionUsages(context);
 
-            long filterTimeBeginMillis = Math.max(System.currentTimeMillis()
-                            - DAYS.toMillis(AGGREGATE_DATA_FILTER_BEGIN_DAYS),
-                    Instant.EPOCH.toEpochMilli());
+            long filterTimeBeginMillis = mViewModel.getFilterTimeBeginMillis();
             mPermissionUsages.load(null, null, filterTimeBeginMillis, Long.MAX_VALUE,
                     PermissionUsages.USAGE_FLAG_LAST, getActivity().getLoaderManager(),
                     false, false, this, false);
@@ -309,8 +291,8 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
         }
 
         // A mapping of user + packageName to their last access timestamps for the permission group.
-        Map<String, Long> groupUsageLastAccessTime = new HashMap<>();
-        extractGroupUsageLastAccessTime(groupUsageLastAccessTime);
+        Map<String, Long> groupUsageLastAccessTime =
+                mViewModel.extractGroupUsageLastAccessTime(mAppPermissionUsages);
 
         for (Category grantCategory : categories.keySet()) {
             List<Pair<String, UserHandle>> packages = categories.get(grantCategory);
@@ -422,57 +404,12 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
 
     private void updatePreferenceSummary(Preference preference,
             Pair<String, Integer> summaryTimestamp) {
-        @Utils.AppPermsLastAccessType int lastAccessType = summaryTimestamp.getSecond();
-
-        switch (lastAccessType) {
-            case LAST_24H_CONTENT_PROVIDER:
-                preference.setSummary(
-                        R.string.app_perms_content_provider);
-                break;
-            case LAST_24H_SENSOR_TODAY:
-                preference.setSummary(
-                        getString(R.string.app_perms_24h_access,
-                                summaryTimestamp.getFirst()));
-                break;
-            case LAST_24H_SENSOR_YESTERDAY:
-                preference.setSummary(
-                        getString(R.string.app_perms_24h_access_yest,
-                                summaryTimestamp.getFirst()));
-                break;
-            case NOT_IN_LAST_24H:
-            default:
+        String summary = mViewModel.getPreferenceSummary(getResources(), summaryTimestamp);
+        if (!summary.isEmpty()) {
+            preference.setSummary(summary);
         }
     }
 
-    private void extractGroupUsageLastAccessTime(Map<String, Long> accessTime) {
-        accessTime.clear();
-        long filterTimeBeginMillis = Math.max(System.currentTimeMillis()
-                - DAYS.toMillis(AGGREGATE_DATA_FILTER_BEGIN_DAYS), Instant.EPOCH.toEpochMilli());
-
-        int numApps = mAppPermissionUsages.size();
-        for (int appIndex = 0; appIndex < numApps; appIndex++) {
-            AppPermissionUsage appUsage = mAppPermissionUsages.get(appIndex);
-            String packageName = appUsage.getPackageName();
-
-            List<AppPermissionUsage.GroupUsage> appGroups = appUsage.getGroupUsages();
-            int numGroups = appGroups.size();
-            for (int groupIndex = 0; groupIndex < numGroups; groupIndex++) {
-                AppPermissionUsage.GroupUsage groupUsage = appGroups.get(groupIndex);
-                String groupName = groupUsage.getGroup().getName();
-                if (!mPermGroupName.equals(groupName)) {
-                    continue;
-                }
-
-                long lastAccessTime = groupUsage.getLastAccessTime();
-                if (lastAccessTime == 0 || lastAccessTime < filterTimeBeginMillis) {
-                    continue;
-                }
-
-                String key = groupUsage.getGroup().getUser() + packageName;
-                accessTime.put(key, lastAccessTime);
-            }
-        }
-    }
 
     private int comparePreference(Preference lhs, Preference rhs) {
         int result = mCollator.compare(lhs.getTitle().toString(),
@@ -486,27 +423,8 @@ public final class PermissionAppsFragment extends SettingsWithLargeHeader implem
     private void logPermissionAppsFragmentCreated(String packageName, UserHandle user, long viewId,
             boolean isAllowed, boolean isAllowedForeground, boolean isDenied) {
         long sessionId = getArguments().getLong(EXTRA_SESSION_ID, 0);
-
-        int category = PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__UNDEFINED;
-        if (isAllowed) {
-            category = PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__ALLOWED;
-        } else if (isAllowedForeground) {
-            category = PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__ALLOWED_FOREGROUND;
-        } else if (isDenied) {
-            category = PERMISSION_APPS_FRAGMENT_VIEWED__CATEGORY__DENIED;
-        }
-
-        Integer uid = KotlinUtils.INSTANCE.getPackageUid(getActivity().getApplication(),
-                packageName, user);
-        if (uid == null) {
-            return;
-        }
-
-        PermissionControllerStatsLog.write(PERMISSION_APPS_FRAGMENT_VIEWED, sessionId, viewId,
-                mPermGroupName, uid, packageName, category);
-        Log.v(LOG_TAG, "PermissionAppsFragment created with sessionId=" + sessionId
-                + " permissionGroupName=" + mPermGroupName + " appUid="
-                + uid + " packageName=" + packageName
-                + " category=" + category);
+        mViewModel.logPermissionAppsFragmentCreated(packageName, user, viewId, isAllowed,
+                isAllowedForeground, isDenied, sessionId, getActivity().getApplication(),
+                mPermGroupName, LOG_TAG);
     }
 }

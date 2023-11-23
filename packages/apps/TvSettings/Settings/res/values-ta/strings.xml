@@ -160,7 +160,7 @@
     <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"ஆப்ஸ் கோரினால், நீங்கள் பார்த்துக் கொண்டிருக்கும் வீடியோவின் அசல் ஃபிரேம் வீதத்துடன் திரையின் ஃபிரேமை உங்கள் சாதனம் பொருத்தும். இதனால், வீடியோவின் இயக்கத்திலிருந்து வெளியேறும்போதோ உள்நுழையும்போதோ திரை ஒரு நொடி மறைந்து தெரியக்கூடும்."</string>
     <string name="match_content_frame_rate_never" msgid="1678354793095148423">"ஒருபோதும் வேண்டாம்"</string>
     <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"நீங்கள் பார்த்துக் கொண்டிருக்கும் வீடியோவின் அசல் ஃபிரேம் வீதத்துடன் திரையின் ஃபிரேமைப் பொருத்துவதற்கு ஆப்ஸே கோரினாலும் அதை உங்கள் சாதனம் ஒருபோதும் முயற்சிக்காது."</string>
-    <string name="font_scale_settings_title" msgid="4114019544800225980">"உரை அளவிடல்"</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"எழுத்து அளவு"</string>
     <string name="font_scale_item_detail" msgid="1558315053348778805">"<xliff:g id="SCALE">%1$d</xliff:g>%% அளவில் பொருத்துதல்"</string>
     <string name="font_scale_sample_text_title" msgid="5239266611413037261">"மாதிரி உரை"</string>
     <string name="font_scale_preview_text_title" msgid="8056182208511371119">"தி வொண்டர்ஃபுல் விசார்டு ஆஃப் ஓஸ்"</string>
@@ -282,7 +282,7 @@
     <string name="enterprise_privacy_security_logs" msgid="2573545327989145361">"மிகச் சமீபத்திய பாதுகாப்புப் பதிவு"</string>
     <string name="enterprise_privacy_none" msgid="6660670916934417519">"எதுவுமில்லை"</string>
     <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"நிறுவிய ஆப்ஸ்"</string>
-    <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"ஆப்ஸின் எண்ணிக்கை கணிப்பின் அடிப்படையிலானது. இதில் Play ஸ்டோரிலிருந்து நிறுவப்படாத ஆப்ஸ் சேர்க்கப்படாமல் இருக்கலாம்."</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"ஆப்ஸின் எண்ணிக்கை கணிப்பின் அடிப்படையிலானது. இதில் Play Storeரிலிருந்து நிறுவப்படாத ஆப்ஸ் சேர்க்கப்படாமல் இருக்கலாம்."</string>
     <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
       <item quantity="other">குறைந்தது <xliff:g id="COUNT_1">%d</xliff:g> ஆப்ஸ்</item>
       <item quantity="one">குறைந்தது <xliff:g id="COUNT_0">%d</xliff:g> ஆப்ஸ்</item>
@@ -563,7 +563,7 @@
     <string name="storage_wizard_format_progress_description" msgid="292229747129805538">"இதற்குச் சிறிது நேரம் ஆகலாம். டிரைவை அகற்ற வேண்டாம்."</string>
     <string name="storage_wizard_migrate_choose_title" msgid="8743036821605231654">"தரவை நகர்த்த வேண்டிய சேமிப்பகத்தைத் தேர்வுசெய்யவும்"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="5086390005970210697">"தரவை <xliff:g id="NAME">%1$s</xliff:g>க்கு நகர்த்தவும்"</string>
-    <string name="storage_wizard_migrate_confirm_description" msgid="918834441157741482">"படங்கள், கோப்புகள் மற்றும் பயன்பாட்டுத் தரவு ஆகியவற்றை <xliff:g id="NAME">%1$s</xliff:g>க்கு நகர்த்தும். இதற்குச் சில நிமிடங்கள் ஆகலாம். நகர்த்தும் போது சில ஆப்ஸ் சரியாகச் செயல்படாது."</string>
+    <string name="storage_wizard_migrate_confirm_description" msgid="918834441157741482">"படங்கள், ஃபைல்கள்  மற்றும் பயன்பாட்டுத் தரவு ஆகியவற்றை <xliff:g id="NAME">%1$s</xliff:g>க்கு நகர்த்தும். இதற்குச் சில நிமிடங்கள் ஆகலாம். நகர்த்தும் போது சில ஆப்ஸ் சரியாகச் செயல்படாது."</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="7512917600174814567">"இப்போதே நகர்த்து"</string>
     <string name="storage_wizard_migrate_confirm_action_move_later" msgid="6379986754827551474">"பிறகு நகர்த்து"</string>
     <string name="storage_wizard_migrate_toast_success" msgid="6153579567666607584">"தரவு <xliff:g id="NAME">%1$s</xliff:g>க்கு நகர்த்தப்பட்டது"</string>
@@ -673,7 +673,7 @@
     <string name="captions_textsize" msgid="7161136610669343510">"உரையின் அளவு"</string>
     <string name="captions_captionstyle" msgid="6650139717545516071">"தலைப்பின் நடை"</string>
     <string name="captions_customoptions" msgid="7691004663572161126">"பிரத்தியேக விருப்பங்கள்"</string>
-    <string name="captions_fontfamily" msgid="1026632786438880997">"எழுத்துரு குடும்பம்"</string>
+    <string name="captions_fontfamily" msgid="1026632786438880997">"எழுத்து வடிவக் குடும்பம்"</string>
     <string name="captions_textcolor" msgid="1566679779609140317">"உரையின் வண்ணம்"</string>
     <string name="captions_edgetype" msgid="4875636291904824401">"விளிம்பின் வகை"</string>
     <string name="captions_edgecolor" msgid="2779925179084237336">"விளிம்பின் வண்ணம்"</string>
@@ -765,7 +765,7 @@
     <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"முக்கிய தொடரிழையில் நீண்ட நேரம் செயல்படும்போது திரையைக் காட்சிப்படுத்து"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="1594070211030991">"adb shell dumpsys gfxinfo இல் ரெண்டரிங் நேரத்தை அளவிடலாம்"</string>
     <string name="security_unknown_sources_title" msgid="2012801664240314305">"அறியப்படாத மூலங்கள்"</string>
-    <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Play ஸ்டோர் அல்லாத, பிற மூலங்களிலிருந்து ஆப்ஸை நிறுவ அனுமதி"</string>
+    <string name="security_unknown_sources_desc" msgid="7196715598352173267">"Play Store அல்லாத, பிற மூலங்களிலிருந்து ஆப்ஸை நிறுவ அனுமதி"</string>
     <string name="security_unknown_sources_confirm_title" msgid="4600896691987804985">"அறியப்படாத மூலங்களை அனுமதி"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7883820068140189584">"உங்கள் சாதனம் மற்றும் தனிப்பட்ட தரவு ஆகியவை அறியப்படாத மூலங்களிலிருந்து பெற்ற ஆப்ஸால் தாக்குதலுக்கு உள்ளாகக்கூடும். இந்தப் பயன்பாடுகளைப் பயன்படுத்தியதன் விளைவாக உங்கள் சாதனம் பாதிக்கப்பட்டால் அல்லது தரவை இழந்தால் அதற்கு நீங்கள் மட்டுமே பொறுப்பு என்பதை ஒப்புக்கொள்கிறீர்கள்."</string>
     <string name="system_hdcp_checking_never" msgid="3251512398865365135">"ஒருபோதும் வேண்டாம்"</string>
@@ -902,7 +902,7 @@
     <string name="device_apps_app_management_storage_used" msgid="6725789557993296433">"பயன்படுத்திய சேமிப்பிடம்"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="8928632612101487179">"<xliff:g id="VOLUME">%2$s</xliff:g> இல் <xliff:g id="SIZE">%1$s</xliff:g> பயன்படுத்தப்பட்டது"</string>
     <string name="device_apps_app_management_clear_data" msgid="7305471678286735600">"தரவை அழி"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="170972356946852847">"ஆப்ஸின் எல்லா தரவும் நிரந்தரமாக நீக்கப்படும்.\nஇதில் எல்லா கோப்புகளும் அமைப்புகளும் கணக்குகளும் தரவுத்தளங்களும் மேலும் பலவும் அடங்கும்."</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="170972356946852847">"ஆப்ஸின் எல்லா தரவும் நிரந்தரமாக நீக்கப்படும்.\nஇதில் எல்லா ஃபைல்களும் அமைப்புகளும் கணக்குகளும் தரவுத்தளங்களும் மேலும் பலவும் அடங்கும்."</string>
     <string name="device_apps_app_management_clear_default" msgid="4566187319647111484">"இயல்புநிலைகளை அழி"</string>
     <string name="device_apps_app_management_clear_default_set" msgid="1649974109123107390">"சிலவற்றிற்கு ஆப்ஸை தொடங்க, அமைக்கவும்"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="5935252537185381597">"இயல்புநிலைகள் அமைக்கப்படவில்லை"</string>
@@ -936,9 +936,9 @@
     <string name="privacy_backup_account" msgid="4527813051841860610">"கணக்கைக் காப்புப்பிரதியெடு"</string>
     <string name="privacy_automatic_restore" msgid="7117805818589418118">"தானாக மீட்டெடு"</string>
     <string name="factory_reset_device" msgid="6509900821515094361">"சாதனத்தை மீட்டமை"</string>
-    <string name="factory_reset_description" msgid="6697396335158766785">"இது உங்கள் சாதனத்தை இயல்புநிலை அமைப்புகளுக்கு மீட்டெடுப்பதுடன் அனைத்துத் தரவு, கணக்குகள், கோப்புகள், பதிவிறக்கிய ஆப்ஸ் ஆகியவற்றையும் அழிக்கும்."</string>
-    <string name="factory_reset_info_description" msgid="5098454670833183487">"இது உங்கள் சாதனத்தை இயல்புநிலை அமைப்புகளுக்கு மீட்டெடுப்பதுடன் அனைத்துத் தரவு, கணக்குகள், கோப்புகள், பதிவிறக்கிய ஆப்ஸ் ஆகியவற்றையும் அழிக்கும்."</string>
-    <string name="factory_reset_content_description" msgid="1677022688420116803">"ஆரம்பநிலைக்கு மீட்டமைத்தல், இது உங்கள் சாதனத்தை இயல்புநிலை அமைப்புகளுக்கு மீட்டெடுப்பதுடன் அனைத்துத் தரவு, கணக்குகள், கோப்புகள், பதிவிறக்கிய ஆப்ஸ் ஆகியவற்றையும் அழிக்கும்."</string>
+    <string name="factory_reset_description" msgid="6697396335158766785">"இது உங்கள் சாதனத்தை இயல்புநிலை அமைப்புகளுக்கு மீட்டெடுப்பதுடன் அனைத்துத் தரவு, கணக்குகள், ஃபைல்கள் , பதிவிறக்கிய ஆப்ஸ் ஆகியவற்றையும் அழிக்கும்."</string>
+    <string name="factory_reset_info_description" msgid="5098454670833183487">"இது உங்கள் சாதனத்தை இயல்புநிலை அமைப்புகளுக்கு மீட்டெடுப்பதுடன் அனைத்துத் தரவு, கணக்குகள், ஃபைல்கள் , பதிவிறக்கிய ஆப்ஸ் ஆகியவற்றையும் அழிக்கும்."</string>
+    <string name="factory_reset_content_description" msgid="1677022688420116803">"ஆரம்பநிலைக்கு மீட்டமைத்தல், இது உங்கள் சாதனத்தை இயல்புநிலை அமைப்புகளுக்கு மீட்டெடுப்பதுடன் அனைத்துத் தரவு, கணக்குகள், ஃபைல்கள் , பதிவிறக்கிய ஆப்ஸ் ஆகியவற்றையும் அழிக்கும்."</string>
     <string name="confirm_factory_reset_description" msgid="1337483463207721713">"உங்களின் தனிப்பட்ட தகவல்கள், பதிவிறக்கிய ஆப்ஸ் போன்ற அனைத்தையும் இந்தச் சாதனத்தில் இருந்து அழிக்கவா? இதைச் செயல்தவிர்க்க இயலாது!"</string>
     <string name="confirm_factory_reset_device" msgid="4308646529880718465">"எல்லாம் அழி"</string>
     <string name="select_device_name_title" msgid="3045019448327493634">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g>க்கான பெயரைத் தேர்ந்தெடுக்கவும்"</string>

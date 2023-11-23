@@ -548,6 +548,11 @@
     <!-- Permission text: app can render templates provided by another app [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_template_renderer">Render templates.</string>
 
+    <!-- Permission text: app can control launching applications in Car [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_control_car_app_launch">control launching applications</string>
+    <!-- Permission text: app can control launching applications in Car [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_control_car_app_launch">Control launching applications.</string>
+
     <!-- The default name of device enrolled as trust device [CHAR LIMIT=NONE] -->
     <string name="trust_device_default_name">My Device</string>
 
@@ -584,4 +589,20 @@
     <string name="new_user_managed_device_acceptance" translatable="false">Accept and continue</string>
     <string name="new_user_managed_notification_title" translatable="false">Managed device</string>
 
+    <!-- Title of notification shown when an app overuses system resources [CHAR LIMIT=100] -->
+    <string name="resource_overuse_notification_title"><xliff:g name="app_name" example="Maps">^1</xliff:g> is affecting your system performance</string>
+    <!-- Message of notification shown when an app overuses system resources [CHAR LIMIT=NONE] -->
+    <string name="resource_overuse_notification_text_disable_app">Disable app to improve system performance. You can enable the app once again in Settings.</string>
+    <!-- Message of notification shown when an app overuses system resources [CHAR LIMIT=NONE] -->
+    <string name="resource_overuse_notification_text_prioritize_app">Prioritize app to keep using app.</string>
+    <!-- Message of notification shown when an app overuses system resources [CHAR LIMIT=NONE] -->
+    <string name="resource_overuse_notification_text_uninstall_app">Uninstall app to improve system performance.</string>
+    <!-- Label for button that will disable the app now [CHAR LIMIT=30] -->
+    <string name="resource_overuse_notification_button_disable_app">Disable app</string>
+    <!-- Label for button that will redirect user to prioritize app setting [CHAR LIMIT=30] -->
+    <string name="resource_overuse_notification_button_prioritize_app">Prioritize app</string>
+    <!-- Label for button that will redirect user to uninstall app setting [CHAR LIMIT=30] -->
+    <string name="resource_overuse_notification_button_uninstall_app">Uninstall app</string>
+    <!-- Text of the toast shown when the app is disabled [CHAR_LIMIT=100]-->
+    <string name="resource_overuse_toast_disable_app_now"><xliff:g name="app_name" example="Maps">^1</xliff:g> has been disabled. You can enable it again in Settings.</string>
 </resources>

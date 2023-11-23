@@ -19,6 +19,9 @@
     <!-- The assistant action label to read aloud a message notification and optionally prompt user to respond [CHAR_LIMIT=20]-->
     <string name="assist_action_play_label">Play</string>
 
+    <!-- The assistant action label to prompt user to respond [CHAR_LIMIT=20]-->
+    <string name="assist_action_reply_label">Reply</string>
+
     <!-- The Action label displayed to mute a message notification [CHAR_LIMIT=20]-->
     <string name="action_mute_short">Mute</string>
 
@@ -61,23 +64,41 @@
     <!-- Notification header text displayed on top of the notification center shade [CHAR_LIMIT=25] -->
     <string name="notification_header">Notifications</string>
 
+    <!-- Notification header text displayed on top of recent notifications [CHAR_LIMIT=20] -->
+    <string name="notification_recents">Recents</string>
+
+    <!-- Notification header text displayed on top of older notifications [CHAR_LIMIT=50] -->
+    <string name="notification_older">Older notifications</string>
+
     <!-- Notification header text displayed on top of the notification center shade when there are no notification to display [CHAR_LIMIT=25] -->
     <string name="empty_notification_header">No notifications</string>
 
     <!-- The label for the button that collapses a grouped notification [CHAR_LIMIT=20] -->
-    <string name="show_less">Show less</string>
+    <string name="collapse_group">Collapse group</string>
+
+    <!-- The label for the button that redirects to application that has more notifications to show. [CHAR_LIMIT=30] -->
+    <string name="show_more_from_app"><xliff:g id="count">%1$d</xliff:g>&#160;more&#160;from&#160;<xliff:g id="app">%2$s</xliff:g></string>
 
     <!-- The label for the button that expands a grouped notification with an unread count [CHAR_LIMIT=25] -->
     <string name="show_count_more">Show&#160;<xliff:g id="count">%d</xliff:g>&#160;more</string>
 
     <!-- Text indicating the number of the unshown messages in a messaging style notification [CHAR_LIMIT=15] -->
-    <string name="message_unshown_count">&#160;+<xliff:g id="count">%d</xliff:g>&#160;more</string>
-
-    <!-- Text indicating the number of messages a user has received when driving [CHAR_LIMIT=20] -->
-    <plurals name="restricted_message_text">
-        <item quantity="one">1 new message</item>
-        <item quantity="other"><xliff:g id="count" example="3">%d</xliff:g> new messages</item>
+    <plurals name="message_unshown_count">
+        <item quantity="one"><xliff:g id="count">%d</xliff:g>&#160;more&#160;message</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g>&#160;more&#160;messages</item>
     </plurals>
+
+    <!-- Text indicating the number of new messages inside a messaging style notification during driving restriction [CHAR_LIMIT=30] -->
+    <plurals name="restricted_numbered_message_content">
+        <item quantity="one"><xliff:g id="count">%d</xliff:g>&#160;new&#160;message</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g>&#160;new&#160;messages</item>
+    </plurals>
+
+    <!-- Text indicating that a long text message notification can be expanded to show more text from the message [CHAR_LIMIT=20] -->
+    <string name="see_more_message">See more</string>
+
+    <!-- Text indicating that a new message has been received inside a HUN with a messaging style notification during driving restriction [CHAR_LIMIT=30] -->
+    <string name="restricted_hun_message_content">New message</string>
 
     <!-- The button text for managing notifications in settings [CHAR_LIMIT=20] -->
     <string name="manage_text">Manage</string>

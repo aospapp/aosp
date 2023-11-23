@@ -15,12 +15,18 @@
  */
 package com.android.car.dialer.telecom;
 
+import static com.android.car.assist.CarVoiceInteractionSession.KEY_SEND_PENDING_INTENT;
+import static com.android.car.assist.CarVoiceInteractionSession.VOICE_ACTION_SEND_SMS;
+
+import android.app.Activity;
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
@@ -31,10 +37,13 @@ import android.text.TextUtils;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.lifecycle.LiveData;
 
+import com.android.car.assist.CarVoiceInteractionSession;
 import com.android.car.dialer.R;
 import com.android.car.dialer.bluetooth.PhoneAccountManager;
 import com.android.car.dialer.log.L;
+import com.android.car.dialer.sms.MessagingService;
 import com.android.car.telephony.common.CallDetail;
 import com.android.car.telephony.common.TelecomUtils;
 
@@ -43,6 +52,7 @@ import java.util.Collections;
 import java.util.List;
 
 import javax.inject.Inject;
+import javax.inject.Named;
 import javax.inject.Singleton;
 
 import dagger.hilt.android.qualifiers.ApplicationContext;
@@ -57,21 +67,25 @@ public final class UiCallManager {
     private static final String EVENT_SCO_CONNECT = "com.android.bluetooth.hfpclient.SCO_CONNECT";
     private static final String EVENT_SCO_DISCONNECT =
             "com.android.bluetooth.hfpclient.SCO_DISCONNECT";
+    private static final String ACTION_DIRECT_SEND = "ACTION_DIRECT_SEND";
 
     private Context mContext;
     private final TelecomManager mTelecomManager;
     private final PhoneAccountManager mPhoneAccountManager;
     private InCallServiceImpl mInCallService;
+    private LiveData<BluetoothDevice> mCurrentHfpDeviceLiveData;
 
     @Inject
     UiCallManager(
             @ApplicationContext Context context,
             TelecomManager telecomManager,
-            PhoneAccountManager phoneAccountManager) {
+            PhoneAccountManager phoneAccountManager,
+            @Named("Hfp") LiveData<BluetoothDevice> currentHfpDeviceLiveData) {
         L.d(TAG, "SetUp");
         mContext = context;
         mTelecomManager = telecomManager;
         mPhoneAccountManager = phoneAccountManager;
+        mCurrentHfpDeviceLiveData = currentHfpDeviceLiveData;
 
         Intent intent = new Intent(context, InCallServiceImpl.class);
         intent.setAction(InCallServiceImpl.ACTION_LOCAL_BIND);
@@ -232,6 +246,37 @@ public final class UiCallManager {
                     Toast.LENGTH_SHORT).show();
             return false;
         }
+    }
+
+    /**
+     * Places a SMS with assisant
+     */
+    public boolean placeSms(Activity activity, String number, String name, String uid) {
+        BluetoothDevice device = mCurrentHfpDeviceLiveData.getValue();
+
+        Bundle bundle = new Bundle();
+        bundle.putString(CarVoiceInteractionSession.KEY_ACTION, VOICE_ACTION_SEND_SMS);
+        bundle.putString(CarVoiceInteractionSession.KEY_PHONE_NUMBER, number);
+        bundle.putString(CarVoiceInteractionSession.KEY_RECIPIENT_NAME, name);
+        bundle.putString(CarVoiceInteractionSession.KEY_RECIPIENT_UID, uid);
+        bundle.putString(CarVoiceInteractionSession.KEY_DEVICE_ADDRESS, device.getAddress());
+        bundle.putString(CarVoiceInteractionSession.KEY_DEVICE_NAME, device.getName());
+
+        Context context = activity.getApplicationContext();
+        Intent intent = new Intent(context, MessagingService.class)
+                .setAction(ACTION_DIRECT_SEND)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .setClass(context, MessagingService.class);
+
+        int requestCode = ACTION_DIRECT_SEND.hashCode();
+        PendingIntent pendingIntent = PendingIntent.getForegroundService(
+                context, requestCode, intent,
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
+
+        bundle.putParcelable(KEY_SEND_PENDING_INTENT, pendingIntent);
+        activity.showAssist(bundle);
+
+        return true;
     }
 
     /**

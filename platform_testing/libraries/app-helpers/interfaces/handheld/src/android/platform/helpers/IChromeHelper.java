@@ -17,6 +17,7 @@
 package android.platform.helpers;
 
 import android.support.test.uiautomator.Direction;
+import android.support.test.uiautomator.UiObject2;
 
 public interface IChromeHelper extends IAppHelper {
     public enum MenuItem {
@@ -251,6 +252,15 @@ public interface IChromeHelper extends IAppHelper {
      * @param percent The distance to scroll as a percentage of the page's visible size.
      */
     public default void scrollPage(Direction dir, float percent) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Chrome is open on a page.
+     *
+     * <p>Get the UiObject2 of the page screen.
+     */
+    public default UiObject2 getWebPage() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 }

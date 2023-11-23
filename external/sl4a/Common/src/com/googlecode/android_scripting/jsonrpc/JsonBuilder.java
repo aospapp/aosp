@@ -73,18 +73,21 @@ import android.telephony.CellIdentityGsm;
 import android.telephony.CellIdentityLte;
 import android.telephony.CellIdentityTdscdma;
 import android.telephony.CellIdentityWcdma;
+import android.telephony.CellIdentityNr;
 import android.telephony.CellInfo;
 import android.telephony.CellInfoCdma;
 import android.telephony.CellInfoGsm;
 import android.telephony.CellInfoLte;
 import android.telephony.CellInfoTdscdma;
 import android.telephony.CellInfoWcdma;
+import android.telephony.CellInfoNr;
 import android.telephony.CellLocation;
 import android.telephony.CellSignalStrengthCdma;
 import android.telephony.CellSignalStrengthGsm;
 import android.telephony.CellSignalStrengthLte;
 import android.telephony.CellSignalStrengthTdscdma;
 import android.telephony.CellSignalStrengthWcdma;
+import android.telephony.CellSignalStrengthNr;
 import android.telephony.ModemActivityInfo;
 import android.telephony.NeighboringCellInfo;
 import android.telephony.ServiceState;
@@ -812,6 +815,8 @@ public class JsonBuilder {
 
         if (data instanceof CellInfoLte) {
             return buildCellInfoLte((CellInfoLte) data, result);
+        } else if (data instanceof CellInfoNr) {
+            return buildCellInfoNr((CellInfoNr) data, result);
         } else if (data instanceof CellInfoWcdma) {
             return buildCellInfoWcdma((CellInfoWcdma) data, result);
         } else if (data instanceof CellInfoTdscdma) {
@@ -840,6 +845,23 @@ public class JsonBuilder {
         result.put("rsrp", signalstrength.getDbm());
         result.put("asulevel", signalstrength.getAsuLevel());
         result.put("timing_advance", signalstrength.getTimingAdvance());
+        return result;
+    }
+
+    private static JSONObject buildCellInfoNr(CellInfoNr data, JSONObject result)
+            throws JSONException {
+        result.put("rat", "nr");
+        CellIdentityNr cellidentity = (CellIdentityNr)data.getCellIdentity();
+        CellSignalStrengthNr signalstrength = (CellSignalStrengthNr)data.getCellSignalStrength();
+        result.put("mcc_string", cellidentity.getMccString());
+        result.put("mnc_string", cellidentity.getMncString());
+        result.put("band", cellidentity.getBands());
+        result.put("arfcn", cellidentity.getNrarfcn());
+        result.put("cid", cellidentity.getNci());
+        result.put("pcid", cellidentity.getPci());
+        result.put("tac", cellidentity.getTac());
+        result.put("rsrp", signalstrength.getDbm());
+        result.put("asulevel", signalstrength.getAsuLevel());
         return result;
     }
 

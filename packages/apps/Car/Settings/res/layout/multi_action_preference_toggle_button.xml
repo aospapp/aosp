@@ -18,6 +18,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/multi_action_preference_toggle_button"
     android:background="@android:color/transparent"
+    android:defaultFocusHighlightEnabled="false"
     android:layout_width="@dimen/multi_action_preference_toggle_button_size"
     android:layout_height="@dimen/multi_action_preference_toggle_button_size"
     android:layout_marginTop="@dimen/multi_action_preference_toggle_button_margin"

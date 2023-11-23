@@ -54,6 +54,8 @@ public final class BlockingUserLifecycleListener implements UserLifecycleListene
 
     private static final long DEFAULT_TIMEOUT_MS = 2_000;
 
+    private static int sNextId;
+
     private final Object mLock = new Object();
 
     private final CountDownLatch mLatch = new CountDownLatch(1);
@@ -78,6 +80,8 @@ public final class BlockingUserLifecycleListener implements UserLifecycleListene
     private final Integer mForPreviousUserId;
 
     private final long mTimeoutMs;
+
+    private final int mId = ++sNextId;
 
     private BlockingUserLifecycleListener(Builder builder) {
         mExpectedEventTypes = Collections
@@ -276,7 +280,7 @@ public final class BlockingUserLifecycleListener implements UserLifecycleListene
     @NonNull
     private String stateToString() {
         synchronized (mLock) {
-            return "timeout=" + mTimeoutMs + "ms"
+            return "id=" + mId + ",timeout=" + mTimeoutMs + "ms"
                     + ",expectedEventTypes=" + toString(mExpectedEventTypes)
                     + ",expectedEventTypesLeft=" + toString(mExpectedEventTypesLeft)
                     + (expectingSpecificUser() ? ",forUser=" + mForUserId : "")

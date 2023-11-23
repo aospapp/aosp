@@ -18,30 +18,44 @@ package com.android.car.settings.network;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.net.ConnectivityManager;
+import android.database.ContentObserver;
+import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 
-import androidx.preference.Preference;
+import androidx.annotation.CallSuper;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
+import com.android.car.ui.preference.CarUiTwoActionSwitchPreference;
+import com.android.settingslib.utils.StringUtil;
 
 import java.util.List;
 
 /** Controls the preference for accessing mobile network settings. */
 public class MobileNetworkEntryPreferenceController extends
-        PreferenceController<Preference> implements
+        PreferenceController<CarUiTwoActionSwitchPreference> implements
         SubscriptionsChangeListener.SubscriptionsChangeAction {
 
     private final UserManager mUserManager;
     private final SubscriptionsChangeListener mChangeListener;
     private final SubscriptionManager mSubscriptionManager;
-    private final ConnectivityManager mConnectivityManager;
     private final TelephonyManager mTelephonyManager;
+    private final int mSubscriptionId;
+    private final ContentObserver mMobileDataChangeObserver = new ContentObserver(
+            new Handler(Looper.getMainLooper())) {
+        @Override
+        public void onChange(boolean selfChange) {
+            super.onChange(selfChange);
+            refreshUi();
+        }
+    };
 
     public MobileNetworkEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -49,28 +63,52 @@ public class MobileNetworkEntryPreferenceController extends
         mUserManager = UserManager.get(context);
         mChangeListener = new SubscriptionsChangeListener(context, /* action= */ this);
         mSubscriptionManager = context.getSystemService(SubscriptionManager.class);
-        mConnectivityManager = context.getSystemService(ConnectivityManager.class);
         mTelephonyManager = context.getSystemService(TelephonyManager.class);
+        mSubscriptionId = SubscriptionManager.getDefaultDataSubscriptionId();
     }
 
     @Override
-    protected Class<Preference> getPreferenceType() {
-        return Preference.class;
+    protected Class<CarUiTwoActionSwitchPreference> getPreferenceType() {
+        return CarUiTwoActionSwitchPreference.class;
+    }
+
+    @Override
+    protected void onCreateInternal() {
+        super.onCreateInternal();
+        getPreference().setOnSecondaryActionClickListener(isChecked -> {
+            mTelephonyManager.setDataEnabled(isChecked);
+        });
+    }
+
+    @Override
+    protected void updateState(CarUiTwoActionSwitchPreference preference) {
+        List<SubscriptionInfo> subs = SubscriptionUtils.getAvailableSubscriptions(
+                mSubscriptionManager, mTelephonyManager);
+        preference.setEnabled(!subs.isEmpty());
+        preference.setSummary(getSummary(subs));
+        getPreference().setSecondaryActionChecked(mTelephonyManager.isDataEnabled());
     }
 
     @Override
     protected void onStartInternal() {
         mChangeListener.start();
+        if (mSubscriptionId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            getContext().getContentResolver().registerContentObserver(getObservableUri(
+                    mSubscriptionId), /* notifyForDescendants= */ false, mMobileDataChangeObserver);
+        }
     }
 
     @Override
     protected void onStopInternal() {
         mChangeListener.stop();
+        if (mSubscriptionId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            getContext().getContentResolver().unregisterContentObserver(mMobileDataChangeObserver);
+        }
     }
 
     @Override
     protected int getAvailabilityStatus() {
-        if (!NetworkUtils.hasMobileNetwork(mConnectivityManager)) {
+        if (!NetworkUtils.hasSim(mTelephonyManager)) {
             return UNSUPPORTED_ON_DEVICE;
         }
 
@@ -84,15 +122,7 @@ public class MobileNetworkEntryPreferenceController extends
     }
 
     @Override
-    protected void updateState(Preference preference) {
-        List<SubscriptionInfo> subs = SubscriptionUtils.getAvailableSubscriptions(
-                mSubscriptionManager, mTelephonyManager);
-        preference.setEnabled(!subs.isEmpty());
-        preference.setSummary(getSummary(subs));
-    }
-
-    @Override
-    protected boolean handlePreferenceClicked(Preference preference) {
+    protected boolean handlePreferenceClicked(CarUiTwoActionSwitchPreference preference) {
         List<SubscriptionInfo> subs = SubscriptionUtils.getAvailableSubscriptions(
                 mSubscriptionManager, mTelephonyManager);
         if (subs.isEmpty()) {
@@ -109,6 +139,7 @@ public class MobileNetworkEntryPreferenceController extends
     }
 
     @Override
+    @CallSuper
     public void onSubscriptionsChanged() {
         refreshUi();
     }
@@ -120,8 +151,16 @@ public class MobileNetworkEntryPreferenceController extends
         } else if (count == 1) {
             return subs.get(0).getDisplayName();
         } else {
-            return getContext().getResources().getQuantityString(
-                    R.plurals.mobile_network_summary_count, count, count);
+            return StringUtil.getIcuPluralsString(getContext(), count,
+                    R.string.mobile_network_summary_count);
         }
+    }
+
+    private Uri getObservableUri(int subId) {
+        Uri uri = Settings.Global.getUriFor(Settings.Global.MOBILE_DATA);
+        if (mTelephonyManager.getSimCount() != 1) {
+            uri = Settings.Global.getUriFor(Settings.Global.MOBILE_DATA + subId);
+        }
+        return uri;
     }
 }

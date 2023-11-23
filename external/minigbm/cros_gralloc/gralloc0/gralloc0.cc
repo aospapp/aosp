@@ -4,7 +4,6 @@
  * found in the LICENSE file.
  */
 
-#include "../../helpers.h"
 #include "../../util.h"
 #include "../cros_gralloc_driver.h"
 
@@ -15,7 +14,7 @@
 struct gralloc0_module {
 	gralloc_module_t base;
 	std::unique_ptr<alloc_device_t> alloc;
-	std::unique_ptr<cros_gralloc_driver> driver;
+	cros_gralloc_driver *driver;
 	bool initialized;
 	std::mutex initialization_mutex;
 };
@@ -61,84 +60,8 @@ enum {
 };
 // clang-format on
 
-// Gralloc0 doesn't define a video decoder flag. However, the IAllocator gralloc0
-// passthrough gives the low 32-bits of the BufferUsage flags to gralloc0 in their
-// entirety, so we can detect the video decoder flag passed by IAllocator clients.
-#define BUFFER_USAGE_VIDEO_DECODER (1 << 22)
-
-// Reserve the GRALLOC_USAGE_PRIVATE_0 bit for buffers used for front rendering.
-// minigbm backend later decides to use BO_USE_FRONT_RENDERING or BO_USE_LINEAR
-// upon buffer allocaton.
-#define BUFFER_USAGE_FRONT_RENDERING GRALLOC_USAGE_PRIVATE_0
-
-static uint64_t gralloc0_convert_usage(int usage)
-{
-	uint64_t use_flags = BO_USE_NONE;
-
-	if (usage & GRALLOC_USAGE_CURSOR)
-		use_flags |= BO_USE_NONE;
-	if ((usage & GRALLOC_USAGE_SW_READ_MASK) == GRALLOC_USAGE_SW_READ_RARELY)
-		use_flags |= BO_USE_SW_READ_RARELY;
-	if ((usage & GRALLOC_USAGE_SW_READ_MASK) == GRALLOC_USAGE_SW_READ_OFTEN)
-		use_flags |= BO_USE_SW_READ_OFTEN;
-	if ((usage & GRALLOC_USAGE_SW_WRITE_MASK) == GRALLOC_USAGE_SW_WRITE_RARELY)
-		use_flags |= BO_USE_SW_WRITE_RARELY;
-	if ((usage & GRALLOC_USAGE_SW_WRITE_MASK) == GRALLOC_USAGE_SW_WRITE_OFTEN)
-		use_flags |= BO_USE_SW_WRITE_OFTEN;
-	if (usage & GRALLOC_USAGE_HW_TEXTURE)
-		use_flags |= BO_USE_TEXTURE;
-	if (usage & GRALLOC_USAGE_HW_RENDER)
-		use_flags |= BO_USE_RENDERING;
-	if (usage & GRALLOC_USAGE_HW_2D)
-		use_flags |= BO_USE_RENDERING;
-	if (usage & GRALLOC_USAGE_HW_COMPOSER)
-		/* HWC wants to use display hardware, but can defer to OpenGL. */
-		use_flags |= BO_USE_SCANOUT | BO_USE_TEXTURE;
-	if (usage & GRALLOC_USAGE_HW_FB)
-		use_flags |= BO_USE_NONE;
-	if (usage & GRALLOC_USAGE_EXTERNAL_DISP)
-		/*
-		 * This flag potentially covers external display for the normal drivers (i915,
-		 * rockchip) and usb monitors (evdi/udl). It's complicated so ignore it.
-		 * */
-		use_flags |= BO_USE_NONE;
-	/* Map this flag to linear until real HW protection is available on Android. */
-	if (usage & GRALLOC_USAGE_PROTECTED)
-		use_flags |= BO_USE_LINEAR;
-	if (usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) {
-		use_flags |= BO_USE_HW_VIDEO_ENCODER;
-		/*HACK: See b/30054495 */
-		use_flags |= BO_USE_SW_READ_OFTEN;
-	}
-	if (usage & GRALLOC_USAGE_HW_CAMERA_WRITE)
-		use_flags |= BO_USE_CAMERA_WRITE;
-	if (usage & GRALLOC_USAGE_HW_CAMERA_READ)
-		use_flags |= BO_USE_CAMERA_READ;
-	if (usage & GRALLOC_USAGE_RENDERSCRIPT)
-		use_flags |= BO_USE_RENDERSCRIPT;
-	if (usage & BUFFER_USAGE_VIDEO_DECODER)
-		use_flags |= BO_USE_HW_VIDEO_DECODER;
-	if (usage & BUFFER_USAGE_FRONT_RENDERING)
-		use_flags |= BO_USE_FRONT_RENDERING;
-
-	return use_flags;
-}
-
-static uint32_t gralloc0_convert_map_usage(int map_usage)
-{
-	uint32_t map_flags = BO_MAP_NONE;
-
-	if (map_usage & GRALLOC_USAGE_SW_READ_MASK)
-		map_flags |= BO_MAP_READ;
-	if (map_usage & GRALLOC_USAGE_SW_WRITE_MASK)
-		map_flags |= BO_MAP_WRITE;
-
-	return map_flags;
-}
-
 static int gralloc0_droid_yuv_format(int droid_format)
 {
-
 	return (droid_format == HAL_PIXEL_FORMAT_YCbCr_420_888 ||
 		droid_format == HAL_PIXEL_FORMAT_YV12);
 }
@@ -147,7 +70,6 @@ static int gralloc0_alloc(alloc_device_t *dev, int w, int h, int format, int usa
 			  buffer_handle_t *handle, int *stride)
 {
 	int32_t ret;
-	bool supported;
 	struct cros_gralloc_buffer_descriptor descriptor;
 	auto mod = (struct gralloc0_module const *)dev->common.module;
 
@@ -156,31 +78,10 @@ static int gralloc0_alloc(alloc_device_t *dev, int w, int h, int format, int usa
 	descriptor.droid_format = format;
 	descriptor.droid_usage = usage;
 	descriptor.drm_format = cros_gralloc_convert_format(format);
-	descriptor.use_flags = gralloc0_convert_usage(usage);
+	descriptor.use_flags = cros_gralloc_convert_usage(usage);
 	descriptor.reserved_region_size = 0;
 
-	supported = mod->driver->is_supported(&descriptor);
-	if (!supported && (usage & GRALLOC_USAGE_HW_COMPOSER)) {
-		descriptor.use_flags &= ~BO_USE_SCANOUT;
-		supported = mod->driver->is_supported(&descriptor);
-	}
-	if (!supported && (usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) &&
-	    format != HAL_PIXEL_FORMAT_YCbCr_420_888) {
-		// Unmask BO_USE_HW_VIDEO_ENCODER for other formats. They are mostly
-		// intermediate formats not passed directly to the encoder (e.g.
-		// camera). YV12 is passed to the encoder component, but it is converted
-		// to YCbCr_420_888 before being passed to the hw encoder.
-		descriptor.use_flags &= ~BO_USE_HW_VIDEO_ENCODER;
-		drv_log("Retrying format %u allocation without encoder flag", format);
-		supported = mod->driver->is_supported(&descriptor);
-	}
-	if (!supported && (usage & BUFFER_USAGE_FRONT_RENDERING)) {
-		descriptor.use_flags &= ~BO_USE_FRONT_RENDERING;
-		descriptor.use_flags |= BO_USE_LINEAR;
-		supported = mod->driver->is_supported(&descriptor);
-	}
-
-	if (!supported) {
+	if (!mod->driver->is_supported(&descriptor)) {
 		drv_log("Unsupported combination -- HAL format: %u, HAL usage: %u, "
 			"drv_format: %4.4s, use_flags: %llu\n",
 			format, usage, reinterpret_cast<char *>(&descriptor.drm_format),
@@ -217,11 +118,9 @@ static int gralloc0_init(struct gralloc0_module *mod, bool initialize_alloc)
 	if (mod->initialized)
 		return 0;
 
-	mod->driver = std::make_unique<cros_gralloc_driver>();
-	if (mod->driver->init()) {
-		drv_log("Failed to initialize driver.\n");
+	mod->driver = cros_gralloc_driver::get_instance();
+	if (!mod->driver)
 		return -ENODEV;
-	}
 
 	if (initialize_alloc) {
 		mod->alloc = std::make_unique<alloc_device_t>();
@@ -381,20 +280,20 @@ static int gralloc0_perform(struct gralloc_module_t const *module, int op, ...)
 		memset(info, 0, sizeof(*info));
 		info->drm_fourcc = drv_get_standard_fourcc(hnd->format);
 		info->num_fds = hnd->num_planes;
+		for (int i = 0; i < info->num_fds; i++)
+			info->fds[i] = hnd->fds[i];
+
 		ret = mod->driver->resource_info(handle, strides, offsets, &format_modifier);
 		if (ret)
 			break;
 
 		info->modifier = format_modifier ? format_modifier : hnd->format_modifier;
-		for (uint32_t i = 0; i < hnd->num_planes; i++) {
-			info->fds[i] = hnd->fds[i];
-			if (strides[i]) {
-				info->stride[i] = strides[i];
-				info->offset[i] = offsets[i];
-			} else {
-				info->stride[i] = hnd->strides[i];
-				info->offset[i] = hnd->offsets[i];
-			}
+		for (uint32_t i = 0; i < DRV_MAX_PLANES; i++) {
+			if (!strides[i])
+				break;
+
+			info->stride[i] = strides[i];
+			info->offset[i] = offsets[i];
 		}
 		break;
 	case GRALLOC_DRM_GET_USAGE:
@@ -453,7 +352,7 @@ static int gralloc0_lock_async(struct gralloc_module_t const *module, buffer_han
 	assert(w >= 0);
 	assert(h >= 0);
 
-	map_flags = gralloc0_convert_map_usage(usage);
+	map_flags = cros_gralloc_convert_map_usage(static_cast<uint64_t>(usage));
 	ret = mod->driver->lock(handle, fence_fd, true, &rect, map_flags, addr);
 	*vaddr = addr[0];
 	return ret;
@@ -505,7 +404,7 @@ static int gralloc0_lock_async_ycbcr(struct gralloc_module_t const *module, buff
 	assert(w >= 0);
 	assert(h >= 0);
 
-	map_flags = gralloc0_convert_map_usage(usage);
+	map_flags = cros_gralloc_convert_map_usage(static_cast<uint64_t>(usage));
 	ret = mod->driver->lock(handle, fence_fd, true, &rect, map_flags, addr);
 	if (ret)
 		return ret;

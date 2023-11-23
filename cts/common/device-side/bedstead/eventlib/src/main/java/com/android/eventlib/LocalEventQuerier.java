@@ -32,67 +32,25 @@ public class LocalEventQuerier<E extends Event, F extends EventLogsQuery> implem
     private final EventLogsQuery<E, F> mEventLogsQuery;
     private final Events mEvents;
     private final BlockingDeque<Event> mFetchedEvents;
-    private int skippedGet = 0;
 
     LocalEventQuerier(Context context, EventLogsQuery<E, F> eventLogsQuery) {
         mEventLogsQuery = eventLogsQuery;
-        mEvents = Events.getInstance(context);
+        mEvents = Events.getInstance(context, /* needsHistory= */ true);
         mFetchedEvents = new LinkedBlockingDeque<>(mEvents.getEvents());
         mEvents.registerEventListener(this);
     }
 
     @Override
-    public E get(Instant earliestLogTime) {
-        int skipped = 0;
-        for (Event event : mEvents.getEvents()) {
-            if (mEventLogsQuery.eventClass().isInstance(event)) {
-                if (event.mTimestamp.isBefore(earliestLogTime)) {
-                    continue;
-                } else if (skipped++ < skippedGet) {
-                    continue;
-                }
-
-                E typedEvent = (E) event;
-                if (mEventLogsQuery.filterAll(typedEvent)) {
-                    return typedEvent;
-                }
-            }
-        }
-        return null;
+    public E poll(Instant earliestLogTime, Duration timeout) {
+        return poll(earliestLogTime, timeout, /* skip= */ 0);
     }
 
     /**
-     * Same as {@link #get(Instant)} but incremements the number of skipped results.
+     * Poll for a result, skipping the first {@code skip} matching results.
      *
-     * <p>This should be used when the current result from {@link #get(Instant)} does not pass
-     * additional filters.
+     * <p>See {@link #poll(Instant, Duration)}.
      */
-    public E getNext(Instant earliestLogTime) {
-        skippedGet += 1;
-        return get(earliestLogTime);
-    }
-
-    @Override
-    public E next(Instant earliestLogTime) {
-        while (!mFetchedEvents.isEmpty()) {
-            Event event = mFetchedEvents.removeFirst();
-
-            if (mEventLogsQuery.eventClass().isInstance(event)) {
-                if (event.mTimestamp.isBefore(earliestLogTime)) {
-                    continue;
-                }
-
-                E typedEvent = (E) event;
-                if (mEventLogsQuery.filterAll(typedEvent)) {
-                    return typedEvent;
-                }
-            }
-        }
-        return null;
-    }
-
-    @Override
-    public E poll(Instant earliestLogTime, Duration timeout) {
+    public E poll(Instant earliestLogTime, Duration timeout, int skip) {
         Instant endTime = Instant.now().plus(timeout);
         while (true) {
             Event event = null;
@@ -115,6 +73,11 @@ public class LocalEventQuerier<E extends Event, F extends EventLogsQuery> implem
 
                 E typedEvent = (E) event;
                 if (mEventLogsQuery.filterAll(typedEvent)) {
+                    if (skip > 0) {
+                        skip--;
+                        continue;
+                    }
+
                     return typedEvent;
                 }
             }

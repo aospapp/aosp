@@ -155,17 +155,18 @@ private:
 
     // The bitrate currently configured on the v4l2 device.
     uint32_t mBitrate = 0;
+    // The bitrate mode currently configured on the v4l2 device.
+    C2Config::bitrate_mode_t mBitrateMode = C2Config::BITRATE_CONST;
     // The framerate currently configured on the v4l2 device.
     uint32_t mFramerate = 0;
+    // The timestamp of the last frame encoded, used to dynamically adjust the framerate.
+    std::optional<int64_t> mLastFrameTime;
 
-    // Whether we extracted and submitted CSD (codec-specific data, e.g. H.264 SPS) to the framework.
-    bool mCSDSubmitted = false;
+    // Whether we need to extract and submit CSD (codec-specific data, e.g. H.264 SPS).
+    bool mExtractCSD = false;
 
     // The queue of encode work items currently being processed.
     std::deque<std::unique_ptr<C2Work>> mWorkQueue;
-
-    // Map of buffer ids and associated C2LinearBlock buffers. The buffer's fds are used as id.
-    std::unordered_map<int32_t, std::shared_ptr<C2LinearBlock>> mOutputBuffersMap;
 
     // The output block pool.
     std::shared_ptr<C2BlockPool> mOutputBlockPool;

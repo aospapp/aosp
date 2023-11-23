@@ -15,5 +15,4 @@
 -->
 <resources>
     <dimen name="dialpad_info_title_text_size_max">36sp</dimen>
-    <dimen name="onhold_profile_margin_x">165dp</dimen>
 </resources>

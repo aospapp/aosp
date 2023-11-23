@@ -47,7 +47,6 @@ import org.junit.runner.RunWith;
 import java.util.List;
 
 // TODO(b/184280023): remove @RequiresDevice and @Ignores.
-@RequiresDevice
 @RunWith(AndroidJUnit4.class)
 public class SecondaryLockscreenTest {
 
@@ -139,6 +138,7 @@ public class SecondaryLockscreenTest {
         verifySecondaryLockscreenIsShown();
     }
 
+    @RequiresDevice
     @Test(expected = SecurityException.class)
     public void testSetSecondaryLockscreen_ineligibleAdmin_throwsSecurityException() {
         final ComponentName badAdmin = new ComponentName("com.foo.bar", ".NonProfileOwnerReceiver");

@@ -16,6 +16,8 @@
 
 package android.server.wm;
 
+import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.server.wm.WindowManagerState.TRANSIT_ACTIVITY_CLOSE;
 import static android.server.wm.WindowManagerState.TRANSIT_ACTIVITY_OPEN;
 import static android.server.wm.WindowManagerState.TRANSIT_TASK_CLOSE;
@@ -39,10 +41,14 @@ import static android.server.wm.app.Components.TRANSLUCENT_TOP_WALLPAPER_ACTIVIT
 import static android.server.wm.app.Components.TopActivity.EXTRA_FINISH_DELAY;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeTrue;
+import static org.junit.Assume.assumeFalse;
 
 import android.content.ComponentName;
+import android.os.SystemProperties;
 import android.platform.test.annotations.Presubmit;
 
+import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -59,6 +65,11 @@ import org.junit.Test;
  */
 @Presubmit
 public class TransitionSelectionTests extends ActivityManagerTestBase {
+
+    @Before
+    public void setup() {
+        assumeFalse(ENABLE_SHELL_TRANSITIONS);
+    }
 
     // Test activity open/close under normal timing
     @Test
@@ -102,38 +113,59 @@ public class TransitionSelectionTests extends ActivityManagerTestBase {
     // Test task open/close under normal timing
     @Test
     public void testOpenTask_NeitherWallpaper() {
-        testOpenTask(false /*bottomWallpaper*/, false /*topWallpaper*/,
-            true /* topResizable */, false /*slowStop*/, TRANSIT_TASK_OPEN);
+        testOpenTask(false /*bottomWallpaper*/, false /*topWallpaper*/, true /* topResizable */,
+                false /*slowStop*/, TRANSIT_TASK_OPEN, WINDOWING_MODE_FULLSCREEN);
+    }
+
+    @Test
+    public void testOpenFreeformTask_NeitherWallpaper() {
+        assumeTrue(supportsFreeform());
+        testOpenTask(false /*bottomWallpaper*/, false /*topWallpaper*/, true /* topResizable */,
+                false /*slowStop*/, TRANSIT_TASK_OPEN, WINDOWING_MODE_FREEFORM);
     }
 
     @Test
     public void testCloseTask_NeitherWallpaper() {
-        testCloseTask(false /*bottomWallpaper*/, false /*topWallpaper*/,
-            true /* topResizable */, false /*slowStop*/, TRANSIT_TASK_CLOSE);
+        testCloseTask(false /*bottomWallpaper*/, false /*topWallpaper*/, true /* topResizable */,
+                false /*slowStop*/, TRANSIT_TASK_CLOSE, WINDOWING_MODE_FULLSCREEN);
     }
 
     @Test
     public void testOpenTask_BottomWallpaper_TopNonResizable() {
-        testOpenTask(true /*bottomWallpaper*/, false /*topWallpaper*/,
-            false /* topResizable */, false /*slowStop*/, TRANSIT_WALLPAPER_CLOSE);
+        testOpenTask(true /*bottomWallpaper*/, false /*topWallpaper*/, false /* topResizable */,
+                false /*slowStop*/, TRANSIT_WALLPAPER_CLOSE, WINDOWING_MODE_FULLSCREEN);
+    }
+
+    @Test
+    public void testOpenFreeformTask_BottomWallpaper_TopResizable() {
+        assumeTrue(supportsFreeform());
+        testOpenTask(true /*bottomWallpaper*/, false /*topWallpaper*/, true /* topResizable */,
+                false /*slowStop*/, TRANSIT_TASK_OPEN, WINDOWING_MODE_FREEFORM);
     }
 
     @Test
     public void testCloseTask_BottomWallpaper_TopNonResizable() {
-        testCloseTask(true /*bottomWallpaper*/, false /*topWallpaper*/,
-            false /* topResizable */, false /*slowStop*/, TRANSIT_WALLPAPER_OPEN);
+        testCloseTask(true /*bottomWallpaper*/, false /*topWallpaper*/, false /* topResizable */,
+                false /*slowStop*/, TRANSIT_WALLPAPER_OPEN, WINDOWING_MODE_FULLSCREEN);
+    }
+
+    @Test
+    public void testCloseFreeformTask_BottomWallpaper_TopResizable() {
+        assumeTrue(supportsFreeform());
+        testCloseTask(true /*bottomWallpaper*/, false /*topWallpaper*/, true /* topResizable */,
+                false /*slowStop*/, TRANSIT_TASK_CLOSE, WINDOWING_MODE_FREEFORM);
     }
 
     @Test
     public void testOpenTask_BothWallpaper() {
-        testOpenTask(true /*bottomWallpaper*/, true /*topWallpaper*/,
-            false /* topResizable */, false /*slowStop*/, TRANSIT_WALLPAPER_INTRA_OPEN);
+        testOpenTask(true /*bottomWallpaper*/, true /*topWallpaper*/, false /* topResizable */,
+                false /*slowStop*/, TRANSIT_WALLPAPER_INTRA_OPEN, WINDOWING_MODE_FULLSCREEN);
     }
 
     @Test
     public void testCloseTask_BothWallpaper() {
-        testCloseTask(true /*bottomWallpaper*/, true /*topWallpaper*/,
-            false /* topResizable */, false /*slowStop*/, TRANSIT_WALLPAPER_INTRA_CLOSE);
+        testCloseTask(true /*bottomWallpaper*/, true /*topWallpaper*/, false /* topResizable */,
+                false /*slowStop*/, TRANSIT_WALLPAPER_INTRA_CLOSE, WINDOWING_MODE_FULLSCREEN);
     }
 
     //------------------------------------------------------------------------//
@@ -166,20 +198,27 @@ public class TransitionSelectionTests extends ActivityManagerTestBase {
     // before AM receives its activitiyStopped
     @Test
     public void testCloseTask_NeitherWallpaper_SlowStop() {
-        testCloseTask(false /*bottomWallpaper*/, false /*topWallpaper*/,
-            true /* topResizable */, true /*slowStop*/, TRANSIT_TASK_CLOSE);
+        testCloseTask(false /*bottomWallpaper*/, false /*topWallpaper*/, true /* topResizable */,
+                true /*slowStop*/, TRANSIT_TASK_CLOSE, WINDOWING_MODE_FULLSCREEN);
     }
 
     @Test
     public void testCloseTask_BottomWallpaper_TopNonResizable_SlowStop() {
-        testCloseTask(true /*bottomWallpaper*/, false /*topWallpaper*/,
-            false /* topResizable */, true /*slowStop*/, TRANSIT_WALLPAPER_OPEN);
+        testCloseTask(true /*bottomWallpaper*/, false /*topWallpaper*/, false /* topResizable */,
+                true /*slowStop*/, TRANSIT_WALLPAPER_OPEN, WINDOWING_MODE_FULLSCREEN);
+    }
+
+    @Test
+    public void testCloseFreeformTask_BottomWallpaper_TopResizable_SlowStop() {
+        assumeTrue(supportsFreeform());
+        testCloseTask(true /*bottomWallpaper*/, false /*topWallpaper*/, true /* topResizable */,
+                true /*slowStop*/, TRANSIT_TASK_CLOSE, WINDOWING_MODE_FREEFORM);
     }
 
     @Test
     public void testCloseTask_BothWallpaper_SlowStop() {
-        testCloseTask(true /*bottomWallpaper*/, true /*topWallpaper*/,
-            false /* topResizable */, true /*slowStop*/, TRANSIT_WALLPAPER_INTRA_CLOSE);
+        testCloseTask(true /*bottomWallpaper*/, true /*topWallpaper*/, false /* topResizable */,
+                true /*slowStop*/, TRANSIT_WALLPAPER_INTRA_CLOSE, WINDOWING_MODE_FULLSCREEN);
     }
 
     //------------------------------------------------------------------------//
@@ -227,42 +266,42 @@ public class TransitionSelectionTests extends ActivityManagerTestBase {
             boolean topWallpaper, boolean slowStop, String expectedTransit) {
         testTransitionSelection(true /*testOpen*/, false /*testNewTask*/,
             bottomWallpaper, topWallpaper, false /*topTranslucent*/, true /* topResizable */,
-            slowStop, expectedTransit);
+            slowStop, expectedTransit, WINDOWING_MODE_FULLSCREEN);
     }
 
     private void testCloseActivity(boolean bottomWallpaper,
             boolean topWallpaper, boolean slowStop, String expectedTransit) {
         testTransitionSelection(false /*testOpen*/, false /*testNewTask*/,
             bottomWallpaper, topWallpaper, false /*topTranslucent*/, true /* topResizable */,
-            slowStop, expectedTransit);
+            slowStop, expectedTransit, WINDOWING_MODE_FULLSCREEN);
     }
 
-    private void testOpenTask(boolean bottomWallpaper,
-        boolean topWallpaper, boolean topResizable, boolean slowStop, String expectedTransit) {
+    private void testOpenTask(boolean bottomWallpaper, boolean topWallpaper, boolean topResizable,
+            boolean slowStop, String expectedTransit, int windowingMode) {
         testTransitionSelection(true /*testOpen*/, true /*testNewTask*/,
             bottomWallpaper, topWallpaper, false /*topTranslucent*/, topResizable, slowStop,
-            expectedTransit);
+            expectedTransit, windowingMode);
     }
 
-    private void testCloseTask(boolean bottomWallpaper,
-        boolean topWallpaper, boolean topResizable, boolean slowStop, String expectedTransit) {
+    private void testCloseTask(boolean bottomWallpaper, boolean topWallpaper, boolean topResizable,
+            boolean slowStop, String expectedTransit, int windowingMode) {
         testTransitionSelection(false /*testOpen*/, true /*testNewTask*/,
             bottomWallpaper, topWallpaper, false /*topTranslucent*/,
-            topResizable /* topResizable */, slowStop, expectedTransit);
+            topResizable /* topResizable */, slowStop, expectedTransit, windowingMode);
     }
 
     private void testCloseActivityTranslucent(boolean bottomWallpaper,
             boolean topWallpaper, String expectedTransit) {
         testTransitionSelection(false /*testOpen*/, false /*testNewTask*/,
             bottomWallpaper, topWallpaper, true /*topTranslucent*/, true /* topResizable */,
-            false /*slowStop*/, expectedTransit);
+            false /*slowStop*/, expectedTransit, WINDOWING_MODE_FULLSCREEN);
     }
 
     private void testCloseTaskTranslucent(boolean bottomWallpaper,
             boolean topWallpaper, String expectedTransit) {
         testTransitionSelection(false /*testOpen*/, true /*testNewTask*/,
             bottomWallpaper, topWallpaper, true /*topTranslucent*/, true /* topResizable */,
-            false /*slowStop*/, expectedTransit);
+            false /*slowStop*/, expectedTransit, WINDOWING_MODE_FULLSCREEN);
     }
 
     //------------------------------------------------------------------------//
@@ -270,7 +309,7 @@ public class TransitionSelectionTests extends ActivityManagerTestBase {
     private void testTransitionSelection(
         boolean testOpen, boolean testNewTask,
         boolean bottomWallpaper, boolean topWallpaper, boolean topTranslucent,
-        boolean topResizable, boolean testSlowStop, String expectedTransit) {
+        boolean topResizable, boolean testSlowStop, String expectedTransit, int windowingMode) {
         final ComponentName bottomComponent = bottomWallpaper
             ? BOTTOM_NON_RESIZABLE_ACTIVITY : BOTTOM_ACTIVITY;
         String bottomStartCmd = getAmStartCmd(bottomComponent);
@@ -280,7 +319,7 @@ public class TransitionSelectionTests extends ActivityManagerTestBase {
         if (testSlowStop) {
             bottomStartCmd += " --ei " + EXTRA_STOP_DELAY + " 3000";
         }
-        executeShellCommand(bottomStartCmd);
+        executeShellCommand(bottomStartCmd + " --windowingMode " + windowingMode);
 
         mWmState.computeState(bottomComponent);
 
@@ -307,7 +346,7 @@ public class TransitionSelectionTests extends ActivityManagerTestBase {
         if (!testOpen) {
             topStartCmd += " --ei " + EXTRA_FINISH_DELAY + " 1000";
         }
-        executeShellCommand(topStartCmd);
+        executeShellCommand(topStartCmd + " --windowingMode " + windowingMode);
 
         Condition.waitFor("Retrieving correct transition", () -> {
             if (testOpen) {

@@ -21,7 +21,6 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.dialer.R;
@@ -30,6 +29,7 @@ import com.android.car.dialer.ui.common.DialerUtils;
 import com.android.car.dialer.ui.common.OnItemClickedListener;
 import com.android.car.dialer.ui.common.entity.Header;
 import com.android.car.telephony.common.Contact;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.recyclerview.DelegatingContentLimitingAdapter;
 
 import java.util.Collections;
@@ -39,14 +39,14 @@ import java.util.List;
  * Adapter class for binding favorite contacts.
  */
 public class FavoriteAdapter extends RecyclerView.Adapter<FavoriteContactViewHolder> implements
-        DelegatingContentLimitingAdapter.ContentLimiting {
+        DelegatingContentLimitingAdapter.ContentLimiting, CarUiRecyclerView.OnAttachListener {
     private static final String TAG = "CD.FavoriteAdapter";
     static final int TYPE_CONTACT = 0;
     static final int TYPE_HEADER = 1;
     static final int TYPE_ADD_FAVORITE = 2;
 
     private Integer mSortMethod;
-    private LinearLayoutManager mLayoutManager;
+    private CarUiRecyclerView mRrecyclerView;
     private int mLimitingAnchorIndex = 0;
 
     /**
@@ -137,15 +137,13 @@ public class FavoriteAdapter extends RecyclerView.Adapter<FavoriteContactViewHol
     }
 
     @Override
-    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
-        super.onAttachedToRecyclerView(recyclerView);
-        mLayoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+    public void onAttachedToCarUiRecyclerView(@NonNull CarUiRecyclerView recyclerView) {
+        mRrecyclerView = recyclerView;
     }
 
     @Override
-    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
-        mLayoutManager = null;
-        super.onDetachedFromRecyclerView(recyclerView);
+    public void onDetachedFromCarUiRecyclerView(@NonNull CarUiRecyclerView recyclerView) {
+        mRrecyclerView = null;
     }
 
     @Override
@@ -156,7 +154,7 @@ public class FavoriteAdapter extends RecyclerView.Adapter<FavoriteContactViewHol
 
     @Override
     public int computeAnchorIndexWhenRestricting() {
-        mLimitingAnchorIndex = DialerUtils.getFirstVisibleItemPosition(mLayoutManager);
+        mLimitingAnchorIndex = DialerUtils.getFirstVisibleItemPosition(mRrecyclerView);
         return mLimitingAnchorIndex;
     }
 

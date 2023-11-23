@@ -107,7 +107,7 @@ static HostConnection *createOrGetHostConnection() {
     return;                                                          \
   }
 
-#include "include/drmhwcgralloc.h"
+#include "drmhwcgralloc.h"
 void convertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   cros_gralloc_handle *gr_handle = (cros_gralloc_handle *)handle;
   if (!gr_handle) return;

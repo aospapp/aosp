@@ -23,6 +23,7 @@
     android:layout_height="match_parent">
 
     <com.android.car.ui.FocusParkingView
+        android:id="@+id/focus_parking_view"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
 
@@ -35,6 +36,12 @@
               android:layout_width="match_parent"
               android:layout_height="match_parent"
               android:layout="@layout/keyguard_container"/>
+
+    <ViewStub android:id="@+id/hvac_panel_stub"
+              android:layout_width="match_parent"
+              android:layout_height="@dimen/hvac_panel_full_expanded_height"
+              android:layout_gravity="bottom"
+              android:layout="@layout/hvac_panel_container"/>
 
     <ViewStub android:id="@+id/fullscreen_user_switcher_stub"
               android:layout_width="match_parent"

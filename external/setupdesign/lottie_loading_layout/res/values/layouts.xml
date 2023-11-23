@@ -17,4 +17,5 @@
 
 <resources xmlns:tools="http://schemas.android.com/tools">
   <item name="sud_glif_loading_template" type="layout"  tools:ignore="UnusedResources">@layout/sud_glif_loading_template_compat</item>
+  <item name="sud_glif_fullscreen_loading_template" type="layout"  tools:ignore="UnusedResources">@layout/sud_glif_loading_template_compat</item>
 </resources>

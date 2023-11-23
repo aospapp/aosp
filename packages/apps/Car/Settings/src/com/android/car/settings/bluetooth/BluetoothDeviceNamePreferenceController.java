@@ -26,7 +26,6 @@ import android.util.Pair;
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
-import com.android.car.apps.common.util.Themes;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.settingslib.bluetooth.BluetoothUtils;
@@ -83,7 +82,7 @@ public class BluetoothDeviceNamePreferenceController extends
         preference.setTitle(cachedDevice.getName());
         preference.setIcon(pair.first);
         preference.getIcon().setTintList(
-                Themes.getAttrColorStateList(getContext(), R.attr.iconColor));
+                getContext().getColorStateList(R.color.icon_color_default));
         preference.setSummary(summaryJoiner.toString());
     }
 

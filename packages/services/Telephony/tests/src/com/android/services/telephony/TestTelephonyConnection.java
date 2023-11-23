@@ -305,4 +305,12 @@ public class TestTelephonyConnection extends TelephonyConnection {
     public PersistableBundle getCarrierConfigBundle() {
         return mCarrierConfig;
     }
+
+    public ImsPhoneConnection getMockImsPhoneConnection() {
+        return mImsPhoneConnection;
+    }
+
+    public void setMockImsPhoneConnection(ImsPhoneConnection connection) {
+        mImsPhoneConnection = connection;
+    }
 }

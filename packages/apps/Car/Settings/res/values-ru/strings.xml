@@ -27,12 +27,7 @@
     <string name="night_mode_tile_label" msgid="6603597795502131664">"Ночной режим"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Сеть и интернет"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Мобильная сеть"</string>
-    <plurals name="mobile_network_summary_count" formatted="false" msgid="6917348330386831454">
-      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карта</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карты</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карт</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> SIM-карты</item>
-    </plurals>
+    <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{# SIM-карта}one{# SIM-карта}few{# SIM-карты}many{# SIM-карт}other{# SIM-карты}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"Активно (SIM-карта)"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"Неактивно (SIM-карта)"</string>
     <string name="mobile_network_active_esim" msgid="5864100786496761032">"Активно (cкачанная SIM-карта)"</string>
@@ -40,6 +35,8 @@
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"Добавить"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"Мобильный интернет"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"Доступ к Интернету по мобильной сети"</string>
+    <string name="mobile_network_mobile_network_toggle_title" msgid="3087288149339116597">"Мобильная сеть"</string>
+    <string name="mobile_network_mobile_network_toggle_summary" msgid="1679917666306941420">"Использовать мобильный интернет"</string>
     <string name="confirm_mobile_data_disable" msgid="826493998804496639">"Отключить мобильный Интернет?"</string>
     <string name="sim_selection_required_pref" msgid="6599562910262785784">"Выберите SIM-карту"</string>
     <string name="sim_change_data_title" msgid="6677115745127365131">"Переключиться на оператора \"<xliff:g id="CARRIER">%1$s</xliff:g>\"?"</string>
@@ -55,12 +52,7 @@
     <string name="cell_data_warning" msgid="8997739664336571149">"Предупреждение о расходе трафика: <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_limit" msgid="6862164869877993009">"Лимит трафика: <xliff:g id="ID_1">^1</xliff:g>"</string>
     <string name="cell_data_warning_and_limit" msgid="5003954080814312475">"Предупреждение о расходе трафика: <xliff:g id="ID_1">^1</xliff:g>. Лимит трафика: <xliff:g id="ID_2">^2</xliff:g>."</string>
-    <plurals name="billing_cycle_days_left" formatted="false" msgid="9163059632851951402">
-      <item quantity="one">Остался %d день</item>
-      <item quantity="few">Осталось %d дня</item>
-      <item quantity="many">Осталось %d дней</item>
-      <item quantity="other">Осталось %d дня</item>
-    </plurals>
+    <string name="billing_cycle_days_left" msgid="1810100330204239102">"{count,plural, =1{Остался # день}one{Осталось # день}few{Осталось # дня}many{Осталось # дней}other{Осталось # дня}}"</string>
     <string name="billing_cycle_none_left" msgid="3499893148398931302">"Время истекло."</string>
     <string name="billing_cycle_less_than_one_day_left" msgid="8121013296375203759">"Осталось меньше 1 дня"</string>
     <string name="carrier_and_update_text" msgid="4351043160977741244">"Обновлено <xliff:g id="ID_2">^2</xliff:g> назад оператором <xliff:g id="ID_1">^1</xliff:g>"</string>
@@ -75,6 +67,7 @@
     <string name="cycle_reset_day_of_month_picker_positive_button" msgid="6919858010423269305">"Сохранить"</string>
     <string name="data_warning_limit_title" msgid="4950868241810828601">"Предупреждения и лимит"</string>
     <string name="app_usage_cycle" msgid="8445927080245880296">"Период статистики"</string>
+    <string name="mobile_data_usage" msgid="8171519864391091861">"Использование мобильного интернета"</string>
     <string name="set_data_warning" msgid="6628236612886588097">"Установить предупреждение"</string>
     <string name="data_warning" msgid="116776633806885370">"Предупреждение"</string>
     <string name="set_data_limit" msgid="7136539812414500084">"Задать лимит трафика"</string>
@@ -83,8 +76,14 @@
     <string name="data_usage_limit_dialog_mobile" msgid="3633960011913085089">"После достижения установленного лимита передача данных по мобильной сети будет отключена.\n\nПри выборе ограничения учитывайте, что статистика оператора может отличаться от статистики головного устройства автомобиля."</string>
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"Настройка предупреждения"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"Лимит трафика"</string>
+    <string name="data_usage_settings_footer" msgid="681881387909678237">"Объем использованного трафика измеряется на устройстве. Полученные значения могут отличаться от данных вашего оператора мобильной связи."</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"Сохранить"</string>
+    <string name="data_usage_warning_save_title" msgid="2900544287239037695">"Сохранить"</string>
     <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"Сеть OEM"</string>
+    <string name="network_and_internet_vehicle_internet_title" msgid="2518848595673002736">"Интернет в автомобиле"</string>
+    <string name="network_and_internet_oem_network_dialog_description" msgid="4469178879867702066">"При отключенном интернете некоторые функции или приложения автомобиля могут не работать.\n\nДанные, которые критически важны для эксплуатации автомобиля, останутся доступны его производителю."</string>
+    <string name="network_and_internet_oem_network_dialog_confirm_label" msgid="2630033932472996255">"Отключить"</string>
+    <string name="network_and_internet_oem_network_disabled_footer" msgid="3529208167627034245">"Интернет в автомобиле отключен. Некоторые функции или приложения автомобиля могут не работать. Данные, которые критически важны для эксплуатации автомобиля, останутся доступны его производителю."</string>
     <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"Использовано %1$s с %2$s по %3$s"</string>
     <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"Подключиться к другой сети"</string>
     <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"Настройки сетевого подключения"</string>
@@ -98,6 +97,7 @@
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"Добавить сеть"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"Подключить"</string>
     <string name="wifi_connecting" msgid="1930665730621677960">"Подключение…"</string>
+    <string name="wifi_disconnected" msgid="4485699234859368137">"Не подключено"</string>
     <string name="wifi_not_in_range_message" msgid="2617126307140203787">"Вы находитесь вне зоны действия сети."</string>
     <string name="wifi_password" msgid="5565632142720292397">"Пароль"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"Показать пароль"</string>
@@ -159,6 +159,7 @@
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Диапазон частот для точек доступа Wi-Fi."</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"Точка доступа и режим модема"</string>
     <string name="hotspot_settings_title" msgid="8220814387592756713">"Точка доступа"</string>
+    <string name="wifi_hotspot_state_off" msgid="6096709579204322798">"Отключено"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"Автоматически выключать точку доступа"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"Выключать точку доступа Wi‑Fi, если к ней не подключено ни одного устройства"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> запрашивает включение Wi-Fi"</string>
@@ -301,10 +302,10 @@
     <string name="force_stop" msgid="2153183697014720520">"Остановить"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"Остановить принудительно?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Принудительное закрытие приложения может отразиться на его функциональности."</string>
-    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"Отключить защиту производительности?"</string>
-    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"В этом случае программное и аппаратное обеспечение тоже может не работать."</string>
-    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"Не отключать"</string>
-    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"Отключить"</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"Приоритизировать производительность приложения?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"Включение этой настройки может привести к нестабильной работе системы и долговременному воздействию на аппаратное обеспечение. Продолжить?"</string>
+    <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"Да"</string>
+    <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"Нет"</string>
     <string name="disable_text" msgid="4358165448648990820">"Отключить"</string>
     <string name="enable_text" msgid="1794971777861881238">"Включить"</string>
     <string name="uninstall_text" msgid="277907956072833012">"Удалить"</string>
@@ -314,29 +315,30 @@
     <string name="permissions_label" msgid="2701446753515612685">"Разрешения"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Уведомления"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"Хранилище и кеш"</string>
-    <string name="peak_performance_label" msgid="1592816366516845648">"Макс. производительность"</string>
+    <string name="prioritize_app_performance_label" msgid="7264505023347026606">"Приоритизировать производительность приложения"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Версия: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"У приложения нет разрешений"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Приложение не запрашивало разрешения"</string>
     <string name="unused_apps" msgid="648471933781010395">"Неиспользуемые приложения"</string>
-    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> неиспользуемое приложение</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> неиспользуемых приложения</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> неиспользуемых приложений</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> неиспользуемого приложения</item>
-    </plurals>
+    <string name="unused_apps_summary" msgid="8257304516038923072">"{count,plural, =1{# неиспользуемое приложение}one{# неиспользуемое приложение}few{# неиспользуемых приложения}many{# неиспользуемых приложений}other{# неиспользуемого приложения}}"</string>
     <string name="unused_apps_switch" msgid="4433958286200341563">"Удалять разрешения и освобождать место"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"%s: внутренняя память"</string>
-    <string name="peak_performance_summary" msgid="2450911487290019786">"Закрывать приложения для экономии ресурсов"</string>
+    <string name="prioritize_app_performance_summary" msgid="1081874788185691418">"Чтобы приоритизировать производительность приложения, используются системные ресурсы"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Передача данных"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Трафик приложения"</string>
+    <string name="data_usage_usage_history_title" msgid="2386346082501471648">"История использ. трафика"</string>
+    <string name="data_usage_all_apps_title" msgid="5956991037518761599">"Все приложения"</string>
+    <string name="app_data_usage_title" msgid="6991057296054761322">"Моб. интернет и Wi‑Fi"</string>
+    <string name="app_data_usage_usage_history_title" msgid="5861801915345874959">"История использ. трафика"</string>
+    <string name="app_data_usage_total_usage" msgid="6166480544992906281">"Общий объем трафика"</string>
+    <string name="app_data_usage_foreground" msgid="76513424438149709">"В активном режиме"</string>
+    <string name="app_data_usage_background" msgid="6972054078770685280">"В фоновом режиме"</string>
+    <string name="app_data_usage_allow_data_title" msgid="2713343973040466293">"Разрешить моб. интернет"</string>
+    <string name="app_data_usage_allow_data_summary" msgid="7431118326573403774">"Разрешить использовать мобильный интернет"</string>
+    <string name="app_data_usage_restrict_data_title" msgid="7080736007645963633">"Ограничить трафик"</string>
+    <string name="app_data_usage_background_data_summary" msgid="4445472217737386826">"Использ. моб. интернет только в активном режиме"</string>
     <string name="computing_size" msgid="5791407621793083965">"Вычисление…"</string>
-    <plurals name="runtime_permissions_additional_count" formatted="false" msgid="3513360187065317613">
-      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> дополнительное разрешение</item>
-      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> дополнительных разрешения</item>
-      <item quantity="many"><xliff:g id="COUNT_1">%d</xliff:g> дополнительных разрешений</item>
-      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> дополнительного разрешения</item>
-    </plurals>
+    <string name="runtime_permissions_additional_count" msgid="3920383880473283764">"{count,plural, =1{# дополнительное разрешение}one{# дополнительное разрешение}few{# дополнительных разрешения}many{# дополнительных разрешений}other{# дополнительного разрешения}}"</string>
     <string name="direct_boot_unaware_dialog_message_car" msgid="2857599310518724080">"Примечание. После перезагрузки вам потребуется разблокировать экран автомобиля, чтобы запустить это приложение."</string>
     <string name="assist_and_voice_input_settings" msgid="8813195157136637132">"Помощник и голосовой ввод"</string>
     <string name="assist_app_settings" msgid="9085261410166776497">"Помощник"</string>
@@ -393,12 +395,35 @@
     <string name="wifi_control_description" msgid="6021926850423169261">"Эта настройка разрешает приложению сканировать, добавлять и удалять сети Wi-Fi, подключаться к ним, включать и отключать модуль Wi-Fi, а также создавать локальные точки доступа."</string>
     <string name="more_special_access_title" msgid="166115485446645971">"Ещё"</string>
     <string name="location_settings_title" msgid="901334356682423679">"Геолокация"</string>
+    <string name="location_toggle_title" msgid="836779750812064601">"Использовать данные о местоположении"</string>
+    <string name="location_toggle_summary" msgid="7977868708102299495">"Разрешить для выбранных приложений"</string>
+    <string name="location_toggle_off_warning" msgid="8396854289251143748">"Если вы отключите эту настройку, данные о местоположении будут недоступны всем приложениям, кроме системы помощи водителю."</string>
+    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"Геолокация для системы помощи водителю"</string>
+    <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"Геоданные автомобиля не определяются"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"Нет доступа к данным о местоположении"</string>
+    <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"Изменить"</string>
+    <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"Открыть доступ к данным о местоположении"</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"Если вы отключите эту настройку, приложения для помощи водителю, которым необходимы данные о местоположении, работать не будут."</string>
+    <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"Отключить"</string>
     <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"Последние запросы местоположения"</string>
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Нет недавних запросов местоположения."</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Разрешения для приложений"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Геолокация"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"Использовать данные о местоположении"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"Для определения местоположения устройства могут использоваться данные GPS, Wi-Fi, мобильных сетей и датчиков."</string>
+    <string name="driver_assistance_settings_title" msgid="4915804073177128915">"Система помощи водителю"</string>
+    <string name="adas_settings_footer" msgid="5128483877858058534">"Данные о местоположении, которые отправляются системе помощи водителю, не содержат идентифицирующей вас информации. Они хранятся не более двух дней и затем удаляются."</string>
+    <string name="microphone_settings_title" msgid="7125554350537136922">"Микрофон"</string>
+    <string name="microphone_toggle_title" msgid="911586035332827275">"Использовать микрофон"</string>
+    <string name="microphone_toggle_summary" msgid="2682653449849128626">"Разрешить всем приложениям доступ к микрофону"</string>
+    <string name="microphone_manage_permissions" msgid="7280905792151988183">"Управление разрешениями микрофона"</string>
+    <string name="microphone_recently_accessed" msgid="2084292372486026607">"Недавние запросы на доступ к микрофону"</string>
+    <string name="microphone_no_recent_access" msgid="6412908936060990649">"Нет недавних приложений."</string>
+    <string name="microphone_app_permission_summary_microphone_off" msgid="6139321726246115550">"Доступа нет ни у одного приложения"</string>
+    <string name="microphone_app_permission_summary_microphone_on" msgid="7870834777359783838">"{count,plural, =1{Доступ есть у # приложения из {total_count}}one{Доступ есть у # приложения из {total_count}}few{Доступ есть у # приложений из {total_count}}many{Доступ есть у # приложений из {total_count}}other{Доступ есть у # приложения из {total_count}}}"</string>
+    <string name="microphone_settings_recent_requests_title" msgid="8154796551134761329">"Недавние запросы на доступ к микрофону"</string>
+    <string name="microphone_settings_recent_requests_view_all_title" msgid="4339820818072842872">"Показать все"</string>
+    <string name="microphone_settings_loading_app_permission_stats" msgid="4357161201098081615">"Загрузка…"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Система"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Обновления системы"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"Дополнительно"</string>
@@ -437,12 +462,7 @@
     <string name="settings_license_activity_title" msgid="8499293744313077709">"Лицензии третьих сторон"</string>
     <string name="settings_license_activity_unavailable" msgid="6104592821991010350">"Не удалось загрузить лицензии."</string>
     <string name="settings_license_activity_loading" msgid="6163263123009681841">"Загрузка…"</string>
-    <plurals name="show_dev_countdown" formatted="false" msgid="2968627665608969405">
-      <item quantity="one">Вы почти у цели. Остался <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шаг.</item>
-      <item quantity="few">Вы почти у цели. Осталось <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шага.</item>
-      <item quantity="many">Вы почти у цели. Осталось <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шагов.</item>
-      <item quantity="other">Вы почти у цели. Осталось <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шага.</item>
-    </plurals>
+    <string name="show_dev_countdown" msgid="7416958516942072383">"{count,plural, =1{Вы почти у цели. Остался # шаг.}one{Вы почти у цели. Остался # шаг.}few{Вы почти у цели. Осталось # шага.}many{Вы почти у цели. Осталось # шагов.}other{Вы почти у цели. Осталось # шага.}}"</string>
     <string name="show_dev_on" msgid="5339077400040834808">"Вы стали разработчиком!"</string>
     <string name="show_dev_already" msgid="1678087328973865736">"Не нужно, вы уже разработчик."</string>
     <string name="developer_options_settings" msgid="1530739225109118480">"Для разработчиков"</string>
@@ -511,16 +531,11 @@
     <string name="user_add_user_message_setup" msgid="812616230454605159">"Когда вы создадите профиль, пользователю потребуется настроить его самостоятельно."</string>
     <string name="user_add_user_message_update" msgid="3836353291078729240">"Любой пользователь может обновлять приложения для других профилей."</string>
     <string name="user_limit_reached_title" msgid="5677729355746623293">"Нельзя создать больше профилей"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
-      <item quantity="one">Можно создать до <xliff:g id="COUNT">%d</xliff:g> профиля.</item>
-      <item quantity="few">Можно создать до <xliff:g id="COUNT">%d</xliff:g> профилей.</item>
-      <item quantity="many">Можно создать до <xliff:g id="COUNT">%d</xliff:g> профилей.</item>
-      <item quantity="other">Можно создать до <xliff:g id="COUNT">%d</xliff:g> профиля.</item>
-    </plurals>
+    <string name="user_limit_reached_message" msgid="2773441357248819721">"{count,plural, =1{Можно создать только 1 профиль.}one{Можно создать до # профиля.}few{Можно создать до # профилей.}many{Можно создать до # профилей.}other{Можно создать до # профиля.}}"</string>
     <string name="add_user_error_title" msgid="7589792057846396341">"Не удалось создать профиль"</string>
     <string name="delete_user_dialog_title" msgid="575517556232943687">"Удалить профиль?"</string>
     <string name="delete_user_dialog_message" msgid="3916865958419051299">"Все приложения и данные этого профиля будут удалены."</string>
-    <string name="delete_user_error_title" msgid="6422249596301690254">"Не удалось удалить профиль"</string>
+    <string name="delete_user_error_title" msgid="287249031795906102">"Не удалось удалить профиль. Перезапустите устройство и повторите попытку."</string>
     <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"Этот профиль удалится, когда вы войдете в другой или перезапустите автомобиль"</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"Закрыть"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"Повторить попытку"</string>
@@ -633,6 +648,7 @@
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"Как начертить графический ключ"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"Не удалось сохранить графический ключ"</string>
     <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"Слишком много неудачных попыток разблокировки. Повторите через <xliff:g id="NUMBER">%d</xliff:g> сек."</string>
+    <string name="lockpattern_does_not_support_rotary" msgid="7356367113555659428">"Граф. ключ невозможно ввести вращением."</string>
     <string name="okay" msgid="4589873324439764349">"ОК"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"Отключить блокировку экрана?"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"Доступ к вашему аккаунту сможет получить кто угодно."</string>
@@ -664,42 +680,6 @@
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Системный администратор заблокировал простые PIN-коды. Выберите более сложную комбинацию."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"Использованы недопустимые символы."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"Пароль должен содержать не менее четырех символов."</string>
-    <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
-      <item quantity="one">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> буквы.</item>
-      <item quantity="few">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> букв.</item>
-      <item quantity="many">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> букв.</item>
-      <item quantity="other">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> буквы.</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_lowercase" formatted="false" msgid="2267487180744744833">
-      <item quantity="one">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> строчной буквы.</item>
-      <item quantity="few">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> строчных букв.</item>
-      <item quantity="many">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> строчных букв.</item>
-      <item quantity="other">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> строчной буквы.</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_uppercase" formatted="false" msgid="7999264563026517898">
-      <item quantity="one">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> заглавной буквы.</item>
-      <item quantity="few">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> заглавных букв.</item>
-      <item quantity="many">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> заглавных букв.</item>
-      <item quantity="other">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> заглавной буквы</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_numeric" formatted="false" msgid="7935079851855168646">
-      <item quantity="one">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> цифры.</item>
-      <item quantity="few">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> цифр.</item>
-      <item quantity="many">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> цифр.</item>
-      <item quantity="other">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> цифры.</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_symbols" formatted="false" msgid="3994046435150094132">
-      <item quantity="one">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> специального символа.</item>
-      <item quantity="few">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> специальных символов.</item>
-      <item quantity="many">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> специальных символов.</item>
-      <item quantity="other">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> специального символа.</item>
-    </plurals>
-    <plurals name="lockpassword_password_requires_nonletter" formatted="false" msgid="6878486326748506524">
-      <item quantity="one">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> небуквенного символа.</item>
-      <item quantity="few">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> небуквенных символов.</item>
-      <item quantity="many">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> небуквенных символов.</item>
-      <item quantity="other">Пароль должен содержать не менее <xliff:g id="COUNT">%d</xliff:g> небуквенного символа.</item>
-    </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Использовать недавний пароль запрещено"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Не удалось сохранить пароль"</string>
     <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Системный администратор заблокировал простые пароли. Выберите более сложную комбинацию."</string>
@@ -742,5 +722,66 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"Добавить профиль"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"Удалить этот профиль"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"Добавить профиль"</string>
+    <string name="qc_display_brightness" msgid="2939655289816201170">"Яркость экрана"</string>
+    <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"Чтобы посмотреть список своих устройств, включите Bluetooth."</string>
+    <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"Чтобы подключить устройство, откройте настройки Bluetooth."</string>
+    <string name="device_admin_add_title" msgid="1294399588284546811">"Администратор информационно-развлекательной системы"</string>
+    <string name="device_admin_activated_apps" msgid="568075063362271751">"Активные приложения"</string>
+    <string name="device_admin_deactivated_apps" msgid="3797263682500122872">"Отключенные приложения"</string>
+    <string name="device_admin_apps_description" msgid="1371935499168453457">"У приложений с этим разрешением есть доступ к данным автомобиля."</string>
+    <string name="device_admin_apps_list_empty" msgid="7634804595645191123">"Нет приложений для администратора автомобиля."</string>
+    <string name="device_admin_status" msgid="4041772636856135168">"Приложение администратора информационно-развлекательной системы активно и разрешает приложению \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" выполнять следующие действия:"</string>
+    <string name="device_admin_warning" msgid="8997805999333600901">"После того как вы активируете это приложение администратора информационно-развлекательной системы, приложение \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" сможет выполнять следующие действия:"</string>
+    <string name="add_device_admin_msg" msgid="8188888666879499482">"Включить это приложение информационно-развлекательной системы?"</string>
+    <string name="add_device_admin" msgid="7674707256074840333">"Включить это приложение информационно-развлекательной системы"</string>
+    <string name="deactivate_and_uninstall_device_admin" msgid="596399938769951696">"Отключить и удалить"</string>
+    <string name="remove_device_admin" msgid="3595343390502030723">"Отключить это приложение информационно-развлекательной системы"</string>
+    <string name="admin_support_more_info" msgid="380785608579390750">"Дополнительная информация"</string>
+    <string name="admin_profile_owner_message" msgid="8361351256802954556">"Менеджер организации может контролировать настройки, приложения, разрешения и параметры доступа к корпоративным ресурсам для этого профиля, а также связанные с ним данные, например сведения о местоположении автомобиля или действиях в сети."</string>
+    <string name="admin_profile_owner_user_message" msgid="366072696508275753">"Менеджер организации может контролировать настройки, приложения, разрешения и параметры доступа к корпоративным ресурсам для этого профиля, а также связанные с ним данные, например сведения о местоположении устройства или действиях в сети."</string>
+    <string name="admin_device_owner_message" msgid="896530502350904835">"Менеджер организации может контролировать настройки, приложения, разрешения и параметры доступа к корпоративным ресурсам для этой информационно-развлекательной системы, а также связанные с ней данные, например сведения о местоположении автомобиля или действиях в сети."</string>
+    <string name="admin_financed_message" msgid="7357397436233684082">"У менеджера организации есть доступ к данным, связанным с этой информационно-развлекательной системой, а также он может изменять настройки автомобиля и управлять приложениями."</string>
+    <string name="disabled_by_policy_title" msgid="1121694702115232518">"Нет доступа"</string>
+    <string name="disabled_by_policy_title_adjust_volume" msgid="7002865820552702232">"В этом автомобиле нельзя изменять громкость"</string>
+    <string name="disabled_by_policy_title_outgoing_calls" msgid="158752542663419500">"В этом автомобиле нельзя звонить"</string>
+    <string name="disabled_by_policy_title_sms" msgid="3044491214572494290">"В этом автомобиле нельзя отправлять SMS"</string>
+    <string name="disabled_by_policy_title_camera" msgid="8929782627587059121">"Камера в этом автомобиле недоступна"</string>
+    <string name="disabled_by_policy_title_screen_capture" msgid="4059715943558852466">"В этом автомобиле нельзя делать скриншоты"</string>
+    <string name="disabled_by_policy_title_suspend_packages" msgid="7505332012990359725">"Приложение недоступно в этом автомобиле"</string>
+    <string name="disabled_by_policy_title_financed_device" msgid="6005343494788285981">"Заблокировано кредитором"</string>
+    <string name="default_admin_support_msg" msgid="2986598061733013282">"Организация ограничила доступ к некоторым функциям.\n\nЕсли у вас есть вопросы, обратитесь к менеджеру организации."</string>
+    <string name="help_url_action_disabled_by_it_admin" msgid="1479392394986580260"></string>
+    <string name="manage_device_admin" msgid="7087659697154317316">"Приложения для администратора автомобиля"</string>
+    <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{# активное приложение}one{# активное приложение}few{# активных приложения}many{# активных приложений}other{# активного приложения}}"</string>
+    <string name="number_of_device_admins_none" msgid="5547493703413973954">"Нет активных приложений"</string>
+    <string name="work_policy_privacy_settings" msgid="5263835989260149968">"Правила организации \"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>\" в отношении автотранспорта"</string>
+    <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"Настройки, которыми управляет менеджер организации"</string>
+    <string name="footer_learn_more_content_description" msgid="7749452309729272078">"Подробнее о сервисе \"<xliff:g id="SERVICE">%1$s</xliff:g>\""</string>
+    <string name="share_remote_bugreport_dialog_title" msgid="7268540014481283490">"Поделиться отчетом об ошибке?"</string>
+    <string name="share_remote_bugreport_dialog_message_finished" msgid="2976131666427197841">"Менеджер организации, которой принадлежит этот автомобиль, запросил отчет об ошибке. Это поможет ему устранить неполадку. Кроме того, менеджер может получить доступ к приложениям и данным."</string>
+    <string name="share_remote_bugreport_dialog_message" msgid="7884771062689597395">"Менеджер организации, которой принадлежит этот автомобиль, запросил отчет об ошибке. Это поможет ему устранить неполадку. Менеджер может получить доступ к приложениям и данным. Кроме того, возможно временное снижение скорости работы устройства."</string>
+    <string name="sharing_remote_bugreport_dialog_message" msgid="7018120538510110940">"Менеджер организации, которой принадлежит этот автомобиль, скоро получит отчет об ошибке. Свяжитесь с ним, чтобы получить дополнительную информацию."</string>
+    <string name="share_remote_bugreport_action" msgid="5364819432179581532">"Отправить"</string>
+    <string name="decline_remote_bugreport_action" msgid="7287544934032744334">"Отклонить"</string>
     <string name="power_component_disabled" msgid="7084144472096800457">"Сейчас эту настройку изменить нельзя."</string>
+    <string name="accessibility_settings_title" msgid="2615042088419230347">"Специальные возможности"</string>
+    <string name="accessibility_settings_captions_title" msgid="4635141293524800795">"Субтитры"</string>
+    <string name="captions_settings_title" msgid="5738067618097295831">"Настройки субтитров"</string>
+    <string name="captions_settings_off" msgid="7568096968016015626">"Отключено"</string>
+    <string name="captions_settings_on" msgid="5374984113566914978">"Включено"</string>
+    <string name="screen_reader_settings_title" msgid="4012734340987826872">"Программа чтения с экрана"</string>
+    <string name="show_captions_toggle_title" msgid="710582308974826311">"Показывать субтитры"</string>
+    <string name="captions_text_size_title" msgid="1960814652560877963">"Размер шрифта"</string>
+    <string name="captions_settings_style_header" msgid="944591388386054372">"Размер и стиль субтитров"</string>
+    <string name="captions_settings_text_size_very_small" msgid="7476485317028306502">"Очень мелкий"</string>
+    <string name="captions_settings_text_size_small" msgid="1481895299805450566">"Мелкий"</string>
+    <string name="captions_settings_text_size_default" msgid="2227802573224038267">"По умолчанию"</string>
+    <string name="captions_settings_text_size_large" msgid="5198207220911360512">"Крупный"</string>
+    <string name="captions_settings_text_size_very_large" msgid="949511539689307969">"Очень крупный"</string>
+    <string name="captions_text_style_title" msgid="8547777957403577760">"Стиль субтитров"</string>
+    <string name="captions_settings_text_style_by_app" msgid="7014882290456996444">"Задано приложением"</string>
+    <string name="captions_settings_text_style_white_on_black" msgid="5758084000323596070">"Белый на черном"</string>
+    <string name="captions_settings_text_style_black_on_white" msgid="3906140601916221220">"Черный на белом"</string>
+    <string name="captions_settings_text_style_yellow_on_black" msgid="4681565950104511943">"Желтый на черном"</string>
+    <string name="captions_settings_text_style_yellow_on_blue" msgid="5072521958156112239">"Желтый на синем"</string>
 </resources>

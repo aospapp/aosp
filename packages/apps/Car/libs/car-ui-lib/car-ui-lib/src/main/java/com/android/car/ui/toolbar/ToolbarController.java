@@ -25,6 +25,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.annotation.XmlRes;
 
+import com.android.car.ui.CarUiText;
 import com.android.car.ui.imewidescreen.CarUiImeSearchListItem;
 import com.android.car.ui.recyclerview.CarUiListItem;
 import com.android.car.ui.toolbar.SearchConfig.SearchConfigBuilder;
@@ -34,8 +35,11 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * An interface for accessing a Chassis Toolbar, regardless of how the underlying
- * views are represented.
+ * An interface for accessing a Chassis Toolbar, regardless of how the underlying views are
+ * represented.
+ * <p>
+ * Rendered views will comply with
+ * <a href="https://source.android.com/devices/automotive/hmi/car_ui/appendix_b">customization guardrails</a>
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
 public interface ToolbarController {
@@ -52,7 +56,14 @@ public interface ToolbarController {
      *
      * <p>The title may not always be shown, for example with one row layout with tabs.
      */
-    void setTitle(CharSequence title);
+    void setTitle(@Nullable CharSequence title);
+
+    /**
+     * Sets the title of the toolbar to a CharSequence.
+     *
+     * <p>The title may not always be shown, for example with one row layout with tabs.
+     */
+    void setTitle(@Nullable CarUiText title);
 
     /**
      * Gets the current toolbar title.
@@ -71,7 +82,14 @@ public interface ToolbarController {
      *
      * <p>The title may not always be shown, for example with one row layout with tabs.
      */
-    void setSubtitle(CharSequence title);
+    void setSubtitle(@Nullable CharSequence text);
+
+    /**
+     * Sets the subtitle of the toolbar to a CharSequence.
+     *
+     * <p>The title may not always be shown, for example with one row layout with tabs.
+     */
+    void setSubtitle(@Nullable CarUiText text);
 
     /**
      * Gets the current toolbar subtitle.
@@ -222,6 +240,11 @@ public interface ToolbarController {
     void setSearchMode(SearchMode mode);
 
     /**
+     * Returns the current search mode, set by {@link #setSearchMode}.
+     */
+    SearchMode getSearchMode();
+
+    /**
      * Sets the {@link Toolbar.NavButtonMode}
      *
      * @deprecated Use {@link #setNavButtonMode(NavButtonMode)} instead.
@@ -233,15 +256,9 @@ public interface ToolbarController {
     void setNavButtonMode(NavButtonMode mode);
 
     /**
-     * Gets the {@link Toolbar.NavButtonMode}.
-     *
-     * @deprecated No equivalent replacement. Maintain the current mode locally in the app if
-     * needed. If this is for a test, you can use this espresso code to check that the toolbar
-     * back button is shown:
-     * {@code onView(withContentDescription("Back")).check(matches(isDisplayed()));}
+     * Gets the {@link NavButtonMode}.
      */
-    @Deprecated
-    Toolbar.NavButtonMode getNavButtonMode();
+    NavButtonMode getNavButtonMode();
 
     /** Show/hide the background. When hidden, the toolbar is completely transparent. */
     void setBackgroundShown(boolean shown);
@@ -264,7 +281,7 @@ public interface ToolbarController {
      * child tags. See CarUiToolbarMenuItem in CarUi's attrs.xml for a list of available attributes.
      *
      * Example:
-     * <pre>
+     * <pre>{@code
      * <MenuItems>
      *     <MenuItem
      *         app:title="Foo"/>
@@ -278,7 +295,7 @@ public interface ToolbarController {
      *         app:uxRestrictions="FULLY_RESTRICTED"
      *         app:onClick="xmlMenuItemClicked"/>
      * </MenuItems>
-     * </pre>
+     * }</pre>
      *
      * @return The MenuItems that were loaded from XML.
      * @see #setMenuItems(List)
@@ -473,7 +490,7 @@ public interface ToolbarController {
     @Deprecated
     boolean unregisterOnBackListener(Toolbar.OnBackListener listener);
 
-    /** Registers a new {@link Supplier<Boolean>} to the list of listeners. */
+    /** Registers a new {@link Supplier} to the list of listeners. */
     void registerBackListener(Supplier<Boolean> listener);
 
     /** Unregisters an existing {@link Runnable} from the list of listeners. */

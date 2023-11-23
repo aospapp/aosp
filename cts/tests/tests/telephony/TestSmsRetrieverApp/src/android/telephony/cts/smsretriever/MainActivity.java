@@ -21,49 +21,42 @@ import static org.junit.Assert.assertThat;
 
 import android.app.Activity;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.RemoteCallback;
 import android.telephony.SmsManager;
 import android.util.Log;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
 public class MainActivity extends Activity {
     private static final String SMS_RETRIEVER_ACTION = "CTS_SMS_RETRIEVER_ACTION";
+    private static String sToken;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Intent intent = new Intent("android.telephony.cts.action.SMS_RETRIEVED")
-                        .setComponent(new ComponentName(
-                                "android.telephony.cts.smsretriever",
-                                "android.telephony.cts.smsretriever.SmsRetrieverBroadcastReceiver"));
-        PendingIntent pIntent = PendingIntent.getBroadcast(
-                getApplicationContext(), 0, intent, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
-        String token = null;
-        try {
-            token = SmsManager.getDefault().createAppSpecificSmsTokenWithPackageInfo(
-                    "testprefix1,testprefix2", pIntent);
-        } catch (Exception e) {
-            Log.w("MainActivity", "received Exception e:" + e);
-        }
-
         if (getIntent().getAction() == null) {
+            Intent intent = new Intent("android.telephony.cts.action.SMS_RETRIEVED")
+                            .setComponent(new ComponentName(
+                                    getApplicationContext(),
+                                    SmsRetrieverBroadcastReceiver.class));
+            PendingIntent pIntent = PendingIntent.getBroadcast(getApplicationContext(), 0, intent,
+                    PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
+            try {
+                sToken = SmsManager.getDefault().createAppSpecificSmsTokenWithPackageInfo(
+                        "testprefix1,testprefix2", pIntent);
+            } catch (Exception e) {
+                Log.w("MainActivity", "received Exception e:" + e);
+            }
+
             Bundle result = new Bundle();
             result.putString("class", getClass().getName());
-            result.putString("token", token);
+            result.putString("token", sToken);
             sendResult(result);
         } else {
             // Launched by broadcast receiver
             assertThat(getIntent().getStringExtra("message"),
-                    equalTo("testprefix1This is a test message" + token));
+                    equalTo("testprefix1This is a test message" + sToken));
             Intent bIntent = new Intent(SMS_RETRIEVER_ACTION);
             sendBroadcast(bIntent);
             finish();
@@ -73,6 +66,4 @@ public class MainActivity extends Activity {
     public void sendResult(Bundle result) {
         getIntent().<RemoteCallback>getParcelableExtra("callback").sendResult(result);
     }
-
-
 }

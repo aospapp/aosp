@@ -18,29 +18,39 @@
 
 #include "BufferInfoMinigbm.h"
 
-#include <log/log.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 
 #include "cros_gralloc_handle.h"
+#include "utils/log.h"
+
+#define DRM_FORMAT_YVU420_ANDROID fourcc_code('9', '9', '9', '7')
 
 namespace android {
 
 LEGACY_BUFFER_INFO_GETTER(BufferInfoMinigbm);
 
 int BufferInfoMinigbm::ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) {
-  cros_gralloc_handle *gr_handle = (cros_gralloc_handle *)handle;
+  auto *gr_handle = (cros_gralloc_handle *)handle;
   if (!gr_handle)
     return -EINVAL;
 
   bo->width = gr_handle->width;
   bo->height = gr_handle->height;
   bo->hal_format = gr_handle->droid_format;
+
   bo->format = gr_handle->format;
+  if (bo->format == DRM_FORMAT_YVU420_ANDROID)
+    bo->format = DRM_FORMAT_YVU420;
+
   bo->usage = gr_handle->usage;
-  bo->prime_fds[0] = gr_handle->fds[0];
-  bo->pitches[0] = gr_handle->strides[0];
-  bo->offsets[0] = gr_handle->offsets[0];
+
+  for (int i = 0; i < gr_handle->num_planes; i++) {
+    bo->modifiers[i] = gr_handle->format_modifier;
+    bo->prime_fds[i] = gr_handle->fds[i];
+    bo->pitches[i] = gr_handle->strides[i];
+    bo->offsets[i] = gr_handle->offsets[i];
+  }
 
   return 0;
 }

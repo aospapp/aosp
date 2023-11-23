@@ -89,4 +89,13 @@ public final class PowerPolicyTestResult {
         assertWithMessage("checkLastTestEntry with string data")
                 .that(lastEntry1.equals(lastEntry2)).isTrue();
     }
+
+    public boolean checkLastTestResultEntryData(String testcase, String action,
+            String subject, String data) throws Exception {
+        TestResultTable expected = new TestResultTable();
+        expected.add(testcase, action, subject, data);
+        TestResultTable.RecordEntry lastEntry1 = expected.getLastEntry();
+        TestResultTable.RecordEntry lastEntry2 = mTestAnalyzer.snapshotTestResult().getLastEntry();
+        return lastEntry1.equalsIgnoreSubject(lastEntry2);
+    }
 }

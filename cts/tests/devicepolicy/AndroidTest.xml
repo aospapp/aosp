@@ -22,6 +22,9 @@
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="multiuser" />
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
+
+    <target_preparer class="com.android.tradefed.targetprep.RunOnSystemUserTargetPreparer"/>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="install-arg" value="-t" />
@@ -32,5 +35,7 @@
         <option name="exclude-annotation" value="com.android.bedstead.harrier.annotations.RequireRunOnWorkProfile" />
         <option name="exclude-annotation" value="com.android.bedstead.harrier.annotations.RequireRunOnSecondaryUser" />
         <option name="hidden-api-checks" value="false" />
+        <!-- test-timeout unit is ms, value = 10 min -->
+        <option name="test-timeout" value="600000" />
     </test>
 </configuration>

@@ -270,7 +270,7 @@ public class PropertyValuesHolderTest {
         assertTrue(objAnimator != null);
         setAnimatorProperties(objAnimator);
         mActivityRule.runOnUiThread(objAnimator::start);
-        SystemClock.sleep(1000);
+        SystemClock.sleep(2000);
         assertTrue(objAnimator.isRunning());
         Integer animatedValue = (Integer) objAnimator.getAnimatedValue();
         assertTrue(animatedValue >= start);
@@ -783,7 +783,7 @@ public class PropertyValuesHolderTest {
     }
 
     private void setAnimatorProperties(ObjectAnimator objAnimator) {
-        objAnimator.setDuration(mDuration);
+        objAnimator.setDuration(5000);
         objAnimator.setRepeatCount(ValueAnimator.INFINITE);
         objAnimator.setInterpolator(new AccelerateInterpolator());
         objAnimator.setRepeatMode(ValueAnimator.REVERSE);
@@ -794,7 +794,7 @@ public class PropertyValuesHolderTest {
         for(int i = 0; i < 3; i++) {
             float y = mActivity.view.newBall.getY();
             yArray[i] = y;
-            SystemClock.sleep(300);
+            SystemClock.sleep(1300);
         }
         return yArray;
     }

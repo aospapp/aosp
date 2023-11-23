@@ -19,19 +19,20 @@ package com.android.bedstead.nene.activities;
 import static android.app.ActivityManager.LOCK_TASK_MODE_NONE;
 
 import android.content.Intent;
+import android.util.Log;
 
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.annotations.Experimental;
 import com.android.bedstead.nene.packages.ComponentReference;
-import com.android.compatibility.common.util.PollingCheck;
-
-import java.util.Objects;
+import com.android.bedstead.nene.utils.Poll;
 
 /**
  * A wrapper around a specific Activity instance.
  */
 @Experimental
 public class Activity<E> {
+
+    private static final String TAG =  "BedsteadActivityWrapper";
 
     /*
      * Note that methods in this class must not rely on the activity existing within the current
@@ -42,12 +43,10 @@ public class Activity<E> {
      * {@link LocalActivity}.
      */
 
-    private final TestApis mTestApis;
     private final E mActivityInstance;
     private final NeneActivity mActivity;
 
-    Activity(TestApis testApis, E activityInstance, NeneActivity activity) {
-        mTestApis = testApis;
+    Activity(E activityInstance, NeneActivity activity) {
         mActivityInstance = activityInstance;
         mActivity = activity;
     }
@@ -58,12 +57,15 @@ public class Activity<E> {
      */
     @Experimental
     public void startLockTask() {
+        Log.d(TAG, "startLockTask() on " + mActivity);
         mActivity.startLockTask();
 
         // TODO(scottjonathan): What if we're already in lock task mode when we start it here?
         //  find another thing to poll on
-        PollingCheck.waitFor(
-                () -> mTestApis.activities().getLockTaskModeState() != LOCK_TASK_MODE_NONE);
+        Poll.forValue("Lock task mode state", () -> TestApis.activities().getLockTaskModeState())
+                .toNotBeEqualTo(LOCK_TASK_MODE_NONE)
+                .errorOnFail()
+                .await();
     }
 
     /**
@@ -72,12 +74,15 @@ public class Activity<E> {
      */
     @Experimental
     public void stopLockTask() {
+        Log.d(TAG, "stopLockTask() on " + mActivity);
         mActivity.stopLockTask();
 
         // TODO(scottjonathan): What if we're already in lock task mode when we start it here?
-        //  find another thing to poll on
-        PollingCheck.waitFor(
-                () -> mTestApis.activities().getLockTaskModeState() == LOCK_TASK_MODE_NONE);
+        //  find another thing to poll
+        Poll.forValue("Lock task mode state", () -> TestApis.activities().getLockTaskModeState())
+                .toBeEqualTo(LOCK_TASK_MODE_NONE)
+                .errorOnFail()
+                .await();
     }
 
     /**
@@ -89,15 +94,21 @@ public class Activity<E> {
      */
     @Experimental
     public void startActivity(Intent intent) {
+        Log.d(TAG, "startActivity(): " + intent);
         if (intent.getComponent() == null) {
-            ComponentReference startActivity = mTestApis.activities().foregroundActivity();
+            ComponentReference startActivity = TestApis.activities().foregroundActivity();
             mActivity.startActivity(intent);
-            PollingCheck.waitFor(() -> !Objects.equals(startActivity,
-                    mTestApis.activities().foregroundActivity()));
+            Poll.forValue("Foreground activity", () -> TestApis.activities().foregroundActivity())
+                    .toNotBeEqualTo(startActivity)
+                    .errorOnFail()
+                    .await();
         } else {
             mActivity.startActivity(intent);
-            ComponentReference component = new ComponentReference(mTestApis, intent.getComponent());
-            PollingCheck.waitFor(() -> component.equals(mTestApis.activities().foregroundActivity()));
+            ComponentReference component = new ComponentReference(intent.getComponent());
+            Poll.forValue("Foreground activity", () -> TestApis.activities().foregroundActivity())
+                    .toBeEqualTo(component)
+                    .errorOnFail()
+                    .await();
         }
     }
 

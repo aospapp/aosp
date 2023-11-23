@@ -210,7 +210,6 @@ public class AppATests {
         mDevice.pressKeyCode(KeyEvent.KEYCODE_2);
         mDevice.pressKeyCode(KeyEvent.KEYCODE_3);
         mDevice.pressKeyCode(KeyEvent.KEYCODE_4);
-        mDevice.pressKeyCode(KeyEvent.KEYCODE_5);
         mDevice.waitForIdle();
         mDevice.pressEnter();
         mDevice.waitForIdle();

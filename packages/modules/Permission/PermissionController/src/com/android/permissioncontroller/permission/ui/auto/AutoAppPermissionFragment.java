@@ -16,31 +16,35 @@
 
 package com.android.permissioncontroller.permission.ui.auto;
 
+import static com.android.permissioncontroller.Constants.EXTRA_SESSION_ID;
+import static com.android.permissioncontroller.Constants.INVALID_SESSION_ID;
+import static com.android.permissioncontroller.PermissionControllerStatsLog.APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__ALLOW;
+import static com.android.permissioncontroller.PermissionControllerStatsLog.APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__ALLOW_ALWAYS;
+import static com.android.permissioncontroller.PermissionControllerStatsLog.APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__ALLOW_FOREGROUND;
+import static com.android.permissioncontroller.PermissionControllerStatsLog.APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__DENY;
 import static com.android.permissioncontroller.permission.ui.ManagePermissionsActivity.EXTRA_RESULT_PERMISSION_INTERACTED;
 import static com.android.permissioncontroller.permission.ui.ManagePermissionsActivity.EXTRA_RESULT_PERMISSION_RESULT;
-
-import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageItemInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.PermissionInfo;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.UserHandle;
+import android.text.BidiFormatter;
 import android.util.Log;
 import android.view.View;
 import android.widget.RadioButton;
 
-import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.res.TypedArrayUtils;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.PreferenceScreen;
@@ -50,35 +54,26 @@ import androidx.preference.TwoStatePreference;
 import com.android.car.ui.AlertDialogBuilder;
 import com.android.permissioncontroller.R;
 import com.android.permissioncontroller.auto.AutoSettingsFrameFragment;
-import com.android.permissioncontroller.permission.model.AppPermissionGroup;
-import com.android.permissioncontroller.permission.model.Permission;
 import com.android.permissioncontroller.permission.ui.GrantPermissionsViewHandler;
-import com.android.permissioncontroller.permission.utils.LocationUtils;
+import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModel;
+import com.android.permissioncontroller.permission.ui.model.AppPermissionViewModelFactory;
+import com.android.permissioncontroller.permission.utils.KotlinUtils;
 import com.android.permissioncontroller.permission.utils.PackageRemovalMonitor;
-import com.android.permissioncontroller.permission.utils.SafetyNetLogger;
-import com.android.permissioncontroller.permission.utils.Utils;
 import com.android.settingslib.RestrictedLockUtils;
 
-import java.lang.annotation.Retention;
-import java.util.List;
+import java.util.Map;
+
+import kotlin.Pair;
 
 /** Settings related to a particular permission for the given app. */
-public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
+public class AutoAppPermissionFragment extends AutoSettingsFrameFragment
+        implements AppPermissionViewModel.ConfirmDialogShowingFragment {
 
     private static final String LOG_TAG = "AppPermissionFragment";
-
-    @Retention(SOURCE)
-    @IntDef(value = {CHANGE_FOREGROUND, CHANGE_BACKGROUND}, flag = true)
-    @interface ChangeTarget {
-    }
-
-    static final int CHANGE_FOREGROUND = 1;
-    static final int CHANGE_BACKGROUND = 2;
-    static final int CHANGE_BOTH = CHANGE_FOREGROUND | CHANGE_BACKGROUND;
+    private static final long POST_DELAY_MS = 20;
 
     @NonNull
-    private AppPermissionGroup mGroup;
-
+    private TwoStatePreference mAllowPermissionPreference;
     @NonNull
     private TwoStatePreference mAlwaysPermissionPreference;
     @NonNull
@@ -88,14 +83,19 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
     @NonNull
     private AutoTwoTargetPreference mDetailsPreference;
 
-    private boolean mHasConfirmedRevoke;
-
-    /**
-     * Listens for changes to the permission of the app the permission is currently getting
-     * granted to. {@code null} when unregistered.
-     */
-    @Nullable
-    private PackageManager.OnPermissionsChangedListener mPermissionChangeListener;
+    @NonNull
+    private AppPermissionViewModel mViewModel;
+    @NonNull
+    private String mPackageName;
+    @NonNull
+    private String mPermGroupName;
+    @NonNull
+    private UserHandle mUser;
+    @NonNull
+    private String mPackageLabel;
+    @NonNull
+    private String mPermGroupLabel;
+    private Drawable mPackageIcon;
 
     /**
      * Listens for changes to the app the permission is currently getting granted to. {@code null}
@@ -114,7 +114,8 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
      */
     @NonNull
     public static AutoAppPermissionFragment newInstance(@NonNull String packageName,
-            @NonNull String permName, @Nullable String groupName, @NonNull UserHandle userHandle) {
+            @NonNull String permName, @Nullable String groupName, @NonNull UserHandle userHandle,
+            @NonNull long sessionId) {
         AutoAppPermissionFragment fragment = new AutoAppPermissionFragment();
         Bundle arguments = new Bundle();
         arguments.putString(Intent.EXTRA_PACKAGE_NAME, packageName);
@@ -124,75 +125,34 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
             arguments.putString(Intent.EXTRA_PERMISSION_GROUP_NAME, groupName);
         }
         arguments.putParcelable(Intent.EXTRA_USER, userHandle);
+        arguments.putLong(EXTRA_SESSION_ID, sessionId);
         fragment.setArguments(arguments);
         return fragment;
     }
 
     @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        mHasConfirmedRevoke = false;
-
-        mGroup = getAppPermissionGroup();
-        if (mGroup == null) {
-            requireActivity().setResult(Activity.RESULT_CANCELED);
-            requireActivity().finish();
-            return;
-        }
-
-        setHeaderLabel(
-                requireContext().getString(R.string.app_permission_title, mGroup.getFullLabel()));
-    }
-
-    private void setResult(@GrantPermissionsViewHandler.Result int result) {
-        Intent intent = new Intent()
-                .putExtra(EXTRA_RESULT_PERMISSION_INTERACTED,
-                        requireArguments().getString(Intent.EXTRA_PERMISSION_GROUP_NAME))
-                .putExtra(EXTRA_RESULT_PERMISSION_RESULT, result);
-        requireActivity().setResult(Activity.RESULT_OK, intent);
-    }
-
-    private AppPermissionGroup getAppPermissionGroup() {
-        Activity activity = requireActivity();
-        Context context = getPreferenceManager().getContext();
-
-        String packageName = requireArguments().getString(Intent.EXTRA_PACKAGE_NAME);
-        String groupName = requireArguments().getString(Intent.EXTRA_PERMISSION_GROUP_NAME);
-        if (groupName == null) {
-            groupName = requireArguments().getString(Intent.EXTRA_PERMISSION_NAME);
-        }
-        PackageItemInfo groupInfo = Utils.getGroupInfo(groupName, context);
-        List<PermissionInfo> groupPermInfos = Utils.getGroupPermissionInfos(groupName, context);
-        if (groupInfo == null || groupPermInfos == null) {
-            Log.i(LOG_TAG, "Illegal group: " + groupName);
-            return null;
-        }
-        UserHandle userHandle = requireArguments().getParcelable(Intent.EXTRA_USER);
-        if (userHandle == null) {
-            Log.e(LOG_TAG, "User handle is null");
-            return null;
-        }
-        PackageInfo packageInfo = AutoPermissionsUtils.getPackageInfo(activity, packageName,
-                userHandle);
-        if (packageInfo == null) {
-            Log.i(LOG_TAG, "PackageInfo is null");
-            return null;
-        }
-        AppPermissionGroup group = AppPermissionGroup.create(context, packageInfo, groupInfo,
-                groupPermInfos, false);
-
-        if (group == null || !Utils.shouldShowPermission(context, group)) {
-            Log.i(LOG_TAG, "Illegal group: " + (group == null ? "null" : group.getName()));
-            return null;
-        }
-
-        return group;
+    public void onCreatePreferences(Bundle bundle, String s) {
+        setPreferenceScreen(getPreferenceManager().createPreferenceScreen(requireContext()));
     }
 
     @Override
-    public void onCreatePreferences(Bundle bundle, String s) {
-        setPreferenceScreen(getPreferenceManager().createPreferenceScreen(requireContext()));
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mPackageName = getArguments().getString(Intent.EXTRA_PACKAGE_NAME);
+        mPermGroupName = getArguments().getString(Intent.EXTRA_PERMISSION_GROUP_NAME);
+        if (mPermGroupName == null) {
+            mPermGroupName = getArguments().getString(Intent.EXTRA_PERMISSION_NAME);
+        }
+        mUser = getArguments().getParcelable(Intent.EXTRA_USER);
+        mPackageLabel = BidiFormatter.getInstance().unicodeWrap(
+                KotlinUtils.INSTANCE.getPackageLabel(getActivity().getApplication(), mPackageName,
+                        mUser));
+        mPermGroupLabel = KotlinUtils.INSTANCE.getPermGroupLabel(getContext(),
+                mPermGroupName).toString();
+        mPackageIcon = KotlinUtils.INSTANCE.getBadgedPackageIcon(getActivity().getApplication(),
+                mPackageName, mUser);
+        setHeaderLabel(
+                requireContext().getString(R.string.app_permission_title, mPermGroupLabel));
     }
 
     @Override
@@ -202,13 +162,17 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
         PreferenceScreen screen = getPreferenceScreen();
         screen.addPreference(
                 AutoPermissionsUtils.createHeaderPreference(requireContext(),
-                        mGroup.getApp().applicationInfo));
+                        mPackageIcon, mPackageName, mPackageLabel));
 
         // Add permissions selector preferences.
         PreferenceGroup permissionSelector = new PreferenceCategory(requireContext());
         permissionSelector.setTitle(
-                getString(R.string.app_permission_header, mGroup.getFullLabel()));
+                getString(R.string.app_permission_header, mPermGroupLabel));
         screen.addPreference(permissionSelector);
+
+        mAllowPermissionPreference = new SelectedPermissionPreference(requireContext());
+        mAllowPermissionPreference.setTitle(R.string.app_permission_button_allow);
+        permissionSelector.addPreference(mAllowPermissionPreference);
 
         mAlwaysPermissionPreference = new SelectedPermissionPreference(requireContext());
         mAlwaysPermissionPreference.setTitle(R.string.app_permission_button_allow_always);
@@ -223,6 +187,35 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
         mDenyPermissionPreference.setTitle(R.string.app_permission_button_deny);
         permissionSelector.addPreference(mDenyPermissionPreference);
 
+        mAllowPermissionPreference.setOnPreferenceClickListener(v -> {
+            checkOnlyOneButtonOverride(AppPermissionViewModel.ButtonType.ALLOW);
+            setResult(GrantPermissionsViewHandler.GRANTED_ALWAYS);
+            requestChange(AppPermissionViewModel.ChangeRequest.GRANT_FOREGROUND,
+                    APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__ALLOW);
+            return true;
+        });
+        mAlwaysPermissionPreference.setOnPreferenceClickListener(v -> {
+            checkOnlyOneButtonOverride(AppPermissionViewModel.ButtonType.ALLOW_ALWAYS);
+            setResult(GrantPermissionsViewHandler.GRANTED_ALWAYS);
+            requestChange(AppPermissionViewModel.ChangeRequest.GRANT_BOTH,
+                    APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__ALLOW_ALWAYS);
+            return true;
+        });
+        mForegroundOnlyPermissionPreference.setOnPreferenceClickListener(v -> {
+            checkOnlyOneButtonOverride(AppPermissionViewModel.ButtonType.ALLOW_FOREGROUND);
+            setResult(GrantPermissionsViewHandler.GRANTED_FOREGROUND_ONLY);
+            requestChange(AppPermissionViewModel.ChangeRequest.GRANT_FOREGROUND_ONLY,
+                    APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__ALLOW_FOREGROUND);
+            return true;
+        });
+        mDenyPermissionPreference.setOnPreferenceClickListener(v -> {
+            checkOnlyOneButtonOverride(AppPermissionViewModel.ButtonType.DENY);
+            setResult(GrantPermissionsViewHandler.DENIED);
+            requestChange(AppPermissionViewModel.ChangeRequest.REVOKE_BOTH,
+                    APP_PERMISSION_FRAGMENT_ACTION_REPORTED__BUTTON_PRESSED__DENY);
+            return true;
+        });
+
         mDetailsPreference = new AutoTwoTargetPreference(requireContext());
         screen.addPreference(mDetailsPreference);
     }
@@ -232,17 +225,11 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
         super.onStart();
         Activity activity = requireActivity();
 
-        mPermissionChangeListener = new PermissionChangeListener(
-                mGroup.getApp().applicationInfo.uid);
-        PackageManager pm = activity.getPackageManager();
-        pm.addOnPermissionsChangeListener(mPermissionChangeListener);
-
         // Get notified when the package is removed.
-        String packageName = mGroup.getApp().packageName;
-        mPackageRemovalMonitor = new PackageRemovalMonitor(requireContext(), packageName) {
+        mPackageRemovalMonitor = new PackageRemovalMonitor(requireContext(), mPackageName) {
             @Override
             public void onPackageRemoved() {
-                Log.w(LOG_TAG, packageName + " was uninstalled");
+                Log.w(LOG_TAG, mPackageName + " was uninstalled");
                 activity.setResult(Activity.RESULT_CANCELED);
                 activity.finish();
             }
@@ -251,18 +238,22 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
 
         // Check if the package was removed while this activity was not started.
         try {
-            activity.createPackageContextAsUser(packageName, /* flags= */ 0,
-                    mGroup.getUser()).getPackageManager().getPackageInfo(packageName,
+            activity.createPackageContextAsUser(mPackageName, /* flags= */ 0,
+                    mUser).getPackageManager().getPackageInfo(mPackageName,
                     /* flags= */ 0);
         } catch (PackageManager.NameNotFoundException e) {
-            Log.w(LOG_TAG, packageName + " was uninstalled while this activity was stopped", e);
+            Log.w(LOG_TAG, mPackageName + " was uninstalled while this activity was stopped", e);
             activity.setResult(Activity.RESULT_CANCELED);
             activity.finish();
         }
 
-        // Re-create the permission group in case permissions have changed and update the UI.
-        mGroup = getAppPermissionGroup();
-        updateUi();
+        long sessionId = getArguments().getLong(EXTRA_SESSION_ID, INVALID_SESSION_ID);
+        AppPermissionViewModelFactory factory = new AppPermissionViewModelFactory(
+                getActivity().getApplication(), mPackageName, mPermGroupName, mUser, sessionId);
+        mViewModel = new ViewModelProvider(this, factory).get(AppPermissionViewModel.class);
+        mViewModel.getButtonStateLiveData().observe(this, this::setRadioButtonsState);
+        mViewModel.getDetailResIdLiveData().observe(this, this::setDetail);
+        mViewModel.getShowAdminSupportLiveData().observe(this, this::setAdminSupportDetail);
     }
 
     @Override
@@ -273,453 +264,16 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
             mPackageRemovalMonitor.unregister();
             mPackageRemovalMonitor = null;
         }
-
-        if (mPermissionChangeListener != null) {
-            requireActivity().getPackageManager().removeOnPermissionsChangeListener(
-                    mPermissionChangeListener);
-            mPermissionChangeListener = null;
-        }
     }
 
-    private void updateUi() {
-        mDetailsPreference.setOnSecondTargetClickListener(null);
-        mDetailsPreference.setVisible(false);
-
-        if (mGroup.areRuntimePermissionsGranted()) {
-            if (!mGroup.hasPermissionWithBackgroundMode()
-                    || (mGroup.getBackgroundPermissions() != null
-                    && mGroup.getBackgroundPermissions().areRuntimePermissionsGranted())) {
-                setSelectedPermissionState(mAlwaysPermissionPreference);
-            } else {
-                setSelectedPermissionState(mForegroundOnlyPermissionPreference);
-            }
-        } else {
-            setSelectedPermissionState(mDenyPermissionPreference);
-        }
-
-        mAlwaysPermissionPreference.setOnPreferenceClickListener(v -> {
-            setResult(GrantPermissionsViewHandler.GRANTED_ALWAYS);
-            return requestChange(/* requestGrant= */true, CHANGE_BOTH);
-        });
-        mForegroundOnlyPermissionPreference.setOnPreferenceClickListener(v -> {
-            setResult(GrantPermissionsViewHandler.GRANTED_FOREGROUND_ONLY);
-            requestChange(/* requestGrant= */false, CHANGE_BACKGROUND);
-            requestChange(/* requestGrant= */true, CHANGE_FOREGROUND);
-            return true;
-        });
-        mDenyPermissionPreference.setOnPreferenceClickListener(v -> {
-            setResult(GrantPermissionsViewHandler.DENIED);
-            return requestChange(/* requestGrant= */ false, CHANGE_BOTH);
-        });
-
-        // Set the allow and foreground-only button states appropriately.
-        if (mGroup.hasPermissionWithBackgroundMode()) {
-            if (mGroup.getBackgroundPermissions() == null) {
-                mAlwaysPermissionPreference.setVisible(false);
-            } else {
-                mForegroundOnlyPermissionPreference.setVisible(true);
-                mAlwaysPermissionPreference.setTitle(R.string.app_permission_button_allow_always);
-            }
-        } else {
-            mForegroundOnlyPermissionPreference.setVisible(false);
-            mAlwaysPermissionPreference.setTitle(R.string.app_permission_button_allow);
-        }
-
-        // Handle the UI for various special cases.
-        if (isSystemFixed() || isPolicyFullyFixed() || isForegroundDisabledByPolicy()) {
-            // Disable changing permissions and potentially show administrator message.
-            mAlwaysPermissionPreference.setEnabled(false);
-            mForegroundOnlyPermissionPreference.setEnabled(false);
-            mDenyPermissionPreference.setEnabled(false);
-
-            RestrictedLockUtils.EnforcedAdmin admin = getAdmin();
-            if (admin != null) {
-                mDetailsPreference.setWidgetLayoutResource(R.layout.info_preference_widget);
-                mDetailsPreference.setOnSecondTargetClickListener(
-                        preference -> RestrictedLockUtils.sendShowAdminSupportDetailsIntent(
-                                getContext(), admin));
-            }
-
-            updateDetailForFixedByPolicyPermissionGroup();
-        } else if (Utils.areGroupPermissionsIndividuallyControlled(requireContext(),
-                mGroup.getName())) {
-            // If the permissions are individually controlled, also show a link to the page that
-            // lets you control them.
-            mDetailsPreference.setWidgetLayoutResource(R.layout.settings_preference_widget);
-            mDetailsPreference.setOnSecondTargetClickListener(
-                    preference -> showAllPermissions(mGroup.getName()));
-
-            updateDetailForIndividuallyControlledPermissionGroup();
-        } else {
-            if (mGroup.hasPermissionWithBackgroundMode()) {
-                if (mGroup.getBackgroundPermissions() == null) {
-                    // The group has background permissions but the app did not request any. I.e.
-                    // The app can only switch between 'never" and "only in foreground".
-                    mAlwaysPermissionPreference.setEnabled(false);
-
-                    mDenyPermissionPreference.setOnPreferenceClickListener(v -> requestChange(false,
-                            CHANGE_FOREGROUND));
-                } else {
-                    if (isBackgroundPolicyFixed()) {
-                        // If background policy is fixed, we only allow switching the foreground.
-                        // Note that this assumes that the background policy is fixed to deny,
-                        // since if it is fixed to grant, so is the foreground.
-                        mAlwaysPermissionPreference.setEnabled(false);
-                        setSelectedPermissionState(mForegroundOnlyPermissionPreference);
-
-                        mDenyPermissionPreference.setOnPreferenceClickListener(
-                                v -> requestChange(false, CHANGE_FOREGROUND));
-
-                        updateDetailForFixedByPolicyPermissionGroup();
-                    } else if (isForegroundPolicyFixed()) {
-                        // Foreground permissions are fixed to allow (the first case above handles
-                        // fixing to deny), so we only allow toggling background permissions.
-                        mDenyPermissionPreference.setEnabled(false);
-
-                        mAlwaysPermissionPreference.setOnPreferenceClickListener(
-                                v -> requestChange(true, CHANGE_BACKGROUND));
-                        mForegroundOnlyPermissionPreference.setOnPreferenceClickListener(
-                                v -> requestChange(false, CHANGE_BACKGROUND));
-
-                        updateDetailForFixedByPolicyPermissionGroup();
-                    } else {
-                        // The default tri-state case is handled by default.
-                    }
-                }
-
-            } else {
-                // The default bi-state case is handled by default.
-            }
-        }
-    }
-
-    /**
-     * Set the given permission state as the only checked permission state.
-     */
-    private void setSelectedPermissionState(@NonNull TwoStatePreference permissionState) {
-        permissionState.setChecked(true);
-        if (permissionState != mAlwaysPermissionPreference) {
-            mAlwaysPermissionPreference.setChecked(false);
-        }
-        if (permissionState != mForegroundOnlyPermissionPreference) {
-            mForegroundOnlyPermissionPreference.setChecked(false);
-        }
-        if (permissionState != mDenyPermissionPreference) {
-            mDenyPermissionPreference.setChecked(false);
-        }
-    }
-
-    /**
-     * Are any permissions of this group fixed by the system, i.e. not changeable by the user.
-     *
-     * @return {@code true} iff any permission is fixed
-     */
-    private boolean isSystemFixed() {
-        return mGroup.isSystemFixed();
-    }
-
-    /**
-     * Is any foreground permissions of this group fixed by the policy, i.e. not changeable by the
-     * user.
-     *
-     * @return {@code true} iff any foreground permission is fixed
-     */
-    private boolean isForegroundPolicyFixed() {
-        return mGroup.isPolicyFixed();
-    }
-
-    /**
-     * Is any background permissions of this group fixed by the policy, i.e. not changeable by the
-     * user.
-     *
-     * @return {@code true} iff any background permission is fixed
-     */
-    private boolean isBackgroundPolicyFixed() {
-        return mGroup.getBackgroundPermissions() != null
-                && mGroup.getBackgroundPermissions().isPolicyFixed();
-    }
-
-    /**
-     * Are there permissions fixed, so that the user cannot change the preference at all?
-     *
-     * @return {@code true} iff the permissions of this group are fixed
-     */
-    private boolean isPolicyFullyFixed() {
-        return isForegroundPolicyFixed() && (mGroup.getBackgroundPermissions() == null
-                || isBackgroundPolicyFixed());
-    }
-
-    /**
-     * Is the foreground part of this group disabled. If the foreground is disabled, there is no
-     * need to possible grant background access.
-     *
-     * @return {@code true} iff the permissions of this group are fixed
-     */
-    private boolean isForegroundDisabledByPolicy() {
-        return isForegroundPolicyFixed() && !mGroup.areRuntimePermissionsGranted();
-    }
-
-    /**
-     * Get the app that acts as admin for this profile.
-     *
-     * @return The admin or {@code null} if there is no admin.
-     */
-    @Nullable
-    private RestrictedLockUtils.EnforcedAdmin getAdmin() {
-        return RestrictedLockUtils.getProfileOrDeviceOwner(getContext(), mGroup.getUser());
-    }
-
-    /**
-     * Update the detail in the case the permission group has individually controlled permissions.
-     */
-    private void updateDetailForIndividuallyControlledPermissionGroup() {
-        int revokedCount = 0;
-        List<Permission> permissions = mGroup.getPermissions();
-        for (Permission permission : permissions) {
-            if (!permission.isGrantedIncludingAppOp()) {
-                revokedCount++;
-            }
-        }
-
-        int resId;
-        if (revokedCount == 0) {
-            resId = R.string.permission_revoked_none;
-        } else if (revokedCount == permissions.size()) {
-            resId = R.string.permission_revoked_all;
-        } else {
-            resId = R.string.permission_revoked_count;
-        }
-
-        mDetailsPreference.setSummary(getString(resId, revokedCount));
-        mDetailsPreference.setVisible(true);
-    }
-
-    /**
-     * Update the detail of a permission group that is at least partially fixed by policy.
-     */
-    private void updateDetailForFixedByPolicyPermissionGroup() {
-        RestrictedLockUtils.EnforcedAdmin admin = getAdmin();
-        AppPermissionGroup backgroundGroup = mGroup.getBackgroundPermissions();
-
-        boolean hasAdmin = admin != null;
-
-        if (isSystemFixed()) {
-            // Permission is fully controlled by the system and cannot be switched
-
-            setDetail(R.string.permission_summary_enabled_system_fixed);
-        } else if (isForegroundDisabledByPolicy()) {
-            // Permission is fully controlled by policy and cannot be switched
-
-            if (hasAdmin) {
-                setDetail(R.string.disabled_by_admin);
-            } else {
-                // Disabled state will be displayed by switch, so no need to add text for that
-                setDetail(R.string.permission_summary_enforced_by_policy);
-            }
-        } else if (isPolicyFullyFixed()) {
-            // Permission is fully controlled by policy and cannot be switched
-
-            if (backgroundGroup == null) {
-                if (hasAdmin) {
-                    setDetail(R.string.enabled_by_admin);
-                } else {
-                    // Enabled state will be displayed by switch, so no need to add text for
-                    // that
-                    setDetail(R.string.permission_summary_enforced_by_policy);
-                }
-            } else {
-                if (backgroundGroup.areRuntimePermissionsGranted()) {
-                    if (hasAdmin) {
-                        setDetail(R.string.enabled_by_admin);
-                    } else {
-                        // Enabled state will be displayed by switch, so no need to add text for
-                        // that
-                        setDetail(R.string.permission_summary_enforced_by_policy);
-                    }
-                } else {
-                    if (hasAdmin) {
-                        setDetail(
-                                R.string.permission_summary_enabled_by_admin_foreground_only);
-                    } else {
-                        setDetail(
-                                R.string.permission_summary_enabled_by_policy_foreground_only);
-                    }
-                }
-            }
-        } else {
-            // Part of the permission group can still be switched
-
-            if (isBackgroundPolicyFixed()) {
-                if (backgroundGroup.areRuntimePermissionsGranted()) {
-                    if (hasAdmin) {
-                        setDetail(R.string.permission_summary_enabled_by_admin_background_only);
-                    } else {
-                        setDetail(R.string.permission_summary_enabled_by_policy_background_only);
-                    }
-                } else {
-                    if (hasAdmin) {
-                        setDetail(R.string.permission_summary_disabled_by_admin_background_only);
-                    } else {
-                        setDetail(R.string.permission_summary_disabled_by_policy_background_only);
-                    }
-                }
-            } else if (isForegroundPolicyFixed()) {
-                if (hasAdmin) {
-                    setDetail(R.string.permission_summary_enabled_by_admin_foreground_only);
-                } else {
-                    setDetail(R.string.permission_summary_enabled_by_policy_foreground_only);
-                }
-            }
-        }
-    }
-
-    /**
-     * Show the given string as informative text below permission picker preferences.
-     *
-     * @param strId the resourceId of the string to display.
-     */
-    private void setDetail(int strId) {
-        mDetailsPreference.setSummary(strId);
-        mDetailsPreference.setVisible(true);
-    }
-
-    /**
-     * Show all individual permissions in this group in a new fragment.
-     */
-    private void showAllPermissions(@NonNull String filterGroup) {
-        Fragment frag = AutoAllAppPermissionsFragment.newInstance(mGroup.getApp().packageName,
-                filterGroup, UserHandle.getUserHandleForUid(mGroup.getApp().applicationInfo.uid));
-        requireFragmentManager().beginTransaction()
-                .replace(android.R.id.content, frag)
-                .addToBackStack("AllPerms")
-                .commit();
-    }
-
-    /**
-     * Request to grant/revoke permissions group.
-     *
-     * <p>Does <u>not</u> handle:
-     * <ul>
-     * <li>Individually granted permissions</li>
-     * <li>Permission groups with background permissions</li>
-     * </ul>
-     * <p><u>Does</u> handle:
-     * <ul>
-     * <li>Default grant permissions</li>
-     * </ul>
-     *
-     * @param requestGrant If this group should be granted
-     * @param changeTarget Which permission group (foreground/background/both) should be changed
-     * @return If the request was processed.
-     */
-    private boolean requestChange(boolean requestGrant, @ChangeTarget int changeTarget) {
-        if (LocationUtils.isLocationGroupAndProvider(getContext(), mGroup.getName(),
-                mGroup.getApp().packageName)) {
-            LocationUtils.showLocationDialog(getContext(),
-                    Utils.getAppLabel(mGroup.getApp().applicationInfo, requireContext()));
-
-            // The request was denied, so update the buttons.
-            updateUi();
-            return false;
-        }
-
-        if (requestGrant) {
-            if ((changeTarget & CHANGE_FOREGROUND) != 0) {
-                if (!mGroup.areRuntimePermissionsGranted()) {
-                    SafetyNetLogger.logPermissionToggled(mGroup);
-                }
-
-                mGroup.grantRuntimePermissions(true, false);
-            }
-            if ((changeTarget & CHANGE_BACKGROUND) != 0) {
-                if (mGroup.getBackgroundPermissions() != null) {
-                    if (!mGroup.getBackgroundPermissions().areRuntimePermissionsGranted()) {
-                        SafetyNetLogger.logPermissionToggled(mGroup.getBackgroundPermissions());
-                    }
-
-                    mGroup.getBackgroundPermissions().grantRuntimePermissions(true, false);
-                }
-            }
-        } else {
-            boolean showDefaultDenyDialog = false;
-
-            if ((changeTarget & CHANGE_FOREGROUND) != 0
-                    && mGroup.areRuntimePermissionsGranted()) {
-                showDefaultDenyDialog = mGroup.hasGrantedByDefaultPermission()
-                        || !mGroup.doesSupportRuntimePermissions()
-                        || mGroup.hasInstallToRuntimeSplit();
-            }
-            if ((changeTarget & CHANGE_BACKGROUND) != 0) {
-                if (mGroup.getBackgroundPermissions() != null
-                        && mGroup.getBackgroundPermissions().areRuntimePermissionsGranted()) {
-                    AppPermissionGroup bgPerm = mGroup.getBackgroundPermissions();
-                    showDefaultDenyDialog |= bgPerm.hasGrantedByDefaultPermission()
-                            || !bgPerm.doesSupportRuntimePermissions()
-                            || bgPerm.hasInstallToRuntimeSplit();
-                }
-            }
-
-            if (showDefaultDenyDialog && !mHasConfirmedRevoke) {
-                showDefaultDenyDialog(changeTarget);
-                updateUi();
-                return false;
-            } else {
-                if ((changeTarget & CHANGE_FOREGROUND) != 0
-                        && mGroup.areRuntimePermissionsGranted()) {
-                    if (mGroup.areRuntimePermissionsGranted()) {
-                        SafetyNetLogger.logPermissionToggled(mGroup);
-                    }
-
-                    mGroup.revokeRuntimePermissions(false);
-                }
-                if ((changeTarget & CHANGE_BACKGROUND) != 0) {
-                    if (mGroup.getBackgroundPermissions() != null
-                            && mGroup.getBackgroundPermissions().areRuntimePermissionsGranted()) {
-                        if (mGroup.getBackgroundPermissions().areRuntimePermissionsGranted()) {
-                            SafetyNetLogger.logPermissionToggled(mGroup.getBackgroundPermissions());
-                        }
-
-                        mGroup.getBackgroundPermissions().revokeRuntimePermissions(false);
-                    }
-                }
-            }
-        }
-
-        updateUi();
-
-        return true;
-    }
-
-    /**
-     * Show a dialog that warns the user that she/he is about to revoke permissions that were
-     * granted by default.
-     *
-     * <p>The order of operation to revoke a permission granted by default is:
-     * <ol>
-     * <li>{@code showDefaultDenyDialog}</li>
-     * <li>{@link DefaultDenyDialog#onCreateDialog}</li>
-     * <li>{@link AutoAppPermissionFragment#onDenyAnyWay}</li>
-     * </ol>
-     *
-     * @param changeTarget Whether background or foreground should be changed
-     */
-    private void showDefaultDenyDialog(@ChangeTarget int changeTarget) {
+    @Override
+    public void showConfirmDialog(AppPermissionViewModel.ChangeRequest changeRequest, int messageId,
+            int buttonPressed, boolean oneTime) {
         Bundle args = new Bundle();
 
-        boolean showGrantedByDefaultWarning = false;
-        if ((changeTarget & CHANGE_FOREGROUND) != 0) {
-            showGrantedByDefaultWarning = mGroup.hasGrantedByDefaultPermission();
-        }
-        if ((changeTarget & CHANGE_BACKGROUND) != 0) {
-            if (mGroup.getBackgroundPermissions() != null) {
-                showGrantedByDefaultWarning |=
-                        mGroup.getBackgroundPermissions().hasGrantedByDefaultPermission();
-            }
-        }
-
-        args.putInt(DefaultDenyDialog.MSG, showGrantedByDefaultWarning ? R.string.system_warning
-                : R.string.old_sdk_deny_warning);
-        args.putInt(DefaultDenyDialog.CHANGE_TARGET, changeTarget);
+        args.putInt(DefaultDenyDialog.MSG, messageId);
+        args.putSerializable(DefaultDenyDialog.CHANGE_REQUEST, changeRequest);
+        args.putSerializable(DefaultDenyDialog.BUTTON, buttonPressed);
 
         DefaultDenyDialog defaultDenyDialog = new DefaultDenyDialog();
         defaultDenyDialog.setArguments(args);
@@ -728,39 +282,97 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
                 DefaultDenyDialog.class.getName());
     }
 
+    private void setResult(@GrantPermissionsViewHandler.Result int result) {
+        Intent intent = new Intent()
+                .putExtra(EXTRA_RESULT_PERMISSION_INTERACTED,
+                        requireArguments().getString(Intent.EXTRA_PERMISSION_GROUP_NAME))
+                .putExtra(EXTRA_RESULT_PERMISSION_RESULT, result);
+        requireActivity().setResult(Activity.RESULT_OK, intent);
+    }
+
+    private void setRadioButtonsState(
+            Map<AppPermissionViewModel.ButtonType, AppPermissionViewModel.ButtonState> states) {
+        setButtonState(mAllowPermissionPreference,
+                states.get(AppPermissionViewModel.ButtonType.ALLOW));
+        setButtonState(mAlwaysPermissionPreference,
+                states.get(AppPermissionViewModel.ButtonType.ALLOW_ALWAYS));
+        setButtonState(mForegroundOnlyPermissionPreference,
+                states.get(AppPermissionViewModel.ButtonType.ALLOW_FOREGROUND));
+        setButtonState(mDenyPermissionPreference,
+                states.get(AppPermissionViewModel.ButtonType.DENY));
+    }
+
+    private void setButtonState(TwoStatePreference button,
+            AppPermissionViewModel.ButtonState state) {
+        button.setVisible(state.isShown());
+        if (state.isShown()) {
+            button.setChecked(state.isChecked());
+            button.setEnabled(state.isEnabled());
+        }
+    }
+
     /**
-     * Once we user has confirmed that he/she wants to revoke a permission that was granted by
-     * default, actually revoke the permissions.
-     *
-     * @param changeTarget whether to change foreground, background, or both.
-     * @see #showDefaultDenyDialog(int)
+     * Helper method to handle the UX edge case where the confirmation dialog is shown and two
+     * buttons are selected at once. This happens since the Auto UI doesn't use a proper radio
+     * group, so there is nothing that enforces that tapping on a button unchecks a previously
+     * checked button. Apart from this case, this UI is not necessary since the UI is entirely
+     * driven by the ViewModel.
      */
-    private void onDenyAnyWay(@ChangeTarget int changeTarget) {
-        boolean hasDefaultPermissions = false;
-        if ((changeTarget & CHANGE_FOREGROUND) != 0) {
-            if (mGroup.areRuntimePermissionsGranted()) {
-                SafetyNetLogger.logPermissionToggled(mGroup);
-            }
+    private void checkOnlyOneButtonOverride(AppPermissionViewModel.ButtonType buttonType) {
+        mAllowPermissionPreference.setChecked(
+                buttonType == AppPermissionViewModel.ButtonType.ALLOW);
+        mAlwaysPermissionPreference.setChecked(
+                buttonType == AppPermissionViewModel.ButtonType.ALLOW_ALWAYS);
+        mForegroundOnlyPermissionPreference.setChecked(
+                buttonType == AppPermissionViewModel.ButtonType.ALLOW_FOREGROUND);
+        mDenyPermissionPreference.setChecked(buttonType == AppPermissionViewModel.ButtonType.DENY);
+    }
 
-            mGroup.revokeRuntimePermissions(false);
-            hasDefaultPermissions = mGroup.hasGrantedByDefaultPermission();
+    private void setDetail(Pair<Integer, Integer> detailResIds) {
+        if (detailResIds == null) {
+            mDetailsPreference.setVisible(false);
+            return;
         }
-        if ((changeTarget & CHANGE_BACKGROUND) != 0) {
-            if (mGroup.getBackgroundPermissions() != null) {
-                if (mGroup.getBackgroundPermissions().areRuntimePermissionsGranted()) {
-                    SafetyNetLogger.logPermissionToggled(mGroup.getBackgroundPermissions());
-                }
+        if (detailResIds.getSecond() != null) {
+            mDetailsPreference.setWidgetLayoutResource(R.layout.settings_preference_widget);
+            mDetailsPreference.setOnSecondTargetClickListener(
+                    v -> showAllPermissions(mPermGroupName));
+            mDetailsPreference.setSummary(
+                    getString(detailResIds.getFirst(), detailResIds.getSecond()));
+        } else {
+            mDetailsPreference.setSummary(detailResIds.getFirst());
+        }
+    }
 
-                mGroup.getBackgroundPermissions().revokeRuntimePermissions(false);
-                hasDefaultPermissions |=
-                        mGroup.getBackgroundPermissions().hasGrantedByDefaultPermission();
-            }
-        }
+    /**
+     * Show all individual permissions in this group in a new fragment.
+     */
+    private void showAllPermissions(@NonNull String filterGroup) {
+        Fragment frag = AutoAllAppPermissionsFragment.newInstance(mPackageName,
+                filterGroup, mUser,
+                getArguments().getLong(EXTRA_SESSION_ID, INVALID_SESSION_ID));
+        requireFragmentManager().beginTransaction()
+                .replace(android.R.id.content, frag)
+                .addToBackStack("AllPerms")
+                .commit();
+    }
 
-        if (hasDefaultPermissions || !mGroup.doesSupportRuntimePermissions()) {
-            mHasConfirmedRevoke = true;
+    private void setAdminSupportDetail(RestrictedLockUtils.EnforcedAdmin admin) {
+        if (admin != null) {
+            mDetailsPreference.setWidgetLayoutResource(R.layout.info_preference_widget);
+            mDetailsPreference.setOnSecondTargetClickListener(v ->
+                    RestrictedLockUtils.sendShowAdminSupportDetailsIntent(getContext(), admin)
+            );
         }
-        updateUi();
+    }
+
+    /**
+     * Request to grant/revoke permissions group.
+     */
+    private void requestChange(AppPermissionViewModel.ChangeRequest changeRequest,
+            int buttonClicked) {
+        mViewModel.requestChange(/* setOneTime= */false, /* fragment= */ this,
+                /* defaultDeny= */this, changeRequest, buttonClicked);
     }
 
     /** Preference used to represent apps that can be picked as a default app. */
@@ -787,12 +399,14 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
      * A dialog warning the user that they are about to deny a permission that was granted by
      * default.
      *
-     * @see #showDefaultDenyDialog(int)
+     * @see #showConfirmDialog(AppPermissionViewModel.ChangeRequest, int, int, boolean)
      */
     public static class DefaultDenyDialog extends DialogFragment {
         private static final String MSG = DefaultDenyDialog.class.getName() + ".arg.msg";
-        private static final String CHANGE_TARGET = DefaultDenyDialog.class.getName()
-                + ".arg.changeTarget";
+        private static final String CHANGE_REQUEST = DefaultDenyDialog.class.getName()
+                + ".arg.changeRequest";
+        private static final String BUTTON = DefaultDenyDialog.class.getName()
+                + ".arg.button";
 
         @NonNull
         @Override
@@ -801,31 +415,21 @@ public class AutoAppPermissionFragment extends AutoSettingsFrameFragment {
             return new AlertDialogBuilder(getContext())
                     .setMessage(requireArguments().getInt(MSG))
                     .setNegativeButton(R.string.cancel,
-                            (dialog, which) -> fragment.updateUi())
+                            (dialog, which) -> dialog.cancel())
                     .setPositiveButton(R.string.grant_dialog_button_deny_anyway,
                             (dialog, which) ->
-                                    fragment.onDenyAnyWay(requireArguments().getInt(CHANGE_TARGET)))
+                                    fragment.mViewModel.onDenyAnyWay(
+                                            (AppPermissionViewModel.ChangeRequest)
+                                                    getArguments().getSerializable(CHANGE_REQUEST),
+                                            getArguments().getInt(BUTTON),
+                                            false))
                     .create();
-        }
-    }
-
-    /**
-     * A listener for permission changes.
-     */
-    private class PermissionChangeListener implements PackageManager.OnPermissionsChangedListener {
-        private final int mUid;
-
-        PermissionChangeListener(int uid) {
-            mUid = uid;
         }
 
         @Override
-        public void onPermissionsChanged(int uid) {
-            if (uid == mUid) {
-                Log.w(LOG_TAG, "Permissions changed.");
-                mGroup = getAppPermissionGroup();
-                updateUi();
-            }
+        public void onCancel(DialogInterface dialog) {
+            AutoAppPermissionFragment fragment = (AutoAppPermissionFragment) getTargetFragment();
+            fragment.setRadioButtonsState(fragment.mViewModel.getButtonStateLiveData().getValue());
         }
     }
 }

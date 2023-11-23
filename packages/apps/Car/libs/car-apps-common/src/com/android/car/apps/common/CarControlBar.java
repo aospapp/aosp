@@ -56,6 +56,20 @@ public interface CarControlBar {
     ImageButton createIconButton(Drawable icon, int viewId);
 
 
+    /** Constant for {@link #getFocusedViewIndex} and {@link #setFocusAtViewIndex}. */
+    int INVALID_VIEW_INDEX = -1;
+
+    /**
+     * Returns the index of the focused view, or {@link #INVALID_VIEW_INDEX} if no view is focused.
+     */
+    int getFocusedViewIndex();
+
+    /**
+     *  Sets the focus onto the view designated by the given index (typically obtained by
+     *  {@link #getFocusedViewIndex}.
+     */
+    void setFocusAtViewIndex(int viewIndex);
+
     @Retention(SOURCE)
     @IntDef({SLOT_MAIN, SLOT_LEFT, SLOT_RIGHT, SLOT_EXPAND_COLLAPSE})
     @interface SlotPosition {}

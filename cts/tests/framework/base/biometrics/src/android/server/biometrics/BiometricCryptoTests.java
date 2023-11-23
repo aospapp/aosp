@@ -17,6 +17,7 @@
 package android.server.biometrics;
 
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 
 import android.hardware.biometrics.BiometricPrompt;
 import android.hardware.biometrics.BiometricTestSession;
@@ -38,6 +39,7 @@ public class BiometricCryptoTests extends BiometricTestBase {
 
     @Test
     public void testGenerateKeyWithoutDeviceCredential_throwsException() {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
         assertThrows("Key shouldn't be generatable before device credentials are enrolled",
                 Exception.class,
                 () -> Utils.generateBiometricBoundKey("keyBeforeCredentialEnrolled",
@@ -47,6 +49,7 @@ public class BiometricCryptoTests extends BiometricTestBase {
     @Test
     public void testGenerateKeyWithoutBiometricEnrolled_throwsInvalidAlgorithmParameterException()
             throws Exception {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
         try (CredentialSession session = new CredentialSession()){
             session.setCredential();
             assertThrows("Key shouldn't be generatable before biometrics are enrolled",
@@ -58,6 +61,7 @@ public class BiometricCryptoTests extends BiometricTestBase {
 
     @Test
     public void testGenerateKeyWhenCredentialAndBiometricEnrolled() throws Exception {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
         try (CredentialSession credentialSession = new CredentialSession()) {
             credentialSession.setCredential();
 

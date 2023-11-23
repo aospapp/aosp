@@ -19,7 +19,7 @@ package android.signature.cts;
  */
 public class LogHelper {
 
-    static void loge(String message, Exception exception) {
-        System.out.println(String.format("%s: %s", message, exception));
+    static void loge(String message, Throwable throwable) {
+        System.out.println(String.format("%s: %s", message, throwable));
     }
 }

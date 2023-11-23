@@ -18,11 +18,11 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 30
+    compileSdkVersion gradle.ext.aaosLatestSDK
     defaultConfig {
         applicationId "com.android.car.media.testmediaapp"
         minSdkVersion 28
-        targetSdkVersion 30
+        targetSdkVersion 31
         versionCode 1
         versionName "1.0"
     }
@@ -43,11 +43,19 @@ android {
         main {
             manifest.srcFile 'AndroidManifest.xml'
             java.srcDirs = ['src']
-            resources.srcDirs = ['src']
             aidl.srcDirs = ['src']
             renderscript.srcDirs = ['src']
             res.srcDirs = ['res']
             assets.srcDirs = ['assets']
+        }
+    }
+
+    signingConfigs {
+        debug {
+            storeFile file('../../libs/certs/com_android_car_apps_test.jks')
+            storePassword 'carapps'
+            keyAlias 'carapps'
+            keyPassword 'carapps'
         }
     }
 }

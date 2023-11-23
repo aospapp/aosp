@@ -52,7 +52,6 @@
     <option name="compatibility:exclude-filter" value="CtsBackupHostTestCases" />
     <option name="compatibility:exclude-filter" value="CtsBackupTestCases" />
     <option name="compatibility:exclude-filter" value="CtsBionicAppTestCases" />
-    <option name="compatibility:exclude-filter" value="CtsBionicTestCases" />
     <option name="compatibility:exclude-filter" value="CtsBlobStoreHostTestCases" />
     <option name="compatibility:exclude-filter" value="CtsBlobStoreHostTestHelper" />
     <option name="compatibility:exclude-filter" value="CtsBlobStoreTestCases" />

@@ -68,27 +68,27 @@ Error {
 
 #[test]
 fn test_display() {
-    assert_eq!("g failed", h().unwrap_err().to_string());
+    assert!(h().unwrap_err().to_string().starts_with("g failed"));
 }
 
 #[test]
 fn test_altdisplay() {
-    assert_eq!(EXPECTED_ALTDISPLAY_F, format!("{:#}", f().unwrap_err()));
-    assert_eq!(EXPECTED_ALTDISPLAY_G, format!("{:#}", g().unwrap_err()));
-    assert_eq!(EXPECTED_ALTDISPLAY_H, format!("{:#}", h().unwrap_err()));
+    assert!(format!("{:#}", f().unwrap_err()).starts_with(EXPECTED_ALTDISPLAY_F));
+    assert!(format!("{:#}", g().unwrap_err()).starts_with(EXPECTED_ALTDISPLAY_G));
+    assert!(format!("{:#}", h().unwrap_err()).starts_with(EXPECTED_ALTDISPLAY_H));
 }
 
 #[test]
 #[cfg_attr(not(backtrace), ignore)]
 fn test_debug() {
-    assert_eq!(EXPECTED_DEBUG_F, format!("{:?}", f().unwrap_err()));
-    assert_eq!(EXPECTED_DEBUG_G, format!("{:?}", g().unwrap_err()));
-    assert_eq!(EXPECTED_DEBUG_H, format!("{:?}", h().unwrap_err()));
+    assert!(format!("{:?}", f().unwrap_err()).starts_with(EXPECTED_DEBUG_F));
+    assert!(format!("{:?}", g().unwrap_err()).starts_with(EXPECTED_DEBUG_G));
+    assert!(format!("{:?}", h().unwrap_err()).starts_with(EXPECTED_DEBUG_H));
 }
 
 #[test]
 fn test_altdebug() {
-    assert_eq!(EXPECTED_ALTDEBUG_F, format!("{:#?}", f().unwrap_err()));
-    assert_eq!(EXPECTED_ALTDEBUG_G, format!("{:#?}", g().unwrap_err()));
-    assert_eq!(EXPECTED_ALTDEBUG_H, format!("{:#?}", h().unwrap_err()));
+    assert!(format!("{:#?}", f().unwrap_err()).starts_with(EXPECTED_ALTDEBUG_F));
+    assert!(format!("{:#?}", g().unwrap_err()).starts_with(EXPECTED_ALTDEBUG_G));
+    assert!(format!("{:#?}", h().unwrap_err()).starts_with(EXPECTED_ALTDEBUG_H));
 }

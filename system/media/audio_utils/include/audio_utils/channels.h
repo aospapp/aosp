@@ -78,9 +78,11 @@ constexpr inline AUDIO_GEOMETRY_SIDE kSideFromChannelIdx[] = {
     AUDIO_GEOMETRY_SIDE_CENTER, // AUDIO_CHANNEL_OUT_BOTTOM_FRONT_CENTER   = 0x200000u,
     AUDIO_GEOMETRY_SIDE_RIGHT,  // AUDIO_CHANNEL_OUT_BOTTOM_FRONT_RIGHT    = 0x400000u,
     AUDIO_GEOMETRY_SIDE_CENTER, // AUDIO_CHANNEL_OUT_LOW_FREQUENCY_2       = 0x800000u,
+    AUDIO_GEOMETRY_SIDE_LEFT,   // AUDIO_CHANNEL_OUT_FRONT_WIDE_LEFT       = 0x1000000u
+    AUDIO_GEOMETRY_SIDE_RIGHT,  // AUDIO_CHANNEL_OUT_FRONT_WIDE_RIGHT      = 0x2000000u
 };
 constexpr inline AUDIO_GEOMETRY_SIDE sideFromChannelIdx(size_t idx) {
-    static_assert(std::size(kSideFromChannelIdx) == FCC_24);
+    static_assert(std::size(kSideFromChannelIdx) == FCC_26);
     if (idx < std::size(kSideFromChannelIdx)) return kSideFromChannelIdx[idx];
     return AUDIO_GEOMETRY_SIDE_CENTER;
 }
@@ -127,9 +129,11 @@ constexpr inline AUDIO_GEOMETRY_HEIGHT kHeightFromChannelIdx [] = {
     AUDIO_GEOMETRY_HEIGHT_BOTTOM, // AUDIO_CHANNEL_OUT_BOTTOM_FRONT_CENTER   = 0x200000u,
     AUDIO_GEOMETRY_HEIGHT_BOTTOM, // AUDIO_CHANNEL_OUT_BOTTOM_FRONT_RIGHT    = 0x400000u,
     AUDIO_GEOMETRY_HEIGHT_BOTTOM, // AUDIO_CHANNEL_OUT_LOW_FREQUENCY_2       = 0x800000u,
+    AUDIO_GEOMETRY_HEIGHT_MIDDLE, // AUDIO_CHANNEL_OUT_FRONT_WIDE_LEFT       = 0x1000000u
+    AUDIO_GEOMETRY_HEIGHT_MIDDLE, // AUDIO_CHANNEL_OUT_FRONT_WIDE_RIGHT      = 0x2000000u
 };
 constexpr inline AUDIO_GEOMETRY_HEIGHT heightFromChannelIdx(size_t idx) {
-    static_assert(std::size(kHeightFromChannelIdx) == FCC_24);
+    static_assert(std::size(kHeightFromChannelIdx) == FCC_26);
     if (idx < std::size(kHeightFromChannelIdx)) return kHeightFromChannelIdx[idx];
     return AUDIO_GEOMETRY_HEIGHT_MIDDLE;
 }
@@ -176,9 +180,11 @@ constexpr inline AUDIO_GEOMETRY_DEPTH kDepthFromChannelIdx[] = {
     AUDIO_GEOMETRY_DEPTH_FRONT,  // AUDIO_CHANNEL_OUT_BOTTOM_FRONT_CENTER   = 0x200000u,
     AUDIO_GEOMETRY_DEPTH_FRONT,  // AUDIO_CHANNEL_OUT_BOTTOM_FRONT_RIGHT    = 0x400000u,
     AUDIO_GEOMETRY_DEPTH_FRONT,  // AUDIO_CHANNEL_OUT_LOW_FREQUENCY_2       = 0x800000u,
+    AUDIO_GEOMETRY_DEPTH_MIDDLE, // AUDIO_CHANNEL_OUT_FRONT_WIDE_LEFT       = 0x1000000u
+    AUDIO_GEOMETRY_DEPTH_MIDDLE, // AUDIO_CHANNEL_OUT_FRONT_WIDE_RIGHT      = 0x2000000u
 };
 constexpr inline AUDIO_GEOMETRY_DEPTH depthFromChannelIdx(size_t idx) {
-    static_assert(std::size(kDepthFromChannelIdx) == FCC_24);
+    static_assert(std::size(kDepthFromChannelIdx) == FCC_26);
     if (idx < std::size(kDepthFromChannelIdx)) return kDepthFromChannelIdx[idx];
     return AUDIO_GEOMETRY_DEPTH_FRONT;
 }
@@ -208,8 +214,8 @@ constexpr inline AUDIO_GEOMETRY_DEPTH depthFromChannelIdx(size_t idx) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winitializer-overrides"  // we use override array assignment
 
-constexpr inline int kPairIdxFromChannelIdx[FCC_24] = {
-    [ 0 ... 23 ] = -1,  // everything defaults to -1 unless overridden below.
+constexpr inline int kPairIdxFromChannelIdx[FCC_26] = {
+    [ 0 ... 25 ] = -1,  // everything defaults to -1 unless overridden below.
     CHANNEL_ASSOCIATE(AUDIO_CHANNEL_OUT_FRONT_LEFT, AUDIO_CHANNEL_OUT_FRONT_RIGHT)
     // AUDIO_CHANNEL_OUT_FRONT_CENTER          = 0x4u,
     // AUDIO_CHANNEL_OUT_LOW_FREQUENCY         = 0x8u,
@@ -227,12 +233,13 @@ constexpr inline int kPairIdxFromChannelIdx[FCC_24] = {
     CHANNEL_ASSOCIATE(AUDIO_CHANNEL_OUT_BOTTOM_FRONT_LEFT, AUDIO_CHANNEL_OUT_BOTTOM_FRONT_RIGHT)
     // AUDIO_CHANNEL_OUT_BOTTOM_FRONT_CENTER   = 0x200000u,
     // AUDIO_CHANNEL_OUT_LOW_FREQUENCY_2       = 0x800000u,
+    CHANNEL_ASSOCIATE(AUDIO_CHANNEL_OUT_FRONT_WIDE_LEFT, AUDIO_CHANNEL_OUT_FRONT_WIDE_RIGHT)
 };
 #pragma GCC diagnostic pop
 #pragma pop_macro("CHANNEL_ASSOCIATE")
 
 constexpr inline ssize_t pairIdxFromChannelIdx(size_t idx) {
-    static_assert(std::size(kPairIdxFromChannelIdx) == FCC_24);
+    static_assert(std::size(kPairIdxFromChannelIdx) == FCC_26);
     if (idx < std::size(kPairIdxFromChannelIdx)) return kPairIdxFromChannelIdx[idx];
     return -1;
 }

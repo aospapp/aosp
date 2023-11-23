@@ -149,6 +149,11 @@ class AutoRevokeTest {
 
                 // Verify
                 assertPermission(PERMISSION_DENIED)
+
+                if (hasFeatureTV()) {
+                    // Skip checking unused apps screen because it may be unavailable on TV
+                    return
+                }
                 openUnusedAppsNotification()
 
                 waitFindObject(By.text(supportedAppPackageName))
@@ -161,6 +166,9 @@ class AutoRevokeTest {
     @AppModeFull(reason = "Uses separate apps for testing")
     @Test
     fun testUnusedApp_uninstallApp() {
+        assumeFalse(
+            "Unused apps screen may be unavailable on TV",
+            hasFeatureTV())
         withUnusedThresholdMs(3L) {
             withDummyAppNoUninstallAssertion {
                 // Setup

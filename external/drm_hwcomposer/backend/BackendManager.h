@@ -48,7 +48,7 @@ class BackendManager {
  private:
   BackendManager() = default;
 
-  static const std::vector<std::string> client_devices_;
+  static const std::vector<std::string> kClientDevices;
 
   std::map<std::string, backend_constructor_t> available_backends_;
 };

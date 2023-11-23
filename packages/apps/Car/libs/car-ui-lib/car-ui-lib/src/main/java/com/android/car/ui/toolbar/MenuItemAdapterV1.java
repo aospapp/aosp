@@ -16,135 +16,96 @@
 
 package com.android.car.ui.toolbar;
 
-import static com.android.car.ui.utils.CarUiUtils.charSequenceToString;
+import androidx.annotation.NonNull;
 
-import android.graphics.drawable.Drawable;
-
-import com.android.car.ui.sharedlibrary.oemapis.toolbar.MenuItemOEMV1;
-
-import java.util.function.Consumer;
+import com.android.car.ui.plugin.oemapis.toolbar.MenuItemOEMV1;
+import com.android.car.ui.utils.CarUiUtils;
 
 /**
  * Adapts a {@link com.android.car.ui.toolbar.MenuItem} into a
- * {@link com.android.car.ui.sharedlibrary.oemapis.toolbar.MenuItemOEMV1}
+ * {@link com.android.car.ui.plugin.oemapis.toolbar.MenuItemOEMV1}
  */
-@SuppressWarnings("AndroidJdkLibsChecker")
-public class MenuItemAdapterV1 implements MenuItemOEMV1 {
+public class MenuItemAdapterV1 {
 
+    @NonNull
+    private final ToolbarControllerAdapterV1 mToolbar;
+    @NonNull
     private final MenuItem mClientMenuItem;
-    private Consumer<MenuItemOEMV1> mUpdateListener;
+    @NonNull
+    private MenuItemOEMV1 mPluginMenuItem = MenuItemOEMV1.builder().build();
 
-    // This needs to be a member variable because it's only held with a weak listener
-    // elsewhere.
+    @SuppressWarnings("FieldCanBeLocal") // Used with weak references
     private final MenuItem.Listener mClientListener = menuItem -> {
-        if (mUpdateListener != null) {
-            mUpdateListener.accept(this);
-        }
+        updateMenuItem();
+        updateMenuItems();
     };
 
-    public MenuItemAdapterV1(MenuItem item) {
+    public MenuItemAdapterV1(@NonNull ToolbarControllerAdapterV1 toolbar, @NonNull MenuItem item) {
+        mToolbar = toolbar;
         mClientMenuItem = item;
         item.setListener(mClientListener);
+        updateMenuItem();
     }
 
-    @Override
-    public void setUpdateListener(Consumer<MenuItemOEMV1> listener) {
-        mUpdateListener = listener;
+    private void updateMenuItems() {
+        mToolbar.updateMenuItems();
     }
 
-    @Override
-    public void performClick() {
-        mClientMenuItem.performClick();
+    // Recreates mPluginMenuItem from mClientMenuItem
+    private void updateMenuItem() {
+        MenuItemOEMV1.Builder builder = mPluginMenuItem.copy()
+                .setKey(mClientMenuItem.hashCode())
+                .setTitle(CarUiUtils.charSequenceToString(mClientMenuItem.getTitle()))
+                .setIcon(mClientMenuItem.getIcon())
+                .setEnabled(mClientMenuItem.isEnabled())
+                .setPrimary(mClientMenuItem.isPrimary())
+                .setRestricted(mClientMenuItem.isRestricted())
+                .setShowIconAndTitle(mClientMenuItem.isShowingIconAndTitle())
+                .setDisplayBehavior(convertDisplayBehavior(mClientMenuItem.getDisplayBehavior()));
+
+        if (mClientMenuItem.isCheckable()) {
+            builder.setCheckable(true)
+                    .setChecked(mClientMenuItem.isChecked());
+        }
+
+        if (mClientMenuItem.isActivatable()) {
+            builder.setActivatable(true)
+                    .setActivated(mClientMenuItem.isActivated());
+        }
+
+        MenuItem.OnClickListener onClickListener = mClientMenuItem.getOnClickListener();
+        if (onClickListener != null || mClientMenuItem.isActivatable()
+                || mClientMenuItem.isCheckable() || mClientMenuItem.isRestricted()) {
+            builder.setOnClickListener(mClientMenuItem::performClick);
+        } else {
+            builder.setOnClickListener(null);
+        }
+
+        mPluginMenuItem = builder.build();
     }
 
-    @Override
-    public int getId() {
-        return mClientMenuItem.getId();
+    @NonNull
+    public MenuItemOEMV1 getPluginMenuItem() {
+        return mPluginMenuItem;
     }
 
-    @Override
-    public boolean isEnabled() {
-        return mClientMenuItem.isEnabled();
+    @NonNull
+    public MenuItem getClientMenuItem() {
+        return mClientMenuItem;
     }
 
-    @Override
-    public boolean isCheckable() {
-        return mClientMenuItem.isCheckable();
-    }
-
-    @Override
-    public boolean isChecked() {
-        return mClientMenuItem.isChecked();
-    }
-
-    @Override
-    public boolean isTinted() {
-        return mClientMenuItem.isTinted();
-    }
-
-    @Override
     public boolean isVisible() {
         return mClientMenuItem.isVisible();
     }
 
-    @Override
-    public boolean isActivatable() {
-        return mClientMenuItem.isActivatable();
-    }
-
-    @Override
-    public boolean isActivated() {
-        return mClientMenuItem.isActivated();
-    }
-
-    @Override
-    public String getTitle() {
-        return charSequenceToString(mClientMenuItem.getTitle());
-    }
-
-    @Override
-    public boolean isRestricted() {
-        return mClientMenuItem.isRestricted();
-    }
-
-    @Override
-    public boolean isShowingIconAndTitle() {
-        return mClientMenuItem.isShowingIconAndTitle();
-    }
-
-    @Override
-    public boolean isClickable() {
-        return mClientMenuItem.getOnClickListener() != null
-                || isCheckable()
-                || isActivatable();
-    }
-
-    @Override
-    public int getDisplayBehavior() {
-        MenuItem.DisplayBehavior displayBehavior = mClientMenuItem.getDisplayBehavior();
-        if (displayBehavior == MenuItem.DisplayBehavior.NEVER) {
-            return MenuItemOEMV1.DISPLAY_BEHAVIOR_NEVER;
-        } else {
-            return MenuItemOEMV1.DISPLAY_BEHAVIOR_ALWAYS;
+    private static int convertDisplayBehavior(MenuItem.DisplayBehavior displayBehavior) {
+        switch (displayBehavior) {
+            case ALWAYS:
+                return MenuItemOEMV1.DISPLAY_BEHAVIOR_ALWAYS;
+            case NEVER:
+                return MenuItemOEMV1.DISPLAY_BEHAVIOR_NEVER;
+            default:
+                throw new IllegalArgumentException("Unknown display behavior!");
         }
-    }
-
-    @Override
-    public Drawable getIcon() {
-        return mClientMenuItem.getIcon();
-    }
-
-    @Override
-    public boolean isPrimary() {
-        return mClientMenuItem.isPrimary();
-    }
-
-    public boolean isSearch() {
-        return mClientMenuItem.isSearch();
-    }
-
-    /** Delegates to {@link MenuItem#setVisible(boolean)} */
-    public void setVisible(boolean visible) {
-        mClientMenuItem.setVisible(visible);
     }
 }

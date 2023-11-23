@@ -15,9 +15,6 @@
  */
 package com.android.cts.verifier.camera.formats;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
-
 import android.app.AlertDialog;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -25,6 +22,7 @@ import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
@@ -35,9 +33,9 @@ import android.util.Log;
 import android.util.SparseArray;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
 import android.view.Surface;
 import android.view.TextureView;
+import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -46,11 +44,13 @@ import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.Toast;
 
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
+
 import java.io.IOException;
-import java.lang.Math;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.TreeSet;
@@ -468,10 +468,6 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
         } else {  // back-facing
             mPreviewRotation = (info.orientation - degrees + 360) % 360;
         }
-        if (mPreviewRotation != 0 && mPreviewRotation != 180) {
-            Log.w(TAG,
-                "Display orientation correction is not 0 or 180, as expected!");
-        }
 
         mCamera.setDisplayOrientation(mPreviewRotation);
 
@@ -493,6 +489,36 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
         }
     }
 
+    /**
+     * Rotate and scale the matrix to be applied to the preview or format view, such that no
+     * stretching of the image occurs. To achieve this, the image is centered in the SurfaceTexture
+     * with black bars filling the excess space.
+     */
+    private void concatPreviewTransform(Matrix transform) {
+        float widthRatio = mNextPreviewSize.width / (float) mPreviewTexWidth;
+        float heightRatio = mNextPreviewSize.height / (float) mPreviewTexHeight;
+        float scaledWidth = (float) mPreviewTexWidth;
+        float scaledHeight = (float) mPreviewTexHeight;
+
+        if (heightRatio < widthRatio) {
+            scaledHeight = mPreviewTexHeight * (heightRatio / widthRatio);
+            transform.postScale(1, heightRatio / widthRatio);
+            transform.postTranslate(0,
+                    mPreviewTexHeight * (1 - heightRatio / widthRatio) / 2);
+        } else {
+            scaledWidth = mPreviewTexWidth * (widthRatio / heightRatio);
+            transform.postScale(widthRatio / heightRatio, 1);
+            transform.postTranslate(mPreviewTexWidth * (1 - widthRatio / heightRatio) / 2, 0);
+        }
+
+        if (mPreviewRotation == 90 || mPreviewRotation == 270) {
+            float scaledAspect = scaledWidth / scaledHeight;
+            float previewAspect = (float) mNextPreviewSize.width / (float) mNextPreviewSize.height;
+            transform.postScale(1.0f, scaledAspect * previewAspect,
+                                (float) mPreviewTexWidth / 2, (float) mPreviewTexHeight / 2);
+        }
+    }
+
     private void startPreview() {
         if (mState != STATE_OFF) {
             // Stop for a while to drain callbacks
@@ -511,19 +537,7 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
         mState = STATE_PREVIEW;
 
         Matrix transform = new Matrix();
-        float widthRatio = mNextPreviewSize.width / (float)mPreviewTexWidth;
-        float heightRatio = mNextPreviewSize.height / (float)mPreviewTexHeight;
-
-        if (heightRatio < widthRatio) {
-            transform.setScale(1, heightRatio/widthRatio);
-            transform.postTranslate(0,
-                mPreviewTexHeight * (1 - heightRatio/widthRatio)/2);
-        } else {
-            transform.setScale(widthRatio/heightRatio, 1);
-            transform.postTranslate(mPreviewTexWidth * (1 - widthRatio/heightRatio)/2,
-            0);
-        }
-
+        concatPreviewTransform(transform);
         mPreviewView.setTransform(transform);
 
         mPreviewFormat = mNextPreviewFormat;
@@ -630,6 +644,31 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
         protected void onPostExecute(Boolean result) {
             if (result) {
                 mFormatView.setImageBitmap(mCallbackBitmap);
+
+                CameraInfo info = new CameraInfo();
+                Camera.getCameraInfo(mCurrentCameraId, info);
+
+                int rotation = mPreviewRotation;
+                if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                    rotation = (360 - rotation) % 360;  // de-compensate the mirror
+                }
+
+                if (rotation != 0) {
+                    Matrix transform = new Matrix();
+                    mFormatView.setScaleType(ImageView.ScaleType.MATRIX);
+                    Rect viewRect = mFormatView.getDrawable().getBounds();
+                    transform.postTranslate(-viewRect.width() / 2, -viewRect.height() / 2);
+                    transform.postRotate(rotation);
+                    transform.postTranslate(viewRect.height() / 2, viewRect.width() / 2);
+                    transform.postScale(
+                            mPreviewView.getMeasuredWidth() / (float) viewRect.height(),
+                            mPreviewView.getMeasuredHeight() / (float) viewRect.width());
+                    concatPreviewTransform(transform);
+                    mFormatView.setImageMatrix(transform);
+                } else {
+                    mFormatView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                }
+
                 if (mProcessingFirstFrame) {
                     mProcessingFirstFrame = false;
 

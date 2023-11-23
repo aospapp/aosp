@@ -27,6 +27,4 @@
     <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"భద్రతా అలర్ట్ సిస్టమ్ నుండి అవసరమైన నెలవారీ పరీక్షలను స్వీకరించండి"</string>
     <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"జాతీయ అలర్ట్"</string>
     <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"మొదటి అలర్ట్‌ను (జాతీయ అలర్ట్ మినహా) ప్రదర్శించిన తర్వాత నిలిపివేత డైలాగ్‌ను చూపించండి."</string>
-    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"జాతీయ అలర్ట్‌లు"</string>
-    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"జాతీయ హెచ్చరిక మెసేజ్‌లు. ఆఫ్ చేయలేరు."</string>
 </resources>

@@ -20,7 +20,7 @@ import android.os.Build
 import androidx.test.filters.SmallTest
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRunner
-import com.android.testutils.assertParcelSane
+import com.android.testutils.assertParcelingIsLossless
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertEquals
@@ -39,12 +39,12 @@ class UnderlyingNetworkInfoTest {
         assertEquals(TEST_OWNER_UID, testInfo.getOwnerUid())
         assertEquals(TEST_IFACE, testInfo.getInterface())
         assertEquals(TEST_IFACE_LIST, testInfo.getUnderlyingInterfaces())
-        assertParcelSane(testInfo, 3)
+        assertParcelingIsLossless(testInfo)
 
         val emptyInfo = UnderlyingNetworkInfo(0, String(), listOf())
         assertEquals(0, emptyInfo.getOwnerUid())
         assertEquals(String(), emptyInfo.getInterface())
         assertEquals(listOf(), emptyInfo.getUnderlyingInterfaces())
-        assertParcelSane(emptyInfo, 3)
+        assertParcelingIsLossless(emptyInfo)
     }
 }

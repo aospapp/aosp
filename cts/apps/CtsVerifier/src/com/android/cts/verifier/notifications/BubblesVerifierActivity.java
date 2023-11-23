@@ -178,8 +178,7 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
             mTests.add(new CheckOverflowExists());
             mTests.add(new DismissBubbleShowsInOverflow());
             mTests.add(new PromoteBubbleFromOverflow());
-            // (b/193560795) Enable this in next api bump.
-            //mTests.add(new CancelRemovesBubblesInOverflow());
+            mTests.add(new CancelRemovesBubblesInOverflow());
             mTests.add(new TapNotifWithOverflowBubble());
             //
             // Expanded view appearance
@@ -187,8 +186,7 @@ public class BubblesVerifierActivity extends PassFailButtons.Activity {
             mTests.add(new PortraitAndLandscape());
             mTests.add(new ScrimBehindExpandedView());
             mTests.add(new ImeInsetsExpandedView());
-            // (b/190560927) Enable this in next api bump.
-            //mTests.add(new MinHeightExpandedView());
+            mTests.add(new MinHeightExpandedView());
             mTests.add(new MaxHeightExpandedView());
         }
 

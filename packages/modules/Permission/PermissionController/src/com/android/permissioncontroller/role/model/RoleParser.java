@@ -349,7 +349,7 @@ public class RoleParser {
                 Build.VERSION_CODES.BASE);
 
         boolean overrideUserWhenGranting = getAttributeBooleanValue(parser,
-                ATTRIBUTE_OVERRIDE_USER_WHEN_GRANTING, true);
+                ATTRIBUTE_OVERRIDE_USER_WHEN_GRANTING, false);
 
         boolean requestable = getAttributeBooleanValue(parser, ATTRIBUTE_REQUESTABLE, visible);
         Integer requestDescriptionResource;

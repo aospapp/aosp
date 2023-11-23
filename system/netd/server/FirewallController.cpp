@@ -90,7 +90,8 @@ FirewallController::FirewallController(void) : mMaxUid(discoverMaximumValidUid(k
 }
 
 int FirewallController::setupIptablesHooks(void) {
-    int res = 0;
+    int res = flushRules();
+
     // mUseBpfOwnerMatch should be removed, but it is still depended upon by test code.
     mUseBpfOwnerMatch = true;
     if (mUseBpfOwnerMatch) {
@@ -126,19 +127,22 @@ int FirewallController::setFirewallType(FirewallType ftype) {
     return res ? -EREMOTEIO : 0;
 }
 
+int FirewallController::flushRules() {
+    std::string command =
+            "*filter\n"
+            ":fw_INPUT -\n"
+            ":fw_OUTPUT -\n"
+            ":fw_FORWARD -\n"
+            "-6 -A fw_OUTPUT ! -o lo -s ::1 -j DROP\n"
+            "COMMIT\n";
+
+    return (execIptablesRestore(V4V6, command.c_str()) == 0) ? 0 : -EREMOTEIO;
+}
+
 int FirewallController::resetFirewall(void) {
     mFirewallType = ALLOWLIST;
     mIfaceRules.clear();
-
-    // flush any existing rules
-    std::string command =
-        "*filter\n"
-        ":fw_INPUT -\n"
-        ":fw_OUTPUT -\n"
-        ":fw_FORWARD -\n"
-        "COMMIT\n";
-
-    return (execIptablesRestore(V4V6, command.c_str()) == 0) ? 0 : -EREMOTEIO;
+    return flushRules();
 }
 
 int FirewallController::enableChildChains(ChildChain chain, bool enable) {

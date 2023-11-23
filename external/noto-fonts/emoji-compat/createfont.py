@@ -60,11 +60,11 @@ from nototools import font_data
 
 ########### UPDATE OR CHECK WHEN A NEW FONT IS BEING GENERATED ###########
 # Last Android SDK Version
-SDK_VERSION = 30
+SDK_VERSION = 31
 # metadata version that will be embedded into font. If there are updates to the font that would
 # cause data/emoji_metadata.txt to change, this integer number should be incremented. This number
 # defines in which EmojiCompat metadata version the emoji is added to the font.
-METADATA_VERSION = 7
+METADATA_VERSION = 8
 
 ####### main directories where output files are created #######
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))

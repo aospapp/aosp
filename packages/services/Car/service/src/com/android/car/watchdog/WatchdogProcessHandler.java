@@ -20,8 +20,6 @@ import static android.car.watchdog.CarWatchdogManager.TIMEOUT_CRITICAL;
 import static android.car.watchdog.CarWatchdogManager.TIMEOUT_MODERATE;
 import static android.car.watchdog.CarWatchdogManager.TIMEOUT_NORMAL;
 
-import static com.android.internal.util.function.pooled.PooledLambda.obtainMessage;
-
 import android.annotation.NonNull;
 import android.annotation.UserIdInt;
 import android.automotive.watchdog.internal.ICarWatchdogServiceForSystem;
@@ -124,6 +122,7 @@ public final class WatchdogProcessHandler {
             } else {
                 writer.println("none");
             }
+            writer.decreaseIndent();
         }
     }
 
@@ -218,8 +217,7 @@ public final class WatchdogProcessHandler {
 
     /** Posts health check message */
     public void postHealthCheckMessage(int sessionId) {
-        mMainHandler.sendMessage(obtainMessage(
-                WatchdogProcessHandler::doHealthCheck, this, sessionId));
+        mMainHandler.post(() -> doHealthCheck(sessionId));
     }
 
     /** Returns the registered and alive client count. */
@@ -237,6 +235,16 @@ public final class WatchdogProcessHandler {
                 SparseArray<ClientInfo> pingedClients = mPingedClientMap.get(timeout);
                 pingedClients.clear();
             }
+        }
+    }
+
+    /** Enables/disables the watchdog daemon client health check process. */
+    void controlProcessHealthCheck(boolean disable) {
+        try {
+            mCarWatchdogDaemonHelper.controlProcessHealthCheck(disable);
+        } catch (RemoteException e) {
+            Slogf.w(CarWatchdogService.TAG,
+                    "Cannot enable/disable the car watchdog daemon health check process: %s", e);
         }
     }
 
@@ -312,8 +320,8 @@ public final class WatchdogProcessHandler {
             }
         }
         sendPingToClients(timeout);
-        mMainHandler.sendMessageDelayed(obtainMessage(WatchdogProcessHandler::analyzeClientResponse,
-                this, timeout), timeoutToDurationMs(timeout));
+        mMainHandler.postDelayed(
+                () -> analyzeClientResponse(timeout), timeoutToDurationMs(timeout));
     }
 
     private int getNewSessionId() {

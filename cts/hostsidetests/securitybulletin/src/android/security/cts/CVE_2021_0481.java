@@ -65,23 +65,56 @@ public class CVE_2021_0481 extends BaseHostJUnit4Test {
     @AsbSecurityTest(cveBugId = 172939189)
     @AppModeFull
     public void testRunDeviceTest() throws Exception {
+
+        String cmd;
+
+        //delete a source file just in case AdbUtils.pushResource()
+        //doesn't overwrite existing file
+        cmd = "rm " + DEVICE_DIR1 + TEST_FILE_NAME;
+        AdbUtils.runCommandLine(cmd, getDevice());
+
+        //push the source file to a device
         AdbUtils.pushResource("/" + TEST_FILE_NAME, DEVICE_DIR1 + TEST_FILE_NAME, getDevice());
-        String cmd = "rm " + DEVICE_DIR2 + TAKE_PICTURE_FILE_NAME;
+
+        //delete a destination file which is supposed to be created by a vulnerable device
+        //by coping TEST_FILE_NAME -> TAKE_PICTURE_FILE_NAME
+        cmd = "rm " + DEVICE_DIR2 + TAKE_PICTURE_FILE_NAME;
         AdbUtils.runCommandLine(cmd, getDevice());
 
         installPackage();
 
         //ensure the screen is woken up.
-        //(we need to do this twice. once wakes up the screen, and another unlocks the lock screen)
+        //KEYCODE_WAKEUP wakes up the screen
+        //KEYCODE_MENU called twice unlocks the screen (if locked)
+        //Note: (applies to Android 12 only):
+        //      KEYCODE_MENU called less than twice doesnot unlock the screen
+        //      no matter how many times KEYCODE_HOME is called.
+        //      This is likely a timing issue which has to be investigated further
         getDevice().executeShellCommand("input keyevent KEYCODE_WAKEUP");
-        getDevice().executeShellCommand("input keyevent KEYCODE_WAKEUP");
+        getDevice().executeShellCommand("input keyevent KEYCODE_MENU");
+        getDevice().executeShellCommand("input keyevent KEYCODE_HOME");
+        getDevice().executeShellCommand("input keyevent KEYCODE_MENU");
+
+        //run the test
         Assert.assertTrue(runDeviceTests(TEST_PKG, TEST_CLASS, "testUserPhotoSetUp"));
+
+        //go to home screen after test
+        getDevice().executeShellCommand("input keyevent KEYCODE_HOME");
 
         //Check if TEST_FILE_NAME has been copied by "Evil activity"
         //If the file has been copied then it means the vulnerability is active so the test fails.
-        cmd = "cmp -s " + DEVICE_DIR1 + TEST_FILE_NAME + " " + DEVICE_DIR2 + TAKE_PICTURE_FILE_NAME + "; echo $?";
+        cmd = "cmp -s " + DEVICE_DIR1 + TEST_FILE_NAME + " " +
+            DEVICE_DIR2 + TAKE_PICTURE_FILE_NAME + "; echo $?";
         String result =  AdbUtils.runCommandLine(cmd, getDevice()).trim();
         CLog.i(cmd + " -->" + result);
+
+        //Delete files created by this test
+        cmd = "rm " + DEVICE_DIR2 + TAKE_PICTURE_FILE_NAME;
+        AdbUtils.runCommandLine(cmd, getDevice());
+        cmd = "rm " + DEVICE_DIR1 + TEST_FILE_NAME;
+        AdbUtils.runCommandLine(cmd, getDevice());
+
+        //final assert
         assertThat(result, not(is("0")));
     }
 

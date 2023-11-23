@@ -26,6 +26,7 @@
     <!-- use for CarServiceTest -->
     <uses-permission android:name="android.car.permission.CAR_DRIVING_STATE"/>
     <uses-permission android:name="android.car.permission.CAR_ENERGY"/>
+    <uses-permission android:name="android.car.permission.CAR_MONITOR_CLUSTER_NAVIGATION_STATE" />
     <!-- use for AndroidCarApiTest -->
     <uses-permission android:name="android.car.permission.CAR_INFO"/>
     <!-- use for AndroidCarApiTest -->
@@ -46,10 +47,15 @@
     <uses-permission android:name="android.car.permission.CAR_VENDOR_EXTENSION"/>
     <!-- use for CarServiceTest -->
     <uses-permission android:name="android.car.permission.CAR_UX_RESTRICTIONS_CONFIGURATION"/>
+    <!-- use for AndroidCarApiTest -->
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_APP_LAUNCH"/>
     <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE"/>
     <uses-permission android:name="android.car.permission.READ_CAR_STEERING"/>
     <uses-permission android:name="android.car.permission.STORAGE_MONITORING"/>
     <uses-permission android:name="android.car.permission.CAR_DYNAMICS_STATE"/>
+    <uses-permission android:name="android.car.permission.CONTROL_APP_BLOCKING"/>
+    <!-- use for CarServiceTest -->
+    <uses-permission android:name="android.car.permission.USE_CAR_TELEMETRY_SERVICE"/>
     <!-- Allow querying and writing to any property -->
     <uses-permission android:name="android.car.permission.CAR_ENERGY_PORTS" />
     <uses-permission android:name="android.car.permission.PERMISSION_CONTROL_ENERGY_PORTS" />

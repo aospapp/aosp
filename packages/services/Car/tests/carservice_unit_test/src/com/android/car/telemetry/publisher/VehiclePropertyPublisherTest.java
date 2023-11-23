@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,11 +35,13 @@ import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyEvent;
 import android.car.hardware.property.ICarPropertyEventListener;
-import android.os.Bundle;
+import android.os.Looper;
+import android.os.PersistableBundle;
 
 import com.android.car.CarPropertyService;
 import com.android.car.telemetry.TelemetryProto;
 import com.android.car.telemetry.databroker.DataSubscriber;
+import com.android.car.test.FakeHandlerWrapper;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -74,7 +77,7 @@ public class VehiclePropertyPublisherTest {
                             .setVehiclePropertyId(-200))
                     .build();
 
-    // mMockCarPropertyService supported car property list.
+    // CarPropertyConfigs for mMockCarPropertyService.
     private static final CarPropertyConfig<Integer> PROP_CONFIG_1 =
             CarPropertyConfig.newBuilder(Integer.class, PROP_ID_1, AREA_ID).setAccess(
                     CarPropertyConfig.VEHICLE_PROPERTY_ACCESS_READ).build();
@@ -82,16 +85,18 @@ public class VehiclePropertyPublisherTest {
             CarPropertyConfig.newBuilder(Integer.class, PROP_ID_2, AREA_ID).setAccess(
                     CarPropertyConfig.VEHICLE_PROPERTY_ACCESS_WRITE).build();
 
+    private final FakeHandlerWrapper mFakeHandlerWrapper =
+            new FakeHandlerWrapper(Looper.getMainLooper(), FakeHandlerWrapper.Mode.IMMEDIATE);
+
     @Mock
     private DataSubscriber mMockDataSubscriber;
-
     @Mock
     private CarPropertyService mMockCarPropertyService;
 
     @Captor
     private ArgumentCaptor<ICarPropertyEventListener> mCarPropertyCallbackCaptor;
     @Captor
-    private ArgumentCaptor<Bundle> mBundleCaptor;
+    private ArgumentCaptor<PersistableBundle> mBundleCaptor;
 
     private VehiclePropertyPublisher mVehiclePropertyPublisher;
 
@@ -100,7 +105,10 @@ public class VehiclePropertyPublisherTest {
         when(mMockDataSubscriber.getPublisherParam()).thenReturn(PUBLISHER_PARAMS_1);
         when(mMockCarPropertyService.getPropertyList())
                 .thenReturn(List.of(PROP_CONFIG_1, PROP_CONFIG_2_WRITE_ONLY));
-        mVehiclePropertyPublisher = new VehiclePropertyPublisher(mMockCarPropertyService);
+        mVehiclePropertyPublisher = new VehiclePropertyPublisher(
+                mMockCarPropertyService,
+                this::onPublisherFailure,
+                mFakeHandlerWrapper.getMockHandler());
     }
 
     @Test
@@ -108,7 +116,21 @@ public class VehiclePropertyPublisherTest {
         mVehiclePropertyPublisher.addDataSubscriber(mMockDataSubscriber);
 
         verify(mMockCarPropertyService).registerListener(eq(PROP_ID_1), eq(PROP_READ_RATE), any());
-        assertThat(mVehiclePropertyPublisher.getDataSubscribers()).hasSize(1);
+        assertThat(mVehiclePropertyPublisher.hasDataSubscriber(mMockDataSubscriber)).isTrue();
+    }
+
+    @Test
+    public void testAddDataSubscriber_withSamePropertyId_registersSingleListener() {
+        DataSubscriber subscriber2 = mock(DataSubscriber.class);
+        when(subscriber2.getPublisherParam()).thenReturn(PUBLISHER_PARAMS_1);
+
+        mVehiclePropertyPublisher.addDataSubscriber(mMockDataSubscriber);
+        mVehiclePropertyPublisher.addDataSubscriber(subscriber2);
+
+        verify(mMockCarPropertyService, times(1))
+                .registerListener(eq(PROP_ID_1), eq(PROP_READ_RATE), any());
+        assertThat(mVehiclePropertyPublisher.hasDataSubscriber(mMockDataSubscriber)).isTrue();
+        assertThat(mVehiclePropertyPublisher.hasDataSubscriber(subscriber2)).isTrue();
     }
 
     @Test
@@ -125,7 +147,7 @@ public class VehiclePropertyPublisherTest {
                 () -> mVehiclePropertyPublisher.addDataSubscriber(invalidDataSubscriber));
 
         assertThat(error).hasMessageThat().contains("No access.");
-        assertThat(mVehiclePropertyPublisher.getDataSubscribers()).isEmpty();
+        assertThat(mVehiclePropertyPublisher.hasDataSubscriber(mMockDataSubscriber)).isFalse();
     }
 
     @Test
@@ -137,7 +159,7 @@ public class VehiclePropertyPublisherTest {
                 () -> mVehiclePropertyPublisher.addDataSubscriber(invalidDataSubscriber));
 
         assertThat(error).hasMessageThat().contains("not found");
-        assertThat(mVehiclePropertyPublisher.getDataSubscribers()).isEmpty();
+        assertThat(mVehiclePropertyPublisher.hasDataSubscriber(mMockDataSubscriber)).isFalse();
     }
 
     @Test
@@ -145,21 +167,28 @@ public class VehiclePropertyPublisherTest {
         mVehiclePropertyPublisher.addDataSubscriber(mMockDataSubscriber);
 
         mVehiclePropertyPublisher.removeDataSubscriber(mMockDataSubscriber);
-        // TODO(b/189143814): add proper verification
+
+        verify(mMockCarPropertyService, times(1)).unregisterListener(eq(PROP_ID_1), any());
+        assertThat(mVehiclePropertyPublisher.hasDataSubscriber(mMockDataSubscriber)).isFalse();
     }
 
     @Test
-    public void testRemoveDataSubscriber_failsIfNotFound() {
-        Throwable error = assertThrows(IllegalArgumentException.class,
-                () -> mVehiclePropertyPublisher.removeDataSubscriber(mMockDataSubscriber));
-
-        assertThat(error).hasMessageThat().contains("subscriber not found");
+    public void testRemoveDataSubscriber_ignoresIfNotFound() {
+        mVehiclePropertyPublisher.removeDataSubscriber(mMockDataSubscriber);
     }
 
     @Test
     public void testRemoveAllDataSubscribers_succeeds() {
+        DataSubscriber subscriber2 = mock(DataSubscriber.class);
+        when(subscriber2.getPublisherParam()).thenReturn(PUBLISHER_PARAMS_1);
+        mVehiclePropertyPublisher.addDataSubscriber(mMockDataSubscriber);
+        mVehiclePropertyPublisher.addDataSubscriber(subscriber2);
+
         mVehiclePropertyPublisher.removeAllDataSubscribers();
-        // TODO(b/189143814): add tests
+
+        assertThat(mVehiclePropertyPublisher.hasDataSubscriber(mMockDataSubscriber)).isFalse();
+        assertThat(mVehiclePropertyPublisher.hasDataSubscriber(subscriber2)).isFalse();
+        verify(mMockCarPropertyService, times(1)).unregisterListener(eq(PROP_ID_1), any());
     }
 
     @Test
@@ -171,8 +200,10 @@ public class VehiclePropertyPublisherTest {
         mCarPropertyCallbackCaptor.getValue().onEvent(Collections.singletonList(PROP_EVENT_1));
 
         verify(mMockDataSubscriber).push(mBundleCaptor.capture());
-        CarPropertyEvent event = mBundleCaptor.getValue().getParcelable(
-                VehiclePropertyPublisher.CAR_PROPERTY_EVENT_KEY);
-        assertThat(event).isEqualTo(PROP_EVENT_1);
+        // TODO(b/197269115): add more assertions on the contents of
+        // PersistableBundle object.
     }
+
+    private void onPublisherFailure(AbstractPublisher publisher,
+                List<TelemetryProto.MetricsConfig> affectedConfigs, Throwable error) { }
 }

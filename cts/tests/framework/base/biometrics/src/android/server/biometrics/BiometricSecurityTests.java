@@ -76,6 +76,7 @@ public class BiometricSecurityTests extends BiometricTestBase {
      */
     @Test
     public void testBiometricStrength_StrongSensor() throws Exception {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
         final List<Integer> sensors = getSensorsOfTargetStrength(SensorProperties.STRENGTH_STRONG);
         assumeTrue("testBiometricStrength_StrongSensor: numSensors=" + sensors.size(),
                 sensors.size() > 0);
@@ -113,6 +114,7 @@ public class BiometricSecurityTests extends BiometricTestBase {
      */
     @Test
     public void testBiometricStrength_WeakSensor() throws Exception {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
         final List<Integer> sensors = getSensorsOfTargetStrength(SensorProperties.STRENGTH_WEAK);
         assumeTrue("testBiometricStrength_WeakSensor: numSensors: " + sensors.size(),
                 sensors.size() > 0);
@@ -144,6 +146,7 @@ public class BiometricSecurityTests extends BiometricTestBase {
      */
     @Test
     public void testBiometricStrength_ConvenienceSensor() throws Exception {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
         final List<Integer> sensors =
                 getSensorsOfTargetStrength(SensorProperties.STRENGTH_CONVENIENCE);
         assumeTrue("testBiometricStrength_ConvenienceSensor: numSensors=" + sensors.size(),
@@ -163,7 +166,7 @@ public class BiometricSecurityTests extends BiometricTestBase {
                 testBiometricStrength_forSensor_authDisallowed(sensorId,
                         testCases[i][0] /* originalStrength */,
                         testCases[i][1] /* requestedStrength */,
-                        sensors.size() > 1 /* hasMultiSensors */);
+                        mSensorProperties.size() > 1 /* hasMultiSensors */);
             }
         }
     }
@@ -277,6 +280,7 @@ public class BiometricSecurityTests extends BiometricTestBase {
      */
     @Test
     public void testBiometricStrengthDowngraded_StrongSensor() throws Exception {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
         final List<Integer> sensors = getSensorsOfTargetStrength(SensorProperties.STRENGTH_STRONG);
         assumeTrue("testBiometricStrengthDowngraded_StrongSensor: numSensors=" + sensors.size(),
                 sensors.size() > 0);
@@ -325,6 +329,7 @@ public class BiometricSecurityTests extends BiometricTestBase {
      */
     @Test
     public void testBiometricStrengthDowngraded_WeakSensor() throws Exception {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
         final List<Integer> sensors = getSensorsOfTargetStrength(SensorProperties.STRENGTH_WEAK);
         assumeTrue("testBiometricStrengthDowngraded_WeakSensor: numSensors: " + sensors.size(),
                 sensors.size() > 0);
@@ -439,6 +444,7 @@ public class BiometricSecurityTests extends BiometricTestBase {
      */
     @Test
     public void testBiometricStrengthUpgraded_WeakSensor() throws Exception {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
         final List<Integer> sensors = getSensorsOfTargetStrength(SensorProperties.STRENGTH_WEAK);
         assumeTrue("testBiometricStrengthUpgraded_WeakSensor: numSensors: " + sensors.size(),
                 sensors.size() > 0);
@@ -479,6 +485,7 @@ public class BiometricSecurityTests extends BiometricTestBase {
      */
     @Test
     public void testBiometricStrengthUpgraded_ConvenienceSensor() throws Exception {
+        assumeTrue(Utils.isFirstApiLevel29orGreater());
         final List<Integer> sensors =
                 getSensorsOfTargetStrength(SensorProperties.STRENGTH_CONVENIENCE);
         assumeTrue("testBiometricStrengthUpgraded_ConvenienceSensor: numSensors=" + sensors.size(),
@@ -505,7 +512,7 @@ public class BiometricSecurityTests extends BiometricTestBase {
                         testCases[i][0] /* originalStrength */,
                         testCases[i][1] /* targetStrength */,
                         testCases[i][2] /* requestedStrength */,
-                        sensors.size() > 1 /* hasMultiSensors */);
+                        mSensorProperties.size() > 1 /* hasMultiSensors */);
             }
         }
     }

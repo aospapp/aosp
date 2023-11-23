@@ -49,6 +49,7 @@
 #define PKTLOG_TYPE_MAX             12
 #define BW_OFFSET 8
 #define INVALID_RSSI 255
+#define INVALID_RATE_CODE 0xff
 
 /* Based on pkt log V2, this type of event will triggered */
 #define PKTLOG_TYPE_PKT_SW_EVENT    10

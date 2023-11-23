@@ -5,6 +5,7 @@ TOOLCHAIN = "clang"
 DEPENDS += "\
     google-trout-grpc-utils-native \
     systemd \
+    libxml2 \
 "
 
 TROUT_target_install = "\

@@ -16,9 +16,14 @@
 
 package com.android.services.telephony.rcs;
 
+import static com.android.internal.telephony.TelephonyStatsLog.SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__OUTGOING;
+
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
+
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.verify;
 
 import android.net.Uri;
 import android.telephony.ims.SipMessage;
@@ -26,9 +31,13 @@ import android.util.Base64;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.internal.telephony.metrics.RcsStats;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -90,11 +99,104 @@ public class SipSessionTrackerTest {
     // Keep track of the string entry so we can generate unique strings.
     private int mStringEntryCounter = 0;
     private SipSessionTracker mTrackerUT;
+    private static final int TEST_SUB_ID = 1;
+    private static final String TEST_INVITE_SIP_METHOD = "INVITE";
+    private static final int TEST_SIP_RESPONSE_CODE = 200;
+    private static final int TEST_SIP_CLOSE_RESPONSE_CODE = 0;
+    @Mock
+    private RcsStats mRcsStats;
 
     @Before
     public void setUp() {
         mStringEntryCounter = 0;
-        mTrackerUT = new SipSessionTracker();
+        MockitoAnnotations.initMocks(this);
+        mTrackerUT = new SipSessionTracker(TEST_SUB_ID, mRcsStats);
+    }
+
+    @Test
+    public void testMetricsEndedGracefullyBye() {
+        DialogAttributes attr = new DialogAttributes();
+        // INVITE
+        SipMessage inviteRequest = generateSipRequest(SipMessageUtils.INVITE_SIP_METHOD, attr);
+        filterMessage(inviteRequest, attr);
+        assertTrue(mTrackerUT.getConfirmedDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getEarlyDialogs(), attr);
+
+        // confirmed dialog
+        attr.setToTag();
+        SipMessage inviteConfirm = generateSipResponse("200", "OK", attr);
+        filterMessage(inviteConfirm, attr);
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getConfirmedDialogs(), attr);
+
+        // Gracefully Ended
+        SipMessage inviteClose = generateSipRequest(SipMessageUtils.BYE_SIP_METHOD, attr);
+        filterMessage(inviteClose, attr);
+
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        assertTrue(mTrackerUT.getConfirmedDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getClosedDialogs(), attr);
+
+        // verify Metrics information
+        verify(mRcsStats).onSipTransportSessionClosed(eq(TEST_SUB_ID), eq(attr.callId),
+                eq(TEST_SIP_CLOSE_RESPONSE_CODE), eq(true));
+    }
+
+    @Test
+    public void testMetricsCloseCleanupSession() {
+        //mTrackerUT.setRcsStats(mRcsStats);
+        DialogAttributes attr = new DialogAttributes();
+        // INVITE A -> B
+        SipMessage inviteRequest = generateSipRequest(SipMessageUtils.INVITE_SIP_METHOD, attr);
+        filterMessage(inviteRequest, attr);
+        assertTrue(mTrackerUT.getConfirmedDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getEarlyDialogs(), attr);
+
+        // confirmed dialog
+        attr.setToTag();
+        SipMessage inviteConfirm = generateSipResponse("200", "OK", attr);
+        filterMessage(inviteConfirm, attr);
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getConfirmedDialogs(), attr);
+
+        //forcefully close session
+        mTrackerUT.cleanupSession(attr.callId);
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        assertTrue(mTrackerUT.getConfirmedDialogs().isEmpty());
+        assertTrue(mTrackerUT.getClosedDialogs().isEmpty());
+
+        // verify Metrics information
+        verify(mRcsStats).onSipTransportSessionClosed(eq(TEST_SUB_ID), eq(attr.callId),
+                eq(TEST_SIP_CLOSE_RESPONSE_CODE), eq(false));
+    }
+
+    @Test
+    public void testMetricsCloseClearAllSessions() {
+        //mTrackerUT.setRcsStats(mRcsStats);
+        DialogAttributes attr = new DialogAttributes();
+
+        // INVITE
+        SipMessage inviteRequest = generateSipRequest(SipMessageUtils.INVITE_SIP_METHOD, attr);
+        filterMessage(inviteRequest, attr);
+        assertTrue(mTrackerUT.getConfirmedDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getEarlyDialogs(), attr);
+
+        // confirmed dialog
+        attr.setToTag();
+        SipMessage inviteConfirm = generateSipResponse("200", "OK", attr);
+        filterMessage(inviteConfirm, attr);
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getConfirmedDialogs(), attr);
+
+        //forcefully close session
+        mTrackerUT.clearAllSessions();
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        assertTrue(mTrackerUT.getConfirmedDialogs().isEmpty());
+        assertTrue(mTrackerUT.getClosedDialogs().isEmpty());
+
+        // verify Metrics information
+        verify(mRcsStats).onSipTransportSessionClosed(eq(TEST_SUB_ID), eq(attr.callId),
+                eq(TEST_SIP_CLOSE_RESPONSE_CODE), eq(false));
     }
 
     @Test
@@ -291,7 +393,8 @@ public class SipSessionTrackerTest {
     public void testAcknowledgeMessageFailed() {
         DialogAttributes attr = new DialogAttributes();
         SipMessage inviteRequest = generateSipRequest(SipMessageUtils.INVITE_SIP_METHOD, attr);
-        mTrackerUT.filterSipMessage(inviteRequest);
+        mTrackerUT.filterSipMessage(
+                SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__OUTGOING, inviteRequest);
         // Do not acknowledge the request and ensure that the operation has not been applied yet.
         assertTrue(mTrackerUT.getConfirmedDialogs().isEmpty());
         assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
@@ -310,8 +413,10 @@ public class SipSessionTrackerTest {
         // We unexpectedly received two filter requests for the same branchId without
         // acknowledgePendingMessage being called in between. Ensure that when it is called, it
         // applies both operations.
-        mTrackerUT.filterSipMessage(inviteRequest);
-        mTrackerUT.filterSipMessage(inviteConfirm);
+        mTrackerUT.filterSipMessage(
+                SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__OUTGOING, inviteRequest);
+        mTrackerUT.filterSipMessage(
+                SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__OUTGOING, inviteConfirm);
         assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
         assertTrue(mTrackerUT.getConfirmedDialogs().isEmpty());
         // we should skip right to confirmed as both operations run back-to-back
@@ -321,7 +426,8 @@ public class SipSessionTrackerTest {
     }
 
     private void filterMessage(SipMessage m, DialogAttributes attr) {
-        mTrackerUT.filterSipMessage(m);
+        mTrackerUT.filterSipMessage(
+                SIP_TRANSPORT_SESSION__SIP_MESSAGE_DIRECTION__OUTGOING, m);
         mTrackerUT.acknowledgePendingMessage(attr.branchId);
     }
     private void verifyContainsCallIds(Set<SipDialog> callIdSet, DialogAttributes... attrs) {

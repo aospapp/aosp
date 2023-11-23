@@ -1,17 +1,20 @@
 use core::convert::TryInto;
 
 use armv4t_emu::{reg, Memory};
-use gdbstub::arch;
-use gdbstub::arch::arm::reg::id::ArmCoreRegId;
 use gdbstub::target;
-use gdbstub::target::ext::base::singlethread::{ResumeAction, SingleThreadOps, StopReason};
+use gdbstub::target::ext::base::singlethread::{
+    GdbInterrupt, ResumeAction, SingleThreadOps, SingleThreadReverseContOps,
+    SingleThreadReverseStepOps, StopReason,
+};
 use gdbstub::target::ext::breakpoints::WatchKind;
 use gdbstub::target::{Target, TargetError, TargetResult};
+use gdbstub_arch::arm::reg::id::ArmCoreRegId;
 
 use crate::emu::{Emu, Event};
 
 // Additional GDB extensions
 
+mod breakpoints;
 mod extended_mode;
 mod monitor_cmd;
 mod section_offsets;
@@ -30,33 +33,40 @@ fn cpu_reg_id(id: ArmCoreRegId) -> Option<u8> {
 }
 
 impl Target for Emu {
-    type Arch = arch::arm::Armv4t;
+    type Arch = gdbstub_arch::arm::Armv4t;
     type Error = &'static str;
 
+    // --------------- IMPORTANT NOTE ---------------
+    // Always remember to annotate IDET enable methods with `inline(always)`!
+    // Without this annotation, LLVM might fail to dead-code-eliminate nested IDET
+    // implementations, resulting in unnecessary binary bloat.
+
+    #[inline(always)]
     fn base_ops(&mut self) -> target::ext::base::BaseOps<Self::Arch, Self::Error> {
         target::ext::base::BaseOps::SingleThread(self)
     }
 
-    fn sw_breakpoint(&mut self) -> Option<target::ext::breakpoints::SwBreakpointOps<Self>> {
+    #[inline(always)]
+    fn breakpoints(&mut self) -> Option<target::ext::breakpoints::BreakpointsOps<Self>> {
         Some(self)
     }
 
-    fn hw_watchpoint(&mut self) -> Option<target::ext::breakpoints::HwWatchpointOps<Self>> {
-        Some(self)
-    }
-
+    #[inline(always)]
     fn extended_mode(&mut self) -> Option<target::ext::extended_mode::ExtendedModeOps<Self>> {
         Some(self)
     }
 
+    #[inline(always)]
     fn monitor_cmd(&mut self) -> Option<target::ext::monitor_cmd::MonitorCmdOps<Self>> {
         Some(self)
     }
 
+    #[inline(always)]
     fn section_offsets(&mut self) -> Option<target::ext::section_offsets::SectionOffsetsOps<Self>> {
         Some(self)
     }
 
+    #[inline(always)]
     fn target_description_xml_override(
         &mut self,
     ) -> Option<target::ext::target_description_xml_override::TargetDescriptionXmlOverrideOps<Self>>
@@ -65,12 +75,12 @@ impl Target for Emu {
     }
 }
 
-impl SingleThreadOps for Emu {
-    fn resume(
+impl Emu {
+    fn inner_resume(
         &mut self,
         action: ResumeAction,
-        check_gdb_interrupt: &mut dyn FnMut() -> bool,
-    ) -> Result<StopReason<u32>, Self::Error> {
+        mut check_gdb_interrupt: impl FnMut() -> bool,
+    ) -> Result<StopReason<u32>, &'static str> {
         let event = match action {
             ResumeAction::Step => match self.step() {
                 Some(e) => e,
@@ -90,11 +100,12 @@ impl SingleThreadOps for Emu {
                     }
                 }
             }
+            _ => return Err("cannot resume with signal"),
         };
 
         Ok(match event {
-            Event::Halted => StopReason::Halted,
-            Event::Break => StopReason::HwBreak,
+            Event::Halted => StopReason::Terminated(19), // SIGSTOP
+            Event::Break => StopReason::SwBreak,
             Event::WatchWrite(addr) => StopReason::Watch {
                 kind: WatchKind::Write,
                 addr,
@@ -105,8 +116,22 @@ impl SingleThreadOps for Emu {
             },
         })
     }
+}
 
-    fn read_registers(&mut self, regs: &mut arch::arm::reg::ArmCoreRegs) -> TargetResult<(), Self> {
+impl SingleThreadOps for Emu {
+    fn resume(
+        &mut self,
+        action: ResumeAction,
+        gdb_interrupt: GdbInterrupt<'_>,
+    ) -> Result<StopReason<u32>, Self::Error> {
+        let mut gdb_interrupt = gdb_interrupt.no_async();
+        self.inner_resume(action, || gdb_interrupt.pending())
+    }
+
+    fn read_registers(
+        &mut self,
+        regs: &mut gdbstub_arch::arm::reg::ArmCoreRegs,
+    ) -> TargetResult<(), Self> {
         let mode = self.cpu.mode();
 
         for i in 0..13 {
@@ -120,7 +145,10 @@ impl SingleThreadOps for Emu {
         Ok(())
     }
 
-    fn write_registers(&mut self, regs: &arch::arm::reg::ArmCoreRegs) -> TargetResult<(), Self> {
+    fn write_registers(
+        &mut self,
+        regs: &gdbstub_arch::arm::reg::ArmCoreRegs,
+    ) -> TargetResult<(), Self> {
         let mode = self.cpu.mode();
 
         for i in 0..13 {
@@ -132,37 +160,6 @@ impl SingleThreadOps for Emu {
         self.cpu.reg_set(mode, reg::CPSR, regs.cpsr);
 
         Ok(())
-    }
-
-    fn read_register(
-        &mut self,
-        reg_id: arch::arm::reg::id::ArmCoreRegId,
-        dst: &mut [u8],
-    ) -> TargetResult<(), Self> {
-        if let Some(i) = cpu_reg_id(reg_id) {
-            let w = self.cpu.reg_get(self.cpu.mode(), i);
-            dst.copy_from_slice(&w.to_le_bytes());
-            Ok(())
-        } else {
-            Err(().into())
-        }
-    }
-
-    fn write_register(
-        &mut self,
-        reg_id: arch::arm::reg::id::ArmCoreRegId,
-        val: &[u8],
-    ) -> TargetResult<(), Self> {
-        let w = u32::from_le_bytes(
-            val.try_into()
-                .map_err(|_| TargetError::Fatal("invalid data"))?,
-        );
-        if let Some(i) = cpu_reg_id(reg_id) {
-            self.cpu.reg_set(self.cpu.mode(), i, w);
-            Ok(())
-        } else {
-            Err(().into())
-        }
     }
 
     fn read_addrs(&mut self, start_addr: u32, data: &mut [u8]) -> TargetResult<(), Self> {
@@ -178,47 +175,110 @@ impl SingleThreadOps for Emu {
         }
         Ok(())
     }
+
+    #[inline(always)]
+    fn single_register_access(
+        &mut self,
+    ) -> Option<target::ext::base::SingleRegisterAccessOps<(), Self>> {
+        Some(self)
+    }
+
+    #[inline(always)]
+    fn support_reverse_cont(&mut self) -> Option<SingleThreadReverseContOps<Self>> {
+        Some(self)
+    }
+
+    #[inline(always)]
+    fn support_reverse_step(&mut self) -> Option<SingleThreadReverseStepOps<Self>> {
+        Some(self)
+    }
+
+    #[inline(always)]
+    fn support_resume_range_step(
+        &mut self,
+    ) -> Option<target::ext::base::singlethread::SingleThreadRangeSteppingOps<Self>> {
+        Some(self)
+    }
 }
 
-impl target::ext::breakpoints::SwBreakpoint for Emu {
-    fn add_sw_breakpoint(&mut self, addr: u32) -> TargetResult<bool, Self> {
-        self.breakpoints.push(addr);
-        Ok(true)
+impl target::ext::base::SingleRegisterAccess<()> for Emu {
+    fn read_register(
+        &mut self,
+        _tid: (),
+        reg_id: gdbstub_arch::arm::reg::id::ArmCoreRegId,
+        dst: &mut [u8],
+    ) -> TargetResult<(), Self> {
+        if let Some(i) = cpu_reg_id(reg_id) {
+            let w = self.cpu.reg_get(self.cpu.mode(), i);
+            dst.copy_from_slice(&w.to_le_bytes());
+            Ok(())
+        } else {
+            Err(().into())
+        }
     }
 
-    fn remove_sw_breakpoint(&mut self, addr: u32) -> TargetResult<bool, Self> {
-        match self.breakpoints.iter().position(|x| *x == addr) {
-            None => return Ok(false),
-            Some(pos) => self.breakpoints.remove(pos),
-        };
-
-        Ok(true)
+    fn write_register(
+        &mut self,
+        _tid: (),
+        reg_id: gdbstub_arch::arm::reg::id::ArmCoreRegId,
+        val: &[u8],
+    ) -> TargetResult<(), Self> {
+        let w = u32::from_le_bytes(
+            val.try_into()
+                .map_err(|_| TargetError::Fatal("invalid data"))?,
+        );
+        if let Some(i) = cpu_reg_id(reg_id) {
+            self.cpu.reg_set(self.cpu.mode(), i, w);
+            Ok(())
+        } else {
+            Err(().into())
+        }
     }
 }
 
-impl target::ext::breakpoints::HwWatchpoint for Emu {
-    fn add_hw_watchpoint(&mut self, addr: u32, kind: WatchKind) -> TargetResult<bool, Self> {
-        match kind {
-            WatchKind::Write => self.watchpoints.push(addr),
-            WatchKind::Read => self.watchpoints.push(addr),
-            WatchKind::ReadWrite => self.watchpoints.push(addr),
-        };
-
-        Ok(true)
+impl target::ext::base::singlethread::SingleThreadReverseCont for Emu {
+    fn reverse_cont(
+        &mut self,
+        gdb_interrupt: GdbInterrupt<'_>,
+    ) -> Result<StopReason<u32>, Self::Error> {
+        // FIXME: actually implement reverse step
+        eprintln!(
+            "FIXME: Not actually reverse-continuing. Performing forwards continue instead..."
+        );
+        self.resume(ResumeAction::Continue, gdb_interrupt)
     }
+}
 
-    fn remove_hw_watchpoint(&mut self, addr: u32, kind: WatchKind) -> TargetResult<bool, Self> {
-        let pos = match self.watchpoints.iter().position(|x| *x == addr) {
-            None => return Ok(false),
-            Some(pos) => pos,
-        };
+impl target::ext::base::singlethread::SingleThreadReverseStep for Emu {
+    fn reverse_step(
+        &mut self,
+        gdb_interrupt: GdbInterrupt<'_>,
+    ) -> Result<StopReason<u32>, Self::Error> {
+        // FIXME: actually implement reverse step
+        eprintln!(
+            "FIXME: Not actually reverse-stepping. Performing single forwards step instead..."
+        );
+        self.resume(ResumeAction::Step, gdb_interrupt)
+    }
+}
 
-        match kind {
-            WatchKind::Write => self.watchpoints.remove(pos),
-            WatchKind::Read => self.watchpoints.remove(pos),
-            WatchKind::ReadWrite => self.watchpoints.remove(pos),
-        };
+impl target::ext::base::singlethread::SingleThreadRangeStepping for Emu {
+    fn resume_range_step(
+        &mut self,
+        start: u32,
+        end: u32,
+        gdb_interrupt: GdbInterrupt<'_>,
+    ) -> Result<StopReason<u32>, Self::Error> {
+        let mut gdb_interrupt = gdb_interrupt.no_async();
+        loop {
+            match self.inner_resume(ResumeAction::Step, || gdb_interrupt.pending())? {
+                StopReason::DoneStep => {}
+                stop_reason => return Ok(stop_reason),
+            }
 
-        Ok(true)
+            if !(start..end).contains(&self.cpu.reg_get(self.cpu.mode(), reg::PC)) {
+                return Ok(StopReason::DoneStep);
+            }
+        }
     }
 }

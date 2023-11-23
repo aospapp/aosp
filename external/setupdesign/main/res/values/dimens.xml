@@ -17,6 +17,19 @@
 
 <resources xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Device default style -->
+
+    <!-- Copy from Widget.DeviceDefault.Button.ButtonBar.AlertDialog -->
+    <!-- Dialog button bar width -->
+    <dimen name="sud_alert_dialog_button_bar_width">64dp</dimen>
+    <!-- Dialog button bar height -->
+    <dimen name="sud_alert_dialog_button_bar_height">48dip</dimen>
+
+    <!-- Dialog button bar button text size -->
+    <dimen name="sud_alert_dialog_button_bar_button_text_size">14sp</dimen>
+    <!-- Dialog title text size -->
+    <dimen name="sud_alert_dialog_title_text_size">20sp</dimen>
+
     <!-- General -->
     <dimen name="sud_layout_margin_sides">40dp</dimen>
 
@@ -37,6 +50,7 @@
     <dimen name="sud_glif_margin_start">24dp</dimen>
     <dimen name="sud_glif_margin_end">24dp</dimen>
     <dimen name="sud_glif_icon_margin_top">56dp</dimen>
+    <dimen name="sud_horizontal_icon_height">32dp</dimen>
 
     <dimen name="sud_glif_alert_dialog_corner_radius">8dp</dimen>
     <dimen name="sud_glif_v3_button_corner_radius">4dp</dimen>
@@ -181,6 +195,8 @@
     <!-- Progress bar -->
     <!-- The margin to compensate for the padding built-in to the widget itself -->
     <dimen name="sud_progress_bar_margin_vertical">-7dp</dimen>
+    <dimen name="sud_progress_bar_margin_top">-7dp</dimen>
+    <dimen name="sud_progress_bar_margin_bottom">-7dp</dimen>
     <dimen name="sud_glif_progress_bar_margin_vertical">7dp</dimen>
     <dimen name="sud_glif_progress_bar_padding">40dp</dimen>
 

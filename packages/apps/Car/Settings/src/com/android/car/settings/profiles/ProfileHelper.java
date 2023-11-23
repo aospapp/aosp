@@ -15,6 +15,9 @@
  */
 package com.android.car.settings.profiles;
 
+import static com.android.car.settings.enterprise.ActionDisabledByAdminDialogFragment.DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG;
+import static com.android.car.settings.enterprise.EnterpriseUtils.hasUserRestrictionByDpm;
+
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
@@ -35,8 +38,11 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.sysprop.CarProperties;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.enterprise.EnterpriseUtils;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.lang.annotation.Retention;
@@ -102,7 +108,8 @@ public class ProfileHelper {
         if (sInstance == null) {
             Context appContext = context.getApplicationContext();
             Resources resources = appContext.getResources();
-            sInstance = new ProfileHelper(UserManager.get(appContext), resources,
+            sInstance = new ProfileHelper(
+                    appContext.getSystemService(UserManager.class), resources,
                     resources.getString(com.android.internal.R.string.owner_name),
                     resources.getString(R.string.user_guest),
                     getCarUserManager(appContext));
@@ -207,8 +214,17 @@ public class ProfileHelper {
         }
     }
 
-    private boolean switchProfile(@UserIdInt int userId) {
+    /**
+     * Switches to the given profile.
+     */
+    // TODO(b/186905050, b/205185521): add unit / robo test
+    public boolean switchProfile(@UserIdInt int userId) {
+        Log.i(TAG, "Switching to profile / user " + userId);
+
         UserSwitchResult result = getResult("switch", mCarUserManager.switchUser(userId));
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "Result: " + result);
+        }
         return result != null && result.isSuccess();
     }
 
@@ -332,8 +348,14 @@ public class ProfileHelper {
      */
     public boolean canCurrentProcessModifyAccounts() {
         return !mUserManager.hasUserRestriction(UserManager.DISALLOW_MODIFY_ACCOUNTS)
-                && !mUserManager.isDemoUser()
-                && !mUserManager.isGuestUser();
+                && !isDemoOrGuest();
+    }
+
+    /**
+     * Checks if the current process is demo or guest user.
+     */
+    public boolean isDemoOrGuest() {
+        return mUserManager.isDemoUser() || mUserManager.isGuestUser();
     }
 
     /**
@@ -456,5 +478,28 @@ public class ProfileHelper {
      */
     public int getMaxSupportedRealProfiles() {
         return getMaxSupportedProfiles() - getManagedProfilesCount();
+    }
+
+    /**
+     * When the Preference is disabled while still visible, {@code ActionDisabledByAdminDialog}
+     * should be shown when the action is disallowed by a device owner or a profile owner.
+     * Otherwise, a {@code Toast} will be shown to inform the user that the action is disabled.
+     */
+    public static void runClickableWhileDisabled(Context context,
+            FragmentController fragmentController) {
+        if (hasUserRestrictionByDpm(context, UserManager.DISALLOW_MODIFY_ACCOUNTS)) {
+            showActionDisabledByAdminDialog(context, fragmentController);
+        } else {
+            Toast.makeText(context, context.getString(R.string.action_unavailable),
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private static void showActionDisabledByAdminDialog(Context context,
+            FragmentController fragmentController) {
+        fragmentController.showDialog(
+                EnterpriseUtils.getActionDisabledByAdminDialog(context,
+                        UserManager.DISALLOW_MODIFY_ACCOUNTS),
+                DISABLED_BY_ADMIN_CONFIRM_DIALOG_TAG);
     }
 }

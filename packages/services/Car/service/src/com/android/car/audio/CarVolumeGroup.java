@@ -150,28 +150,41 @@ import java.util.Map;
 
     int getCurrentGainIndex() {
         synchronized (mLock) {
-            return mCurrentGainIndex;
+            if (mIsMuted) {
+                return getIndexForGain(mMinGain);
+            }
+            return getCurrentGainIndexLocked();
         }
+    }
+
+    private int getCurrentGainIndexLocked() {
+        return mCurrentGainIndex;
     }
 
     /**
      * Sets the gain on this group, gain will be set on all devices within volume group.
      */
     void setCurrentGainIndex(int gainIndex) {
-        int gainInMillibels = getGainForIndex(gainIndex);
         Preconditions.checkArgument(isValidGainIndex(gainIndex),
-                "Gain out of range (%d:%d) %d index %d", mMinGain, mMaxGain,
-                gainInMillibels, gainIndex);
+                "Gain out of range (%d:%d) index %d", mMinGain, mMaxGain, gainIndex);
         synchronized (mLock) {
-            for (String address : mAddressToCarAudioDeviceInfo.keySet()) {
-                CarAudioDeviceInfo info = mAddressToCarAudioDeviceInfo.get(address);
-                info.setCurrentGain(gainInMillibels);
+            if (mIsMuted) {
+                setMuteLocked(false);
             }
-
-            mCurrentGainIndex = gainIndex;
-
-            storeGainIndexForUserLocked(mCurrentGainIndex, mUserId);
+            setCurrentGainIndexLocked(gainIndex);
         }
+    }
+
+    private void setCurrentGainIndexLocked(int gainIndex) {
+        int gainInMillibels = getGainForIndex(gainIndex);
+        for (String address : mAddressToCarAudioDeviceInfo.keySet()) {
+            CarAudioDeviceInfo info = mAddressToCarAudioDeviceInfo.get(address);
+            info.setCurrentGain(gainInMillibels);
+        }
+
+        mCurrentGainIndex = gainIndex;
+
+        storeGainIndexForUserLocked(mCurrentGainIndex, mUserId);
     }
 
     @Nullable
@@ -233,18 +246,22 @@ import java.util.Map;
             updateUserIdLocked(userId);
             //Update the current gain index
             updateCurrentGainIndexLocked();
+            setCurrentGainIndexLocked(getCurrentGainIndexLocked());
             //Reset devices with current gain index
             updateGroupMuteLocked();
         }
-        setCurrentGainIndex(getCurrentGainIndex());
     }
 
     void setMute(boolean mute) {
         synchronized (mLock) {
-            mIsMuted = mute;
-            if (mSettingsManager.isPersistVolumeGroupMuteEnabled(mUserId)) {
-                mSettingsManager.storeVolumeGroupMuteForUser(mUserId, mZoneId, mId, mute);
-            }
+            setMuteLocked(mute);
+        }
+    }
+
+    void setMuteLocked(boolean mute) {
+        mIsMuted = mute;
+        if (mSettingsManager.isPersistVolumeGroupMuteEnabled(mUserId)) {
+            mSettingsManager.storeVolumeGroupMuteForUser(mUserId, mZoneId, mId, mute);
         }
     }
 

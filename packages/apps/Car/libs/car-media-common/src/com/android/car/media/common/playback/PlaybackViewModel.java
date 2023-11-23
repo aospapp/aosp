@@ -18,7 +18,7 @@ package com.android.car.media.common.playback;
 
 import static androidx.lifecycle.Transformations.switchMap;
 
-import static com.android.car.arch.common.LiveDataFunctions.dataOf;
+import static com.android.car.apps.common.util.LiveDataFunctions.dataOf;
 import static com.android.car.media.common.playback.PlaybackStateAnnotations.Actions;
 
 import android.app.Application;

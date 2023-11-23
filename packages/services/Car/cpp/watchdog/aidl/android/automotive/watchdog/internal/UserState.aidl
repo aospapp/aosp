@@ -32,6 +32,11 @@ enum UserState {
   USER_STATE_STOPPED,
 
   /**
+   * The user is removed.
+   */
+  USER_STATE_REMOVED,
+
+  /**
    * Number of available user states.
    */
   NUM_USER_STATES,

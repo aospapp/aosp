@@ -28,6 +28,7 @@ import com.android.wallpaper.monitor.PerformanceMonitor;
 import com.android.wallpaper.network.Requester;
 import com.android.wallpaper.picker.PreviewFragment.PreviewMode;
 import com.android.wallpaper.picker.individual.IndividualPickerFragment;
+import com.android.wallpaper.util.DisplayUtils;
 
 /**
  * Interface for a provider of "injected dependencies." (NOTE: The term "injector" is somewhat of a
@@ -62,6 +63,8 @@ public interface Injector {
 
     WallpaperManagerCompat getWallpaperManagerCompat(Context context);
 
+    WallpaperStatusChecker getWallpaperStatusChecker();
+
     WallpaperPersister getWallpaperPersister(Context context);
 
     WallpaperPreferences getPreferences(Context context);
@@ -75,6 +78,7 @@ public interface Injector {
             WallpaperInfo wallpaperInfo,
             @PreviewMode int mode,
             boolean viewAsHome,
+            boolean viewFullScreen,
             boolean testingModeEnabled);
 
     PackageStatusNotifier getPackageStatusNotifier(Context context);
@@ -90,4 +94,9 @@ public interface Injector {
     String getDownloadableIntentAction();
 
     CustomizationSections getCustomizationSections();
+
+    /**
+     * @return the singleton instance of {@link DisplayUtils}
+     */
+    DisplayUtils getDisplayUtils(Context context);
 }

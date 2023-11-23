@@ -127,6 +127,9 @@ public class GrantPermissionsActivity extends SettingsActivity
 
     @Override
     public void onCreate(Bundle icicle) {
+        if (DeviceUtils.isAuto(this)) {
+            setTheme(R.style.GrantPermissions_Car_FilterTouches);
+        }
         super.onCreate(icicle);
 
         if (icicle == null) {

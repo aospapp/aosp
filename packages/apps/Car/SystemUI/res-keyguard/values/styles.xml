@@ -20,23 +20,22 @@
          fit its container since auto wants the icon to be larger. The padding is added to make it
          so the icon does not press along the edges of the dialog. -->
     <style name="NumPadKeyButton">
-        <item name="android:layout_width">@dimen/num_pad_key_width</item>
-        <item name="android:layout_height">@dimen/num_pad_key_height</item>
-        <item name="android:layout_marginBottom">@dimen/num_pad_key_margin_bottom</item>
+        <!-- NOTE: layout_width and layout_height must be set to 0dp for the buttons to render. -->
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">0dp</item>
         <item name="android:background">?android:attr/selectableItemBackground</item>
         <item name="textView">@id/pinEntry</item>
     </style>
 
-    <style name="NumPadKeyButton.MiddleColumn">
+    <style name="NumPadKeyButton.land">
+        <item name="android:layout_width">@dimen/num_pad_key_width</item>
+        <item name="android:layout_height">@dimen/num_pad_key_height</item>
     </style>
 
     <style name="NumPadKeyButton.LastRow">
         <item name="android:layout_marginBottom">0dp</item>
         <item name="android:colorControlNormal">?android:attr/colorBackground</item>
         <item name="android:colorControlHighlight">?android:attr/colorAccent</item>
-    </style>
-
-    <style name="NumPadKeyButton.LastRow.MiddleColumn">
     </style>
 
     <style name="KeyguardButton" parent="@android:style/Widget.DeviceDefault.Button">

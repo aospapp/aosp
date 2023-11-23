@@ -21,6 +21,8 @@
         coreApp="true"
         android:sharedUserId="android.uid.shell"
         >
+    <!-- Permission required for ATS tests - AtsAudioDeviceTest#resetVolumeMute-->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_ROUTING" />
     <!-- To pass GtsInstallPackagesWhitelistDeviceTestCases b/173156153 -->
     <uses-permission android:name="android.permission.INSTALL_PACKAGES" />
     <!-- Permission required for ATS tests - AtsCarHostTestCases, AtsCarDeviceApp -->

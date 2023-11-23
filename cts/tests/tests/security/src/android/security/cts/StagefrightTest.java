@@ -1151,7 +1151,7 @@ public class StagefrightTest {
     }
 
     @Test
-    @AsbSecurityTest(cveBugId = 110435401)
+    @AsbSecurityTest(cveBugId = 68664359)
     public void testStagefright_bug_110435401() throws Exception {
         doStagefrightTest(R.raw.bug_110435401, 60000);
     }
@@ -1770,6 +1770,18 @@ public class StagefrightTest {
      ***********************************************************/
 
     @Test
+    @AsbSecurityTest(cveBugId = 179039901)
+    public void testStagefright_cve_2021_1910() throws Exception {
+        doStagefrightTest(R.raw.cve_2021_1910);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 175038625)
+    public void testStagefright_cve_2020_11299() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_11299);
+    }
+
+    @Test
     @AsbSecurityTest(cveBugId = 162756960)
     public void testStagefright_cve_2020_11196() throws Exception {
         doStagefrightTest(R.raw.cve_2020_11196);
@@ -1808,6 +1820,16 @@ public class StagefrightTest {
      to prevent merge conflicts, add Q tests below this comment,
      before any existing test methods
      ***********************************************************/
+    @Test
+    @AsbSecurityTest(cveBugId = 136175447)
+    public void testStagefright_cve_2019_2186() throws Exception {
+        long end = System.currentTimeMillis() + 180000; // 3 minutes from now
+        while (System.currentTimeMillis() < end) {
+            doStagefrightTestRawBlob(R.raw.cve_2019_2186, "video/3gpp", 128, 96,
+                    new CrashUtils.Config().setSignals(CrashUtils.SIGSEGV, CrashUtils.SIGBUS,
+                            CrashUtils.SIGABRT));
+        }
+    }
 
     @Test
     @AsbSecurityTest(cveBugId = 140692129)
@@ -2604,6 +2626,13 @@ public class StagefrightTest {
     @AsbSecurityTest(cveBugId = 127313764)
     public void testBug_127313764() throws Exception {
         assertExtractorDoesNotHang(R.raw.bug_127313764);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 189402477)
+    public void testStagefright_cve_2021_0635() throws Exception {
+        doStagefrightTest(R.raw.cve_2021_0635_1);
+        doStagefrightTest(R.raw.cve_2021_0635_2);
     }
 
     private int[] getFrameSizes(int rid) throws IOException {

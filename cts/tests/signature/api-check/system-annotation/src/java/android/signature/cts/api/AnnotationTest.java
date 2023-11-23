@@ -16,13 +16,17 @@
 
 package android.signature.cts.api;
 
-import android.os.Build;
 import android.os.Bundle;
 import android.signature.cts.AnnotationChecker;
 import android.signature.cts.ApiDocumentParser;
 import android.signature.cts.JDiffClassDescription;
 
+import android.signature.cts.LogHelper;
+import android.util.Log;
+import androidx.test.InstrumentationRegistry;
+import com.android.compatibility.common.util.DynamicConfigDeviceSide;
 import com.android.compatibility.common.util.PropertyUtil;
+import java.util.List;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -36,14 +40,24 @@ import java.util.function.Predicate;
 public class AnnotationTest extends AbstractApiTest {
 
     private static final String TAG = AnnotationTest.class.getSimpleName();
+    private static final String MODULE_NAME = "CtsSystemApiAnnotationTestCases";
 
     private String[] mExpectedApiFiles;
     private String mAnnotationForExactMatch;
 
     @Override
     protected void initializeFromArgs(Bundle instrumentationArgs) throws Exception {
-        mExpectedApiFiles = getCommaSeparatedList(instrumentationArgs, "expected-api-files");
+        mExpectedApiFiles = getCommaSeparatedListRequired(instrumentationArgs, "expected-api-files");
         mAnnotationForExactMatch = instrumentationArgs.getString("annotation-for-exact-match");
+
+        // Make sure that the Instrumentation provided to this test is registered so it can be
+        // retrieved by the DynamicConfigDeviceSide below.
+        InstrumentationRegistry.registerInstance(getInstrumentation(), new Bundle());
+
+        // Get the DynamicConfig.xml contents and extract the expected failures list.
+        DynamicConfigDeviceSide dcds = new DynamicConfigDeviceSide(MODULE_NAME);
+        List<String> expectedFailures = dcds.getValues("expected_failures");
+        initExpectedFailures(expectedFailures);
     }
 
     private Predicate<? super JDiffClassDescription> androidAutoClassesFilter() {

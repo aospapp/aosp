@@ -160,11 +160,9 @@ public class CarrierPrivilegeUtils {
             // the CarrierConfig override (as it will override the existing shell permissions).
             if (isShell) {
                 configManager.overrideConfig(subId, carrierConfigs);
-                configManager.notifyConfigChangedForSubId(subId);
             } else {
                 runWithShellPermissionIdentity(() -> {
                     configManager.overrideConfig(subId, carrierConfigs);
-                    configManager.notifyConfigChangedForSubId(subId);
                 }, android.Manifest.permission.MODIFY_PHONE_STATE);
             }
 

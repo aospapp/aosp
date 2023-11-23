@@ -44,7 +44,7 @@ TestBeds:
       test_length: 7
       debug_mode: "False"  # quotes are needed here
       chart_distance: 25
-      rotator_cntl: <controller-type>  # can be arduino or canakit
+      rotator_cntl: <controller-type>  # arduino, canakit, or as-is for manual
       rotator_ch: <controller-channel>
       camera: <camera-id>
 

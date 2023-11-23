@@ -36,7 +36,9 @@ import com.android.queryable.util.SerializableParcelWrapper;
  */
 public final class DeviceAdminDisableRequestedEvent extends Event {
 
-    /** Begin a query for {@link DeviceAdminDisableRequestedEvent} events. */
+    private static final long serialVersionUID = 1;
+
+    /** Begins a query for {@link DeviceAdminDisableRequestedEvent} events. */
     public static DeviceAdminDisableRequestedEventQuery queryPackage(String packageName) {
         return new DeviceAdminDisableRequestedEventQuery(packageName);
     }
@@ -45,6 +47,9 @@ public final class DeviceAdminDisableRequestedEvent extends Event {
     public static final class DeviceAdminDisableRequestedEventQuery
             extends EventLogsQuery<DeviceAdminDisableRequestedEvent,
             DeviceAdminDisableRequestedEventQuery> {
+
+        private static final long serialVersionUID = 1;
+
         DeviceAdminReceiverQueryHelper<DeviceAdminDisableRequestedEventQuery> mDeviceAdminReceiver =
                 new DeviceAdminReceiverQueryHelper<>(this);
         IntentQueryHelper<DeviceAdminDisableRequestedEventQuery> mIntent =
@@ -55,7 +60,7 @@ public final class DeviceAdminDisableRequestedEvent extends Event {
         }
 
         /**
-         * Query {@link Intent} passed into
+         * Queries {@link Intent} passed into
          * {@link DeviceAdminReceiver#onDisableRequested(Context, Intent)}.
          */
         @CheckResult
@@ -63,7 +68,7 @@ public final class DeviceAdminDisableRequestedEvent extends Event {
             return mIntent;
         }
 
-        /** Query {@link DeviceAdminReceiver}. */
+        /** Queries {@link DeviceAdminReceiver}. */
         @CheckResult
         public DeviceAdminReceiverQuery<DeviceAdminDisableRequestedEventQuery>
                 whereDeviceAdminReceiver() {
@@ -80,9 +85,17 @@ public final class DeviceAdminDisableRequestedEvent extends Event {
             }
             return true;
         }
+
+        @Override
+        public String describeQuery(String fieldName) {
+            return toStringBuilder(DeviceAdminDisableRequestedEvent.class, this)
+                    .field("intent", mIntent)
+                    .field("deviceAdminReceiver", mDeviceAdminReceiver)
+                    .toString();
+        }
     }
 
-    /** Begin logging a {@link DeviceAdminDisableRequestedEvent}. */
+    /** Begins logging a {@link DeviceAdminDisableRequestedEvent}. */
     public static DeviceAdminDisableRequestedEventLogger logger(
             DeviceAdminReceiver deviceAdminReceiver, Context context, Intent intent) {
         return new DeviceAdminDisableRequestedEventLogger(deviceAdminReceiver, context, intent);
@@ -98,28 +111,28 @@ public final class DeviceAdminDisableRequestedEvent extends Event {
             setDeviceAdminReceiver(deviceAdminReceiver);
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminDisableRequestedEventLogger setDeviceAdminReceiver(
                 DeviceAdminReceiver deviceAdminReceiver) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiver);
             return this;
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminDisableRequestedEventLogger setDeviceAdminReceiver(
                 Class<? extends DeviceAdminReceiver> deviceAdminReceiverClass) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiverClass);
             return this;
         }
 
-        /** Set the {@link DeviceAdminReceiver} which received this event. */
+        /** Sets the {@link DeviceAdminReceiver} which received this event. */
         public DeviceAdminDisableRequestedEventLogger setDeviceAdminReceiver(
                 String deviceAdminReceiverClassName) {
             mEvent.mDeviceAdminReceiver = new DeviceAdminReceiverInfo(deviceAdminReceiverClassName);
             return this;
         }
 
-        /** Set the {@link Intent} which was received. */
+        /** Sets the {@link Intent} which was received. */
         public DeviceAdminDisableRequestedEventLogger setIntent(Intent intent) {
             mEvent.mIntent = new SerializableParcelWrapper<>(intent);
             return this;

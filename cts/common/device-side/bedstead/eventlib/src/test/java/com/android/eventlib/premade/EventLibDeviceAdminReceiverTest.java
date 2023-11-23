@@ -18,41 +18,77 @@ package com.android.eventlib.premade;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
+import android.os.PersistableBundle;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoDeviceOwner;
+import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoProfileOwner;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.devicepolicy.DeviceOwner;
 import com.android.bedstead.nene.devicepolicy.ProfileOwner;
 import com.android.bedstead.nene.users.UserReference;
 import com.android.eventlib.EventLogs;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminBugreportFailedEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminBugreportSharedEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminBugreportSharingDeclinedEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminChoosePrivateKeyAliasEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminDisableRequestedEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminDisabledEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminEnabledEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminLockTaskModeEnteringEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminLockTaskModeExitingEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminNetworkLogsAvailableEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminOperationSafetyStateChangedEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminPasswordChangedEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminPasswordExpiringEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminPasswordFailedEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminPasswordSucceededEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminProfileProvisioningCompleteEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminReadyForUserInitializationEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminSecurityLogsAvailableEvent;
 import com.android.eventlib.events.deviceadminreceivers.DeviceAdminSystemUpdatePendingEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminTransferAffiliatedProfileOwnershipCompleteEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminTransferOwnershipCompleteEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminUserAddedEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminUserRemovedEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminUserStartedEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminUserStoppedEvent;
+import com.android.eventlib.events.deviceadminreceivers.DeviceAdminUserSwitchedEvent;
 
 import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(BedsteadJUnit4.class)
 public class EventLibDeviceAdminReceiverTest {
 
-    private static final TestApis sTestApis = new TestApis();
-    private static final Context sContext = sTestApis.context().instrumentedContext();
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
+
+    private static final Context sContext = TestApis.context().instrumentedContext();
     private static final ComponentName DEVICE_ADMIN_COMPONENT =
             new ComponentName(
                     sContext.getPackageName(), EventLibDeviceAdminReceiver.class.getName());
-    private static final UserReference sUser = sTestApis.users().instrumented();
-    private static final DevicePolicyManager sDevicePolicyManager =
-            sContext.getSystemService(DevicePolicyManager.class);
+    private static final UserReference sUser = TestApis.users().instrumented();
     private static final Intent sIntent = new Intent();
+    private static final String PKG = "package";
+    private static final int UID = 1;
+    private static final Uri URI = Uri.parse("http://uri");
+    private static final String ALIAS = "alias";
+    private static final String BUGREPORT_HASH = "A";
+    private static final int FAILURE_CODE = 1;
+    private static final long BATCH_TOKEN = 1;
+    private static final int NETWORK_LOGS_COUNT = 1;
+    private static final PersistableBundle sPersistableBundle = new PersistableBundle();
+    private static final int REASON = 1;
+    private static final boolean IS_SAFE = true;
 
     @Before
     public void setUp() {
@@ -60,9 +96,10 @@ public class EventLibDeviceAdminReceiverTest {
     }
 
     @Test
+    @EnsureHasNoDeviceOwner
     public void enableDeviceOwner_logsEnabledEvent() {
         DeviceOwner deviceOwner =
-                sTestApis.devicePolicy().setDeviceOwner(sUser, DEVICE_ADMIN_COMPONENT);
+                TestApis.devicePolicy().setDeviceOwner(DEVICE_ADMIN_COMPONENT);
 
         try {
             EventLogs<DeviceAdminEnabledEvent> eventLogs =
@@ -75,9 +112,10 @@ public class EventLibDeviceAdminReceiverTest {
     }
 
     @Test
+    @EnsureHasNoProfileOwner
     public void enableProfileOwner_logsEnabledEvent() {
         ProfileOwner profileOwner =
-                sTestApis.devicePolicy().setProfileOwner(sUser, DEVICE_ADMIN_COMPONENT);
+                TestApis.devicePolicy().setProfileOwner(sUser, DEVICE_ADMIN_COMPONENT);
 
         try {
             EventLogs<DeviceAdminEnabledEvent> eventLogs =
@@ -97,7 +135,7 @@ public class EventLibDeviceAdminReceiverTest {
 
         EventLogs<DeviceAdminDisableRequestedEvent> eventLogs =
                 DeviceAdminDisableRequestedEvent.queryPackage(sContext.getPackageName());
-        assertThat(eventLogs.poll()).isNotNull();
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
     }
 
     @Test
@@ -108,7 +146,7 @@ public class EventLibDeviceAdminReceiverTest {
 
         EventLogs<DeviceAdminDisabledEvent> eventLogs =
                 DeviceAdminDisabledEvent.queryPackage(sContext.getPackageName());
-        assertThat(eventLogs.poll()).isNotNull();
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
     }
 
     @Test
@@ -119,7 +157,7 @@ public class EventLibDeviceAdminReceiverTest {
 
         EventLogs<DeviceAdminPasswordChangedEvent> eventLogs =
                 DeviceAdminPasswordChangedEvent.queryPackage(sContext.getPackageName());
-        assertThat(eventLogs.poll()).isNotNull();
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
     }
 
     @Test
@@ -130,7 +168,9 @@ public class EventLibDeviceAdminReceiverTest {
 
         EventLogs<DeviceAdminPasswordChangedEvent> eventLogs =
                 DeviceAdminPasswordChangedEvent.queryPackage(sContext.getPackageName());
-        assertThat(eventLogs.poll().userHandle()).isEqualTo(sUser.userHandle());
+        DeviceAdminPasswordChangedEvent event = eventLogs.poll();
+        assertThat(event.intent()).isEqualTo(sIntent);
+        assertThat(event.userHandle()).isEqualTo(sUser.userHandle());
     }
 
     @Test
@@ -141,7 +181,7 @@ public class EventLibDeviceAdminReceiverTest {
 
         EventLogs<DeviceAdminPasswordFailedEvent> eventLogs =
                 DeviceAdminPasswordFailedEvent.queryPackage(sContext.getPackageName());
-        assertThat(eventLogs.poll()).isNotNull();
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
     }
 
     @Test
@@ -152,7 +192,9 @@ public class EventLibDeviceAdminReceiverTest {
 
         EventLogs<DeviceAdminPasswordFailedEvent> eventLogs =
                 DeviceAdminPasswordFailedEvent.queryPackage(sContext.getPackageName());
-        assertThat(eventLogs.poll().userHandle()).isEqualTo(sUser.userHandle());
+        DeviceAdminPasswordFailedEvent event = eventLogs.poll();
+        assertThat(event.intent()).isEqualTo(sIntent);
+        assertThat(event.userHandle()).isEqualTo(sUser.userHandle());
     }
 
     @Test
@@ -163,7 +205,7 @@ public class EventLibDeviceAdminReceiverTest {
 
         EventLogs<DeviceAdminPasswordSucceededEvent> eventLogs =
                 DeviceAdminPasswordSucceededEvent.queryPackage(sContext.getPackageName());
-        assertThat(eventLogs.poll()).isNotNull();
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
     }
 
     @Test
@@ -174,7 +216,88 @@ public class EventLibDeviceAdminReceiverTest {
 
         EventLogs<DeviceAdminPasswordSucceededEvent> eventLogs =
                 DeviceAdminPasswordSucceededEvent.queryPackage(sContext.getPackageName());
-        assertThat(eventLogs.poll().userHandle()).isEqualTo(sUser.userHandle());
+        DeviceAdminPasswordSucceededEvent event = eventLogs.poll();
+        assertThat(event.intent()).isEqualTo(sIntent);
+        assertThat(event.userHandle()).isEqualTo(sUser.userHandle());
+    }
+
+    @Test
+    public void passwordExpiring_logsPasswordExpiringEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onPasswordExpiring(sContext, sIntent);
+
+        EventLogs<DeviceAdminPasswordExpiringEvent> eventLogs =
+                DeviceAdminPasswordExpiringEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void passwordExpiringWithUserHandle_logsPasswordExpiringEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onPasswordExpiring(sContext, sIntent, sUser.userHandle());
+
+        EventLogs<DeviceAdminPasswordExpiringEvent> eventLogs =
+                DeviceAdminPasswordExpiringEvent.queryPackage(sContext.getPackageName());
+        DeviceAdminPasswordExpiringEvent event = eventLogs.poll();
+        assertThat(event.intent()).isEqualTo(sIntent);
+        assertThat(event.user()).isEqualTo(sUser.userHandle());
+    }
+
+    @Test
+    public void profileProvisioningComplete_logsProfileProvisioningCompleteEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onProfileProvisioningComplete(sContext, sIntent);
+
+        EventLogs<DeviceAdminProfileProvisioningCompleteEvent> eventLogs =
+                DeviceAdminProfileProvisioningCompleteEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void readyForUserInitialization_logsReadyForUserInitializationEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onReadyForUserInitialization(sContext, sIntent);
+
+        EventLogs<DeviceAdminReadyForUserInitializationEvent> eventLogs =
+                DeviceAdminReadyForUserInitializationEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void lockTaskModeEntering_logsLockTaskModeEnteringEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onLockTaskModeEntering(sContext, sIntent, PKG);
+
+        EventLogs<DeviceAdminLockTaskModeEnteringEvent> eventLogs =
+                DeviceAdminLockTaskModeEnteringEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void lockTaskModeExiting_logsLockTaskModeExitingEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onLockTaskModeExiting(sContext, sIntent);
+
+        EventLogs<DeviceAdminLockTaskModeExitingEvent> eventLogs =
+                DeviceAdminLockTaskModeExitingEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void choosePrivateKeyAlias_logsChoosePrivateKeyAliasEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onChoosePrivateKeyAlias(sContext, sIntent, UID, URI, ALIAS);
+
+        EventLogs<DeviceAdminChoosePrivateKeyAliasEvent> eventLogs =
+                DeviceAdminChoosePrivateKeyAliasEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
     }
 
     @Test
@@ -188,4 +311,149 @@ public class EventLibDeviceAdminReceiverTest {
                 DeviceAdminSystemUpdatePendingEvent.queryPackage(sContext.getPackageName());
         assertThat(eventLogs.poll().receivedTime()).isEqualTo(receivedTime);
     }
+
+    @Test
+    public void bugreportSharingDeclined_logsBugReportSharingDeclinedEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onBugreportSharingDeclined(sContext, sIntent);
+
+        EventLogs<DeviceAdminBugreportSharingDeclinedEvent> eventLogs =
+                DeviceAdminBugreportSharingDeclinedEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void bugreportShared_logsBugReportSharedEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onBugreportShared(sContext, sIntent, BUGREPORT_HASH);
+
+        EventLogs<DeviceAdminBugreportSharedEvent> eventLogs =
+                DeviceAdminBugreportSharedEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void bugreportFailed_logsBugReportFailedEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onBugreportFailed(sContext, sIntent, FAILURE_CODE);
+
+        EventLogs<DeviceAdminBugreportFailedEvent> eventLogs =
+                DeviceAdminBugreportFailedEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void securityLogsAvailable_logsSecurityLogsAvailableEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onSecurityLogsAvailable(sContext, sIntent);
+
+        EventLogs<DeviceAdminSecurityLogsAvailableEvent> eventLogs =
+                DeviceAdminSecurityLogsAvailableEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void networkLogsAvailable_logsNetworksLogsAvailableEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onNetworkLogsAvailable(sContext, sIntent, BATCH_TOKEN, NETWORK_LOGS_COUNT);
+
+        EventLogs<DeviceAdminNetworkLogsAvailableEvent> eventLogs =
+                DeviceAdminNetworkLogsAvailableEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void userAdded_logsUserAddedEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onUserAdded(sContext, sIntent, sUser.userHandle());
+
+        EventLogs<DeviceAdminUserAddedEvent> eventLogs =
+                DeviceAdminUserAddedEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void userRemoved_logsUserRemovedEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onUserRemoved(sContext, sIntent, sUser.userHandle());
+
+        EventLogs<DeviceAdminUserRemovedEvent> eventLogs =
+                DeviceAdminUserRemovedEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void userStarted_logsUserStartedEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onUserStarted(sContext, sIntent, sUser.userHandle());
+
+        EventLogs<DeviceAdminUserStartedEvent> eventLogs =
+                DeviceAdminUserStartedEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void userStopped_logsUserStoppedEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onUserStopped(sContext, sIntent, sUser.userHandle());
+
+        EventLogs<DeviceAdminUserStoppedEvent> eventLogs =
+                DeviceAdminUserStoppedEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void userSwitched_logsUserSwitchedEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onUserSwitched(sContext, sIntent, sUser.userHandle());
+
+        EventLogs<DeviceAdminUserSwitchedEvent> eventLogs =
+                DeviceAdminUserSwitchedEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().intent()).isEqualTo(sIntent);
+    }
+
+    @Test
+    public void transferOwnershipComplete_logsTransferOwnershipCompleteEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onTransferOwnershipComplete(sContext, sPersistableBundle);
+
+        EventLogs<DeviceAdminTransferOwnershipCompleteEvent> eventLogs =
+                DeviceAdminTransferOwnershipCompleteEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().bundle()).isEqualTo(sPersistableBundle);
+    }
+
+    @Test
+    public void transferAffiliatedProfileOwnershipComplete_logsTransferAffiliatedProfileOwnershipCompleteEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onTransferAffiliatedProfileOwnershipComplete(sContext, sUser.userHandle());
+
+        EventLogs<DeviceAdminTransferAffiliatedProfileOwnershipCompleteEvent> eventLogs =
+                DeviceAdminTransferAffiliatedProfileOwnershipCompleteEvent.queryPackage(
+                        sContext.getPackageName());
+        assertThat(eventLogs.poll().user()).isEqualTo(sUser.userHandle());
+    }
+
+    @Test
+    public void operationSafetyStateChanged_logsOperationSafetyStateChangedEvent() {
+        EventLibDeviceAdminReceiver receiver = new EventLibDeviceAdminReceiver();
+
+        receiver.onOperationSafetyStateChanged(sContext, REASON, IS_SAFE);
+
+        EventLogs<DeviceAdminOperationSafetyStateChangedEvent> eventLogs =
+                DeviceAdminOperationSafetyStateChangedEvent.queryPackage(sContext.getPackageName());
+        assertThat(eventLogs.poll().reason()).isEqualTo(REASON);
+    }
+
 }

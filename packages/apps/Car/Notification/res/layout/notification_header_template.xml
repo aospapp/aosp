@@ -36,11 +36,11 @@
 
     <Button
         android:id="@+id/clear_all_button"
-        style="@style/ClearAllButtonHeader"
         android:layout_width="wrap_content"
         android:layout_height="@dimen/clear_all_button_height"
         android:layout_alignParentEnd="true"
         android:layout_marginEnd="@dimen/notification_card_margin_horizontal"
         android:text="@string/clear_all"
-        android:visibility="gone"/>
+        android:visibility="gone"
+        style="@style/ClearAllButtonHeader"/>
 </RelativeLayout>

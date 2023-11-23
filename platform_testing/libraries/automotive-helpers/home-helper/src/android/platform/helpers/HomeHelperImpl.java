@@ -16,6 +16,7 @@
 package android.platform.helpers;
 
 import android.app.Instrumentation;
+import android.support.test.uiautomator.UiObject2;
 
 public class HomeHelperImpl extends AbstractAutoStandardAppHelper implements IAutoHomeHelper {
 
@@ -50,6 +51,22 @@ public class HomeHelperImpl extends AbstractAutoStandardAppHelper implements IAu
                                 AutoConfigConstants.HOME_VIEW,
                                 AutoConfigConstants.BOTTOM_CARD))
                 != null);
+    }
+
+    @Override
+    public void openMediaWidget() {
+        pressHome();
+        waitForIdle();
+        UiObject2 mediaWidget = findUiObject(
+                getResourceFromConfig(
+                        AutoConfigConstants.HOME,
+                        AutoConfigConstants.HOME_VIEW,
+                        AutoConfigConstants.BOTTOM_CARD));
+        if (mediaWidget != null) {
+            clickAndWaitForIdleScreen(mediaWidget);
+        } else {
+            throw new IllegalStateException("Unable to find Media Widget on Home Screen.");
+        }
     }
 
     /** {@inheritDoc} */

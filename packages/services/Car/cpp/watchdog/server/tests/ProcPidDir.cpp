@@ -16,10 +16,11 @@
 
 #include "ProcPidDir.h"
 
-#include "ProcPidStat.h"
+#include "UidProcStatsCollector.h"
 
 #include <android-base/file.h>
 #include <android-base/result.h>
+
 #include <errno.h>
 
 namespace android {

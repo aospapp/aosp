@@ -16,7 +16,8 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.car.media">
+    package="com.android.car.media"
+          android:versionCode="10000" android:versionName="1.0.0">
 
     <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL"/>
     <uses-permission android:name="android.permission.INTERNET" />
@@ -41,8 +42,10 @@
             android:name="android.car.application"
             android:resource="@xml/automotive_app_desc" />
 
+        <!-- Private implementation, should never be exported. -->
         <activity
             android:name=".MediaActivity"
+            android:exported="false"
             android:resizeableActivity="true"
             android:windowSoftInputMode="stateHidden|adjustPan"
             android:launchMode="singleTop">

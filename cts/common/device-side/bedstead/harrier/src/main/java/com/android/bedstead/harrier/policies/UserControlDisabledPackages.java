@@ -16,8 +16,8 @@
 
 package com.android.bedstead.harrier.policies;
 
-import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.DeviceOwnerControl.GLOBAL;
-import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.ProfileOwnerControl.NO;
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_DEVICE_OWNER;
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIES_GLOBALLY;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
@@ -33,6 +33,6 @@ import java.util.List;
  * {@link DevicePolicyManager#setUserControlDisabledPackages(ComponentName, List)} and
  * {@link DevicePolicyManager#getUserControlDisabledPackages(ComponentName)}.
  */
-@EnterprisePolicy(deviceOwner = GLOBAL, profileOwner = NO)
+@EnterprisePolicy(dpc = APPLIED_BY_DEVICE_OWNER | APPLIES_GLOBALLY)
 public final class UserControlDisabledPackages {
 }

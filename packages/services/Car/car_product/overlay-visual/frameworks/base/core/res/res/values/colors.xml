@@ -37,4 +37,38 @@
          icons. -->
     <color name="notification_default_color">@*android:color/car_accent</color>
 
+    <!-- Focus colors -->
+    <color name="focus_stroke_color">#94CBFF</color>
+    <color name="focus_fill_color">#3D94CBFF</color>
+    <color name="focus_pressed_stroke_color">#94CBFF</color>
+    <color name="focus_pressed_fill_color">#8A94CBFF</color>
+
+    <!-- The Switch track background color when checked. -->
+    <color name="car_switch_track_background_checked">#66B5FF</color>
+    <!-- The Switch track background color when unchecked. -->
+    <color name="car_switch_track_background_unchecked">#757575</color>
+    <!-- The Switch track background color when checked and disabled. -->
+    <color name="car_switch_track_background_checked_disabled">#7566B5FF</color>
+    <!-- The Switch track background color when unchecked and disabled. -->
+    <color name="car_switch_track_background_unchecked_disabled">#75757575</color>
+    <!-- The Switch thumb color. -->
+    <color name="car_switch_thumb_color">#FFFFFF</color>
+    <!-- The Switch thumb color when disabled and using the dark theme. -->
+    <color name="car_switch_thumb_color_disabled_on_dark">#757575</color>
+    <!-- The Switch thumb color when disabled and using the light theme. -->
+    <color name="car_switch_thumb_color_disabled_on_light">@color/car_switch_thumb_color</color>
+    <!-- The Switch track's background color. -->
+    <color name="car_seekbar_track_background">#757575</color>
+    <!-- The Switch track's progress color. -->
+    <color name="car_seekbar_track_progress">#66B5FF</color>
+    <!-- The Switch track's secondary progress color. -->
+    <color name="car_seekbar_track_progress_secondary">#A6A6A9</color>
+    <!-- Color of the outer ring when the SeekBar is selected. -->
+    <color name="car_seekbar_thumb_selected_stroke_color">#94CBFF</color>
+    <!-- Color of the background of the ring when the SeekBar is selected. -->
+    <color name="car_seekbar_thumb_selected_background_color">#3D94CBFF</color>
+    <!-- The SeekBar thumb color. -->
+    <color name="car_seekbar_thumb">#FFFFFF</color>
+    <!-- The SeekBar thumb color when disabled. Use for the dark theme. -->
+    <color name="car_seekbar_thumb_disabled_on_dark">#757575</color>
 </resources>

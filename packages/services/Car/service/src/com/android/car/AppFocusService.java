@@ -15,11 +15,14 @@
  */
 package com.android.car;
 
+import android.car.Car;
 import android.car.CarAppFocusManager;
 import android.car.IAppFocus;
 import android.car.IAppFocusListener;
 import android.car.IAppFocusOwnershipCallback;
 import android.content.Context;
+import android.content.PermissionChecker;
+import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -36,6 +39,7 @@ import com.android.internal.annotations.VisibleForTesting;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -77,9 +81,11 @@ public class AppFocusService extends IAppFocus.Stub implements CarServiceBase,
             getClass().getSimpleName());
     private final DispatchHandler mDispatchHandler = new DispatchHandler(mHandlerThread.getLooper(),
             this);
+    private final Context mContext;
 
     public AppFocusService(Context context,
             SystemActivityMonitoringService systemActivityMonitoringService) {
+        mContext = context;
         mSystemActivityMonitoringService = systemActivityMonitoringService;
         mAllChangeClients = new ClientHolder(mAllBinderEventHandler);
         mAllOwnershipClients = new OwnershipClientHolder(this);
@@ -121,6 +127,22 @@ public class AppFocusService extends IAppFocus.Stub implements CarServiceBase,
     }
 
     @Override
+    public List<String> getAppTypeOwner(@CarAppFocusManager.AppFocusType int appType) {
+        OwnershipClientInfo owner;
+        synchronized (mLock) {
+            owner = mFocusOwners.get(appType);
+        }
+        if (owner == null) {
+            return null;
+        }
+        String[] packageNames = mContext.getPackageManager().getPackagesForUid(owner.getUid());
+        if (packageNames == null) {
+            return null;
+        }
+        return Arrays.asList(packageNames);
+    }
+
+    @Override
     public boolean isOwningFocus(IAppFocusOwnershipCallback callback, int appType) {
         OwnershipClientInfo info;
         synchronized (mLock) {
@@ -146,10 +168,10 @@ public class AppFocusService extends IAppFocus.Stub implements CarServiceBase,
             if (!alreadyOwnedAppTypes.contains(appType)) {
                 OwnershipClientInfo ownerInfo = mFocusOwners.get(appType);
                 if (ownerInfo != null && ownerInfo != info) {
-                    if (mSystemActivityMonitoringService.isInForeground(
-                            ownerInfo.getPid(), ownerInfo.getUid())
-                            && !mSystemActivityMonitoringService.isInForeground(
-                            info.getPid(), info.getUid())) {
+                    // Allow receiving focus if the requester has a foreground activity OR if the
+                    // requester is privileged service.
+                    if (isInForeground(ownerInfo) && !isInForeground(info)
+                            && !hasPrivilegedPermission()) {
                         Slog.w(CarLog.TAG_APP_FOCUS, "Focus request failed for non-foreground app("
                                 + "pid=" + info.getPid() + ", uid=" + info.getUid() + ")."
                                 + "Foreground app (pid=" + ownerInfo.getPid() + ", uid="
@@ -188,6 +210,15 @@ public class AppFocusService extends IAppFocus.Stub implements CarServiceBase,
             }
         }
         return CarAppFocusManager.APP_FOCUS_REQUEST_SUCCEEDED;
+    }
+
+    private boolean isInForeground(OwnershipClientInfo info) {
+        return mSystemActivityMonitoringService.isInForeground(info.getPid(), info.getUid());
+    }
+
+    private boolean hasPrivilegedPermission() {
+        return mContext.checkCallingOrSelfPermission(Car.PERMISSION_CAR_DISPLAY_IN_CLUSTER)
+                == PermissionChecker.PERMISSION_GRANTED;
     }
 
     @Override

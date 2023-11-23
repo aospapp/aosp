@@ -24,7 +24,7 @@
 #include <log/log.h>
 #include <ui/BufferQueueDefs.h>
 
-#include <v4l2_codec2/plugin_store/DrmGrallocHelpers.h>
+#include <v4l2_codec2/plugin_store/DmabufHelpers.h>
 #include <v4l2_codec2/plugin_store/H2BGraphicBufferProducer.h>
 #include <v4l2_codec2/plugin_store/V4L2AllocatorId.h>
 
@@ -44,8 +44,6 @@ constexpr int kMaxDequeuedBufferCount = 32u;
 
 using namespace std::chrono_literals;
 
-// We use the value of DRM handle as the unique ID of the graphic buffers.
-using unique_id_t = uint32_t;
 // Type for IGBP slot index.
 using slot_t = int32_t;
 
@@ -408,47 +406,6 @@ private:
     uint64_t mUsageToBeMigrated = 0;
 };
 
-class DrmHandleManager {
-public:
-    DrmHandleManager() { mRenderFd = openRenderFd(); }
-
-    ~DrmHandleManager() {
-        closeAllHandles();
-        if (mRenderFd) {
-            close(*mRenderFd);
-        }
-    }
-
-    std::optional<unique_id_t> getHandle(int primeFd) {
-        if (!mRenderFd) {
-            return std::nullopt;
-        }
-
-        std::optional<unique_id_t> handle = getDrmHandle(*mRenderFd, primeFd);
-        // Defer closing the handle until we don't need the buffer to keep the returned DRM handle
-        // the same.
-        if (handle) {
-            mHandles.insert(*handle);
-        }
-        return handle;
-    }
-
-    void closeAllHandles() {
-        if (!mRenderFd) {
-            return;
-        }
-
-        for (const unique_id_t& handle : mHandles) {
-            closeDrmHandle(*mRenderFd, handle);
-        }
-        mHandles.clear();
-    }
-
-private:
-    std::optional<int> mRenderFd;
-    std::set<unique_id_t> mHandles;
-};
-
 class C2VdaBqBlockPool::Impl : public std::enable_shared_from_this<C2VdaBqBlockPool::Impl>,
                                public EventNotifier::Listener {
 public:
@@ -513,9 +470,6 @@ private:
     std::mutex mMutex;
 
     TrackedGraphicBuffers mTrackedGraphicBuffers;
-
-    // We treat DRM handle as uniqueId of GraphicBuffer.
-    DrmHandleManager mDrmHandleManager;
 
     // Number of buffers requested on requestNewBufferSet() call.
     size_t mBuffersRequested = 0u;
@@ -673,7 +627,7 @@ status_t C2VdaBqBlockPool::Impl::getFreeSlotLocked(uint32_t width, uint32_t heig
             return requestStatus;
         }
 
-        const auto uniqueId = mDrmHandleManager.getHandle(slotBuffer->handle->data[0]);
+        const auto uniqueId = getDmabufId(slotBuffer->handle->data[0]);
         if (!uniqueId) {
             ALOGE("%s(): failed to get uniqueId of GraphicBuffer from slot=%d", __func__, *slot);
             return UNKNOWN_ERROR;
@@ -802,7 +756,6 @@ c2_status_t C2VdaBqBlockPool::Impl::requestNewBufferSet(int32_t bufferCount, uin
     // Release all remained slot buffer references here. CCodec should either cancel or queue its
     // owned buffers from this set before the next resolution change.
     mTrackedGraphicBuffers.reset();
-    mDrmHandleManager.closeAllHandles();
 
     mBuffersRequested = static_cast<size_t>(bufferCount);
 
@@ -822,7 +775,6 @@ void C2VdaBqBlockPool::Impl::configureProducer(const sp<HGraphicBufferProducer>&
         mProducer = nullptr;
         mProducerId = 0;
         mTrackedGraphicBuffers.reset();
-        mDrmHandleManager.closeAllHandles();
         return;
     }
 
@@ -931,7 +883,7 @@ bool C2VdaBqBlockPool::Impl::setNotifyBlockAvailableCb(::base::OnceClosure cb) {
 
 std::optional<unique_id_t> C2VdaBqBlockPool::Impl::getBufferIdFromGraphicBlock(
         const C2Block2D& block) {
-    return mDrmHandleManager.getHandle(block.handle()->data[0]);
+    return getDmabufId(block.handle()->data[0]);
 }
 
 status_t C2VdaBqBlockPool::Impl::allowAllocation(bool allow) {

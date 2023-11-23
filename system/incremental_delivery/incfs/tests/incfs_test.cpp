@@ -105,6 +105,21 @@ protected:
         ASSERT_EQ((int)std::size(blocks), writeBlocks({blocks, std::size(blocks)}));
     }
 
+    void writeBlock(int pageIndex) {
+        auto fd = openForSpecialOps(control_, fileId(1));
+        ASSERT_GE(fd.get(), 0);
+
+        std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
+        auto block = DataBlock{
+                .fileFd = fd.get(),
+                .pageIndex = pageIndex,
+                .compression = INCFS_COMPRESSION_KIND_NONE,
+                .dataSize = (uint32_t)data.size(),
+                .data = data.data(),
+        };
+        ASSERT_EQ(1, writeBlocks({&block, 1}));
+    }
+
     template <class ReadStruct>
     void testWriteBlockAndPageRead() {
         const auto id = fileId(1);
@@ -112,18 +127,7 @@ protected:
         ASSERT_EQ(0,
                   makeFile(control_, mountPath(test_file_name_), 0555, id,
                            {.size = test_file_size_}));
-        auto fd = openForSpecialOps(control_, fileId(1));
-        ASSERT_GE(fd.get(), 0);
-
-        std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
-        auto block = DataBlock{
-                .fileFd = fd.get(),
-                .pageIndex = 0,
-                .compression = INCFS_COMPRESSION_KIND_NONE,
-                .dataSize = (uint32_t)data.size(),
-                .data = data.data(),
-        };
-        ASSERT_EQ(1, writeBlocks({&block, 1}));
+        writeBlock(/*pageIndex=*/0);
 
         std::thread wait_page_read_thread([&]() {
             std::vector<ReadStruct> reads;
@@ -149,6 +153,7 @@ protected:
         ASSERT_TRUE(android::base::ReadFully(readFd, buf, sizeof(buf)));
         wait_page_read_thread.join();
     }
+
     template <class PendingRead>
     void testWaitForPendingReads() {
         const auto id = fileId(1);
@@ -364,6 +369,39 @@ TEST_F(IncFsTest, MakeFile0) {
     struct stat s;
     ASSERT_EQ(0, stat(file_path.c_str(), &s));
     ASSERT_EQ(0, (int)s.st_size);
+}
+
+TEST_F(IncFsTest, MakeMappedFile) {
+    ASSERT_EQ(0, makeDir(control_, mountPath(test_dir_name_)));
+
+    constexpr auto file_size = INCFS_DATA_FILE_BLOCK_SIZE * 2;
+    constexpr auto mapped_file_offset = file_size / 2;
+    constexpr auto mapped_file_size = file_size / 3;
+
+    const auto file_path = mountPath(test_dir_name_, test_file_name_);
+    ASSERT_FALSE(exists(file_path));
+    ASSERT_EQ(0,
+              makeFile(control_, file_path, 0111, fileId(1),
+                       {.size = file_size, .metadata = metadata("md")}));
+    struct stat s = {};
+    ASSERT_EQ(0, stat(file_path.c_str(), &s));
+    ASSERT_EQ(file_size, (int)s.st_size);
+
+    const auto mapped_file_path = mountPath(test_dir_name_, test_mapped_file_name_);
+    ASSERT_FALSE(exists(mapped_file_path));
+    ASSERT_EQ(0,
+              makeMappedFile(control_, mapped_file_path, 0111,
+                             {.sourceId = fileId(1),
+                              .sourceOffset = mapped_file_offset,
+                              .size = mapped_file_size}));
+    s = {};
+    ASSERT_EQ(0, stat(mapped_file_path.c_str(), &s));
+    ASSERT_EQ(mapped_file_size, (int)s.st_size);
+
+    // Check fileId for the source file.
+    ASSERT_EQ(fileId(1), getFileId(control_, file_path));
+    // Check that there is no fileId for the mapped file.
+    ASSERT_EQ(kIncFsInvalidFileId, getFileId(control_, mapped_file_path));
 }
 
 TEST_F(IncFsTest, GetFileId) {
@@ -1383,4 +1421,77 @@ TEST_F(IncFsGetMetricsTest, MetricsWithReadsDelayedPerUidTimeout) {
     EXPECT_EQ(0, (int)incfsMetrics.readsFailedHashVerification);
     EXPECT_EQ(0, (int)incfsMetrics.readsFailedOther);
     EXPECT_EQ(0, (int)incfsMetrics.readsFailedTimedOut);
+}
+
+inline bool operator==(const BlockCounts& lhs, const BlockCounts& rhs) {
+    return lhs.totalDataBlocks == rhs.totalDataBlocks &&
+            lhs.filledDataBlocks == rhs.filledDataBlocks &&
+            lhs.totalHashBlocks == rhs.totalHashBlocks &&
+            lhs.filledHashBlocks == rhs.filledHashBlocks;
+}
+
+TEST_F(IncFsTest, LoadingProgress) {
+    ASSERT_EQ(0, makeDir(control_, mountPath(test_dir_name_)));
+
+    constexpr auto file_size = INCFS_DATA_FILE_BLOCK_SIZE * 2;
+    constexpr auto mapped_file_offset = file_size / 2;
+    constexpr auto mapped_file_size = file_size / 3;
+
+    const auto file_id = fileId(1);
+
+    const auto file_path = mountPath(test_dir_name_, test_file_name_);
+    ASSERT_FALSE(exists(file_path));
+    ASSERT_EQ(0,
+              makeFile(control_, file_path, 0111, file_id,
+                       {.size = file_size, .metadata = metadata("md")}));
+    struct stat s = {};
+    ASSERT_EQ(0, stat(file_path.c_str(), &s));
+    ASSERT_EQ(file_size, (int)s.st_size);
+
+    const auto mapped_file_path = mountPath(test_dir_name_, test_mapped_file_name_);
+    ASSERT_FALSE(exists(mapped_file_path));
+    ASSERT_EQ(0,
+              makeMappedFile(control_, mapped_file_path, 0111,
+                             {.sourceId = file_id,
+                              .sourceOffset = mapped_file_offset,
+                              .size = mapped_file_size}));
+    s = {};
+    ASSERT_EQ(0, stat(mapped_file_path.c_str(), &s));
+    ASSERT_EQ(mapped_file_size, (int)s.st_size);
+
+    // Check fully loaded first.
+    ASSERT_EQ(LoadingState::MissingBlocks, isFullyLoaded(control_, file_path));
+    ASSERT_EQ(LoadingState::MissingBlocks, isFullyLoaded(control_, file_id));
+    ASSERT_EQ((LoadingState)-ENOTSUP, isFullyLoaded(control_, mapped_file_path));
+
+    // Next is loading progress.
+    ASSERT_EQ(BlockCounts{.totalDataBlocks = 2}, *getBlockCount(control_, file_path));
+    ASSERT_EQ(BlockCounts{.totalDataBlocks = 2}, *getBlockCount(control_, file_id));
+    ASSERT_FALSE(getBlockCount(control_, mapped_file_path));
+
+    // Now write a page #0.
+    ASSERT_NO_FATAL_FAILURE(writeBlock(0));
+
+    // Recheck everything.
+    ASSERT_EQ(LoadingState::MissingBlocks, isFullyLoaded(control_, file_path));
+    ASSERT_EQ(LoadingState::MissingBlocks, isFullyLoaded(control_, file_id));
+    ASSERT_EQ((LoadingState)-ENOTSUP, isFullyLoaded(control_, mapped_file_path));
+
+    BlockCounts onePage{.totalDataBlocks = 2, .filledDataBlocks = 1};
+    ASSERT_EQ(onePage, *getBlockCount(control_, file_path));
+    ASSERT_EQ(onePage, *getBlockCount(control_, file_id));
+    ASSERT_FALSE(getBlockCount(control_, mapped_file_path));
+
+    // Now write a page #1.
+    ASSERT_NO_FATAL_FAILURE(writeBlock(1));
+
+    // Check for fully loaded.
+    ASSERT_EQ(LoadingState::Full, isFullyLoaded(control_, file_path));
+    ASSERT_EQ(LoadingState::Full, isFullyLoaded(control_, file_id));
+    ASSERT_EQ((LoadingState)-ENOTSUP, isFullyLoaded(control_, mapped_file_path));
+
+    BlockCounts twoPages{.totalDataBlocks = 2, .filledDataBlocks = 2};
+    ASSERT_EQ(twoPages, *getBlockCount(control_, file_path));
+    ASSERT_EQ(twoPages, *getBlockCount(control_, file_id));
+    ASSERT_FALSE(getBlockCount(control_, mapped_file_path));
 }

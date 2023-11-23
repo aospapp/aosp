@@ -5,8 +5,5 @@
 #[cfg(feature = "plugin")]
 pub use crosvm_plugin_proto::plugin;
 
-#[cfg(feature = "trunks")]
-pub mod trunks;
-
 #[cfg(feature = "composite-disk")]
 pub use cdisk_spec_proto::cdisk_spec;

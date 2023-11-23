@@ -63,20 +63,14 @@ public class SavedNetworkTrackerTest {
     private static final long MAX_SCAN_AGE_MILLIS = 15_000;
     private static final long SCAN_INTERVAL_MILLIS = 10_000;
 
-    @Mock
-    private Lifecycle mMockLifecycle;
-    @Mock
-    private Context mMockContext;
-    @Mock
-    private WifiManager mMockWifiManager;
-    @Mock
-    private ConnectivityManager mMockConnectivityManager;
-    @Mock
-    private NetworkScoreManager mMockNetworkScoreManager;
-    @Mock
-    private Clock mMockClock;
-    @Mock
-    private SavedNetworkTracker.SavedNetworkTrackerCallback mMockCallback;
+    @Mock private WifiTrackerInjector mInjector;
+    @Mock private Lifecycle mMockLifecycle;
+    @Mock private Context mMockContext;
+    @Mock private WifiManager mMockWifiManager;
+    @Mock private ConnectivityManager mMockConnectivityManager;
+    @Mock private NetworkScoreManager mMockNetworkScoreManager;
+    @Mock private Clock mMockClock;
+    @Mock private SavedNetworkTracker.SavedNetworkTrackerCallback mMockCallback;
 
     private TestLooper mTestLooper;
 
@@ -86,7 +80,10 @@ public class SavedNetworkTrackerTest {
     private SavedNetworkTracker createTestSavedNetworkTracker() {
         final Handler testHandler = new Handler(mTestLooper.getLooper());
 
-        return new SavedNetworkTracker(mMockLifecycle, mMockContext,
+        return new SavedNetworkTracker(
+                mInjector,
+                mMockLifecycle,
+                mMockContext,
                 mMockWifiManager,
                 mMockConnectivityManager,
                 mMockNetworkScoreManager,

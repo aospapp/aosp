@@ -621,7 +621,7 @@
     <string name="ota_skip_activation_dialog_skip_label" msgid="5908029466817825633">"Saltatu"</string>
     <string name="ota_activate" msgid="7939695753665438357">"Aktibatu"</string>
     <string name="ota_title_activate_success" msgid="1272135024761004889">"Telefonoa aktibatuta dago."</string>
-    <string name="ota_title_problem_with_activation" msgid="7019745985413368726">"Arazo bat gertatu da aktibazioarekin"</string>
+    <string name="ota_title_problem_with_activation" msgid="7019745985413368726">"Arazo bat izan da aktibazioarekin"</string>
     <string name="ota_listen" msgid="2772252405488894280">"Jarraitu hitzezko argibideei aktibazioa osatu dela entzun arte."</string>
     <string name="ota_speaker" msgid="1086766980329820528">"Bozgorailua"</string>
     <string name="ota_progress" msgid="8837259285255700132">"Telefonoa programatzen…"</string>

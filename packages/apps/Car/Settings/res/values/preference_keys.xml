@@ -69,6 +69,13 @@
     <string name="pk_data_usage_summary" translatable="false">data_usage_summary</string>
     <string name="pk_data_warning_and_limit" translatable="false">data_warning_and_limit</string>
     <string name="pk_data_usage_cycle" translatable="false">data_usage_cycle</string>
+    <string name="pk_data_usage_footer" translatable="false">data_usage_footer</string>
+    <string name="pk_data_usage_edit_text" translatable="false">data_usage_edit_text</string>
+    <string name="pk_data_usage_radio_group" translatable="false">
+        data_usage_radio_group
+    </string>
+    <string name="pk_data_usage_radio_gb" translatable="false">data_usage_radio_gb</string>
+    <string name="pk_data_usage_radio_mb" translatable="false">data_usage_radio_mb</string>
     <string name="pk_data_warning_group" translatable="false">data_warning_group</string>
     <string name="pk_data_set_warning" translatable="false">data_set_warning</string>
     <string name="pk_data_warning" translatable="false">data_warning</string>
@@ -77,6 +84,15 @@
     <string name="pk_data_limit" translatable="false">data_limit</string>
     <string name="pk_app_data_usage" translatable="false">app_data_usage</string>
     <string name="pk_app_data_usage_detail" translatable="false">app_data_usage_detail</string>
+    <string name="pk_data_usage_usage_history" translatable="false">data_usage_usage_history</string>
+    <string name="pk_data_usage_all_apps" translatable="false">data_usage_all_apps</string>
+    <string name="pk_app_specific_usage_title" translatable="false">app_specific_usage_title</string>
+    <string name="pk_app_specific_usage_cycle" translatable="false">app_specific_usage_cycle</string>
+    <string name="pk_app_specific_usage_total" translatable="false">app_specific_usage_total</string>
+    <string name="pk_app_specific_usage_foreground" translatable="false">app_specific_usage_foreground</string>
+    <string name="pk_app_specific_usage_background" translatable="false">app_specific_usage_background</string>
+    <string name="pk_app_specific_allow_data" translatable="false">app_specific_allow_data</string>
+    <string name="pk_app_specific_allow_background_data" translatable="false">app_specific_allow_background_data</string>
     <string name="pk_wifi_tether_settings_entry" translatable="false">wifi_tether_settings_entry
     </string>
     <string name="pk_wifi_tether_security" translatable="false">wifi_tether_security</string>
@@ -183,8 +199,8 @@
     <string name="pk_application_details_storage" translatable="false">
         application_details_storage
     </string>
-    <string name="pk_application_details_peak_performance" translatable="false">
-        pk_application_details_peak_performance
+    <string name="pk_application_details_prioritize_app_performance" translatable="false">
+        pk_application_details_prioritize_app_performance
     </string>
     <string name="pk_hibernation_switch" translatable="false">
         hibernation_switch
@@ -267,6 +283,7 @@
     <string name="pk_accounts_extra_settings" translatable="false">accounts_extra_settings</string>
     <string name="pk_account_auto_sync" translatable="false">account_auto_sync</string>
     <string name="pk_add_account" translatable="false">add_account</string>
+    <string name="pk_add_account_enterprise_disclosure_footer" translatable="false">add_account_enterprise_disclosure_footer</string>
     <string name="pk_account_details" translatable="false">account_details</string>
     <string name="pk_account_sync" translatable="false">account_sync</string>
     <string name="pk_account_details_with_sync" translatable="false">account_details_with_sync
@@ -363,13 +380,35 @@
     <string name="pk_location_services" translatable="false">location_services</string>
     <string name="pk_location_footer" translatable="false">location_footer</string>
     <string name="pk_location_state_switch" translatable="false">location_state_switch</string>
+    <string name="pk_location_driver_assistance_state_switch" translatable="false">
+        driver_assistance_state_switch
+    </string>
+    <string name="pk_location_driver_assistance_preference_group" translatable="false">
+        driver_assistance_preference_group
+    </string>
+
+    <!-- Microphone Settings -->
+    <string name="pk_microphone_state_switch" translatable="false">microphone_state_switch</string>
+    <string name="pk_microphone_manage_permissions" translatable="false">
+        microphone_manage_permissions
+    </string>
+    <string name="pk_microphone_recent_accesses_category" translatable="false">
+        microphone_recent_accesses_category
+    </string>
+    <string name="pk_microphone_recent_accesses_view_all_entry" translatable="false">
+        microphone_recent_accesses_view_all_entry
+    </string>
+    <string name="pk_microphone_recent_requests" translatable="false">
+        microphone_recent_requests
+    </string>
 
     <!-- Profiles and Accounts Settings -->
     <string name="pk_profiles_list" translatable="false">profiles_list</string>
     <string name="pk_add_profile" translatable="false">add_profile</string>
     <string name="pk_choose_new_admin" translatable="false">choose_new_admin</string>
     <string name="pk_profile_details_header" translatable="false">profile_details_header</string>
-    <string name="pk_profile_details_action_buttons" translatable="false">profile_details_action_buttons
+    <string name="pk_profile_details_action_buttons" translatable="false">
+        profile_details_action_buttons
     </string>
     <string name="pk_profile_details_permissions_header" translatable="false">
         profile_details_permissions_header
@@ -378,6 +417,7 @@
         profile_details_permissions_action_buttons
     </string>
     <string name="pk_profile_details_delete" translatable="false">profile_details_delete</string>
+    <string name="pk_profile_details_end_session" translatable="false">profile_details_end_session</string>
     <string name="pk_profile_permissions" translatable="false">profile_permissions</string>
 
     <!-- Security Settings -->
@@ -478,6 +518,10 @@
     <!-- Developer Options -->
     <string name="pk_usb_debugging_toggle" translatable="false">usb_debugging_toggle</string>
 
+    <!-- Security -->
+    <string name="pk_enterprise_privacy_settings" translatable="false">enterprise_privacy_settings</string>
+    <string name="pk_manage_device_admin_settings" translatable="false">manage_device_admin_settings</string>
+
     <!-- Device Admin -->
     <string name="pk_device_admin_add_header" translatable="false">device_admin_add_header</string>
     <string name="pk_device_admin_add_explanation" translatable="false">device_admin_add_explanation</string>
@@ -486,4 +530,38 @@
     <string name="pk_device_admin_add_support" translatable="false">device_admin_add_support</string>
     <string name="pk_device_admin_add_action" translatable="false">device_admin_add_action</string>
     <string name="pk_device_admin_add_cancel" translatable="false">device_admin_add_cancel</string>
+    <string name="pk_device_admin_activated_apps" translatable="false">device_admin_activated_apps</string>
+    <string name="pk_device_admin_deactivated_apps" translatable="false">device_admin_deactivated_apps</string>
+    <string name="pk_device_admin_apps_description" translatable="false">device_admin_apps_description</string>
+
+    <!--  Enterprise Privacy -->
+    <string name="pk_enterprise_privacy_always_on_vpn_primary_user" translatable="false">enterprise_privacy_always_on_vpn_primary_user</string>
+    <string name="pk_enterprise_privacy_bug_reports" translatable="false">enterprise_privacy_bug_reports</string>
+    <string name="pk_enterprise_privacy_ca_certs_current_user" translatable="false">enterprise_privacy_ca_certs_current_user</string>
+    <string name="pk_enterprise_privacy_enterprise_data" translatable="false">enterprise_privacy_enterprise_data</string>
+    <string name="pk_enterprise_privacy_exposure_category" translatable="false">enterprise_privacy_exposure_category</string>
+    <string name="pk_enterprise_privacy_exposure_changes_category" translatable="false">enterprise_privacy_exposure_changes_category</string>
+    <string name="pk_enterprise_privacy_failed_password_wipe_current_user" translatable="false">enterprise_privacy_failed_password_wipe_current_user</string>
+    <string name="pk_enterprise_privacy_global_http_proxy" translatable="false">enterprise_privacy_global_http_proxy</string>
+    <string name="pk_enterprise_privacy_header" translatable="false">enterprise_privacy_header</string>
+    <string name="pk_enterprise_privacy_input_method" translatable="false">enterprise_privacy_input_method</string>
+    <string name="pk_enterprise_privacy_installed_packages" translatable="false">enterprise_privacy_installed_packages</string>
+    <string name="pk_enterprise_privacy_lock_device" translatable="false">enterprise_privacy_lock_device</string>
+    <string name="pk_enterprise_privacy_network_logs" translatable="false">enterprise_privacy_network_logs</string>
+    <string name="pk_enterprise_privacy_number_camera_access_packages" translatable="false">enterprise_privacy_number_camera_access_packages</string>
+    <string name="pk_enterprise_privacy_number_enterprise_installed_packages" translatable="false">enterprise_privacy_number_enterprise_installed_packages</string>
+    <string name="pk_enterprise_privacy_number_enterprise_set_default_apps" translatable="false">enterprise_privacy_number_enterprise_set_default_apps</string>
+    <string name="pk_enterprise_privacy_number_location_access_packages" translatable="false">enterprise_privacy_number_location_access_packages</string>
+    <string name="pk_enterprise_privacy_number_microphone_access_packages" translatable="false">enterprise_privacy_number_microphone_access_packages</string>
+    <string name="pk_enterprise_privacy_security_logs" translatable="false">enterprise_privacy_security_logs</string>
+    <string name="pk_enterprise_privacy_usage_stats" translatable="false">enterprise_privacy_usage_stats</string>
+    <string name="pk_enterprise_privacy_wipe_device" translatable="false">enterprise_privacy_wipe_device</string>
+
+    <!-- Accessibility -->
+    <string name="pk_accessibility_settings_entry" translatable="false">accessibility_settings_entry</string>
+    <string name="pk_captions_settings_header" translatable="false">captions_settings_header</string>
+    <string name="pk_show_captions_switch" translatable="false">show_captions_switch</string>
+    <string name="pk_captions_settings_style_subheader" translatable="false">captions_settings_style_subheader</string>
+    <string name="pk_captions_size_settings_entry" translatable="false">captions_size_settings_entry</string>
+    <string name="pk_captions_style_settings_entry" translatable="false">captions_style_settings_entry</string>
 </resources>

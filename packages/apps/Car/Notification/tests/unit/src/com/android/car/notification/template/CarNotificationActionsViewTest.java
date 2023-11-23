@@ -31,7 +31,6 @@ import android.content.Intent;
 import android.os.UserHandle;
 import android.service.notification.StatusBarNotification;
 import android.view.View;
-import android.widget.Button;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -89,14 +88,15 @@ public class CarNotificationActionsViewTest {
                 mContext, /* requestCode= */ 0, new Intent(), FLAG_IMMUTABLE);
         mAction = new Notification.Action
                 .Builder(/* icon= */ null, ACTION_TITLE, pendingIntent).build();
-        Notification mNotificationMessageHeadsUp = new MockMessageNotificationBuilder(mContext,
+        MockMessageNotificationBuilder builder = new MockMessageNotificationBuilder(mContext,
                 CHANNEL_ID, android.R.drawable.sym_def_app_icon)
                 .setContentTitle(CONTENT_TITLE)
                 .setCategory(Notification.CATEGORY_MESSAGE)
                 .setHasMessagingStyle(true)
                 .setHasReplyAction(true)
-                .setHasMarkAsRead(true)
-                .build();
+                .setHasMuteAction(true)
+                .setHasMarkAsRead(true);
+        Notification mNotificationMessageHeadsUp = builder.build();
         mAlertEntryMessageHeadsUp = new AlertEntry(
                 new StatusBarNotification(PKG, OP_PKG, ID, TAG, UID, INITIAL_PID,
                         mNotificationMessageHeadsUp, USER_HANDLE, OVERRIDE_GROUP_KEY, POST_TIME));
@@ -105,11 +105,17 @@ public class CarNotificationActionsViewTest {
                 .getPlayClickHandler(any(AlertEntry.class)))
                 .thenReturn(CLICK_LISTENER);
         when(mNotificationClickHandlerFactory
-                .getMuteClickHandler(any(Button.class), any(AlertEntry.class)))
+                .getReplyClickHandler(any(AlertEntry.class)))
+                .thenReturn(CLICK_LISTENER);
+        when(mNotificationClickHandlerFactory
+                .getMuteClickHandler(any(CarNotificationActionButton.class), any(AlertEntry.class),
+                        any(NotificationClickHandlerFactory.MuteStatusSetter.class)))
                 .thenReturn(CLICK_LISTENER);
         when(mNotificationClickHandlerFactory
                 .getActionClickHandler(any(AlertEntry.class), anyInt()))
                 .thenReturn(CLICK_LISTENER);
+        when(mNotificationClickHandlerFactory.getReplyAction(any(Notification.class)))
+                .thenReturn(builder.getReplyAction());
 
         when(mCarAssistUtils.hasActiveAssistant()).thenReturn(true);
         when(mCarAssistUtils.isFallbackAssistantEnabled()).thenReturn(false);
@@ -132,7 +138,8 @@ public class CarNotificationActionsViewTest {
                 new AlertEntry(mStatusBarNotification));
 
         for (int i = 0; i < mCarNotificationActionsView.getActionButtons().size(); i++) {
-            Button button = mCarNotificationActionsView.getActionButtons().get(i);
+            CarNotificationActionButton button =
+                    mCarNotificationActionsView.getActionButtons().get(i);
             assertThat(button.getVisibility()).isNotEqualTo(View.VISIBLE);
             assertThat(button.hasOnClickListeners()).isFalse();
         }
@@ -144,7 +151,7 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 mAlertEntryMessageHeadsUp);
-        Button playButton = mCarNotificationActionsView.getActionButtons().get(
+        CarNotificationActionButton playButton = mCarNotificationActionsView.getActionButtons().get(
                 CarNotificationActionsView.FIRST_MESSAGE_ACTION_BUTTON_INDEX);
 
         assertThat(playButton.getVisibility()).isEqualTo(View.VISIBLE);
@@ -156,7 +163,7 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 mAlertEntryMessageHeadsUp);
-        Button playButton = mCarNotificationActionsView.getActionButtons().get(
+        CarNotificationActionButton playButton = mCarNotificationActionsView.getActionButtons().get(
                 CarNotificationActionsView.FIRST_MESSAGE_ACTION_BUTTON_INDEX);
 
         assertThat(playButton.hasOnClickListeners()).isTrue();
@@ -168,11 +175,24 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 mAlertEntryMessageHeadsUp);
-        Button playButton = mCarNotificationActionsView.getActionButtons().get(
+        CarNotificationActionButton playButton = mCarNotificationActionsView.getActionButtons().get(
                 CarNotificationActionsView.FIRST_MESSAGE_ACTION_BUTTON_INDEX);
 
         assertThat(playButton.getText())
                 .isEqualTo(mContext.getString(R.string.assist_action_play_label));
+    }
+
+    @Test
+    public void onBind_actionExists_isCarCompatibleMessage_playButtonShowsPlayDrawable() {
+        finishInflateWithIsCall(/* isCall= */ false);
+
+        mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
+                mAlertEntryMessageHeadsUp);
+        CarNotificationActionButton playButton = mCarNotificationActionsView.getActionButtons().get(
+                CarNotificationActionsView.FIRST_MESSAGE_ACTION_BUTTON_INDEX);
+
+        assertThat(playButton.getDrawable())
+                .isEqualTo(mCarNotificationActionsView.mPlayButtonDrawable);
     }
 
     @Test
@@ -184,7 +204,7 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(
                 mNotificationClickHandlerFactory, mAlertEntryMessageHeadsUp);
-        Button playButton = mCarNotificationActionsView.getActionButtons().get(
+        CarNotificationActionButton playButton = mCarNotificationActionsView.getActionButtons().get(
                 CarNotificationActionsView.FIRST_MESSAGE_ACTION_BUTTON_INDEX);
 
         assertThat(playButton.getVisibility()).isNotEqualTo(View.VISIBLE);
@@ -199,7 +219,7 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(
                 mNotificationClickHandlerFactory, mAlertEntryMessageHeadsUp);
-        Button playButton = mCarNotificationActionsView.getActionButtons().get(
+        CarNotificationActionButton playButton = mCarNotificationActionsView.getActionButtons().get(
                 CarNotificationActionsView.FIRST_MESSAGE_ACTION_BUTTON_INDEX);
 
         assertThat(playButton.getVisibility()).isEqualTo(View.VISIBLE);
@@ -209,13 +229,63 @@ public class CarNotificationActionsViewTest {
     }
 
     @Test
+    public void onBind_actionExists_isCarCompatibleMessage_replyButtonIsVisible() {
+        finishInflateWithIsCall(/* isCall= */ false);
+
+        mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
+                mAlertEntryMessageHeadsUp);
+        CarNotificationActionButton replyButton = mCarNotificationActionsView.getActionButtons()
+                .get(CarNotificationActionsView.SECOND_MESSAGE_ACTION_BUTTON_INDEX);
+
+        assertThat(replyButton.getVisibility()).isEqualTo(View.VISIBLE);
+    }
+
+    @Test
+    public void onBind_actionExists_isCarCompatibleMessage_replyButtonHasClickListener() {
+        finishInflateWithIsCall(/* isCall= */ false);
+
+        mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
+                mAlertEntryMessageHeadsUp);
+        CarNotificationActionButton replyButton = mCarNotificationActionsView.getActionButtons()
+                .get(CarNotificationActionsView.SECOND_MESSAGE_ACTION_BUTTON_INDEX);
+
+        assertThat(replyButton.hasOnClickListeners()).isTrue();
+    }
+
+    @Test
+    public void onBind_actionExists_isCarCompatibleMessage_replyButtonShowsReplyLabel() {
+        finishInflateWithIsCall(/* isCall= */ false);
+
+        mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
+                mAlertEntryMessageHeadsUp);
+        CarNotificationActionButton replyButton = mCarNotificationActionsView.getActionButtons()
+                .get(CarNotificationActionsView.SECOND_MESSAGE_ACTION_BUTTON_INDEX);
+
+        assertThat(replyButton.getText())
+                .isEqualTo(mContext.getString(R.string.assist_action_reply_label));
+    }
+
+    @Test
+    public void onBind_actionExists_isCarCompatibleMessage_replyButtonShowsReplyDrawable() {
+        finishInflateWithIsCall(/* isCall= */ false);
+
+        mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
+                mAlertEntryMessageHeadsUp);
+        CarNotificationActionButton replyButton = mCarNotificationActionsView.getActionButtons()
+                .get(CarNotificationActionsView.SECOND_MESSAGE_ACTION_BUTTON_INDEX);
+
+        assertThat(replyButton.getDrawable())
+                .isEqualTo(mCarNotificationActionsView.mReplyButtonDrawable);
+    }
+
+    @Test
     public void onBind_actionExists_isCarCompatibleMessage_muteButtonIsVisible() {
         finishInflateWithIsCall(/* isCall= */ false);
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 mAlertEntryMessageHeadsUp);
-        Button muteButton = mCarNotificationActionsView.getActionButtons().get(
-                CarNotificationActionsView.SECOND_MESSAGE_ACTION_BUTTON_INDEX);
+        CarNotificationActionButton muteButton = mCarNotificationActionsView.getActionButtons().get(
+                CarNotificationActionsView.THIRD_MESSAGE_ACTION_BUTTON_INDEX);
 
         assertThat(muteButton.getVisibility()).isEqualTo(View.VISIBLE);
     }
@@ -226,8 +296,8 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 mAlertEntryMessageHeadsUp);
-        Button muteButton = mCarNotificationActionsView.getActionButtons().get(
-                CarNotificationActionsView.SECOND_MESSAGE_ACTION_BUTTON_INDEX);
+        CarNotificationActionButton muteButton = mCarNotificationActionsView.getActionButtons().get(
+                CarNotificationActionsView.THIRD_MESSAGE_ACTION_BUTTON_INDEX);
 
         assertThat(muteButton.hasOnClickListeners()).isTrue();
     }
@@ -239,11 +309,11 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 mAlertEntryMessageHeadsUp);
-        Button muteButton = mCarNotificationActionsView.getActionButtons().get(
-                CarNotificationActionsView.SECOND_MESSAGE_ACTION_BUTTON_INDEX);
+        CarNotificationActionButton muteButton = mCarNotificationActionsView.getActionButtons().get(
+                CarNotificationActionsView.THIRD_MESSAGE_ACTION_BUTTON_INDEX);
 
         assertThat(muteButton.getText())
-                .isEqualTo(mContext.getString(R.string.action_unmute_long));
+                .isEqualTo(mContext.getString(R.string.action_unmute_short));
     }
 
     @Test
@@ -253,11 +323,11 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 mAlertEntryMessageHeadsUp);
-        Button muteButton = mCarNotificationActionsView.getActionButtons().get(
-                CarNotificationActionsView.SECOND_MESSAGE_ACTION_BUTTON_INDEX);
+        CarNotificationActionButton muteButton = mCarNotificationActionsView.getActionButtons().get(
+                CarNotificationActionsView.THIRD_MESSAGE_ACTION_BUTTON_INDEX);
 
         assertThat(muteButton.getText())
-                .isEqualTo(mContext.getString(R.string.action_mute_long));
+                .isEqualTo(mContext.getString(R.string.action_mute_short));
     }
 
     @Test
@@ -267,7 +337,7 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 new AlertEntry(mStatusBarNotification));
-        Button button = mCarNotificationActionsView.getActionButtons().get(0);
+        CarNotificationActionButton button = mCarNotificationActionsView.getActionButtons().get(0);
 
         assertThat(button.getVisibility()).isEqualTo(View.VISIBLE);
     }
@@ -279,7 +349,7 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 new AlertEntry(mStatusBarNotification));
-        Button button = mCarNotificationActionsView.getActionButtons().get(0);
+        CarNotificationActionButton button = mCarNotificationActionsView.getActionButtons().get(0);
 
         assertThat(button.getText()).isEqualTo(ACTION_TITLE);
     }
@@ -291,7 +361,7 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 new AlertEntry(mStatusBarNotification));
-        Button button = mCarNotificationActionsView.getActionButtons().get(0);
+        CarNotificationActionButton button = mCarNotificationActionsView.getActionButtons().get(0);
 
         assertThat(button.hasOnClickListeners()).isTrue();
     }
@@ -308,7 +378,7 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 new AlertEntry(mStatusBarNotification));
-        Button button = mCarNotificationActionsView.getActionButtons().get(0);
+        CarNotificationActionButton button = mCarNotificationActionsView.getActionButtons().get(0);
 
         assertThat(button.hasOnClickListeners()).isFalse();
     }
@@ -337,7 +407,8 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 new AlertEntry(mStatusBarNotification));
-        Button firstButton = mCarNotificationActionsView.getActionButtons().get(0);
+        CarNotificationActionButton firstButton =
+                mCarNotificationActionsView.getActionButtons().get(0);
 
         assertThat(firstButton.getBackground()).isNotNull();
     }
@@ -349,7 +420,8 @@ public class CarNotificationActionsViewTest {
 
         mCarNotificationActionsView.bind(mNotificationClickHandlerFactory,
                 new AlertEntry(mStatusBarNotification));
-        Button secondButton = mCarNotificationActionsView.getActionButtons().get(1);
+        CarNotificationActionButton secondButton =
+                mCarNotificationActionsView.getActionButtons().get(1);
 
         assertThat(secondButton.getBackground()).isNotNull();
     }
@@ -363,6 +435,7 @@ public class CarNotificationActionsViewTest {
                 mCarAssistUtils);
         mCarNotificationActionsView.setCategoryIsCall(isCall);
         mCarNotificationActionsView.onFinishInflate();
+        mCarNotificationActionsView.setNotificationDataManager(mNotificationDataManager);
     }
 
     private void statusBarNotificationHasActions(boolean hasActions) {
@@ -375,7 +448,5 @@ public class CarNotificationActionsViewTest {
     private void messageIsMuted(boolean isMuted) {
         when(mNotificationDataManager.isMessageNotificationMuted(any(AlertEntry.class)))
                 .thenReturn(isMuted);
-        when(mNotificationClickHandlerFactory.getNotificationDataManager())
-                .thenReturn(mNotificationDataManager);
     }
 }

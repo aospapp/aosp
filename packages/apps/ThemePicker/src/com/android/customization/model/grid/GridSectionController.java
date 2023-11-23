@@ -74,8 +74,8 @@ public class GridSectionController implements CustomizationSectionController<Gri
             }
         }, /* reload= */ true);
 
-        gridSectionView.setOnClickListener(v -> mSectionNavigationController.navigateTo(
-                GridFragment.newInstance(context.getString(R.string.grid_title))));
+        gridSectionView.setOnClickListener(
+                v -> mSectionNavigationController.navigateTo(new GridFragment()));
 
         return gridSectionView;
     }

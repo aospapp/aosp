@@ -26,7 +26,6 @@
 #include <android/automotive/watchdog/internal/ComponentType.h>
 #include <android/automotive/watchdog/internal/ICarWatchdogMonitor.h>
 #include <android/automotive/watchdog/internal/ICarWatchdogServiceForSystem.h>
-#include <android/automotive/watchdog/internal/PackageResourceOveruseAction.h>
 #include <android/automotive/watchdog/internal/ResourceOveruseConfiguration.h>
 #include <android/automotive/watchdog/internal/StateType.h>
 #include <binder/Status.h>
@@ -89,10 +88,7 @@ public:
     android::binder::Status getResourceOveruseConfigurations(
             std::vector<android::automotive::watchdog::internal::ResourceOveruseConfiguration>*
                     configs) override;
-    android::binder::Status actionTakenOnResourceOveruse(
-            const std::vector<
-                    android::automotive::watchdog::internal::PackageResourceOveruseAction>&
-                    actions);
+    android::binder::Status controlProcessHealthCheck(bool disable) override;
 
 protected:
     void terminate() {
@@ -108,6 +104,9 @@ private:
 
     android::binder::Status handlePowerCycleChange(
             android::automotive::watchdog::internal::PowerCycle powerCycle);
+
+    android::binder::Status handleUserStateChange(
+            userid_t userId, android::automotive::watchdog::internal::UserState userState);
 
     android::sp<WatchdogBinderMediator> mBinderMediator;
     android::sp<IWatchdogServiceHelper> mWatchdogServiceHelper;

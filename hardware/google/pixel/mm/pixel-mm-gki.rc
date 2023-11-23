@@ -20,5 +20,11 @@ on init
     # khugepaged tuning
     write /sys/kernel/mm/transparent_hugepage/khugepaged/scan_sleep_millisecs 60000
 
+on property:persist.vendor.zram.size=*
+    setprop vendor.zram.size ${persist.vendor.zram.size}
+
+on property:sys.boot_completed=1
+    swapon_all /vendor/etc/fstab.zram.${vendor.zram.size}
+
 on property:sys.boot_completed=1
     chmod 444 /sys/kernel/debug/page_owner

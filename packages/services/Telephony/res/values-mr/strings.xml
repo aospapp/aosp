@@ -846,8 +846,8 @@
     <string name="dsds_dialog_confirm" msgid="9032004888134129885">"रीस्टार्ट करा"</string>
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"रद्द करा"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"मोबाइल रेडिओ पॉवर"</string>
-    <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"सिम ॲड्रेस बुक पाहा"</string>
-    <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"निश्चित डायलिंग नंबर पाहा"</string>
+    <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"सिम ॲड्रेस बुक पहा"</string>
+    <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"निश्चित डायलिंग नंबर पहा"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"सर्व्हिस डायलिंग नंबर पहा"</string>
     <string name="radioInfo_menu_getIMS" msgid="1950869267853198232">"IMS सेवा स्थिती"</string>
     <string name="radio_info_ims_reg_status_title" msgid="6875885401313992007">"IMS स्थिती"</string>
@@ -924,7 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"फोनची माहिती"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"वाहक सुविधा माहिती"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"वाहक सुविधा ट्रिगर करा"</string>
-    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"तुमचा ब्लूटूथ सिग्नल कमकुवत आहे. स्पीकरफोनवर स्विच करून पाहा."</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"तुमचा ब्लूटूथ सिग्नल कमकुवत आहे. स्पीकरफोनवर स्विच करून पहा."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"कॉल गुणवत्ता सूचना"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"कालबाह्य झालेली SIP खाती"</string>
 </resources>

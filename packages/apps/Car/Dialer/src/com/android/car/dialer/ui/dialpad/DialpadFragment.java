@@ -104,6 +104,8 @@ public class DialpadFragment extends Hilt_DialpadFragment {
     private TextView mLabel;
     @Nullable
     private ImageView mAvatar;
+    @Nullable
+    private TextView mInitials;
     private ImageButton mDeleteButton;
     @Nullable
     private View mRestrictedDialingLabel;
@@ -189,6 +191,7 @@ public class DialpadFragment extends Hilt_DialpadFragment {
         if (mAvatar != null) {
             mAvatar.setOutlineProvider(ContactAvatarOutputlineProvider.get());
         }
+        mInitials = rootView.findViewById(R.id.dialpad_contact_initials);
         mRestrictedDialingLabel = rootView.findViewById(R.id.restricted_dialing_mode_label);
 
         View callButton = rootView.findViewById(R.id.call_button);
@@ -306,7 +309,7 @@ public class DialpadFragment extends Hilt_DialpadFragment {
 
         if (mHasTypeDown) {
             resetContactInfo();
-            ViewUtils.setVisible(mRecyclerView, true);
+            ViewUtils.setVisible(mRecyclerView.getView(), true);
 
             // In case of emergency or restricted dialing clean the type-down.
             mTypeDownResultsViewModel.setSearchQuery(
@@ -339,11 +342,15 @@ public class DialpadFragment extends Hilt_DialpadFragment {
         TelecomUtils.setContactBitmapAsync(getContext(), mAvatar, contact,
                 mAdapter.getSortMethod());
         ViewUtils.setVisible(mAvatar, true);
+
+        ViewUtils.setText(mInitials, contact.getInitials());
+        ViewUtils.setVisible(mInitials, true);
     }
 
     private void resetContactInfo() {
         ViewUtils.setVisible(mLabel, false);
         ViewUtils.setVisible(mAvatar, false);
+        ViewUtils.setVisible(mInitials, false);
     }
 
     @CallSuper

@@ -17,6 +17,9 @@
 package com.android.car.media.testmediaapp;
 
 import static android.media.AudioManager.AUDIOFOCUS_GAIN;
+import static android.media.AudioManager.AUDIOFOCUS_LOSS;
+import static android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT;
+import static android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK;
 import static android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
 import static android.support.v4.media.session.PlaybackStateCompat.ACTION_PAUSE;
 import static android.support.v4.media.session.PlaybackStateCompat.ACTION_PLAY;
@@ -29,6 +32,7 @@ import static android.support.v4.media.session.PlaybackStateCompat.ACTION_SKIP_T
 import static android.support.v4.media.session.PlaybackStateCompat.ERROR_CODE_APP_ERROR;
 import static android.support.v4.media.session.PlaybackStateCompat.STATE_ERROR;
 
+import android.media.AudioManager.OnAudioFocusChangeListener;
 import androidx.annotation.Nullable;
 
 import android.app.PendingIntent;
@@ -77,6 +81,7 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
     @Nullable
     private TmaMediaItem mActiveItem;
     private int mNextEventIndex = -1;
+    private boolean mResumeOnFocusGain;
 
     TmaPlayer(TmaBrowser browser, TmaLibrary library, AudioManager audioManager, Handler handler,
             MediaSessionCompat session) {
@@ -87,8 +92,9 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
         mHandler = handler;
         mSession = session;
 
-        // TODO add focus listener ?
-        mAudioFocusRequest = new AudioFocusRequest.Builder(AUDIOFOCUS_GAIN).build();
+        mAudioFocusRequest = new AudioFocusRequest.Builder(AUDIOFOCUS_GAIN)
+            .setOnAudioFocusChangeListener(this::onAudioFocusChange, mHandler)
+            .build();
     }
 
     /** Updates the state in the media session based on the given {@link TmaMediaEvent}. */
@@ -365,5 +371,30 @@ public class TmaPlayer extends MediaSessionCompat.Callback {
         }
 
         return actions;
+    }
+
+    private void onAudioFocusChange(int focusChange) {
+        // Adapted from samples at https://developer.android.com/guide/topics/media-apps/audio-focus
+        // Android Auto emulator tests rely on the app pausing and resuming in response to focus
+        // transient loss and focus gain, respectively.
+        switch (focusChange) {
+            case AUDIOFOCUS_GAIN:
+                if (mResumeOnFocusGain) {
+                    mResumeOnFocusGain = false;
+                    startPlayBack(/* requestAudioFocus= */ false);
+                }
+                break;
+            case AUDIOFOCUS_LOSS:
+                mResumeOnFocusGain = false;
+                pausePlayback();
+                break;
+            case AUDIOFOCUS_LOSS_TRANSIENT:
+            case AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                mResumeOnFocusGain = mIsPlaying;
+                pausePlayback();
+                break;
+            default:
+                Log.w(TAG, "Unknown audio focus change " + focusChange);
+        }
     }
 }

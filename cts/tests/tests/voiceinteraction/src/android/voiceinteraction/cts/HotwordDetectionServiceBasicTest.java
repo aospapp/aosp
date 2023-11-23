@@ -273,6 +273,13 @@ public final class HotwordDetectionServiceBasicTest
         testHotwordDetection(Utils.HOTWORD_DETECTION_SERVICE_PROCESS_DIED_TEST,
                 Utils.HOTWORD_DETECTION_SERVICE_TRIGGER_RESULT_INTENT,
                 Utils.HOTWORD_DETECTION_SERVICE_GET_ERROR);
+
+        // ActivityManager will schedule a timer to restart the HotwordDetectionService due to
+        // we crash the service in this test case. It may impact the other test cases when
+        // ActivityManager restarts the HotwordDetectionService again. Add the sleep time to wait
+        // ActivityManager to restart the HotwordDetectionService, so that the service can be
+        // destroyed after finishing this test case.
+        Thread.sleep(TIMEOUT_MS);
     }
 
     private void testHotwordDetection(int testType, String expectedIntent, int expectedResult) {

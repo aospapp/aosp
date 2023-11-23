@@ -22,8 +22,10 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.android.car.apps.common.util.ViewUtils;
 import com.android.car.dialer.R;
 import com.android.car.dialer.ui.view.ContactAvatarOutputlineProvider;
 import com.android.car.telephony.common.CallDetail;
@@ -37,6 +39,8 @@ public class ConferenceProfileViewHolder extends RecyclerView.ViewHolder {
     private ImageView mAvatar;
     private TextView mTitle;
     private TextView mNumber;
+    @Nullable
+    private TextView mLabel;
     private Context mContext;
 
     ConferenceProfileViewHolder(View v) {
@@ -46,6 +50,7 @@ public class ConferenceProfileViewHolder extends RecyclerView.ViewHolder {
         mAvatar.setOutlineProvider(ContactAvatarOutputlineProvider.get());
         mTitle = v.findViewById(R.id.user_profile_title);
         mNumber = v.findViewById(R.id.user_profile_phone_number);
+        mLabel = v.findViewById(R.id.user_profile_phone_label);
         mContext = v.getContext();
     }
 
@@ -63,16 +68,24 @@ public class ConferenceProfileViewHolder extends RecyclerView.ViewHolder {
                     mAvatar.setImageDrawable(TelecomUtils.createLetterTile(mContext, null, null));
                     mTitle.setText(info.getDisplayName());
 
-                    String phoneNumberLabel = info.getTypeLabel();
-                    if (!phoneNumberLabel.isEmpty()) {
-                        phoneNumberLabel += " ";
-                    }
-                    phoneNumberLabel += TelecomUtils.getFormattedNumber(mContext, number);
-                    if (!TextUtils.isEmpty(phoneNumberLabel)
-                            && !phoneNumberLabel.equals(info.getDisplayName())) {
-                        mNumber.setText(phoneNumberLabel);
+                    String readableNumber = TelecomUtils.getReadableNumber(mContext, number);
+                    if (TextUtils.equals(info.getDisplayName(), readableNumber)) {
+                        ViewUtils.setVisible(mLabel, false);
+                        mNumber.setVisibility(View.GONE);
                     } else {
-                        mNumber.setText(mContext.getString(R.string.unknown));
+                        String phoneNumberLabel = info.getTypeLabel();
+                        String bidiWrappedNumber;
+                        if (!phoneNumberLabel.isEmpty()) {
+                            bidiWrappedNumber = " ";
+                            ViewUtils.setText(mLabel, phoneNumberLabel);
+                            ViewUtils.setVisible(mLabel, true);
+                        } else {
+                            bidiWrappedNumber = "";
+                            ViewUtils.setVisible(mLabel, false);
+                        }
+                        bidiWrappedNumber += TelecomUtils.getBidiWrappedNumber(readableNumber);
+                        mNumber.setText(bidiWrappedNumber);
+                        mNumber.setVisibility(View.VISIBLE);
                     }
 
                     TelecomUtils.setContactBitmapAsync(mContext, mAvatar,

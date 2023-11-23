@@ -261,7 +261,7 @@ class BrowsedPlayerWrapper {
 
     // Internal function to call once the Browser is connected
     private boolean getFolderItemsInternal(String mediaId, BrowseCallback cb) {
-        mWrappedBrowser.subscribe(mediaId, new BrowserSubscriptionCallback(cb));
+        mWrappedBrowser.subscribe(mediaId, new BrowserSubscriptionCallback(cb, mLooper, mediaId));
         return true;
     }
 
@@ -302,12 +302,21 @@ class BrowsedPlayerWrapper {
     class TimeoutHandler extends Handler {
         static final int MSG_TIMEOUT = 0;
         static final long CALLBACK_TIMEOUT_MS = 5000;
+        static final long SUBSCRIPTION_TIMEOUT_MS = 3000;
 
         private PlaybackCallback mPlaybackCallback = null;
+        private BrowseCallback mBrowseCallback = null;
+        private String mId = "";
 
         TimeoutHandler(Looper looper, PlaybackCallback cb) {
             super(looper);
             mPlaybackCallback = cb;
+        }
+
+        TimeoutHandler(Looper looper, BrowseCallback cb, String mediaId) {
+            super(looper);
+            mBrowseCallback = cb;
+            mId = mediaId;
         }
 
         @Override
@@ -317,8 +326,14 @@ class BrowsedPlayerWrapper {
                 return;
             }
 
-            Log.e(TAG, "Timeout while waiting for playback to begin on " + mPackageName);
-            mPlaybackCallback.run(STATUS_PLAYBACK_TIMEOUT_ERROR);
+            if (mPlaybackCallback != null) {
+                Log.e(TAG, "Timeout while waiting for playback to begin on " + mPackageName);
+                mPlaybackCallback.run(STATUS_PLAYBACK_TIMEOUT_ERROR);
+            } else {
+                Log.e(TAG, "Timeout while waiting subscription result for " + mPackageName);
+                mBrowseCallback.run(STATUS_LOOKUP_ERROR, mId, new ArrayList<ListItem>());
+                disconnect();
+            }
         }
     }
 
@@ -391,9 +406,20 @@ class BrowsedPlayerWrapper {
      */
     private class BrowserSubscriptionCallback extends MediaBrowser.SubscriptionCallback {
         BrowseCallback mBrowseCallback = null;
+        private Looper mLooper = null;
+        private TimeoutHandler mTimeoutHandler = null;
 
-        BrowserSubscriptionCallback(BrowseCallback cb) {
+        BrowserSubscriptionCallback(BrowseCallback cb, Looper looper, String mediaId) {
             mBrowseCallback = cb;
+            mLooper = looper;
+            mTimeoutHandler = new TimeoutHandler(mLooper, cb, mediaId);
+            mTimeoutHandler.sendEmptyMessageDelayed(TimeoutHandler.MSG_TIMEOUT,
+                    TimeoutHandler.SUBSCRIPTION_TIMEOUT_MS);
+        }
+
+        @Override
+        public Handler getTimeoutHandler() {
+            return mTimeoutHandler;
         }
 
         @Override
@@ -429,11 +455,17 @@ class BrowsedPlayerWrapper {
                     Folder f = new Folder(item.getMediaId(), false, title);
                     return_list.add(new ListItem(f));
                 } else {
-                    return_list.add(new ListItem(Util.toMetadata(mContext, item)));
+                    Metadata data = Util.toMetadata(mContext, item);
+                    if (Util.isEmptyData(data)) {
+                        Log.e(TAG, "Received empty Metadata, ignoring browsed item");
+                        continue;
+                    }
+                    return_list.add(new ListItem(data));
                 }
             }
 
             mCachedFolders.put(parentId, return_list);
+            mTimeoutHandler.removeMessages(TimeoutHandler.MSG_TIMEOUT);
 
             // Clone the list so that the callee can mutate it without affecting the cached data
             mBrowseCallback.run(STATUS_SUCCESS, parentId, Util.cloneList(return_list));
@@ -445,6 +477,7 @@ class BrowsedPlayerWrapper {
         @Override
         public void onError(String id) {
             Log.e(TAG, "BrowserSubscriptionCallback: Could not get folder items");
+            mTimeoutHandler.removeMessages(TimeoutHandler.MSG_TIMEOUT);
             mBrowseCallback.run(STATUS_LOOKUP_ERROR, id, new ArrayList<ListItem>());
             disconnect();
         }

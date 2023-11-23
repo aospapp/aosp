@@ -4,7 +4,6 @@
 /dev/block/zram0                                                                      u:object_r:swap_block_device:s0
 /dev/vd6281                                                                           u:object_r:rls_device:s0
 /dev/sensor_tunnel                                                                    u:object_r:rls_device:s0
-/dev/touch_offload                                                                    u:object_r:touch_offload_device:s0
 /dev/qg                                                                               u:object_r:qg_device:s0
 /dev/qg_battery                                                                       u:object_r:qg_device:s0
 /dev/battery_history                                                                  u:object_r:battery_history_device:s0
@@ -45,7 +44,6 @@
 /vendor/bin/init\.gadgethal\.sh                                                       u:object_r:init_gadgethal_exec:s0
 /vendor/bin/init\.twoshay\.sh                                                         u:object_r:init_twoshay_exec:s0
 /vendor/bin/init\.insmod\.sh                                                          u:object_r:init-insmod-sh_exec:s0
-/vendor/bin/twoshay                                                                   u:object_r:twoshay_exec:s0
 
 # Vendor firmware
 /vendor/firmware_mnt(/.*)?                                                            u:object_r:firmware_file:s0

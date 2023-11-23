@@ -16,12 +16,11 @@
 
 package com.android.car.messenger.core.ui.conversationlist;
 
+import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import android.text.format.DateFormat;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import com.android.car.messenger.R;
 import com.android.car.messenger.common.Conversation;
@@ -36,34 +35,78 @@ public class UIConversationItemConverter {
     private UIConversationItemConverter() {}
 
     /** Converts Conversation Item to UIConversationItem */
-    public static UIConversationItem convertToUIConversationItem(Conversation conversation) {
+    public static UIConversationItem convertToUIConversationItem(
+            Conversation conversation, CarUxRestrictions carUxRestrictions) {
         Context context = AppFactory.get().getContext();
         boolean isUnread = conversation.getUnreadCount() > 0;
         long timestamp = ConversationUtil.getConversationTimestamp(conversation);
         boolean isReplied = ConversationUtil.isReplied(conversation);
 
-        String subtitle = "";
-        Drawable subtitleIcon = null;
-        if (isReplied) {
-            subtitle = context.getString(R.string.replied);
-            subtitleIcon = context.getDrawable(R.drawable.car_ui_icon_reply);
-        } else if (isUnread) {
-            subtitle = getNumberOfUnreadMessages(context, conversation.getUnreadCount());
-            subtitleIcon = context.getDrawable(R.drawable.ic_play);
+        Drawable subtitleIcon =
+                isReplied
+                        ? context.getDrawable(R.drawable.car_ui_icon_reply)
+                        : context.getDrawable(R.drawable.ic_subtitle_play);
+
+        boolean showTextPreview =
+                (carUxRestrictions.getActiveRestrictions()
+                                & CarUxRestrictions.UX_RESTRICTIONS_NO_TEXT_MESSAGE)
+                        == 0;
+        String textPreview = "";
+        String textMetadata = "";
+
+        // show a preview when parked
+        if (showTextPreview) {
+            textPreview = ConversationUtil.getLastMessagePreview(conversation);
+            if (isUnread) {
+                textMetadata = getNumberOfMoreMessages(context, conversation.getUnreadCount());
+            }
+        } else {
+            if (isUnread) {
+                // in place of text preview, we show "tap to read aloud" when unread
+                textPreview = context.getString(R.string.tap_to_read_aloud);
+                textMetadata = getNumberOfUnreadMessages(context, conversation.getUnreadCount());
+            } else if (isReplied) {
+                textMetadata = context.getString(R.string.replied);
+            } else {
+                textMetadata = getNumberOfMessages(context, conversation.getMessages().size());
+            }
         }
 
         return new UIConversationItem(
                 conversation.getId(),
                 Objects.requireNonNull(conversation.getConversationTitle()),
-                subtitle,
+                textPreview,
                 subtitleIcon,
-                toHumanDisplay(timestamp),
+                textMetadata,
+                timestamp,
                 getConversationAvatar(context, conversation),
-                /* showMuteIcon= */ true,
+                /* showMuteIcon= */ false,
                 /* showReplyIcon= */ true,
+                /* showPlayIcon= */ false,
                 isUnread,
                 conversation.isMuted(),
                 conversation);
+    }
+
+    /**
+     * For the text "More Unread Messages", indicates the number of messages remaining after the
+     * preview.
+     */
+    @NonNull
+    private static String getNumberOfMoreMessages(
+            @NonNull Context context, int noOfUnreadMessages) {
+        int remainingMessagesAfterPreview = noOfUnreadMessages - 1;
+        if (remainingMessagesAfterPreview == 0) {
+            return "";
+        }
+        if (remainingMessagesAfterPreview == 1) {
+            return context.getResources().getQuantityString(R.plurals.more_message, 1);
+        }
+        return context.getResources()
+                .getQuantityString(
+                        R.plurals.more_message,
+                        remainingMessagesAfterPreview,
+                        remainingMessagesAfterPreview);
     }
 
     @NonNull
@@ -71,20 +114,20 @@ public class UIConversationItemConverter {
             @NonNull Context context, int noOfUnreadMessages) {
         if (noOfUnreadMessages == 1) {
             return context.getResources().getQuantityString(R.plurals.new_message, 1);
-        } else {
-            return context.getResources()
-                    .getQuantityString(
-                            R.plurals.new_message, noOfUnreadMessages, noOfUnreadMessages);
         }
+        return context.getResources()
+                .getQuantityString(R.plurals.new_message, noOfUnreadMessages, noOfUnreadMessages);
     }
 
     @NonNull
-    private static String toHumanDisplay(long timeInMillis) {
-        String delegate = "hh:mm aaa";
-        return (String) DateFormat.format(delegate, timeInMillis);
+    private static String getNumberOfMessages(@NonNull Context context, int noOfMessages) {
+        if (noOfMessages < 2) {
+            return context.getResources().getQuantityString(R.plurals.no_of_message, noOfMessages);
+        }
+        return context.getResources()
+                .getQuantityString(R.plurals.no_of_message, noOfMessages, noOfMessages);
     }
 
-    @Nullable
     private static Drawable getConversationAvatar(
             @NonNull Context context, @NonNull Conversation conversation) {
         return (conversation.getConversationIcon() != null)

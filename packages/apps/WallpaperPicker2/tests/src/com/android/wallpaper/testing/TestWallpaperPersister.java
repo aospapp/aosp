@@ -135,9 +135,12 @@ public class TestWallpaperPersister implements WallpaperPersister {
     }
 
     @Override
-    public int setWallpaperBitmapInNextRotation(Bitmap wallpaperBitmap) {
+    public int setWallpaperBitmapInNextRotation(Bitmap wallpaperBitmap, List<String> attributions,
+            String actionUrl, String collectionId) {
         mCurrentHomeWallpaper = wallpaperBitmap;
         mCurrentLockWallpaper = wallpaperBitmap;
+        mHomeAttributions = attributions;
+        mHomeActionUrl = actionUrl;
         return 1;
     }
 
@@ -225,5 +228,19 @@ public class TestWallpaperPersister implements WallpaperPersister {
     @WallpaperPosition
     public int getWallpaperPosition() {
         return mWallpaperPosition;
+    }
+
+    public boolean saveStaticWallpaperMetadata(List<String> attributions, String actionUrl,
+            int actionLabelRes, int actionIconRes, String collectionId, int wallpaperId) {
+        return false;
+    }
+
+    public int getDefaultWhichWallpaper() {
+        return 0;
+    }
+
+    public int setBitmapToWallpaperManagerCompat(Bitmap wallpaperBitmap, boolean allowBackup,
+            int whichWallpaper) {
+        return 0;
     }
 }

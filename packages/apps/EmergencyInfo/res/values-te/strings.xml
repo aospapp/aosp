@@ -19,12 +19,12 @@
     <string name="app_label" msgid="1090682794607161063">"ఎమర్జెన్సీ సమాచారం"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"వైద్య సమాచారం"</string>
     <string name="add_medical_info" msgid="483921612415907139">"సమాచారాన్ని జోడించండి"</string>
-    <string name="edit_info" msgid="5973929805855224805">"అత్యవసర సమాచారాన్ని సవరిస్తుంది"</string>
+    <string name="edit_info" msgid="5973929805855224805">"అత్యవసర సమాచారాన్ని ఎడిట్ చేస్తుంది"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"సమాచారం"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"కాంటాక్ట్‌లు"</string>
     <string name="name" msgid="4286267457738861977">"పేరు"</string>
     <string name="unknown_name" msgid="2834802479170495056">"తెలియదు"</string>
-    <string name="address" msgid="6449303483151189969">"చిరునామా"</string>
+    <string name="address" msgid="6449303483151189969">"అడ్రస్‌"</string>
     <string name="unknown_address" msgid="4212576729941786121">"తెలియదు"</string>
     <string name="date_of_birth" msgid="777979232444227891">"పుట్టిన తేదీ"</string>
     <string name="unknown_date_of_birth" msgid="7416355536916066758">"తెలియదు"</string>
@@ -88,12 +88,12 @@
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"ఎమర్జెన్సీ కాంటాక్టులు"</string>
-    <string name="add_emergency_contact" msgid="4063577069613981029">"పరిచయాన్ని జోడించండి"</string>
-    <string name="fail_load_contact_picker" msgid="817205483833876726">"పరిచయ పికర్ కనుగొనబడలేదు"</string>
-    <string name="fail_display_contact" msgid="4128854688897045879">"పరిచయాన్ని ప్రదర్శించడం సాధ్యం కాదు"</string>
-    <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g>ని అత్యవసర పరిచయాల నుండి తీసివేయాలా?"</string>
-    <string name="remove_contact_icon_text" msgid="4576641386490101363">"పరిచయాన్ని తీసివేస్తుంది"</string>
-    <string name="fail_add_contact" msgid="6511490846952942291">"పరిచయ సమాచారాన్ని సరిగ్గా చదవడం సాధ్యం కాదు"</string>
+    <string name="add_emergency_contact" msgid="4063577069613981029">"కాంటాక్ట్‌ను జోడించండి"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"కాంటాక్ట్ పికర్ కనుగొనబడలేదు"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"కాంటాక్ట్‌ను డిస్‌ప్లే చేయడం సాధ్యం కాదు"</string>
+    <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g>ని అత్యవసర కాంటాక్ట్‌ల నుండి తీసివేయాలా?"</string>
+    <string name="remove_contact_icon_text" msgid="4576641386490101363">"కాంటాక్ట్‌ను తీసివేయండి"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"కాంటాక్ట్ సమాచారాన్ని సరిగ్గా చదవడం సాధ్యం కాదు"</string>
     <string name="remove" msgid="1243949503772376064">"తీసివేయి"</string>
     <string name="cancel" msgid="7401575239009060939">"రద్దు చేయి"</string>
     <string name="ok" msgid="163967937451981024">"సరే"</string>
@@ -102,8 +102,8 @@
     <string name="tap_pencil" msgid="2723698054265296934">"ఇది మీ ఫోన్ అయితే, అత్యవసర పరిస్థితి తలెత్తే సందర్భాల కోసం ఇక్కడ ప్రదర్శించబడే సమాచారాన్ని జోడించడానికి పెన్సిల్ చిహ్నాన్ని నొక్కండి"</string>
     <string name="clear_all" msgid="8899013032870561633">"అన్నీ తీసివేయి"</string>
     <string name="clear" msgid="3648880442502887163">"తీసివేయి"</string>
-    <string name="clear_all_message" msgid="1548432000373861295">"మొత్తం సమాచారం మరియు పరిచయాలను తీసివేయాలా?"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"వైద్య సమాచారం మరియు అత్యవసర పరిచయాలను జోడిస్తే, అత్యవసర పరిస్థితిలో ముందుగా ప్రతిస్పందించే వారికి సహాయకరంగా ఉంటాయి.\n\nఎవరైనా సరే, మీ ఫోన్‌ని అన్‌లాక్ చేయకుండానే మీ లాక్ స్క్రీన్ నుండి ఈ సమాచారాన్ని చదవగలరు మరియు మీ పరిచయాల పేర్లు నొక్కడం ద్వారా వారికి కాల్ చేయగలరు."</string>
+    <string name="clear_all_message" msgid="1548432000373861295">"మొత్తం సమాచారం మరియు కాంటాక్ట్‌లను తీసివేయాలా?"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"వైద్య సమాచారం మరియు అత్యవసర కాంటాక్ట్‌లను జోడిస్తే, అత్యవసర పరిస్థితిలో ముందుగా ప్రతిస్పందించే వారికి సహాయకరంగా ఉంటాయి.\n\nఎవరైనా సరే, మీ ఫోన్‌ని అన్‌లాక్ చేయకుండానే మీ లాక్ స్క్రీన్ నుండి ఈ సమాచారాన్ని చదవగలరు మరియు మీ కాంటాక్ట్‌ల పేర్లు ట్యాప్ చేయడం ద్వారా వారికి కాల్ చేయగలరు."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"అత్యవసర సమాచారాన్ని జోడించండి"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"మీ సమాచారాన్ని మొదటగా ప్రతిస్పందించే వారిని చూడనివ్వండి"</string>
     <string name="user_image_take_photo" msgid="2779924488370750102">"ఫోటోను తీయి"</string>

@@ -70,6 +70,8 @@ android_test_helper_app {
         ":StagedInstallTestApexV2_NoApkSignature",
         ":StagedInstallTestApexV2_UnsignedPayload",
         ":StagedInstallTestApexV2_SignPayloadWithDifferentKey",
+        ":StagedInstallTestApexV2_Rebootless",
+        ":StagedInstallTestApexV3_Rebootless",
     ],
     static_libs: [
         "androidx.test.runner",
@@ -556,6 +558,46 @@ prebuilt_apex {
         },
     },
   filename: ApexFilenameSigningPayloadWithDifferentKey,
+  installable: false,
+}
+
+prebuilt_apex {
+  name: "StagedInstallTestApexV2_Rebootless",
+  arch: {
+        arm: {
+              src: "testdata/apex/arm/com.android.apex.cts.shim.v2_rebootless.apex",
+        },
+        arm64: {
+              src: "testdata/apex/arm/com.android.apex.cts.shim.v2_rebootless.apex",
+        },
+        x86: {
+              src: "testdata/apex/x86/com.android.apex.cts.shim.v2_rebootless.apex",
+        },
+        x86_64: {
+              src: "testdata/apex/x86/com.android.apex.cts.shim.v2_rebootless.apex",
+        },
+    },
+  filename: "com.android.apex.cts.shim.v2_rebootless.apex",
+  installable: false,
+}
+
+prebuilt_apex {
+  name: "StagedInstallTestApexV3_Rebootless",
+  arch: {
+        arm: {
+              src: "testdata/apex/arm/com.android.apex.cts.shim.v3_rebootless.apex",
+        },
+        arm64: {
+              src: "testdata/apex/arm/com.android.apex.cts.shim.v3_rebootless.apex",
+        },
+        x86: {
+              src: "testdata/apex/x86/com.android.apex.cts.shim.v3_rebootless.apex",
+        },
+        x86_64: {
+              src: "testdata/apex/x86/com.android.apex.cts.shim.v3_rebootless.apex",
+        },
+    },
+  filename: "com.android.apex.cts.shim.v3_rebootless.apex",
   installable: false,
 }
 

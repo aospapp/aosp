@@ -4,13 +4,16 @@
 
 use std::fmt::{self, Display};
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use acpi_tables::sdt::SDT;
 use base::{Event, RawDescriptor};
 use hypervisor::Datamatch;
 use resources::{Error as SystemAllocatorFaliure, SystemAllocator};
 
 use crate::bus::ConfigWriteResult;
 use crate::pci::pci_configuration::{
-    self, COMMAND_REG, COMMAND_REG_IO_SPACE_MASK, COMMAND_REG_MEMORY_SPACE_MASK,
+    self, PciBarConfiguration, COMMAND_REG, COMMAND_REG_IO_SPACE_MASK,
+    COMMAND_REG_MEMORY_SPACE_MASK,
 };
 use crate::pci::{PciAddress, PciInterruptPin};
 #[cfg(feature = "audio")]
@@ -26,7 +29,7 @@ pub enum Error {
     /// Registering an IO BAR failed.
     IoRegistrationFailed(u64, pci_configuration::Error),
     /// Create cras client failed.
-    #[cfg(feature = "audio")]
+    #[cfg(all(feature = "audio", feature = "audio_cras"))]
     CreateCrasClientFailed(libcras::Error),
     /// Create VioS client failed.
     #[cfg(feature = "audio")]
@@ -35,6 +38,12 @@ pub enum Error {
     PciAllocationFailed,
     /// PCI Address is not allocated.
     PciAddressMissing,
+    /// MSIX Allocator encounters size of zero
+    MsixAllocatorSizeZero,
+    /// MSIX Allocator encounters overflow
+    MsixAllocatorOverflow { base: u64, size: u64 },
+    /// MSIX Allocator encounters out-of-space
+    MsixAllocatorOutOfSpace,
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -44,7 +53,7 @@ impl Display for Error {
 
         match self {
             CapabilitiesSetup(e) => write!(f, "failed to add capability {}", e),
-            #[cfg(feature = "audio")]
+            #[cfg(all(feature = "audio", feature = "audio_cras"))]
             CreateCrasClientFailed(e) => write!(f, "failed to create CRAS Client: {}", e),
             #[cfg(feature = "audio")]
             CreateViosClientFailed(e) => write!(f, "failed to create VioS Client: {}", e),
@@ -58,6 +67,13 @@ impl Display for Error {
             }
             PciAllocationFailed => write!(f, "failed to allocate PCI address"),
             PciAddressMissing => write!(f, "PCI address is not allocated"),
+            MsixAllocatorSizeZero => write!(f, "Size of zero detected in MSIX Allocator"),
+            MsixAllocatorOverflow { base, size } => write!(
+                f,
+                "base={} + size={} overflows in MSIX Allocator",
+                base, size
+            ),
+            MsixAllocatorOutOfSpace => write!(f, "Out-of-space detected in MSIX Allocator"),
         }
     }
 }
@@ -97,6 +113,9 @@ pub trait PciDevice: Send {
         Ok(Vec::new())
     }
 
+    /// Returns the configuration of a base address register, if present.
+    fn get_bar_configuration(&self, bar_num: usize) -> Option<PciBarConfiguration>;
+
     /// Register any capabilties specified by the device.
     fn register_device_capabilities(&mut self) -> Result<()> {
         Ok(())
@@ -128,6 +147,11 @@ pub trait PciDevice: Send {
     fn write_bar(&mut self, addr: u64, data: &[u8]);
     /// Invoked when the device is sandboxed.
     fn on_device_sandboxed(&mut self) {}
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    fn generate_acpi(&mut self, sdts: Vec<SDT>) -> Option<Vec<SDT>> {
+        Some(sdts)
+    }
 }
 
 impl<T: PciDevice> BusDevice for T {
@@ -211,6 +235,9 @@ impl<T: PciDevice + ?Sized> PciDevice for Box<T> {
     fn allocate_device_bars(&mut self, resources: &mut SystemAllocator) -> Result<Vec<(u64, u64)>> {
         (**self).allocate_device_bars(resources)
     }
+    fn get_bar_configuration(&self, bar_num: usize) -> Option<PciBarConfiguration> {
+        (**self).get_bar_configuration(bar_num)
+    }
     fn register_device_capabilities(&mut self) -> Result<()> {
         (**self).register_device_capabilities()
     }
@@ -232,6 +259,11 @@ impl<T: PciDevice + ?Sized> PciDevice for Box<T> {
     /// Invoked when the device is sandboxed.
     fn on_device_sandboxed(&mut self) {
         (**self).on_device_sandboxed()
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    fn generate_acpi(&mut self, sdts: Vec<SDT>) -> Option<Vec<SDT>> {
+        (**self).generate_acpi(sdts)
     }
 }
 
@@ -267,6 +299,10 @@ mod tests {
 
         fn allocate_address(&mut self, resources: &mut SystemAllocator) -> Result<PciAddress> {
             Err(Error::PciAllocationFailed)
+        }
+
+        fn get_bar_configuration(&self, bar_num: usize) -> Option<PciBarConfiguration> {
+            None
         }
     }
 
